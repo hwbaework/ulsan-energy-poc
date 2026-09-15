@@ -1,0 +1,26 @@
+node_modules
+dist
+dist-ssr
+.next
+*.local
+
+.env.*
+!.env.example
+
+*.log
+*.tsbuildinfo
+.vite
+
+# IDE
+.idea/
+.data/
+
+# 내부 설계·기획 문서는 배포 커밋에서 제외
+docs/
+
+# 정적 export 산출물 / wrangler 캐시
+out/
+.wrangler/
+
+# 로컬 토큰 (GitHub push protection 회피) — .env.example 참고
+.env

@@ -1,0 +1,13 @@
+// Cloudflare Workers(정적 에셋) 배포 설정 — `npm run deploy`
+// 커스텀 도메인(ulsanenergypoc.pairwork.net)은 pairwork.net 존이 같은 Cloudflare 계정에 있어야 자동 연결된다.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ulsan-energy-poc",
+  "compatibility_date": "2026-07-01",
+  "assets": {
+    "directory": "./out",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash"
+  },
+  "routes": [{ "pattern": "ulsanenergypoc.pairwork.net", "custom_domain": true }]
+}

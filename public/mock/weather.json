@@ -1,0 +1,14 @@
+{
+  "baseDate": "20260915",
+  "baseTime": "1000",
+  "stations": [
+    { "id": "seoul", "name": "서울", "lat": 37.5665, "lng": 126.978, "temperature": 24.1, "humidity": 58, "windSpeed": 2.1, "windDirection": 250, "rainfall": 0, "precipitationType": "없음", "precipitationCode": 0 },
+    { "id": "gangneung", "name": "강릉", "lat": 37.7519, "lng": 128.8761, "temperature": 23.4, "humidity": 66, "windSpeed": 3.2, "windDirection": 90, "rainfall": 0, "precipitationType": "없음", "precipitationCode": 0 },
+    { "id": "daejeon", "name": "대전", "lat": 36.3504, "lng": 127.3845, "temperature": 25.0, "humidity": 55, "windSpeed": 1.8, "windDirection": 230, "rainfall": 0, "precipitationType": "없음", "precipitationCode": 0 },
+    { "id": "gwangju", "name": "광주", "lat": 35.1595, "lng": 126.8526, "temperature": 26.2, "humidity": 60, "windSpeed": 2.4, "windDirection": 200, "rainfall": 0, "precipitationType": "없음", "precipitationCode": 0 },
+    { "id": "daegu", "name": "대구", "lat": 35.8714, "lng": 128.6014, "temperature": 27.3, "humidity": 48, "windSpeed": 1.5, "windDirection": 180, "rainfall": 0, "precipitationType": "없음", "precipitationCode": 0 },
+    { "id": "busan", "name": "부산", "lat": 35.1796, "lng": 129.0756, "temperature": 25.8, "humidity": 70, "windSpeed": 3.9, "windDirection": 140, "rainfall": 0, "precipitationType": "없음", "precipitationCode": 0 },
+    { "id": "ulsan", "name": "울산", "lat": 35.5384, "lng": 129.3114, "temperature": 25.4, "humidity": 67, "windSpeed": 3.1, "windDirection": 150, "rainfall": 0, "precipitationType": "없음", "precipitationCode": 0 },
+    { "id": "jeju", "name": "제주", "lat": 33.4996, "lng": 126.5312, "temperature": 27.9, "humidity": 74, "windSpeed": 4.6, "windDirection": 160, "rainfall": 0, "precipitationType": "없음", "precipitationCode": 0 }
+  ]
+}

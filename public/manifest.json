@@ -1,0 +1,17 @@
+{
+  "name": "에너지 플랫폼",
+  "short_name": "에너지",
+  "description": "RE100 에너지 관리 플랫폼",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050910",
+  "theme_color": "#005DBD",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ]
+}
