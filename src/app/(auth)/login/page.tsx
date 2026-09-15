@@ -79,13 +79,13 @@ function LoginForm() {
     <div className="animate-[fadeIn_400ms_ease-out]">
       <div className="mb-10 text-center">
         <Image src="/images/logo.png" alt="에너지 플랫폼" width={160} height={40} className="mx-auto mb-3" priority />
-        <h1 className="text-2xl font-bold text-white">울산 에너지 자급자족 플랫폼</h1>
-        <p className="mt-1 text-sm text-slate-400">통합 에너지 관리 시스템 · POC</p>
+        <h1 className="text-2xl font-bold text-white">에너지 플랫폼</h1>
+        <p className="mt-1 text-sm text-slate-400">통합 에너지 관리 시스템</p>
       </div>
 
       <div className="rounded-2xl bg-[#0d1520]/80 ring-1 ring-white/[0.08] backdrop-blur-sm p-8 shadow-elevation-4">
         <h2 className="text-lg font-semibold text-white mb-1">로그인</h2>
-        <p className="text-sm text-slate-400 mb-6">POC 데모 — 아래 역할 버튼으로 바로 진입할 수 있습니다</p>
+        <p className="text-sm text-slate-400 mb-6">계정에 로그인하여 시작하세요</p>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <Input label="이메일" type="text" placeholder="name@company.com" autoComplete="email" {...register('email')} />
@@ -105,7 +105,7 @@ function LoginForm() {
 
         <div className="mt-6 flex items-center gap-3">
           <div className="flex-1 border-t border-white/[0.06]" />
-          <span className="text-xs text-slate-500">역할 선택 진입</span>
+          <span className="text-xs text-slate-500">또는</span>
           <div className="flex-1 border-t border-white/[0.06]" />
         </div>
 
@@ -128,7 +128,7 @@ function LoginForm() {
         </div>
       </div>
 
-      <p className="mt-6 text-center text-[11px] text-slate-600">&copy; 2026 울산 에너지 자급자족 플랫폼 POC. All rights reserved.</p>
+      <p className="mt-6 text-center text-[11px] text-slate-600">&copy; 2025 에너지 플랫폼. All rights reserved.</p>
     </div>
   );
 }

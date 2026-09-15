@@ -41,11 +41,8 @@ import {
   Target,
   Cpu,
   Database,
-  Network,
   Globe,
   ExternalLink,
-  Lightbulb,
-  Boxes,
 } from 'lucide-react';
 import { ToastContainer } from '@/components/ui/Toast';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -91,505 +88,170 @@ interface GnbItem {
   menuCode?: string;
 }
 
+/*
+ * GNB·LNB 메뉴 — 근거: RMS_울산에자자 플랫폼 기능_사업계획서 3차년도 기준_v2.1_컨펌전 (3. WBS 시트)
+ * 페르소나 3종: 전기사용자(consumer) · 발전사업자(generator) · 관리자(admin)
+ * WBS 번호를 각 항목 주석에 표기. 라우트는 energy-v2-frontend 기존 화면에 매핑.
+ */
+
+// WBS 2.2 컨설팅 — 3개 페르소나 공통
+const RE100_CONSULTING_CHILDREN: GnbChild[] = [
+  { to: '/consulting', icon: Zap, label: '컨설팅 홈', section: '컨설팅', end: true }, // 2.2.1
+  { to: '/consulting/status', icon: ClipboardList, label: '내 컨설팅', section: '컨설팅' }, // 2.2.2
+  { to: '/consulting/diagnosis', icon: ClipboardCheck, label: '무료진단', section: '컨설팅', end: true }, // 2.2.3
+  { to: '/ppa/documents/report', icon: FileText, label: '문서관리', section: '컨설팅' }, // 2.2.4 (컨설팅 완료 보고서)
+  { to: '/re100/education', icon: MessageSquare, label: 'RE100 교육', section: '컨설팅' }, // 2.2.5
+];
+
+// WBS 3.x E-데이터마켓 — 3개 페르소나 공통
+const EDATA_CHILDREN: GnbChild[] = [
+  // 3.1 온실가스 인벤토리
+  { to: '/e-data/inventory', icon: Factory, label: '배출시설 정보', section: '온실가스 인벤토리', end: true }, // 3.1.1
+  { to: '/e-data/inventory/sources', icon: Database, label: '배출원 등록', section: '온실가스 인벤토리' }, // 3.1.2
+  { to: '/e-data/inventory/factors', icon: Calculator, label: '배출계수 관리', section: '온실가스 인벤토리' }, // 3.1.3
+  { to: '/e-data/inventory/calculation', icon: BarChart3, label: '배출량 산정', section: '온실가스 인벤토리' }, // 3.1.4
+  { to: '/e-data/inventory/statement', icon: FileText, label: '명세서', section: '온실가스 인벤토리' }, // 3.1.5
+  { to: '/e-data/inventory/disclosure', icon: ClipboardList, label: '보고서', section: '온실가스 인벤토리' }, // 3.1.6
+  // 3.2 카본 마켓플레이스
+  { to: '/carbon', icon: Leaf, label: '탄소배출권 정보', section: '카본 마켓플레이스', end: true }, // 3.2.1
+  { to: '/carbon/krx', icon: TrendingUp, label: '탄소배출권 KRX 거래', section: '카본 마켓플레이스' }, // 3.2.2
+  { to: '/carbon/otc', icon: ArrowRightLeft, label: '탄소배출권 장외거래', section: '카본 마켓플레이스' }, // 3.2.3
+  { to: '/carbon/etrs', icon: Handshake, label: '탄소배출권 계약관리', section: '카본 마켓플레이스' }, // 3.2.4
+  { to: '/carbon/offset', icon: Globe, label: '외부감축사업 정보', section: '카본 마켓플레이스' }, // 3.2.5
+  { to: '/carbon/voluntary', icon: ClipboardCheck, label: '외부감축사업 보고서', section: '카본 마켓플레이스' }, // 3.2.6
+  // 3.3 데이터 마켓플레이스
+  { to: '/e-data/catalog', icon: Database, label: '데이터 등록/신청', section: '데이터 마켓플레이스' }, // 3.3.1
+  { to: '/e-data/trading', icon: Receipt, label: '거래 현황', section: '데이터 마켓플레이스', end: true }, // 3.3.2
+  { to: '/e-data/trading/settlement', icon: Wallet, label: '정산', section: '데이터 마켓플레이스' }, // 3.3.3
+  { to: '/e-data/api-hub', icon: KeyRound, label: 'API 허브', section: '데이터 마켓플레이스' }, // 3.3.4
+];
+
 const GNB_ITEMS: GnbItem[] = [
-  /* ══ 통합관제 ══ */
+  /* ══ ① 통합관제 CONTROL — WBS 1.x ══ */
   {
     to: '/dashboard',
     label: '통합관제',
     icon: Monitor,
     menuCode: 'CONTROL',
-    // 통합기획 doc 04 §1 확정 트리 — LNB depth1 평면(doc 03 §5), 섹션: 실시간/성능예측/안전운영/DT/보고/수용가
-    // 발전량 예측 depth2(예측/실적/오차/모델)는 화면 내장 탭(ForecastContent defaultTab)으로 이동, 아코디언 제거
-    personas: ['generator', 'consumer', 'spc', 'admin', 'operator'],
-    toByPersona: {
-      generator: '/dashboard',
-      consumer: '/consumer',
-      spc: '/monitoring',
-      admin: '/monitoring',
-      operator: '/monitoring/anomalies',
-    },
+    personas: ['generator', 'consumer', 'admin'],
+    toByPersona: { generator: '/dashboard', consumer: '/consumer', admin: '/monitoring' },
     childrenByPersona: {
-      generator: [
-        { to: '/dashboard', icon: LayoutDashboard, label: '대시보드', section: '실시간', end: true },
-        // 관제 홈(지도) — 캐논 menu-map 정합: 발전사도 자기 발전소 지도 관제 열람(소유권 필터로 자사 스코프)
-        { to: '/monitoring', icon: Monitor, label: '관제 홈(지도)', section: '실시간', end: true },
-        { to: '/generator/ppa/dashboard', icon: TrendingUp, label: '발전 현황', section: '실시간' },
-        { to: '/monitoring/plant', icon: Zap, label: '발전소 상세', section: '실시간' },
-        { to: '/monitoring/anomalies', icon: AlertTriangle, label: '이상감지 관리', section: '실시간' },
-        { to: '/control/assets', icon: Boxes, label: '발전자산', section: '실시간' },
-        { to: '/dt', icon: Globe, label: '디지털트윈', section: 'DT' },
-        { to: '/monitoring/reports', icon: BarChart3, label: '보고서', section: '보고' },
-      ],
       consumer: [
-        { to: '/consumer', icon: LayoutDashboard, label: '대시보드', section: '수용가', end: true },
-        { to: '/consumer/sites', icon: Building2, label: '사업장', section: '수용가' },
-        { to: '/consumer/usage', icon: BarChart3, label: '사용량 분석', section: '수용가' },
-        { to: '/consumer/supply-demand', icon: Activity, label: '수급 현황', section: '수용가' },
-        { to: '/consumer/contracts', icon: FileText, label: '에너지 계약', section: '수용가' },
-        { to: '/consumer/billing', icon: Wallet, label: '요금 내역', section: '수용가' },
+        { to: '/consumer', icon: LayoutDashboard, label: '대시보드', section: '실시간', end: true }, // 1.1.1
+        { to: '/monitoring/plant', icon: Zap, label: '발전소 상세', section: '실시간' }, // 1.1.4
+        { to: '/monitoring/anomalies', icon: AlertTriangle, label: '이상감지 관리', section: '실시간' }, // 1.1.5
+        { to: '/control/disop', icon: ClipboardList, label: 'DiSOP', section: '안전·운영' }, // 1.2.1
+        { to: '/dt', icon: Globe, label: '디지털트윈', section: 'DT' }, // 1.3.1
+        { to: '/monitoring/reports', icon: BarChart3, label: '보고서', section: '보고' }, // 1.4.1
       ],
-      operator: [
-        { to: '/monitoring/anomalies', icon: AlertTriangle, label: '이상감지 관리', section: '실시간' },
-        { to: '/monitoring/plant', icon: Zap, label: '발전소 상세', section: '실시간' },
-        { to: '/monitoring/consumer', icon: Users, label: '수용가 모니터링', section: '실시간' },
-        { to: '/control/assets', icon: Boxes, label: '발전자산', section: '실시간' },
-        { to: '/monitoring/performance', icon: BarChart3, label: '성능 분석', section: '성능예측' },
-        { to: '/control/disop', icon: ClipboardList, label: 'DiSOP', section: '안전운영' },
-        { to: '/control/predictive', icon: Activity, label: '예지보전', section: '안전운영' },
-        { to: '/control/safety', icon: ShieldCheck, label: '안전', section: '안전운영' },
-        { to: '/dt', icon: Globe, label: '디지털트윈', section: 'DT' },
-      ],
-      spc: [
-        { to: '/monitoring/plant', icon: Zap, label: '발전소 상세', section: '실시간' },
-        { to: '/monitoring/anomalies', icon: AlertTriangle, label: '이상감지 관리', section: '실시간' },
-        { to: '/monitoring/consumer', icon: Users, label: '수용가 모니터링', section: '실시간' },
-        { to: '/control/assets', icon: Boxes, label: '발전자산', section: '실시간' },
-        { to: '/monitoring/performance', icon: BarChart3, label: '성능 분석', section: '성능예측' },
-        { to: '/platform/ppa/forecast', icon: TrendingUp, label: '발전량 예측', section: '성능예측' },
-        { to: '/dt', icon: Globe, label: '디지털트윈', section: 'DT' },
-        { to: '/monitoring/reports', icon: BarChart3, label: '보고서', section: '보고' },
-        { to: '/spc', icon: Building2, label: 'SPC·공급기업', section: '보고' },
+      generator: [
+        { to: '/dashboard', icon: LayoutDashboard, label: '대시보드', section: '실시간', end: true }, // 1.1.1
+        { to: '/monitoring/plant', icon: Zap, label: '발전소 상세', section: '실시간' }, // 1.1.4
+        { to: '/monitoring/anomalies', icon: AlertTriangle, label: '이상감지 관리', section: '실시간' }, // 1.1.5
+        { to: '/control/disop', icon: ClipboardList, label: 'DiSOP', section: '안전·운영' }, // 1.2.1
+        { to: '/dt', icon: Globe, label: '디지털트윈', section: 'DT' }, // 1.3.1
+        { to: '/monitoring/reports', icon: BarChart3, label: '보고서', section: '보고' }, // 1.4.1
       ],
       admin: [
-        { to: '/monitoring/plant', icon: Zap, label: '발전소 상세', section: '실시간' },
-        { to: '/monitoring/anomalies', icon: AlertTriangle, label: '이상감지 관리', section: '실시간' },
-        { to: '/monitoring/consumer', icon: Users, label: '수용가 모니터링', section: '실시간' },
-        { to: '/control/assets', icon: Boxes, label: '발전자산', section: '실시간' },
-        { to: '/monitoring/performance', icon: BarChart3, label: '성능 분석', section: '성능예측' },
-        { to: '/platform/ppa/forecast', icon: TrendingUp, label: '발전량 예측', section: '성능예측' },
-        { to: '/control/disop', icon: ClipboardList, label: 'DiSOP', section: '안전운영' },
-        { to: '/control/predictive', icon: Activity, label: '예지보전', section: '안전운영' },
-        { to: '/control/safety', icon: ShieldCheck, label: '안전', section: '안전운영' },
-        { to: '/dt', icon: Globe, label: '디지털트윈', section: 'DT' },
-        { to: '/monitoring/reports', icon: BarChart3, label: '보고서', section: '보고' },
-        { to: '/spc', icon: Building2, label: 'SPC·공급기업', section: '보고' },
+        { to: '/platform', icon: LayoutDashboard, label: '대시보드', section: '실시간', end: true }, // 1.1.1
+        { to: '/monitoring', icon: Monitor, label: '관제 홈(지도)', section: '실시간', end: true }, // 1.1.2
+        { to: '/monitoring/plant', icon: Zap, label: '발전소 상세', section: '실시간' }, // 1.1.4
+        { to: '/monitoring/anomalies', icon: AlertTriangle, label: '이상감지 관리', section: '실시간' }, // 1.1.5
+        { to: '/control/disop', icon: ClipboardList, label: 'DiSOP', section: '안전·운영' }, // 1.2.1
+        { to: '/dt', icon: Globe, label: '디지털트윈', section: 'DT' }, // 1.3.1
+        { to: '/monitoring/reports', icon: BarChart3, label: '보고서', section: '보고' }, // 1.4.1
       ],
     },
   },
-  /* ══ RE100 ══ */
+  /* ══ ② RE100 — WBS 2.x ══ */
   {
-    to: '/re100', // doc 02 §2 depth0 path /trading→/re100 (V74 DB 반영과 동기, S1)
+    to: '/re100',
     label: 'RE100',
     icon: Leaf,
     menuCode: 'RE100',
-    personas: ['generator', 'consumer', 'consultant', 'spc', 'admin', 'agency'],
-    toByPersona: {
-      // 수용가 RE100 랜딩 = 신규 이행현황 대시보드(/re100, W1-N5). 타 페르소나는 기존 랜딩 유지(S1 보존 지침)
-      consumer: '/re100',
-      generator: '/generator/trading',
-      consultant: '/consulting',
-      spc: '/platform/trading',
-      admin: '/platform/trading',
-      agency: '/consulting',
-    },
+    personas: ['generator', 'consumer', 'admin'],
+    toByPersona: { consumer: '/consulting', generator: '/generator/trading', admin: '/platform/trading' },
     childrenByPersona: {
-      consumer: [
-        // 수용가 홈·사업장·사용량·수급·계약·요금은 CONTROL 기둥 수용가 섹션으로 이관(doc 04 §1) — 중복 제거
-        // 이행현황 = 신규 5화면(W1 N5~N7, doc 03 §2). 구 /consumer/re100 라우트는 보존(사이드바 링크만 대체)
-        { to: '/re100', icon: LayoutDashboard, label: 'RE100 대시보드', section: '이행현황', end: true },
-        { to: '/re100/measures', icon: ClipboardList, label: '이행수단', section: '이행현황' },
-        { to: '/re100/generation', icon: TrendingUp, label: '자가발전·PPA 실적', section: '이행현황' },
-
-        { to: '/ppa/trading', icon: ArrowRightLeft, label: '거래 신청', section: '거래' },
-        { to: '/ppa/contracts', icon: Handshake, label: '내 계약', section: '거래' },
-        { to: '/trading/history', icon: History, label: '거래 이력', section: '거래' },
-        { to: '/ppa/contract-changes', icon: ClipboardList, label: '변경·해지', section: '거래' },
-        {
-          to: '/lease/dashboard',
-          icon: TrendingUp,
-          label: '전력 현황 (온사이트)',
-          section: '직접 PPA',
-          subChildren: [
-            { to: '/lease/dashboard', icon: TrendingUp, label: '대시보드', end: true },
-            { to: '/lease/power', icon: Zap, label: '전력관리' },
-          ],
-        },
-        {
-          to: '/lease/billing/settlement',
-          icon: Receipt,
-          label: '정산 내역 (온사이트)',
-          section: '직접 PPA',
-          subChildren: [
-            { to: '/lease/billing/settlement', icon: Receipt, label: '정산 내역 (온사이트)', end: true },
-            { to: '/lease/volume', icon: BarChart3, label: 'PPA 요금 현황' },
-          ],
-        },
-        { to: '/lease/billing/tax-invoice', icon: FileText, label: '세금계산서 (온사이트)', section: '직접 PPA' },
-        { to: '/ppa/status', icon: TrendingUp, label: '전력 현황', section: '직접 PPA' },
-        {
-          to: '/ppa/billing/settlement',
-          icon: Receipt,
-          label: '정산·요금',
-          section: '직접 PPA',
-          subChildren: [
-            { to: '/ppa/billing/settlement', icon: Receipt, label: '정산 내역', end: true },
-            { to: '/ppa/billing/tax-invoice', icon: FileText, label: '세금계산서' },
-            { to: '/ppa/billing/usage-deviation', icon: Activity, label: '사용량 편차' },
-            { to: '/lease/savings-share', icon: Coins, label: '절감 셰어' },
-          ],
-        },
-        {
-          to: '/ppa/documents/evidence',
-          icon: ClipboardCheck,
-          label: '이행 관리',
-          section: '이행',
-          subChildren: [
-            { to: '/ppa/documents/evidence', icon: ClipboardCheck, label: '이행증빙', end: true },
-            { to: '/ppa/documents/report', icon: FileText, label: '운영 보고서' },
-          ],
-        },
-
-        { to: '/re100/rec', icon: Leaf, label: 'REC·녹색프리미엄', section: 'REC·상생연금' },
-        { to: '/re100/pension', icon: Coins, label: '상생연금', section: 'REC·상생연금' },
-        { to: '/consulting', icon: Zap, label: '컨설팅 홈', section: '컨설팅·교육·인증', end: true },
-        { to: '/consulting/status', icon: ClipboardList, label: '내 컨설팅', section: '컨설팅·교육·인증' },
-        {
-          to: '/consulting/diagnosis',
-          icon: ClipboardCheck,
-          label: '무료 진단',
-          section: '컨설팅·교육·인증',
-          end: true,
-        },
-        { to: '/consulting/marketplace', icon: Users, label: '마켓플레이스', section: '컨설팅·교육·인증' },
-        { to: '/consulting/proposals', icon: Send, label: '받은 제안', section: '컨설팅·교육·인증' },
-        { to: '/consulting/settlement', icon: Receipt, label: '정산 확인', section: '컨설팅·교육·인증' },
-        { to: '/re100/desk', icon: MessageSquare, label: '컨설팅 데스크', section: '컨설팅·교육·인증' },
-        { to: '/re100/portfolio', icon: BarChart3, label: '이행 포트폴리오', section: '컨설팅·교육·인증' },
-        { to: '/re100/education', icon: MessageSquare, label: 'RE100 교육', section: '컨설팅·교육·인증' },
-        { to: '/re100/certification', icon: Leaf, label: 'RE100 인증', section: '컨설팅·교육·인증' },
-      ],
+      // 전기사용자: 2.2 컨설팅만
+      consumer: RE100_CONSULTING_CHILDREN,
       generator: [
-        { to: '/generator/trading', icon: ArrowRightLeft, label: '공급 신청', section: '거래' },
-        { to: '/generator/ppa/contracts', icon: Handshake, label: '내 계약', section: '거래' },
-        { to: '/generator/ppa/resources/register', icon: Zap, label: '자원 관리', section: '거래' },
-        { to: '/generator/etm', icon: BarChart3, label: 'ETM(전력시장)', section: '거래' },
-        { to: '/ppa/contract-changes', icon: ClipboardList, label: '변경·해지', section: '거래' },
-        {
-          to: '/generator/ppa/revenue/analytics',
-          icon: Receipt,
-          label: '수익·정산 (온사이트)',
-          section: '직접 PPA',
-          subChildren: [
-            { to: '/generator/ppa/revenue/analytics', icon: Receipt, label: '수익 분석', end: true },
-            { to: '/generator/ppa/revenue/tax-invoice', icon: FileText, label: '세금계산서' },
-            { to: '/generator/ppa/revenue/invoices', icon: CreditCard, label: '청구서' },
-          ],
-        },
+        // 2.1 전력거래
+        { to: '/generator/trading', icon: ArrowRightLeft, label: '거래 신청', section: '전력거래' }, // 2.1.1
+        { to: '/generator/ppa/contracts', icon: Handshake, label: '내 계약', section: '전력거래' }, // 2.1.2
+        { to: '/ppa/contract-changes', icon: ClipboardList, label: '변경·해지', section: '전력거래' }, // 2.1.3
+        { to: '/trading/history', icon: History, label: '거래 이력', section: '전력거래' }, // 2.1.4
         {
           to: '/generator/ppa/direct/revenue/analytics',
           icon: Receipt,
           label: '수익·정산',
-          section: '직접 PPA',
+          section: '전력거래',
           subChildren: [
             { to: '/generator/ppa/direct/revenue/analytics', icon: Receipt, label: '수익 분석', end: true },
             { to: '/generator/ppa/direct/revenue/tax-invoice', icon: FileText, label: '세금계산서' },
             { to: '/generator/ppa/direct/revenue/invoices', icon: CreditCard, label: '청구서' },
             { to: '/generator/ppa/revenue/deviation', icon: Activity, label: '발전량 편차' },
           ],
-        },
-        { to: '/generator/ppa/documents', icon: FileText, label: '문서 관리', section: '이행' },
-      ],
-      consultant: [
-        { to: '/ppa/contracts', icon: Handshake, label: '고객 계약', section: '거래' },
-        { to: '/trading/history', icon: History, label: '거래 이력', section: '거래' },
-        { to: '/ppa/contract-changes', icon: ClipboardList, label: '변경·해지', section: '거래' },
-        {
-          to: '/lease/dashboard',
-          icon: TrendingUp,
-          label: '전력 현황 (온사이트)',
-          section: '직접 PPA',
-          subChildren: [
-            { to: '/lease/dashboard', icon: TrendingUp, label: '대시보드', end: true },
-            { to: '/lease/power', icon: Zap, label: '전력관리' },
-          ],
-        },
-        {
-          to: '/lease/billing/settlement',
-          icon: Receipt,
-          label: '정산 내역 (온사이트)',
-          section: '직접 PPA',
-          subChildren: [
-            { to: '/lease/billing/settlement', icon: Receipt, label: '정산 내역 (온사이트)', end: true },
-            { to: '/lease/volume', icon: BarChart3, label: 'PPA 요금 현황' },
-          ],
-        },
-        { to: '/lease/billing/tax-invoice', icon: FileText, label: '세금계산서 (온사이트)', section: '직접 PPA' },
-        { to: '/ppa/status', icon: TrendingUp, label: '전력 현황', section: '직접 PPA' },
-        {
-          to: '/ppa/billing/settlement',
-          icon: Receipt,
-          label: '고객 정산',
-          section: '직접 PPA',
-          subChildren: [
-            { to: '/ppa/billing/settlement', icon: Receipt, label: '정산 내역', end: true },
-            { to: '/ppa/billing/tax-invoice', icon: FileText, label: '세금계산서' },
-            { to: '/ppa/billing/usage-deviation', icon: Activity, label: '사용량 편차' },
-            { to: '/lease/savings-share', icon: Coins, label: '절감 셰어' },
-          ],
-        },
-        {
-          to: '/ppa/documents/evidence',
-          icon: ClipboardCheck,
-          label: '이행 관리',
-          section: '이행',
-          subChildren: [
-            { to: '/ppa/documents/evidence', icon: ClipboardCheck, label: '이행증빙', end: true },
-            { to: '/ppa/documents/report', icon: FileText, label: '운영 보고서' },
-          ],
-        },
-
-        { to: '/consulting/consulting-requests', icon: Zap, label: '신규 의뢰' },
-        { to: '/consultant/consultings', icon: ClipboardList, label: '내 컨설팅' },
-        { to: '/consultant/earnings', icon: Wallet, label: '수익 정산' },
-        { to: '/consultant/proposals', icon: FileText, label: '제안 관리' },
-        // { to: '/consultant/tax-invoices', icon: FileText, label: '세금계산서' }, // 화면 데이터 하드코딩 상태 — 실연동 후 노출
-        { to: '/consultant/performance', icon: Target, label: '성과' },
-        { to: '/consultant/referral', icon: Link2, label: '초대 링크' },
-        { to: '/consultant/clients', icon: Users, label: '고객 관리', section: '컨설팅·교육·인증' },
-        { to: '/consultant/profile', icon: User, label: '프로필 관리', section: '컨설팅·교육·인증' },
-      ],
-      spc: [
-        { to: '/platform/ppa/resources', icon: Zap, label: '자원 관리', section: '거래' },
-        { to: '/platform/trading', icon: ArrowRightLeft, label: '거래 관리', section: '거래' },
-        { to: '/platform/ppa/dashboard', icon: BarChart3, label: '계약 현황', section: '거래' },
-        { to: '/platform/trading/approvals', icon: ShieldCheck, label: '거래 승인', section: '거래' },
-        { to: '/trading/history', icon: History, label: '거래 이력', section: '거래' },
-        { to: '/ppa/contract-changes', icon: ClipboardList, label: '변경·해지', section: '거래' },
-        {
-          to: '/platform/lease/dashboard',
-          icon: TrendingUp,
-          label: '전력 현황 (온사이트)',
-          section: '직접 PPA',
-          subChildren: [
-            { to: '/platform/lease/dashboard', icon: TrendingUp, label: '대시보드', end: true },
-            { to: '/platform/lease/power', icon: Zap, label: '전력관리' },
-            { to: '/platform/lease/contracts', icon: Handshake, label: '계약관리' },
-          ],
-        },
-        {
-          to: '/platform/lease/billing/settlement',
-          icon: Receipt,
-          label: '정산 (온사이트)',
-          section: '직접 PPA',
-          subChildren: [
-            { to: '/platform/lease/billing/settlement', icon: Receipt, label: '정산', end: true },
-            { to: '/platform/lease/volume', icon: BarChart3, label: 'PPA 요금 현황' },
-          ],
-        },
-        {
-          to: '/platform/lease/billing/tax-invoice',
-          icon: FileText,
-          label: '세금계산서 (온사이트)',
-          section: '직접 PPA',
-        },
-        {
-          to: '/platform/ppa/status',
-          icon: Activity,
-          label: '거래 모니터링',
-          section: '직접 PPA',
-          subChildren: [
-            { to: '/platform/ppa/status', icon: Factory, label: '발전사 거래', end: true },
-            { to: '/platform/ppa/status/consumers', icon: Building2, label: '수용가 거래' },
-            { to: '/platform/ppa/status/matching', icon: History, label: '매칭 이력' },
-            { to: '/platform/ppa/status/margin', icon: Coins, label: 'SPC 마진' },
-          ],
-        },
-        {
-          to: '/platform/ppa/billing/settlement',
-          icon: Receipt,
-          label: '정산 관리',
-          section: '직접 PPA',
-          subChildren: [
-            { to: '/platform/ppa/billing/settlement', icon: Calculator, label: '정산', end: true },
-            { to: '/platform/ppa/billing/settlement/payment', icon: CreditCard, label: '수금·지급' },
-            { to: '/platform/ppa/billing/settlement/history', icon: History, label: '이력·감사' },
-            { to: '/platform/ppa/billing/distribution', icon: Wallet, label: '수익배분' },
-            { to: '/platform/lease/savings-share', icon: Coins, label: '절감 셰어' },
-          ],
-        },
-        { to: '/platform/ppa/billing/tax-invoice', icon: FileText, label: '세금계산서', section: '직접 PPA' },
-        { to: '/platform/ppa/documents', icon: FileText, label: '문서 관리', section: '문서' },
-
-        { to: '/consulting/projects', icon: ClipboardList, label: '프로젝트 관리' },
-        { to: '/consulting/agencies', icon: Building2, label: '용역사 관리' },
-        { to: '/consulting/consultants', icon: Users, label: '컨설턴트 관리' },
-        { to: '/consulting/ppa-requests', icon: Send, label: 'PPA 연계 의뢰' },
-        { to: '/consulting/settlement', icon: Receipt, label: '사업비 집행' },
+        }, // 2.1.5
+        { to: '/generator/ppa/dashboard', icon: BarChart3, label: '계약 현황', section: '전력거래' }, // 2.1.6
+        { to: '/platform/trading/approvals', icon: ShieldCheck, label: '거래 승인', section: '전력거래' }, // 2.1.7
+        { to: '/generator/ppa/documents', icon: FileText, label: '문서 관리', section: '전력거래' }, // 2.1.8
+        ...RE100_CONSULTING_CHILDREN,
       ],
       admin: [
-        { to: '/platform/ppa/resources', icon: Zap, label: '자원 관리', section: '거래' },
-        { to: '/platform/trading', icon: ArrowRightLeft, label: '거래 관리', section: '거래' },
-        { to: '/platform/ppa/dashboard', icon: BarChart3, label: '계약 현황', section: '거래' },
-        { to: '/platform/trading/approvals', icon: ShieldCheck, label: '거래 승인', section: '거래' },
-        { to: '/trading/history', icon: History, label: '거래 이력', section: '거래' },
-        { to: '/ppa/contract-changes', icon: ClipboardList, label: '변경·해지', section: '거래' },
-        {
-          to: '/platform/lease/dashboard',
-          icon: TrendingUp,
-          label: '전력 현황 (온사이트)',
-          section: '직접 PPA',
-          subChildren: [
-            { to: '/platform/lease/dashboard', icon: TrendingUp, label: '대시보드', end: true },
-            { to: '/platform/lease/power', icon: Zap, label: '전력관리' },
-            { to: '/platform/lease/contracts', icon: Handshake, label: '계약관리' },
-          ],
-        },
-        {
-          to: '/platform/lease/billing/settlement',
-          icon: Receipt,
-          label: '정산 (온사이트)',
-          section: '직접 PPA',
-          subChildren: [
-            { to: '/platform/lease/billing/settlement', icon: Receipt, label: '정산', end: true },
-            { to: '/platform/lease/volume', icon: BarChart3, label: 'PPA 요금 현황' },
-          ],
-        },
-        {
-          to: '/platform/lease/billing/tax-invoice',
-          icon: FileText,
-          label: '세금계산서 (온사이트)',
-          section: '직접 PPA',
-        },
-        {
-          to: '/platform/ppa/status',
-          icon: Activity,
-          label: '거래 모니터링',
-          section: '직접 PPA',
-          subChildren: [
-            { to: '/platform/ppa/status', icon: Factory, label: '발전사 거래', end: true },
-            { to: '/platform/ppa/status/consumers', icon: Building2, label: '수용가 거래' },
-            { to: '/platform/ppa/status/matching', icon: History, label: '매칭 이력' },
-            { to: '/platform/ppa/status/margin', icon: Coins, label: 'SPC 마진' },
-          ],
-        },
+        // 2.1 전력거래
+        { to: '/platform/trading', icon: ArrowRightLeft, label: '거래 신청', section: '전력거래' }, // 2.1.1
+        { to: '/platform/ppa/contracts', icon: Handshake, label: '내 계약', section: '전력거래' }, // 2.1.2
+        { to: '/ppa/contract-changes', icon: ClipboardList, label: '변경·해지', section: '전력거래' }, // 2.1.3
+        { to: '/trading/history', icon: History, label: '거래 이력', section: '전력거래' }, // 2.1.4
         {
           to: '/platform/ppa/billing/settlement',
           icon: Receipt,
-          label: '정산 관리',
-          section: '직접 PPA',
+          label: '수익·정산',
+          section: '전력거래',
           subChildren: [
             { to: '/platform/ppa/billing/settlement', icon: Calculator, label: '정산', end: true },
             { to: '/platform/ppa/billing/settlement/payment', icon: CreditCard, label: '수금·지급' },
             { to: '/platform/ppa/billing/settlement/history', icon: History, label: '이력·감사' },
-            { to: '/platform/ppa/billing/distribution', icon: Wallet, label: '수익배분' },
-            { to: '/platform/lease/savings-share', icon: Coins, label: '절감 셰어' },
+            { to: '/platform/ppa/billing/tax-invoice', icon: FileText, label: '세금계산서' },
           ],
-        },
-        { to: '/platform/ppa/billing/tax-invoice', icon: FileText, label: '세금계산서', section: '직접 PPA' },
-        { to: '/platform/ppa/documents', icon: FileText, label: '문서 관리', section: '문서' },
-
-        { to: '/consulting/projects', icon: ClipboardList, label: '프로젝트 관리' },
-        { to: '/consulting/agencies', icon: Building2, label: '용역사 관리' },
-        { to: '/consulting/consultants', icon: Users, label: '컨설턴트 관리' },
-        { to: '/consulting/ppa-requests', icon: Send, label: 'PPA 연계 의뢰' },
-        { to: '/consulting/settlement', icon: Receipt, label: '사업비 집행' },
-      ],
-      agency: [
-        { to: '/consulting/projects', icon: ClipboardList, label: '프로젝트 관리' },
-        { to: '/consulting/consulting-requests', icon: Zap, label: '의뢰 수주' },
-        { to: '/consulting/consultants', icon: Users, label: '소속 컨설턴트 관리' },
-        { to: '/consulting/settlement', icon: Receipt, label: '용역비 정산' },
+        }, // 2.1.5
+        { to: '/platform/ppa/dashboard', icon: BarChart3, label: '계약 현황', section: '전력거래' }, // 2.1.6
+        { to: '/platform/trading/approvals', icon: ShieldCheck, label: '거래 승인', section: '전력거래' }, // 2.1.7
+        { to: '/platform/ppa/documents', icon: FileText, label: '문서 관리', section: '전력거래' }, // 2.1.8
+        ...RE100_CONSULTING_CHILDREN,
       ],
     },
   },
-  /* ══ E-데이터마켓 ══ */
+  /* ══ ③ E-데이터마켓 플랫폼 — WBS 3.x ══ */
   {
-    to: '/e-data',
+    to: '/e-data/inventory',
     label: 'E-데이터마켓',
     icon: Database,
     menuCode: 'EDATA',
-    personas: ['generator', 'consumer', 'consultant', 'spc', 'admin'],
-    children: [
-      // 사업계획서 E-데이터마켓 3서비스 — 네이티브 이식 (기획 docs/기획/00~04 rev.2, 화면설계서 §1~3)
-      // ── 온실가스 (인벤토리 11화면) ──
-      { to: '/e-data/inventory', icon: LayoutDashboard, label: '대시보드', section: '온실가스', end: true },
-      { to: '/e-data/inventory/sources', icon: Factory, label: '배출원 등록', section: '온실가스' },
-      { to: '/e-data/inventory/activity', icon: Database, label: '활동자료', section: '온실가스' },
-      { to: '/e-data/inventory/factors', icon: Calculator, label: '배출계수 관리', section: '온실가스' },
-      { to: '/e-data/inventory/calculation', icon: BarChart3, label: '배출량 산정', section: '온실가스' },
-      { to: '/e-data/inventory/scope3', icon: Network, label: 'Scope 3', section: '온실가스' },
-      { to: '/e-data/inventory/target', icon: Target, label: '감축목표', section: '온실가스' },
-      { to: '/e-data/inventory/statement', icon: FileText, label: '명세서', section: '온실가스' },
-      { to: '/e-data/inventory/verify', icon: ShieldCheck, label: '검증', section: '온실가스' },
-      { to: '/e-data/inventory/disclosure', icon: ClipboardList, label: '공시 export', section: '온실가스' },
-      { to: '/e-data/inventory/cbam', icon: Globe, label: 'CBAM 제품배출', section: '온실가스' },
-      { to: '/e-data/reduction', icon: Target, label: '감축량·자립률', section: '온실가스' },
-      // ── 탄소중립 (카본 마켓플레이스) ──
-      { to: '/carbon', icon: Leaf, label: '카본 대시보드', section: '탄소중립', end: true },
-      { to: '/carbon/krx', icon: TrendingUp, label: 'KRX 시세', section: '탄소중립' },
-      { to: '/carbon/otc', icon: ArrowRightLeft, label: '장외거래(협의매매)', section: '탄소중립' },
-      { to: '/carbon/etrs', icon: ClipboardCheck, label: 'ETRS 신고', section: '탄소중립' },
-      { to: '/carbon/offset', icon: Coins, label: '상쇄배출권·KOC', section: '탄소중립' },
-      { to: '/carbon/voluntary', icon: Handshake, label: '자발적 시장', section: '탄소중립' },
-      // ── E-데이터 (데이터 마켓플레이스) ──
-      { to: '/e-data/catalog', icon: Database, label: '데이터 카탈로그', section: 'E-데이터' },
-      { to: '/e-data/trading', icon: Receipt, label: '거래 현황', section: 'E-데이터', end: true },
-      { to: '/e-data/trading/settlement', icon: Wallet, label: '정산', section: 'E-데이터' },
-      { to: '/e-data/api-hub', icon: KeyRound, label: 'API 허브', section: 'E-데이터' },
-      { to: '/e-data/analytics', icon: Activity, label: '분석', section: 'E-데이터' },
-    ],
+    personas: ['generator', 'consumer', 'admin'],
+    children: EDATA_CHILDREN,
   },
-  /* ══ 분산에너지 효율화 ══ */
+  /* ══ ⑤ 관리 ADMIN — WBS 4.x (설정은 공통, 회원·운영·시스템은 관리자) ══ */
   {
-    to: '/vpp',
-    label: '분산에너지 효율화',
-    icon: Network,
-    menuCode: 'DER',
-    personas: ['generator', 'consumer', 'consultant', 'spc', 'admin'],
-    children: [
-      // ── VPP — 사업계획서 기반 재구축(doc 20_통합기획/04 §4, iframe 폐기 doc 19) ──
-      { to: '/vpp', icon: LayoutDashboard, label: 'VPP 대시보드', section: 'VPP', end: true },
-      { to: '/vpp/resources', icon: Boxes, label: '자원 관리', section: 'VPP' },
-      { to: '/vpp/forecast', icon: TrendingUp, label: '발전량 예측', section: 'VPP' },
-      { to: '/vpp/demand-forecast', icon: BarChart3, label: '수요 예측', section: 'VPP' },
-      { to: '/vpp/dr', icon: Activity, label: 'DR(수요반응)', section: 'VPP' },
-      { to: '/vpp/reports', icon: FileText, label: '보고서', section: 'VPP' },
-      // ── 효율화 ──
-      { to: '/der/consulting', icon: MessageSquare, label: '에너지 효율화 컨설팅', section: '효율화' },
-      // ── 인증·모델 ──
-      { to: '/der/certification', icon: ShieldCheck, label: '분산에너지 사업자인증', section: '인증·모델' },
-      { to: '/der/model', icon: Lightbulb, label: '탄소중립 사업모델', section: '인증·모델' },
-    ],
-  },
-  /* ══ 관리 (admin 전용) ══ */
-  {
-    to: '/platform',
+    to: '/org',
     label: '관리',
     icon: Settings,
     menuCode: 'ADMIN',
-    personas: ['admin'],
-    children: [
-      // menuCode = depth1 권한(role_menus) 단위 노출 제어 — COMPANY_ADMIN 등 부분 권한 role은 자사 실무 메뉴만 노출
-      { to: '/platform', icon: LayoutDashboard, label: '종합 대시보드', section: '운영', end: true },
-      { to: '/platform/companies', icon: Building2, label: '기업 관리', section: '회원', menuCode: 'ADMIN_COMPANY' },
-      { to: '/platform/users', icon: Users, label: '회원 관리', section: '회원', menuCode: 'ADMIN_USER' },
-      { to: '/platform/roles', icon: ShieldCheck, label: '역할·권한', section: '회원', menuCode: 'ADMIN_ROLE' },
-      { to: '/platform/invitations', icon: Send, label: '기업 초대', section: '회원', menuCode: 'ADMIN_INVITATION' },
-      { to: '/platform/approvals', icon: ShieldCheck, label: '승인 관리', section: '운영', menuCode: 'ADMIN_APPROVAL' },
-      {
-        to: '/platform/trading/approvals',
-        icon: ShieldCheck,
-        label: '거래 승인',
-        section: '운영',
-        menuCode: 'ADMIN_APPROVAL',
-      },
-      { to: '/platform/audit-logs', icon: ScrollText, label: '감사 로그', section: '운영', menuCode: 'ADMIN_AUDIT' },
-      { to: '/platform/operations', icon: Activity, label: '운영 현황', section: '운영', menuCode: 'ADMIN_OPERATIONS' },
-      { to: '/platform/onboarding', icon: ClipboardCheck, label: '온보딩 관리', section: '운영' },
-      { to: '/platform/system', icon: Cpu, label: '시스템 설정', section: '시스템', menuCode: 'ADMIN_SYSTEM' },
-      {
-        to: '/platform/notification-settings',
-        icon: Bell,
-        label: '알림 설정',
-        section: '시스템',
-        menuCode: 'ADMIN_NOTIFICATION',
-      },
-      // 사업성과 — doc 04 §5, W1 신규 4화면(N1·N2·N4b·N4)
-      { to: '/performance', icon: Target, label: '성과지표 대시보드', section: '사업성과', menuCode: 'ADMIN_PERF' },
-      { to: '/tenants', icon: Users, label: '수용가 이용현황', section: '사업성과', menuCode: 'ADMIN_TENANT' },
-      { to: '/finance', icon: Wallet, label: '사업 재무·수익', section: '사업성과', menuCode: 'ADMIN_FINANCE' },
-      { to: '/outreach', icon: Send, label: '성과확산', section: '사업성과', menuCode: 'ADMIN_OUTREACH' },
-    ],
+    personas: ['generator', 'consumer', 'admin'],
+    toByPersona: { consumer: '/org', generator: '/org', admin: '/platform/companies' },
+    childrenByPersona: {
+      consumer: [{ to: '/org', icon: Settings, label: '설정', section: '설정' }], // 4.1.1
+      generator: [{ to: '/org', icon: Settings, label: '설정', section: '설정' }], // 4.1.1
+      admin: [
+        { to: '/org', icon: Settings, label: '설정', section: '설정' }, // 4.1.1
+        { to: '/platform/companies', icon: Building2, label: '기업 관리', section: '회원' }, // 4.2.1
+        { to: '/platform/users', icon: Users, label: '회원 관리', section: '회원' }, // 4.2.2
+        { to: '/platform/roles', icon: ShieldCheck, label: '역할·권한', section: '회원' }, // 4.2.3
+        { to: '/platform/approvals', icon: ClipboardCheck, label: '승인 관리', section: '운영' }, // 4.3.1
+        { to: '/platform/trading/approvals', icon: ShieldCheck, label: '거래 승인', section: '운영' }, // 4.3.2
+        { to: '/platform/notification-settings', icon: Bell, label: '알림 설정', section: '시스템' }, // 4.4.1
+      ],
+    },
   },
 ];
 
@@ -903,26 +565,6 @@ function computeAutoExpanded(items: GnbChild[], pathname: string): Set<string> {
   return set;
 }
 
-function SettingsLink() {
-  const pathname = usePathname();
-  const isActive = pathname === '/org' || pathname.startsWith('/org/');
-  return (
-    <Link
-      href="/org"
-      className={cn(
-        'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-150 active:scale-[0.98]',
-        isActive ? 'bg-primary/10 text-primary font-medium' : 'text-slate-400 hover:text-white hover:bg-white/[0.06]',
-      )}
-    >
-      {isActive && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary animate-slideUp" />
-      )}
-      <Settings size={16} className="shrink-0" />
-      <span className="truncate">설정</span>
-    </Link>
-  );
-}
-
 function SubSidebar({ children: items }: { children: GnbChild[] }) {
   const pathname = usePathname();
   const [expanded, setExpanded] = useState<Set<string>>(() => computeAutoExpanded(items, pathname));
@@ -985,9 +627,6 @@ function SubSidebar({ children: items }: { children: GnbChild[] }) {
           );
         })}
       </nav>
-      <div className="border-t border-white/[0.06] px-2 py-3">
-        <SettingsLink />
-      </div>
     </aside>
   );
 }
