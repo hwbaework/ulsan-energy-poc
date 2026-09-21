@@ -6,6 +6,8 @@ export type AnomalyActionStatus =
   | 'RESOLVED'
   | 'FALSE_ALARM';
 export type EnergySource = 'SOLAR' | 'ORC' | 'FUEL_CELL';
+/** 계약 유형 — 울산 에자자는 자가소비·온사이트 PPA 두 가지만 운영 */
+export type PlantContractKind = 'SELF_CONSUMPTION' | 'ONSITE';
 export interface InverterStatus {
   number: number;
   capacity: number;
@@ -51,6 +53,19 @@ export interface MonitoringPlant {
   inverters?: InverterStatus[];
   latitude?: number;
   longitude?: number;
+  contractType?: PlantContractKind;
+  /** 계약 유형 목록 — 혼합 계약(한일튜브: 자가소비 + 온사이트)은 두 개 */
+  contractTypes?: PlantContractKind[];
+  /** 최근 이상감지 요약 (발전소 상세 '이상감지 최근 7일') */
+  anomalies?: PlantAnomalySummary[];
+}
+
+export interface PlantAnomalySummary {
+  id: number;
+  title: string;
+  severity: string;
+  detectedAt: string;
+  status: string;
 }
 
 export interface MonitoringConsumer {

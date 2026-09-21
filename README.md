@@ -13,10 +13,13 @@
 
 ```bash
 npm install
-npm run dev        # http://localhost:3030
+npm run preview    # 운영 빌드 후 http://localhost:3030 — 화면 확인은 이걸로 (빠름)
+npm run dev        # 개발 서버 — 페이지마다 첫 진입 시 컴파일하므로 느림(수 초). 코드 수정 중일 때만 사용
 npm run build      # ./out 생성
 npm run deploy     # build + wrangler deploy (Cloudflare 로그인 필요)
 ```
+
+> Windows PowerShell 에서는 `&&` 대신 `;` 로 명령을 이어야 합니다. 예: `cd ulsan-energy-poc; npm run preview`
 
 ## 역할별 진입 경로
 
@@ -25,6 +28,12 @@ npm run deploy     # build + wrangler deploy (Cloudflare 로그인 필요)
 | 관리자 | admin@test.com | `/monitoring` (통합관제 지도) |
 | 전기사용자 | consumer@test.com | `/consumer` (수용가 대시보드) |
 | 발전사업자 | operator@test.com | `/dashboard` (발전 대시보드) |
+
+## 디자인 기준
+
+- 색·아이콘·상태 규칙은 `src/lib/design.ts` 한 곳에서 정의한다 (근거: DT WEB 기본 디자인 가이드). 화면은 `src/components/ui/Design.tsx` 의 `SourceBadge` / `SourceIcon` / `StatusBadge` / `MetricIcon` 만 쓴다.
+- 가이드 페이지: `/guide` (메뉴에 없음, URL 로만 접근). 배포 후 `https://ulsanenergypoc.pairwork.net/guide`.
+- 규칙 요약: 발전원은 지도 마커와 같은 SVG + 고유색(태양광 주황·ORC 다홍·연료전지 파랑), 상태는 정상 초록·이상감지 빨강 두 가지, 지표는 라벨이 같으면 아이콘도 같다, 퍼센트·이모지는 쓰지 않는다.
 
 ## 목업 데이터 추가
 

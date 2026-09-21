@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/Badge';
@@ -11,37 +11,25 @@ import { RmsAreaChart, RmsLineChart, ScrollableChart } from '@/components/ui/Cha
 import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
+import { SourceBadge, StatusBadge } from '@/components/ui/Design';
 import {
   ArrowLeft,
   AlertTriangle,
   ClipboardCheck,
-  MapPin,
-  Phone,
   Sun,
   Thermometer,
   Wind,
   Zap,
   TrendingUp,
   TrendingDown,
-  Wifi,
-  WifiOff,
-  Power,
-  ChevronDown,
-  ChevronUp,
-  Radio,
-  Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToastStore } from '@/stores/useToastStore';
 import type { EnergySource, PlantStatus, InverterStatus, PlantConnectionStatus } from '@/types/monitoring';
 import { isLaseePlant } from '@/constants/plant-mapping';
 import { useMonitoringPlantDetail, useMonitoringPlantHistory } from '@/hooks/monitoring/useMonitoring';
+import { ConnectionBanner, InverterDetailSection } from '@/components/features/monitoring/InverterPanels';
 
-const TYPE_LABELS: Record<EnergySource, string> = {
-  SOLAR: '태양광',
-  ORC: 'ORC',
-  FUEL_CELL: '연료전지',
-};
 
 const STATUS_VARIANT: Record<PlantStatus, 'success' | 'warning' | 'danger' | 'default' | 'info'> = {
   NORMAL: 'success',
@@ -156,380 +144,6 @@ const SEVERITY_VARIANT: Record<string, 'danger' | 'warning' | 'info' | 'default'
   MEDIUM: 'warning',
   LOW: 'info',
 };
-
-const STATUS_MSG_VARIANT: Record<string, 'info' | 'warning' | 'danger'> = {
-  Wait: 'info',
-  Checking: 'warning',
-  Normal: 'info',
-  Run: 'info',
-};
-
-/* ── Connection Status Banner ── */
-
-function ConnectionBanner({ status, inverters }: { status: PlantConnectionStatus; inverters?: InverterStatus[] }) {
-  const normalCount = status.inverterConnections.filter((c) => c.state === 'NORMAL').length;
-  const totalCount = status.inverterConnections.length;
-  const allNormal = status.rtuPower === 'ON' && status.rtuConnection === 'NORMAL' && normalCount === totalCount;
-  const lastData = inverters?.reduce((latest, inv) => (inv.lastDataAt > latest ? inv.lastDataAt : latest), '') ?? '';
-
-  return (
-    <div
-      className={cn(
-        'rounded-lg border p-3 flex items-center gap-4 flex-wrap',
-        allNormal ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-amber-500/30 bg-amber-500/5',
-      )}
-    >
-      <div className="flex items-center gap-2">
-        <Power size={14} className={status.rtuPower === 'ON' ? 'text-emerald-400' : 'text-red-400'} />
-        <span className="text-xs text-slate-300">RTU 전원</span>
-        <Badge variant={status.rtuPower === 'ON' ? 'success' : 'danger'}>{status.rtuPower}</Badge>
-      </div>
-
-      <div className="w-px h-4 bg-white/10" />
-
-      <div className="flex items-center gap-2">
-        {status.rtuConnection === 'NORMAL' ? (
-          <Wifi size={14} className="text-emerald-400" />
-        ) : (
-          <WifiOff size={14} className="text-red-400" />
-        )}
-        <span className="text-xs text-slate-300">RTU 통신</span>
-        <Badge variant={status.rtuConnection === 'NORMAL' ? 'success' : 'danger'}>
-          {status.rtuConnection === 'NORMAL' ? '정상' : '오류'}
-        </Badge>
-      </div>
-
-      <div className="w-px h-4 bg-white/10" />
-
-      <div className="flex items-center gap-2">
-        <Radio size={14} className={normalCount === totalCount ? 'text-emerald-400' : 'text-amber-400'} />
-        <span className="text-xs text-slate-300">인버터 통신</span>
-        <span
-          className={cn(
-            'text-xs font-medium tabular-nums',
-            normalCount === totalCount ? 'text-emerald-400' : 'text-amber-400',
-          )}
-        >
-          {normalCount}/{totalCount} 정상
-        </span>
-      </div>
-
-      {lastData && (
-        <>
-          <div className="w-px h-4 bg-white/10" />
-          <span className="text-[10px] text-slate-500 flex items-center gap-1">
-            <Activity size={10} /> 마지막 수집: {lastData}
-          </span>
-        </>
-      )}
-    </div>
-  );
-}
-
-/* ── Inverter Detail Table ── */
-
-function InverterDetailSection({ inverters }: { inverters: InverterStatus[] }) {
-  const [expandedInv, setExpandedInv] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<number>(inverters[0]?.number ?? 0);
-
-  const totalDailyEnergy = inverters.reduce((s, inv) => s + inv.dailyEnergy, 0);
-  const totalAcPower = inverters.reduce((s, inv) => s + inv.ac.power, 0);
-
-  const alertInverters = inverters.filter((inv) => inv.statusMessages.length > 0 || inv.connectionState === 'ERROR');
-
-  return (
-    <div className="space-y-4">
-      {/* Status Messages Alert */}
-      {alertInverters.length > 0 && (
-        <div className="space-y-2">
-          {alertInverters.map((inv) => (
-            <div
-              key={`alert-${inv.number}`}
-              className={cn(
-                'rounded-lg border p-3 flex items-start gap-3',
-                inv.connectionState === 'ERROR'
-                  ? 'border-red-500/30 bg-red-500/5'
-                  : 'border-amber-500/30 bg-amber-500/5',
-              )}
-            >
-              <AlertTriangle
-                size={14}
-                className={inv.connectionState === 'ERROR' ? 'text-red-400 mt-0.5' : 'text-amber-400 mt-0.5'}
-              />
-              <div>
-                <p className="text-xs font-medium text-white">
-                  INV-{String(inv.number).padStart(3, '0')}
-                  {inv.connectionState === 'ERROR' && ' — 통신 오류'}
-                </p>
-                {inv.statusMessages.length > 0 && (
-                  <div className="flex gap-1.5 mt-1">
-                    {inv.statusMessages.map((msg) => (
-                      <Badge key={msg} variant={STATUS_MSG_VARIANT[msg] ?? 'danger'}>
-                        {msg}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Summary row */}
-      <div className="grid grid-cols-4 gap-3">
-        {/* 인버터 수: 데이터에서 직접 카운트 */}
-        <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3 text-center">
-          <p className="text-[10px] text-slate-500">인버터 수</p>
-          <p className="text-lg font-bold text-white tabular-nums">
-            {inverters.length}
-            <span className="text-xs font-normal text-slate-500">대</span>
-          </p>
-        </div>
-        <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3 text-center">
-          <p className="text-[10px] text-slate-500">총 AC 출력</p>
-          <p className="text-lg font-bold text-white tabular-nums">{totalAcPower.toFixed(1)}</p>
-          <p className="text-[10px] text-slate-600">kW</p>
-        </div>
-        <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3 text-center">
-          <p className="text-[10px] text-slate-500">금일 합산 발전</p>
-          <p className="text-lg font-bold text-white tabular-nums">{totalDailyEnergy.toFixed(1)}</p>
-          <p className="text-[10px] text-slate-600">kWh</p>
-        </div>
-        <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3 text-center">
-          <p className="text-[10px] text-slate-500">평균 역률</p>
-          <p className="text-lg font-bold text-slate-500 tabular-nums">-</p>
-        </div>
-      </div>
-
-      {/* Inverter Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead className="text-left">
-            <tr className="border-b border-white/10">
-              <th className="text-left text-slate-400 font-medium py-2 px-3">인버터</th>
-              <th className="text-slate-400 font-medium py-2 px-3">DC전압</th>
-              <th className="text-slate-400 font-medium py-2 px-3">DC전류</th>
-              <th className="text-slate-400 font-medium py-2 px-3">DC전력</th>
-              <th className="text-slate-400 font-medium py-2 px-3">AC전력</th>
-              <th className="text-slate-400 font-medium py-2 px-3">역률</th>
-              <th className="text-slate-400 font-medium py-2 px-3">주파수</th>
-              <th className="text-slate-400 font-medium py-2 px-3">일발전</th>
-              <th className="text-slate-400 font-medium py-2 px-3">통신</th>
-              <th className="text-slate-400 font-medium py-2 px-3">상태</th>
-              <th className="py-2 px-1 w-8" />
-            </tr>
-          </thead>
-          <tbody>
-            {inverters.map((inv) => (
-              <Fragment key={inv.number}>
-                <tr
-                  className={cn(
-                    'border-b border-white/5 hover:bg-white/[0.02] cursor-pointer transition-colors',
-                    expandedInv === inv.number && 'bg-white/[0.03]',
-                  )}
-                  onClick={() => setExpandedInv(expandedInv === inv.number ? null : inv.number)}
-                >
-                  <td className="py-2.5 px-3">
-                    <span className="font-medium text-white">INV-{String(inv.number).padStart(3, '0')}</span>
-                    <span className="text-slate-500 ml-1.5">{inv.capacity}kW</span>
-                  </td>
-                  {/* DC전압: LASEE 미제공 — 백엔드 추가 시 inv.dc.voltage 사용 */}
-                  <td className="py-2.5 px-3 text-slate-500">-</td>
-                  {/* DC전류: LASEE 미제공 */}
-                  <td className="py-2.5 px-3 text-slate-500">-</td>
-                  <td className="py-2.5 px-3 text-white tabular-nums">{inv.dc.power.toFixed(1)} kW</td>
-                  <td className="py-2.5 px-3 text-white tabular-nums">{inv.ac.power.toFixed(1)} kW</td>
-                  <td className="py-2.5 px-3 text-slate-500">-</td>
-                  <td className="py-2.5 px-3 text-slate-500">-</td>
-                  <td className="py-2.5 px-3 text-white tabular-nums">{inv.dailyEnergy.toFixed(1)} kWh</td>
-                  <td className="py-2.5 px-3">
-                    <span
-                      className={cn(
-                        'inline-flex h-2 w-2 rounded-full',
-                        inv.connectionState === 'NORMAL' ? 'bg-emerald-500' : 'bg-red-500',
-                      )}
-                    />
-                  </td>
-                  <td className="py-2.5 px-3">
-                    {inv.statusMessages.length > 0 ? (
-                      <Badge variant={STATUS_MSG_VARIANT[inv.statusMessages[0] as string] ?? 'danger'}>
-                        {inv.statusMessages[0]}
-                      </Badge>
-                    ) : (
-                      <Badge variant="success">정상</Badge>
-                    )}
-                  </td>
-                  <td className="py-2.5 px-1">
-                    {expandedInv === inv.number ? (
-                      <ChevronUp size={12} className="text-slate-500" />
-                    ) : (
-                      <ChevronDown size={12} className="text-slate-500" />
-                    )}
-                  </td>
-                </tr>
-                {/* AC 3-phase expanded row */}
-                {expandedInv === inv.number && (
-                  <tr className="bg-white/[0.02]">
-                    <td colSpan={11} className="px-3 py-3">
-                      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                        {/* AC Voltage 3-phase */}
-                        <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3">
-                          <p className="text-[10px] text-slate-500 mb-2">AC 전압 (3상)</p>
-                          <div className="space-y-1.5">
-                            {(['R', 'S', 'T'] as const).map((phase) => {
-                              const key = `volt${phase}` as 'voltR' | 'voltS' | 'voltT';
-                              return (
-                                <div key={phase} className="flex items-center justify-between">
-                                  <span
-                                    className={cn(
-                                      'text-[10px] font-medium w-4',
-                                      phase === 'R'
-                                        ? 'text-red-400'
-                                        : phase === 'S'
-                                          ? 'text-amber-400'
-                                          : 'text-blue-400',
-                                    )}
-                                  >
-                                    {phase}
-                                  </span>
-                                  <span className="text-xs text-white tabular-nums">{inv.ac[key].toFixed(1)} V</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                        {/* AC Current 3-phase */}
-                        <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3">
-                          <p className="text-[10px] text-slate-500 mb-2">AC 전류 (3상)</p>
-                          <div className="space-y-1.5">
-                            {(['R', 'S', 'T'] as const).map((phase) => {
-                              const key = `current${phase}` as 'currentR' | 'currentS' | 'currentT';
-                              return (
-                                <div key={phase} className="flex items-center justify-between">
-                                  <span
-                                    className={cn(
-                                      'text-[10px] font-medium w-4',
-                                      phase === 'R'
-                                        ? 'text-red-400'
-                                        : phase === 'S'
-                                          ? 'text-amber-400'
-                                          : 'text-blue-400',
-                                    )}
-                                  >
-                                    {phase}
-                                  </span>
-                                  <span className="text-xs text-white tabular-nums">{inv.ac[key].toFixed(1)} A</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                        {/* Additional info */}
-                        <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3">
-                          <p className="text-[10px] text-slate-500 mb-2">상세 정보</p>
-                          <div className="space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-slate-400">누적 발전</span>
-                              <span className="text-xs text-white tabular-nums">
-                                {inv.totalEnergy.toLocaleString()} kWh
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-slate-400">마지막 수집</span>
-                              <span className="text-[10px] text-slate-300">{inv.lastDataAt}</span>
-                            </div>
-                            {inv.statusMessages.length > 0 && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] text-slate-400">상태 메시지</span>
-                                <span className="text-[10px] text-amber-400">{inv.statusMessages.join(', ')}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Per-inverter realtime tab */}
-      <div className="border-t border-accent/10 pt-4">
-        <p className="text-sm font-medium text-white mb-3 flex items-center gap-1.5">
-          <Zap size={14} className="text-primary" /> 인버터별 실시간 계측
-        </p>
-        <div className="flex gap-1 mb-3">
-          {inverters.map((inv) => (
-            <button
-              key={inv.number}
-              onClick={() => setActiveTab(inv.number)}
-              className={cn(
-                'px-3.5 rounded-md text-xs font-medium transition-colors',
-                activeTab === inv.number
-                  ? 'bg-primary/20 text-primary border border-primary/40'
-                  : 'text-slate-500 hover:text-slate-300',
-              )}
-            >
-              INV-{String(inv.number).padStart(3, '0')}
-              <span
-                className={cn(
-                  'ml-1.5 inline-flex h-1.5 w-1.5 rounded-full',
-                  inv.connectionState === 'NORMAL' ? 'bg-emerald-500' : 'bg-red-500',
-                )}
-              />
-            </button>
-          ))}
-        </div>
-        {(() => {
-          const inv = inverters.find((i) => i.number === activeTab);
-          if (!inv) return null;
-          return (
-            <div className="grid grid-cols-3 lg:grid-cols-6 gap-3">
-              {/* DC 전압: LASEE 미제공 */}
-              <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3 text-center">
-                <p className="text-[10px] text-slate-500">DC 전압</p>
-                <p className="text-lg font-bold text-slate-500 tabular-nums">-</p>
-                <p className="text-[10px] text-slate-600">V</p>
-              </div>
-              {/* DC 전류: LASEE 미제공 */}
-              <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3 text-center">
-                <p className="text-[10px] text-slate-500">DC 전류</p>
-                <p className="text-lg font-bold text-slate-500 tabular-nums">-</p>
-                <p className="text-[10px] text-slate-600">A</p>
-              </div>
-              <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3 text-center">
-                <p className="text-[10px] text-slate-500">DC 전력</p>
-                <p className="text-lg font-bold text-white tabular-nums">{inv.dc.power.toFixed(1)}</p>
-                <p className="text-[10px] text-slate-600">kW</p>
-              </div>
-              <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3 text-center">
-                <p className="text-[10px] text-slate-500">AC 전력</p>
-                <p className="text-lg font-bold text-white tabular-nums">{inv.ac.power.toFixed(1)}</p>
-                <p className="text-[10px] text-slate-600">kW</p>
-              </div>
-              {/* 역률: LASEE 미제공 */}
-              <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3 text-center">
-                <p className="text-[10px] text-slate-500">역률</p>
-                <p className="text-lg font-bold text-slate-500 tabular-nums">-</p>
-                <p className="text-[10px] text-slate-600">PF</p>
-              </div>
-              {/* 주파수: LASEE 미제공 */}
-              <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3 text-center">
-                <p className="text-[10px] text-slate-500">주파수</p>
-                <p className="text-lg font-bold text-slate-500 tabular-nums">-</p>
-                <p className="text-[10px] text-slate-600">Hz</p>
-              </div>
-            </div>
-          );
-        })()}
-      </div>
-    </div>
-  );
-}
 
 /* ── Main Page ── */
 
@@ -655,25 +269,16 @@ export default function PlantDetailPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <Breadcrumb items={[{ label: '모니터링', path: '/monitoring' }, { label: '발전소 상세' }]} />
+      <Breadcrumb items={[{ label: '통합관제', path: '/dashboard' }, { label: '발전소 상세' }]} />
       <div className="flex items-center gap-3">
-        <Button size="sm" variant="ghost" onClick={() => router.push('/monitoring')}>
+        <Button size="sm" variant="ghost" onClick={() => router.push('/monitoring/plant')} aria-label="발전소 목록으로">
           <ArrowLeft size={16} />
         </Button>
         <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-white">{plant.name}</h1>
-            <Badge variant="primary">{TYPE_LABELS[plant.type]}</Badge>
-            <Badge variant={STATUS_VARIANT[plant.status]}>{STATUS_LABEL[plant.status]}</Badge>
-            {hasLasee && <Badge variant="info">LASEE 연동</Badge>}
-          </div>
-          <div className="flex items-center gap-4 mt-0.5">
-            <p className="text-sm text-slate-400 flex items-center gap-1">
-              <MapPin size={12} /> {plant.address}
-            </p>
-            <p className="text-sm text-slate-400 flex items-center gap-1">
-              <Phone size={12} /> {plant.manager} ({plant.managerPhone})
-            </p>
+          <h1 className="text-xl font-bold text-white">{plant.name}</h1>
+          <div className="flex items-center gap-2 mt-1">
+            <SourceBadge type={plant.type} />
+            <StatusBadge status={plant.status} />
           </div>
         </div>
         <div className="flex gap-2">
@@ -688,83 +293,68 @@ export default function PlantDetailPage() {
 
       {/* Connection Status Banner (LASEE plants only) */}
       {hasLasee && plant.connectionStatus && (
-        <ConnectionBanner status={plant.connectionStatus} inverters={plant.inverters} />
+        <ConnectionBanner status={plant.connectionStatus} />
       )}
 
       {/* KPI Row */}
       {hasLasee ? (
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-xs text-accent mb-1">현재 출력</p>
+            <p className="text-sm text-slate-300 mb-1">현재 출력</p>
             <p className="text-2xl font-bold text-white tabular-nums">
               {plant.currentOutput.toLocaleString()} <span className="text-sm font-normal text-slate-500">kW</span>
             </p>
             <div className="mt-2">
-              <ProgressBar
-                value={outputPercent}
-                variant={outputPercent > 70 ? 'success' : outputPercent > 30 ? 'warning' : 'danger'}
-                showValue
-                label="가동률"
-              />
+              <ProgressBar value={outputPercent} variant="success" showValue label="가동률" />
             </div>
           </div>
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-xs text-accent mb-1">금일 발전량</p>
+            <p className="text-sm text-slate-300 mb-1">금일 발전량</p>
             <p className="text-2xl font-bold text-white tabular-nums">
               {plant.todayGeneration.toLocaleString()} <span className="text-sm font-normal text-slate-500">kWh</span>
             </p>
           </div>
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-xs text-accent mb-1">설비 용량</p>
+            <p className="text-sm text-slate-300 mb-1">설비 용량</p>
             <p className="text-2xl font-bold text-white tabular-nums">
               {plant.capacity.toLocaleString()} <span className="text-sm font-normal text-slate-500">kW</span>
             </p>
-            <p className="text-[10px] text-slate-500 mt-1">인버터 {plant.inverters?.length ?? 0}대</p>
           </div>
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-xs text-accent mb-1">누적 발전량</p>
+            <p className="text-sm text-slate-300 mb-1">누적 발전량</p>
             <p className="text-2xl font-bold text-white tabular-nums">
               {((apiPlant as any)?.totalEnergy ?? 0).toLocaleString()}{' '}
               <span className="text-sm font-normal text-slate-500">kWh</span>
             </p>
           </div>
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-xs text-accent mb-1">금일 발전시간</p>
+            <p className="text-sm text-slate-300 mb-1">금일 발전시간</p>
             <p className="text-2xl font-bold text-white tabular-nums">
               {((apiPlant as any)?.generationHours ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}{' '}
               <span className="text-sm font-normal text-slate-500">h</span>
             </p>
-            <p className="text-[10px] text-slate-500 mt-1">
-              예상 일조 ({((apiPlant as any)?.expectedHours ?? 0).toFixed(2)}h/일)
-            </p>
           </div>
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-xs text-accent mb-1">금액</p>
+            <p className="text-sm text-slate-300 mb-1">금액</p>
             <p className="text-2xl font-bold text-white tabular-nums">
               {((apiPlant as any)?.revenueAmount ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}{' '}
               <span className="text-sm font-normal text-slate-500">원</span>
             </p>
-            <p className="text-[10px] text-slate-500 mt-1">금일 발전량 기준</p>
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-xs text-accent mb-1">현재 출력</p>
+            <p className="text-sm text-slate-300 mb-1">현재 출력</p>
             <p className="text-2xl font-bold text-white tabular-nums">
               {plant.currentOutput.toLocaleString()} <span className="text-sm font-normal text-slate-500">kW</span>
             </p>
             <div className="mt-2">
-              <ProgressBar
-                value={outputPercent}
-                variant={outputPercent > 70 ? 'success' : outputPercent > 30 ? 'warning' : 'danger'}
-                showValue
-                label="가동률"
-              />
+              <ProgressBar value={outputPercent} variant="success" showValue label="가동률" />
             </div>
           </div>
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-xs text-accent mb-1">오늘 발전량</p>
+            <p className="text-sm text-slate-300 mb-1">오늘 발전량</p>
             <p className="text-2xl font-bold text-white tabular-nums">
               {plant.todayGeneration.toLocaleString()} <span className="text-sm font-normal text-slate-500">kWh</span>
             </p>
@@ -781,22 +371,20 @@ export default function PlantDetailPage() {
             </div>
           </div>
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-xs text-accent mb-1">오늘 예상 발전량</p>
+            <p className="text-sm text-slate-300 mb-1">오늘 예상 발전량</p>
             <p className="text-2xl font-bold text-white tabular-nums">
               {plant.expectedGeneration.toLocaleString()}{' '}
               <span className="text-sm font-normal text-slate-500">kWh</span>
             </p>
-            <p className="text-[10px] text-slate-500 mt-1">AI 예측 기반</p>
           </div>
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-xs text-accent mb-1">이번 달 발전량</p>
+            <p className="text-sm text-slate-300 mb-1">이번 달 발전량</p>
             <p className="text-2xl font-bold text-white tabular-nums">
               {plant.monthGeneration.toLocaleString()} <span className="text-sm font-normal text-slate-500">kWh</span>
             </p>
-            <p className="text-[10px] text-slate-500 mt-1">누적 (4월)</p>
           </div>
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-xs text-accent mb-1">일사량 누적</p>
+            <p className="text-sm text-slate-300 mb-1">일사량 누적</p>
             <p className="text-2xl font-bold text-white tabular-nums">
               {plant.irradianceCumulative} <span className="text-sm font-normal text-slate-500">kWh/m²</span>
             </p>
@@ -935,7 +523,7 @@ export default function PlantDetailPage() {
               { key: 'acPower', name: 'AC 전력 (kW)', color: '#3B82F6' },
             ]}
             title="실시간 출력 추이"
-            description="LASEE 60초 간격 수집"
+            description="60초 간격 수집"
             height={220}
           />
           <RmsAreaChart
@@ -979,7 +567,7 @@ export default function PlantDetailPage() {
 
       {/* 인버터 상세 (LASEE plants) */}
       {hasLasee && plant.inverters && plant.inverters.length > 0 && (
-        <SectionCard title="인버터 상세 현황" description={`${plant.inverters.length}대 · LASEE 실시간 연동`}>
+        <SectionCard title="인버터 상세 현황" description={`${plant.inverters.length}대`}>
           <InverterDetailSection inverters={plant.inverters} />
         </SectionCard>
       )}

@@ -277,7 +277,7 @@ export default function AnomalyDetailPage() {
     <div className="space-y-6">
       <Breadcrumb
         items={[
-          { label: '모니터링', path: '/monitoring' },
+          { label: '통합관제', path: '/dashboard' },
           { label: '이상감지', path: '/monitoring/anomalies' },
           { label: '상세' },
         ]}
@@ -379,26 +379,7 @@ export default function AnomalyDetailPage() {
           </div>
         </SectionCard>
 
-        <SectionCard title="영향 수용가">
-          {(anomaly.affectedConsumers?.length ?? 0) > 0 ? (
-            <div className="space-y-2">
-              {anomaly.affectedConsumers!.map((name) => (
-                <div
-                  key={name}
-                  className="flex items-center justify-between rounded-lg border border-accent/20 bg-surface-elevated/50 p-3"
-                >
-                  <span className="text-sm text-white">{name}</span>
-                  <Badge variant={isTerminal ? 'success' : 'warning'}>{isTerminal ? '해결됨' : '영향중'}</Badge>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500 text-center py-4">영향받는 수용가가 없습니다</p>
-          )}
-        </SectionCard>
-      </div>
-
-      <SectionCard title="조치 이력" description={`${anomaly.actions.length}건`}>
+        <SectionCard title="조치 이력" description={`${anomaly.actions.length}건`}>
         {anomaly.actions.length > 0 ? (
           <div className="space-y-0">
             {anomaly.actions.map((action, idx) => (
@@ -447,6 +428,7 @@ export default function AnomalyDetailPage() {
           <p className="text-sm text-slate-500 text-center py-4">등록된 조치가 없습니다</p>
         )}
       </SectionCard>
+      </div>
 
       {!isTerminal && (
         <SectionCard title="조치 추가">

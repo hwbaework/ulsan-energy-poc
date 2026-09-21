@@ -6,13 +6,11 @@ import { Shield, Eye, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Input } from '@/components/ui/Input';
-import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
-import { Tabs } from '@/components/ui/Tabs';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features/SectionCard';
-import { useUsers, useUpdateUser, useSuspendUser, useActivateUser, useDeleteUser } from '@/hooks/platform/useUsers';
+import { useUsers, useUpdateUser, useDeleteUser } from '@/hooks/platform/useUsers';
 import { useAssignRoleByCode } from '@/hooks/platform/useRoles';
 import { useToastStore } from '@/stores/useToastStore';
 
@@ -28,15 +26,11 @@ interface UserRow {
   department: string;
 }
 
+// 회원가입 유형과 동일한 3개 (실제 목업 사용자 역할과도 일치)
 const ROLE_OPTIONS = [
-  { value: 'SYSTEM_ADMIN', label: '시스템 관리자' },
-  { value: 'COMPANY_ADMIN', label: '기업 관리자' },
+  { value: 'CONSUMER_MANAGER', label: '전기사용자' },
   { value: 'POWER_OPERATOR', label: '발전사업자' },
-  { value: 'CONSUMER_MANAGER', label: '수용가 담당자' },
-  { value: 'CONSULTANT', label: '컨설턴트' },
-  { value: 'SPC_OPERATOR', label: 'SPC 운영자' },
-  { value: 'FIELD_OPERATOR', label: '현장 운영자' },
-  { value: 'AGENCY_ADMIN', label: '용역사 관리자' },
+  { value: 'SYSTEM_ADMIN', label: '관리자 (SPC)' },
 ];
 
 const ROLE_LABEL_MAP: Record<string, string> = Object.fromEntries(ROLE_OPTIONS.map((r) => [r.value, r.label]));
@@ -48,7 +42,6 @@ function roleLabel(code: string): string {
 export default function UsersPage() {
   const router = useRouter();
   const showToast = useToastStore((s) => s.add);
-  const [tabId, setTabId] = useState('all');
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
 
@@ -64,8 +57,6 @@ export default function UsersPage() {
   const { data: apiData, isError } = useUsers({ keyword: search || undefined });
   const updateUserMut = useUpdateUser();
   const assignRoleByCodeMut = useAssignRoleByCode();
-  const suspendMut = useSuspendUser();
-  const activateMut = useActivateUser();
   const deleteUserMut = useDeleteUser();
 
   const roleOptions = ROLE_OPTIONS.map((r) => ({ value: r.value, label: r.label }));
@@ -86,9 +77,6 @@ export default function UsersPage() {
       : [];
 
   const filtered = users.filter((u) => {
-    if (tabId === 'active' && u.status !== 'ACTIVE') return false;
-    if (tabId === 'pending' && u.status !== 'PENDING') return false;
-    if (tabId === 'suspended' && u.status !== 'SUSPENDED') return false;
     if (roleFilter && u.role !== roleFilter) return false;
     if (search && !u.name.includes(search) && !u.email.includes(search) && !u.company.includes(search)) return false;
     return true;
@@ -137,16 +125,6 @@ export default function UsersPage() {
             <span className="text-sm text-slate-300">{roleLabel(row.role)}</span>
           </div>
         ),
-    },
-    {
-      key: 'status',
-      header: '상태',
-      width: '90px',
-      render: (row) => (
-        <Badge variant={row.status === 'ACTIVE' ? 'success' : row.status === 'PENDING' ? 'warning' : 'danger'}>
-          {row.status === 'ACTIVE' ? '활성' : row.status === 'PENDING' ? '대기' : '정지'}
-        </Badge>
-      ),
     },
     {
       key: 'lastLogin',
@@ -203,46 +181,33 @@ export default function UsersPage() {
     <div className="space-y-6">
       <Breadcrumb items={[{ label: '관리' }, { label: '회원 관리' }]} />
 
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">회원 관리</h1>
-          <p className="mt-1 text-sm text-slate-400">플랫폼 사용자를 관리합니다</p>
-        </div>
-      </div>
+      <h1 className="text-2xl font-bold text-white">회원 관리</h1>
 
-      <Tabs
-        tabs={[
-          { id: 'all', label: `전체 (${users.length})` },
-          { id: 'active', label: `활성 (${users.filter((u) => u.status === 'ACTIVE').length})` },
-          { id: 'pending', label: `대기 (${users.filter((u) => u.status === 'PENDING').length})` },
-          { id: 'suspended', label: `정지 (${users.filter((u) => u.status === 'SUSPENDED').length})` },
-        ]}
-        activeId={tabId}
-        onChange={setTabId}
-      />
-
-      <div className="flex items-center gap-3">
-        <div className="w-72">
-          <Input
-            placeholder="이름, 이메일 또는 기업명 검색"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="w-48">
-          <Select
-            placeholder="역할 전체"
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            options={[
-              { value: '', label: '역할 전체' },
-              ...roleOptions.map((r) => ({ value: r.value, label: r.label })),
-            ]}
-          />
-        </div>
-      </div>
-
-      <SectionCard title="">
+      <SectionCard
+        title="회원 목록"
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="w-64">
+              <Input
+                placeholder="이름, 이메일 또는 기업명 검색"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="w-40">
+              <Select
+                placeholder="역할 전체"
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                options={[
+                  { value: '', label: '역할 전체' },
+                  ...roleOptions.map((r) => ({ value: r.value, label: r.label })),
+                ]}
+              />
+            </div>
+          </div>
+        }
+      >
         <DataTable columns={columns} data={filtered} rowKey={(row) => row.id} emptyMessage="사용자가 없습니다" />
       </SectionCard>
 
@@ -269,16 +234,6 @@ export default function UsersPage() {
                 <p className="text-sm text-white">{detailRow.role === '-' ? '미배정' : roleLabel(detailRow.role)}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">상태</p>
-                <Badge
-                  variant={
-                    detailRow.status === 'ACTIVE' ? 'success' : detailRow.status === 'PENDING' ? 'warning' : 'danger'
-                  }
-                >
-                  {detailRow.status === 'ACTIVE' ? '활성' : detailRow.status === 'PENDING' ? '대기' : '정지'}
-                </Badge>
-              </div>
-              <div>
                 <p className="text-xs text-slate-500 mb-1">최근 로그인</p>
                 <p className="text-sm text-slate-300 tabular-nums">{detailRow.lastLogin}</p>
               </div>
@@ -292,39 +247,6 @@ export default function UsersPage() {
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
-              {detailRow.status === 'ACTIVE' && (
-                <Button
-                  variant="danger"
-                  size="sm"
-                  onClick={async () => {
-                    try {
-                      await suspendMut.mutateAsync(detailRow.id);
-                      showToast('success', `${detailRow.name} 계정이 정지되었습니다`);
-                      setDetailRow(null);
-                    } catch {
-                      showToast('error', '계정 정지에 실패했습니다');
-                    }
-                  }}
-                >
-                  계정 정지
-                </Button>
-              )}
-              {detailRow.status === 'SUSPENDED' && (
-                <Button
-                  size="sm"
-                  onClick={async () => {
-                    try {
-                      await activateMut.mutateAsync(detailRow.id);
-                      showToast('success', `${detailRow.name} 계정이 활성화되었습니다`);
-                      setDetailRow(null);
-                    } catch {
-                      showToast('error', '계정 활성화에 실패했습니다');
-                    }
-                  }}
-                >
-                  계정 활성화
-                </Button>
-              )}
               <Button
                 variant="secondary"
                 size="sm"

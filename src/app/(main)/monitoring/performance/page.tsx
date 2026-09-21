@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Zap, TrendingUp, Clock, Activity } from 'lucide-react';
 import { StatCard, StatsGrid, SectionCard } from '@/components/features';
+
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Badge } from '@/components/ui/Badge';
 import { RmsBarChart } from '@/components/ui/Chart';
@@ -50,11 +50,10 @@ export default function PlantPerformancePage() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb items={[{ label: '모니터링', path: '/monitoring' }, { label: '성능 분석' }]} />
+      <Breadcrumb items={[{ label: '통합관제', path: '/dashboard' }, { label: '성능 분석' }]} />
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold text-white">발전소 성능 분석</h1>
-          <p className="mt-1 text-sm text-slate-400">이용률(CF) · 성능비(PR) · 발전소 비교</p>
         </div>
         <div className="flex gap-2">
           <input
@@ -92,23 +91,19 @@ export default function PlantPerformancePage() {
       {detail && (
         <StatsGrid columns={4}>
           <StatCard
-            icon={<TrendingUp size={18} className="text-emerald-400" />}
             label="이용률 (CF)"
             value={`${detail.capacityFactorPct}%`}
             sub={detail.period}
           />
           <StatCard
-            icon={<Activity size={18} className="text-sky-400" />}
             label="성능비 (PR)"
             value={`${detail.performanceRatioPct}%`}
           />
           <StatCard
-            icon={<Zap size={18} className="text-amber-400" />}
             label="총 발전량"
             value={`${(detail.totalGenerationKwh / 1000).toFixed(1)} MWh`}
           />
           <StatCard
-            icon={<Clock size={18} className="text-violet-400" />}
             label="피크 출력"
             value={`${detail.peakOutputKw.toFixed(1)} kW`}
             sub={`평균 ${detail.avgOutputKw.toFixed(1)} kW`}

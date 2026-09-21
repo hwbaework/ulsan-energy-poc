@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { RmsBarChart, RmsLineChart } from '@/components/ui/Chart';
 import { SectionCard, StatCard, StatsGrid } from '@/components/features';
+
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { Zap, TrendingUp, AlertTriangle, Download } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { exportPdf } from '@/lib/utils';
 import { useQueries } from '@tanstack/react-query';
 import { useAnomalies } from '@/hooks/monitoring/useAnomalies';
@@ -137,11 +138,10 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb items={[{ label: '모니터링', path: '/monitoring' }, { label: '보고서' }]} />
+      <Breadcrumb items={[{ label: '통합관제', path: '/dashboard' }, { label: '보고서' }]} />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white">보고서</h1>
-          <p className="mt-1 text-sm text-slate-400">발전 현황 및 성과 보고서를 확인합니다</p>
         </div>
         <Button
           size="sm"
@@ -172,22 +172,18 @@ export default function ReportsPage() {
 
       <StatsGrid columns={4}>
         <StatCard
-          icon={<Zap size={18} className="text-amber-400" />}
           label="총 발전량"
           value={isLoading ? '...' : `${(totalGeneration / 1000).toFixed(1)} MWh`}
         />
         <StatCard
-          icon={<TrendingUp size={18} className="text-emerald-400" />}
           label="평균 효율"
           value={isLoading ? '...' : `${avgEfficiency}%`}
         />
         <StatCard
-          icon={<AlertTriangle size={18} className="text-red-400" />}
           label="이상 감지"
           value={`${anomalyCount}건`}
         />
         <StatCard
-          icon={<Zap size={18} className="text-blue-400" />}
           label="일평균 발전량"
           value={isLoading ? '...' : `${(totalGeneration / dayCount / 1000).toFixed(1)} MWh`}
         />

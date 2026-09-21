@@ -1,21 +1,38 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Plus, Upload, Building2, Eye, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Building2, Eye, Pencil, Trash2, Download, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Input } from '@/components/ui/Input';
-import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features/SectionCard';
-import { StatCard, StatsGrid } from '@/components/features/StatCard';
 import { useCompanies, useCreateCompany, useUpdateCompany, useDeleteCompany } from '@/hooks/platform/useCompanies';
+import { useUsers } from '@/hooks/platform/useUsers';
 import { useToastStore } from '@/stores/useToastStore';
-import { importCompaniesExcel } from '@/api/platform/companies';
-import { FileUpload } from '@/components/ui/FileUpload';
-
 const BIZ_NUM_RE = /^\d{3}-\d{2}-\d{5}$/;
+
+function licenseFileName(companyName: string) {
+  return `사업자등록증_${companyName || 'company'}.txt`;
+}
+function downloadLicense(companyName: string, bizNum: string, rep: string) {
+  // POC — 실제 업로드 파일이 없어 데모용 파일을 내려받는다.
+  const content = [
+    '사업자 등록증 (데모)',
+    '',
+    `기업명: ${companyName || '-'}`,
+    `사업자등록번호: ${bizNum || '-'}`,
+    `대표자: ${rep || '-'}`,
+  ].join('\n');
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = licenseFileName(companyName);
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 interface FormErrors {
   name?: string;
@@ -41,9 +58,18 @@ interface CompanyRow {
   representative: string;
   businessNumber: string;
   phone: string;
+  type: string;
   status: 'ACTIVE' | 'PENDING' | 'SUSPENDED';
   memberCount: number;
   createdAt: string;
+}
+
+// 사업 유형 → 회원가입 3유형과 동일한 표기
+function companyType(businessTypes: string[] = []): string {
+  if (businessTypes.includes('발전사업자')) return '발전사업자';
+  if (businessTypes.includes('수용가')) return '전기사용자';
+  if (businessTypes.includes('SPC') || businessTypes.includes('운영사')) return '관리자 (SPC)';
+  return '-';
 }
 
 export default function CompaniesPage() {
@@ -55,6 +81,7 @@ export default function CompaniesPage() {
   const [formPhone, setFormPhone] = useState('');
   const [formAddress, setFormAddress] = useState('');
   const [detailRow, setDetailRow] = useState<CompanyRow | null>(null);
+  const { data: usersData } = useUsers({});
   const [editRow, setEditRow] = useState<CompanyRow | null>(null);
   const [deleteRow, setDeleteRow] = useState<CompanyRow | null>(null);
   const [editName, setEditName] = useState('');
@@ -62,12 +89,14 @@ export default function CompaniesPage() {
   const [editRep, setEditRep] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
+  const [addLicenseName, setAddLicenseName] = useState<string | null>(null);
+  const [editLicenseName, setEditLicenseName] = useState<string | null>(null);
+  const addFileRef = useRef<HTMLInputElement>(null);
+  const editFileRef = useRef<HTMLInputElement>(null);
   const addToast = useToastStore((s) => s.add);
   const createCompany = useCreateCompany();
   const updateCompany = useUpdateCompany();
   const deleteCompany = useDeleteCompany();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
   const [addErrors, setAddErrors] = useState<FormErrors>({});
   const [editErrors, setEditErrors] = useState<FormErrors>({});
 
@@ -78,6 +107,7 @@ export default function CompaniesPage() {
     setEditRep(row.representative);
     setEditPhone(row.phone);
     setEditAddress('');
+    setEditLicenseName(null);
   }
 
   const { data: apiData, isError } = useCompanies({ q: search || undefined });
@@ -90,6 +120,7 @@ export default function CompaniesPage() {
           representative: c.representativeName ?? '',
           businessNumber: c.businessNumber,
           phone: c.phone ?? '',
+          type: companyType(c.businessTypes),
           status: (c.status as CompanyRow['status']) ?? 'ACTIVE',
           memberCount: 0,
           createdAt: c.createdAt?.split('T')[0] ?? '',
@@ -98,8 +129,6 @@ export default function CompaniesPage() {
 
   const filtered = companies.filter((c) => c.name.includes(search) || c.representative.includes(search));
 
-  const activeCount = companies.filter((c) => c.status === 'ACTIVE').length;
-  const pendingCount = companies.filter((c) => c.status === 'PENDING').length;
 
   const columns: Column<CompanyRow>[] = [
     {
@@ -125,27 +154,16 @@ export default function CompaniesPage() {
       render: (row) => <span className="text-sm text-slate-300">{row.representative}</span>,
     },
     {
+      key: 'type',
+      header: '유형',
+      width: '120px',
+      render: (row) => <span className="text-sm text-slate-300">{row.type}</span>,
+    },
+    {
       key: 'phone',
       header: '기업 연락처',
       width: '160px',
       render: (row) => <span className="text-sm text-slate-400 tabular-nums">{row.phone}</span>,
-    },
-    {
-      key: 'memberCount',
-      header: '멤버',
-      width: '80px',
-      align: 'center',
-      render: (row) => <span className="text-sm text-slate-300 tabular-nums">{row.memberCount}명</span>,
-    },
-    {
-      key: 'status',
-      header: '상태',
-      width: '90px',
-      render: (row) => (
-        <Badge variant={row.status === 'ACTIVE' ? 'success' : row.status === 'PENDING' ? 'warning' : 'danger'}>
-          {row.status === 'ACTIVE' ? '활성' : row.status === 'PENDING' ? '대기' : '정지'}
-        </Badge>
-      ),
     },
     {
       key: 'createdAt',
@@ -202,54 +220,25 @@ export default function CompaniesPage() {
     <div className="space-y-6">
       <Breadcrumb items={[{ label: '관리' }, { label: '기업 관리' }]} />
 
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">기업 관리</h1>
-          <p className="mt-1 text-sm text-slate-400">등록된 기업을 관리합니다</p>
-        </div>
-        <div className="flex gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            className="hidden"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              setUploading(true);
-              try {
-                const formData = new FormData();
-                formData.append('file', file);
-                const count = await importCompaniesExcel(formData);
-                addToast('success', `${file.name}에서 ${count}개 기업 등록 완료`);
-              } catch (err) {
-                addToast('error', `업로드 실패: ${(err as Error).message}`);
-              } finally {
-                setUploading(false);
-                e.target.value = '';
-              }
-            }}
-          />
-          <Button variant="secondary" size="sm" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
-            <Upload size={14} className="mr-1.5" /> {uploading ? '업로드 중...' : 'Excel 업로드'}
-          </Button>
-          <Button size="sm" onClick={() => setAddOpen(true)}>
-            <Plus size={14} className="mr-1.5" /> 기업 등록
-          </Button>
-        </div>
-      </div>
+      <h1 className="text-2xl font-bold text-white">기업 관리</h1>
 
-      <StatsGrid columns={3}>
-        <StatCard label="전체 기업" value={companies.length} />
-        <StatCard label="활성" value={activeCount} change={{ value: activeCount, label: '운영중' }} />
-        <StatCard label="승인 대기" value={pendingCount} />
-      </StatsGrid>
-
-      <div className="w-72">
-        <Input placeholder="기업명 또는 대표자 검색" value={search} onChange={(e) => setSearch(e.target.value)} />
-      </div>
-
-      <SectionCard title="">
+      <SectionCard
+        title="기업 목록"
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="w-64">
+              <Input
+                placeholder="기업명 또는 대표자 검색"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <Button size="sm" onClick={() => setAddOpen(true)}>
+              <Plus size={14} className="mr-1.5" /> 기업 등록
+            </Button>
+          </div>
+        }
+      >
         <DataTable columns={columns} data={filtered} rowKey={(row) => row.id} emptyMessage="등록된 기업이 없습니다" />
       </SectionCard>
 
@@ -312,7 +301,23 @@ export default function CompaniesPage() {
           />
           <div>
             <p className="text-sm font-medium text-accent mb-1.5">사업자등록증 (선택)</p>
-            <FileUpload accept=".pdf,.jpg,.png" maxSizeMB={10} onChange={() => {}} />
+            <input
+              ref={addFileRef}
+              type="file"
+              accept=".pdf,.jpg,.png"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) setAddLicenseName(f.name);
+                e.target.value = '';
+              }}
+            />
+            <div className="flex items-center gap-3">
+              <Button variant="secondary" size="sm" onClick={() => addFileRef.current?.click()}>
+                <Upload size={14} className="mr-1.5" /> 파일 선택
+              </Button>
+              {addLicenseName && <span className="text-sm text-slate-300">{addLicenseName}</span>}
+            </div>
           </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
             <Button
@@ -383,24 +388,43 @@ export default function CompaniesPage() {
                 <p className="text-sm text-slate-300 tabular-nums">{detailRow.phone || '-'}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">상태</p>
-                <Badge
-                  variant={
-                    detailRow.status === 'ACTIVE' ? 'success' : detailRow.status === 'PENDING' ? 'warning' : 'danger'
-                  }
-                >
-                  {detailRow.status === 'ACTIVE' ? '활성' : detailRow.status === 'PENDING' ? '대기' : '정지'}
-                </Badge>
-              </div>
-              <div>
                 <p className="text-xs text-slate-500 mb-1">등록일</p>
                 <p className="text-sm text-slate-300 tabular-nums">{detailRow.createdAt}</p>
               </div>
-              <div>
-                <p className="text-xs text-slate-500 mb-1">멤버 수</p>
-                <p className="text-sm text-slate-300">{detailRow.memberCount}명</p>
-              </div>
             </div>
+
+            {(() => {
+              const members = (usersData?.content ?? []).filter((u) => (u.companyName ?? '') === detailRow.name);
+              return (
+                <div>
+                  <p className="mb-2 text-xs text-slate-500">소속 멤버 ({members.length})</p>
+                  {members.length > 0 ? (
+                    <div className="overflow-hidden rounded-lg border border-white/[0.06]">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-white/[0.06] text-left text-xs text-slate-500">
+                            <th className="px-3 py-2 font-medium">이름</th>
+                            <th className="px-3 py-2 font-medium">이메일</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {members.map((u) => (
+                            <tr key={u.id} className="border-b border-white/[0.04] last:border-0">
+                              <td className="px-3 py-2 text-white">{u.name}</td>
+                              <td className="px-3 py-2 text-slate-400">{u.email}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="rounded-lg border border-white/[0.06] px-3 py-4 text-center text-sm text-slate-500">
+                      소속 멤버가 없습니다
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
             <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
               <Button
                 variant="secondary"
@@ -466,6 +490,36 @@ export default function CompaniesPage() {
             </div>
             <Input label="기업 연락처" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
             <Input label="기업 주소" value={editAddress} onChange={(e) => setEditAddress(e.target.value)} />
+            <div>
+              <p className="text-sm font-medium text-accent mb-1.5">사업자등록증</p>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-slate-300">{editLicenseName ?? licenseFileName(editName)}</span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => downloadLicense(editName, editBizNum, editRep)}
+                >
+                  <Download size={14} className="mr-1.5" /> 다운로드
+                </Button>
+              </div>
+              <input
+                ref={editFileRef}
+                type="file"
+                accept=".pdf,.jpg,.png"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) {
+                    setEditLicenseName(f.name);
+                    addToast('success', '사업자 등록증을 교체했습니다');
+                  }
+                  e.target.value = '';
+                }}
+              />
+              <Button variant="secondary" size="sm" className="mt-1.5" onClick={() => editFileRef.current?.click()}>
+                <Upload size={14} className="mr-1.5" /> 등록증 업데이트
+              </Button>
+            </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
               <Button
                 variant="secondary"

@@ -63,9 +63,9 @@ export function getPersona(user: User | null): Persona {
 
 export const PERSONA_HOME: Record<Persona, string> = {
   generator: '/dashboard',
-  consumer: '/consumer',
+  consumer: '/dashboard', // 통합관제 대시보드 — 발전사업자와 동일 화면
   consultant: '/consultant',
-  admin: '/monitoring', // 실시간 지도 관제 랜딩
+  admin: '/dashboard', // 통합관제 대시보드 — 발전사업자와 동일 화면
   spc: '/spc',
   operator: '/monitoring/anomalies',
   agency: '/consulting/projects',

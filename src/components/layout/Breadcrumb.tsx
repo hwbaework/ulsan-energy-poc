@@ -1,3 +1,4 @@
+import { getHomePath } from '@/lib/home';
 import { ChevronRight, Home } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -15,7 +16,7 @@ interface BreadcrumbProps {
 export function Breadcrumb({ items, className }: BreadcrumbProps) {
   return (
     <nav className={cn('flex items-center gap-1 text-xs', className)}>
-      <Link href="/" className="text-accent hover:text-white transition-colors">
+      <Link href={getHomePath()} className="text-accent hover:text-white transition-colors">
         <Home size={14} />
       </Link>
       {items.map((item, i) => (

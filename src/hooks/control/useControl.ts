@@ -42,6 +42,40 @@ export interface SafetyAlert {
   level: string;
   at: string;
 }
+
+// ── 전기안전 진단 (ITS API-006 최신 / API-007 이력) — data.items[] ──
+// 참조: ITS_울산_에자자_수집데이터_API_명세서 v1.2.
+export type SafetyRiskLevel = 'normal' | 'caution' | 'warning';
+/** 항목별 위험 점수 키: 전류·전압·누설·고조파·온도·전력품질·아크 */
+export type SafetyRiskKey =
+  | 'current'
+  | 'voltage'
+  | 'leakage'
+  | 'harmonic'
+  | 'temperature'
+  | 'powerQuality'
+  | 'arc';
+
+export interface SafetyItem {
+  /** 행 키 (API 필드 아님) */
+  id: number;
+  /** 진단 산출 시각 (API: diagnosedAt) */
+  diagnosedAt: string;
+  /** 발전소 코드 (API: plantCode = LASEE 발전소 ID). 회사 스코프 필터용 */
+  plantId: number;
+  /** 발전소명 (API: plantName) */
+  plantName: string;
+  /** 전기안전지수 0~100 (API: safetyIndex) */
+  safetyIndex: number;
+  /** 위험 등급 normal/caution/warning (API: riskLevel) */
+  riskLevel: SafetyRiskLevel;
+  /** 이상 점수 (API: anomalyScore) */
+  anomalyScore?: number;
+  /** 항목별 위험 점수 — 각 항목 Double (API: risks) */
+  risks?: Partial<Record<SafetyRiskKey, number>>;
+  /** 산출 근거 객체 (API: reason, 예: { summary }) */
+  reason?: { summary?: string; [k: string]: unknown };
+}
 export interface Inspection {
   id: number;
   target: string;
@@ -100,6 +134,8 @@ export const usePredictSignals = (companyId?: number) =>
   useList<PredictSignal>('signals', ENDPOINTS.control.predictSignals, companyId);
 export const useSafetyAlerts = (companyId?: number) =>
   useList<SafetyAlert>('alerts', ENDPOINTS.control.safetyAlerts, companyId);
+export const useSafetyItems = (companyId?: number) =>
+  useList<SafetyItem>('safetyItems', ENDPOINTS.control.safetyItems, companyId);
 export const useInspections = (companyId?: number) =>
   useList<Inspection>('inspections', ENDPOINTS.control.inspections, companyId);
 export const useSopScenarios = (companyId?: number) =>

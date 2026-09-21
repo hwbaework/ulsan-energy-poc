@@ -88,7 +88,7 @@ export function MapboxMapView({
   center = DEFAULT_CENTER,
   zoom = DEFAULT_ZOOM,
   className = '',
-  mapStyle = 'mapbox://styles/mapbox/standard-satellite',
+  mapStyle = 'mapbox://styles/mapbox/dark-v11', // 위성은 산만해서 다크 벡터 지도로 (UI 톤과 일치)
   markers = [],
   onMapClick,
   onZoomChanged,

@@ -7,6 +7,7 @@ import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { DataTable, type Column } from '@/components/features/DataList';
+import { SectionCard } from '@/components/features/SectionCard';
 import { cn, exportCsv } from '@/lib/utils';
 import { useAuditLogs } from '@/hooks/platform/useAuditLogs';
 
@@ -93,7 +94,7 @@ export default function AuditLogsPage() {
       header: '분류',
       width: '90px',
       render: (row) => {
-        const cfg = CATEGORY_CONFIG[row.category];
+        const cfg = CATEGORY_CONFIG[row.category] ?? CATEGORY_CONFIG.system;
         return (
           <div className={cn('inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px]', cfg.bg)}>
             <cfg.icon size={10} className={cfg.color} />
@@ -145,25 +146,7 @@ export default function AuditLogsPage() {
     <div className="space-y-6">
       <Breadcrumb items={[{ label: '관리' }, { label: '감사 로그' }]} />
 
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">시스템 로그</h1>
-          <p className="mt-1 text-sm text-slate-400">시스템 활동 감사 로그를 조회합니다</p>
-        </div>
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() =>
-            exportCsv(
-              `audit-logs-${new Date().toISOString().slice(0, 10)}`,
-              ['시간', '사용자', '활동', '카테고리', '결과', 'IP'],
-              logs.map((l) => [l.timestamp, l.actor, l.action, l.category, l.result, l.ip ?? '']),
-            )
-          }
-        >
-          <Download size={14} className="mr-1.5" /> CSV 내보내기
-        </Button>
-      </div>
+      <h1 className="text-2xl font-bold text-white">시스템 로그</h1>
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
@@ -191,31 +174,45 @@ export default function AuditLogsPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-xs">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input
-            type="text"
-            placeholder="수행자, 작업, 대상 검색..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg bg-white/[0.04] pl-9 pr-3 py-2 text-sm text-white placeholder:text-slate-500 ring-1 ring-white/[0.08] focus:ring-primary/40 focus:outline-none"
-          />
-        </div>
-        <div className="w-32">
-          <Select options={CATEGORY_OPTIONS} value={category} onChange={(e) => setCategory(e.target.value)} />
-        </div>
-        <div className="w-28">
-          <Select options={RESULT_OPTIONS} value={result} onChange={(e) => setResult(e.target.value)} />
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06]">
+      <SectionCard
+        title="감사 로그"
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="relative w-64">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                type="text"
+                placeholder="수행자, 작업, 대상 검색..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-lg bg-white/[0.04] pl-9 pr-3 py-2 text-sm text-white placeholder:text-slate-500 ring-1 ring-white/[0.08] focus:ring-primary/40 focus:outline-none"
+              />
+            </div>
+            <div className="w-32">
+              <Select options={CATEGORY_OPTIONS} value={category} onChange={(e) => setCategory(e.target.value)} />
+            </div>
+            <div className="w-28">
+              <Select options={RESULT_OPTIONS} value={result} onChange={(e) => setResult(e.target.value)} />
+            </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() =>
+                exportCsv(
+                  `audit-logs-${new Date().toISOString().slice(0, 10)}`,
+                  ['시간', '사용자', '활동', '카테고리', '결과', 'IP'],
+                  logs.map((l) => [l.timestamp, l.actor, l.action, l.category, l.result, l.ip ?? '']),
+                )
+              }
+            >
+              <Download size={14} className="mr-1.5" /> CSV 내보내기
+            </Button>
+          </div>
+        }
+      >
         <DataTable columns={columns} data={filtered} rowKey={(r) => r.id} />
         {filtered.length === 0 && <div className="py-12 text-center text-sm text-slate-500">검색 결과가 없습니다</div>}
-      </div>
+      </SectionCard>
     </div>
   );
 }

@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard, StatCard, StatsGrid } from '@/components/features';
+
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { ArrowLeft, Building2, Zap, Target } from 'lucide-react';
+import { ArrowLeft, Building2, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useConsumerSite } from '@/hooks/consumer/useConsumer';
 
@@ -103,7 +104,7 @@ export default function ConsumerDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb items={[{ label: '모니터링', path: '/monitoring' }, { label: '사업장 모니터링' }]} />
+      <Breadcrumb items={[{ label: '통합관제', path: '/dashboard' }, { label: '사업장 모니터링' }]} />
       <div className="flex items-center gap-3">
         <Button size="sm" variant="ghost" onClick={() => router.push('/monitoring')}>
           <ArrowLeft size={16} />
@@ -145,12 +146,10 @@ export default function ConsumerDetailPage() {
         <div className="lg:col-span-2">
           <StatsGrid columns={2}>
             <StatCard
-              icon={<Zap size={18} className="text-amber-400" />}
               label="월간 전력 수요"
               value={`${(consumer.monthlyDemandKwh / 1000).toLocaleString()} MWh`}
             />
             <StatCard
-              icon={<Zap size={18} className="text-emerald-400" />}
               label="월간 재생에너지 공급"
               value={`${(consumer.monthlySupplyKwh / 1000).toLocaleString()} MWh`}
               change={{ value: Number(supplyPercent) - 50, label: '전월 대비' }}

@@ -8,6 +8,8 @@ import type {
   ConsumerSupplyImpact,
   ConsumerSupplyDemand,
   AnomalyImpact,
+  PlantContractKind,
+  PlantAnomalySummary,
 } from '@/types/monitoring';
 
 export interface LaseeMonitoringPlant {
@@ -20,6 +22,9 @@ export interface LaseeMonitoringPlant {
   currentOutput: number;
   dailyEnergy: number;
   totalEnergy: number;
+  contractType?: PlantContractKind;
+  contractTypes?: PlantContractKind[];
+  anomalies?: PlantAnomalySummary[];
   connectionStatus: {
     rtuPower: 'ON' | 'OFF';
     rtuConnection: 'NORMAL' | 'ERROR';
@@ -64,6 +69,9 @@ function toMonitoringPlant(p: LaseeMonitoringPlant): MonitoringPlant {
     totalEnergy: p.totalEnergy,
     latitude: coords?.latitude ?? 0,
     longitude: coords?.longitude ?? 0,
+    contractType: p.contractType,
+    contractTypes: p.contractTypes,
+    anomalies: p.anomalies,
   };
 }
 

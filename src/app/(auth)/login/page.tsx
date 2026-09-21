@@ -3,6 +3,7 @@
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -78,9 +79,8 @@ function LoginForm() {
   return (
     <div className="animate-[fadeIn_400ms_ease-out]">
       <div className="mb-10 text-center">
-        <Image src="/images/logo.png" alt="에너지 플랫폼" width={160} height={40} className="mx-auto mb-3" priority />
-        <h1 className="text-2xl font-bold text-white">에너지 플랫폼</h1>
-        <p className="mt-1 text-sm text-slate-400">통합 에너지 관리 시스템</p>
+        <Image src="/images/logo.png" alt="ESG 에너지 플랫폼" width={160} height={40} className="mx-auto mb-3" priority />
+        <h1 className="text-2xl font-bold text-white">ESG 에너지 플랫폼</h1>
       </div>
 
       <div className="rounded-2xl bg-[#0d1520]/80 ring-1 ring-white/[0.08] backdrop-blur-sm p-8 shadow-elevation-4">
@@ -126,6 +126,12 @@ function LoginForm() {
             </button>
           ))}
         </div>
+        <p className="mt-6 text-center text-sm text-slate-400">
+          계정이 없으신가요?{' '}
+          <Link href="/signup" className="font-medium text-primary hover:text-primary-light transition-colors">
+            회원가입
+          </Link>
+        </p>
       </div>
 
       <p className="mt-6 text-center text-[11px] text-slate-600">&copy; 2025 에너지 플랫폼. All rights reserved.</p>

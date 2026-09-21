@@ -1,0 +1,7 @@
+{
+  "tool_name": "mcp__Claude_Browser__computer",
+  "tool_input_preview": "{\"action\":\"key\",\"text\":\"ctrl+shift+r\"}",
+  "error": "key failed: Could not get the tab ready for input (it is not on screen and has not drawn yet): Screenshot timed out after 5s: the page did not finish rendering in time. Retry; the pane does not need to be displayed. Claude's window is minimized or hidden, which can stop the page from drawing; if this repeats, continue with `get_page_text` or `find`, or ask the user to bring it forward.",
+  "timestamp": "2026-09-17T05:19:50.824Z",
+  "retry_count": 1
+}

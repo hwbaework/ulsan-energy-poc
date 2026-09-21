@@ -14,7 +14,9 @@ export const POC_USERS: Record<PocRole, User> = {
   admin: {
     id: 1,
     email: 'admin@test.com',
-    name: '관리자',
+    name: '김관리',
+    phone: '010-1000-0001',
+    department: '운영팀',
     status: 'ACTIVE',
     companyId: 1,
     companyName: '울산 에너지 플랫폼',
@@ -25,7 +27,9 @@ export const POC_USERS: Record<PocRole, User> = {
   consumer: {
     id: 2,
     email: 'consumer@test.com',
-    name: '전기사용자',
+    name: '이수용',
+    phone: '010-3000-0003',
+    department: '시설관리팀',
     status: 'ACTIVE',
     companyId: 2,
     companyName: '울산 수용가(주)',
@@ -36,7 +40,9 @@ export const POC_USERS: Record<PocRole, User> = {
   generator: {
     id: 3,
     email: 'operator@test.com',
-    name: '발전사업자',
+    name: '박발전',
+    phone: '010-2000-0002',
+    department: '발전운영팀',
     status: 'ACTIVE',
     companyId: 3,
     companyName: '울산 발전(주)',

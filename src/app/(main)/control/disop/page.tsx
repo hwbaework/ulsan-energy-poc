@@ -35,8 +35,8 @@ export default function DisopPage() {
     SOP_SCENARIOS[0];
 
   return (
-    <div className="p-6 space-y-6">
-      <Breadcrumb items={[{ label: '통합관제' }, { label: 'DiSOP' }]} />
+    <div className="space-y-6">
+      <Breadcrumb items={[{ label: '통합관제', path: '/dashboard' }, { label: 'DiSOP' }]} />
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-white">DiSOP · 표준운영절차 관제</h1>
         <span className="text-xs text-slate-400">Digital SOP · 시나리오 기반 재난 대응</span>

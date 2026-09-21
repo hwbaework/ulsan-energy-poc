@@ -28,7 +28,7 @@ export function StatCard({ icon, label, value, change, sub, loading, onClick, cl
       <div className="flex items-center gap-3">
         {icon && <div className="text-primary">{icon}</div>}
         <div>
-          <span className="block text-xs text-accent">{label}</span>
+          <span className="block text-sm text-slate-300">{label}</span>
           {loading ? (
             <Skeleton className="h-7 w-24 mt-0.5" />
           ) : (

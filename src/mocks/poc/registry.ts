@@ -29,7 +29,10 @@ interface Route {
 const routes: Route[] = [];
 
 export function registerMock(re: RegExp, handler: Handler, method?: MockMethod): void {
-  routes.push({ re, handler, method });
+  // 같은 패턴·메서드가 이미 있으면 교체 — 개발 서버 HMR 로 fixtures.ts 가 다시 실행돼도 옛 핸들러가 남지 않게 한다
+  const idx = routes.findIndex((r) => r.re.source === re.source && r.re.flags === re.flags && r.method === method);
+  if (idx >= 0) routes[idx] = { re, handler, method };
+  else routes.push({ re, handler, method });
 }
 
 /** 빈 목록 + 빈 페이지 응답 겸용 객체 */

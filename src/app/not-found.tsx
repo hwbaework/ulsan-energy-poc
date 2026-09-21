@@ -1,5 +1,6 @@
 'use client';
 
+import { getHomePath } from '@/lib/home';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Home } from 'lucide-react';
@@ -10,7 +11,7 @@ export default function NotFound() {
 
   useEffect(() => {
     if (countdown <= 0) {
-      router.replace('/');
+      router.replace(getHomePath());
       return;
     }
     const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
@@ -27,7 +28,7 @@ export default function NotFound() {
         <p className="mt-3 text-sm text-slate-400">요청하신 페이지가 존재하지 않거나 이동되었습니다</p>
         <p className="mt-2 text-xs text-slate-500">{countdown}초 후 홈으로 이동합니다</p>
         <button
-          onClick={() => router.replace('/')}
+          onClick={() => router.replace(getHomePath())}
           className="mt-6 flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary/90"
         >
           <Home size={16} />

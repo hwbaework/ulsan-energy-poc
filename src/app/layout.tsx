@@ -3,14 +3,14 @@ import './globals.css';
 import { Providers } from '@/providers/QueryProvider';
 
 export const metadata: Metadata = {
-  title: '울산 에너지 자급자족 플랫폼 (POC)',
+  title: '울산 에자자 POC',
   description: '울산미포 에너지 자급자족 - ESG Energy Platform POC',
   manifest: '/manifest.json',
   openGraph: {
-    title: 'RMS 에너지 플랫폼',
+    title: '울산 에자자 POC',
     description: '울산미포 에너지 자급자족 - Ulsan Energy Self-Sufficiency ESG Energy Platform',
     url: 'https://energy.rmsgroup.co.kr',
-    siteName: 'RMS 에너지 플랫폼',
+    siteName: '울산 에자자 POC',
     images: [
       {
         url: 'https://energy.rmsgroup.co.kr/images/og-image.png',
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'RMS 에너지 플랫폼',
+    title: '울산 에자자 POC',
     description: '울산미포 에너지 자급자족 - ESG Energy Platform',
     images: ['https://energy.rmsgroup.co.kr/images/og-image.png'],
   },

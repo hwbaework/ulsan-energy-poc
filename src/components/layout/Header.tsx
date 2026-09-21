@@ -1,3 +1,4 @@
+import { getHomePath } from '@/lib/home';
 import { type ReactNode } from 'react';
 import { Bell, LogOut, Menu, User } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -42,7 +43,7 @@ export function Header({
         >
           <Menu size={20} />
         </button>
-        <a href="/" className="flex items-center gap-2">
+        <a href={getHomePath()} className="flex items-center gap-2">
           <img
             src="/images/logo.png"
             alt="로고"

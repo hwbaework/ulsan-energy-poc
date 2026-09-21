@@ -334,6 +334,7 @@ export const ENDPOINTS = {
     predictAssets: `${V1}/control/predict/assets`,
     predictSignals: `${V1}/control/predict/signals`,
     safetyAlerts: `${V1}/control/safety/alerts`,
+    safetyItems: `${V1}/control/safety/items`,
     inspections: `${V1}/control/safety/inspections`,
     sopScenarios: `${V1}/control/sop-scenarios`,
     safetyMap: `${V1}/control/safety/map`,

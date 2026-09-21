@@ -1,0 +1,297 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1789607516761,
+  "projectRoot": "C:\\Users\\RMS\\Desktop\\java\\ulsan-energy-poc",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "next",
+        "version": "15",
+        "category": "fullstack"
+      },
+      {
+        "name": "react",
+        "version": "19.0.0",
+        "category": "frontend"
+      },
+      {
+        "name": "react-dom",
+        "version": "19.0.0",
+        "category": "frontend"
+      }
+    ],
+    "packageManager": "npm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "npm run build",
+    "testCommand": null,
+    "lintCommand": "npm run lint",
+    "devCommand": "npm run dev",
+    "scripts": {
+      "dev": "next dev -p 3030",
+      "build": "next build",
+      "start": "node scripts/serve-out.cjs out 3030",
+      "lint": "next lint",
+      "lint:strict": "tsc --noEmit && eslint src/",
+      "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+      "deploy": "npm run build && wrangler deploy",
+      "preview": "next build && node scripts/serve-out.cjs out 3030"
+    }
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": "type-based"
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "public",
+      "scripts",
+      "src"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "out": {
+      "path": "out",
+      "purpose": "Build output",
+      "fileCount": 43,
+      "lastAccessed": 1789607516642,
+      "keyFiles": [
+        "404.html",
+        "apple-icon.png",
+        "carbon.html",
+        "carbon.txt",
+        "consulting.html"
+      ]
+    },
+    "public": {
+      "path": "public",
+      "purpose": "Public files",
+      "fileCount": 2,
+      "lastAccessed": 1789607516665,
+      "keyFiles": [
+        "favicon.ico",
+        "manifest.json"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 1,
+      "lastAccessed": 1789607516665,
+      "keyFiles": [
+        "serve-out.cjs"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 1,
+      "lastAccessed": 1789607516666,
+      "keyFiles": [
+        "index.css"
+      ]
+    },
+    "out\\assets": {
+      "path": "out\\assets",
+      "purpose": "Static assets",
+      "fileCount": 0,
+      "lastAccessed": 1789607516668,
+      "keyFiles": []
+    },
+    "public\\assets": {
+      "path": "public\\assets",
+      "purpose": "Static assets",
+      "fileCount": 0,
+      "lastAccessed": 1789607516670,
+      "keyFiles": []
+    },
+    "public\\models": {
+      "path": "public\\models",
+      "purpose": "Data models",
+      "fileCount": 1,
+      "lastAccessed": 1789607516671,
+      "keyFiles": [
+        "haniltube.glb"
+      ]
+    },
+    "src\\api": {
+      "path": "src\\api",
+      "purpose": "API routes",
+      "fileCount": 6,
+      "lastAccessed": 1789607516674,
+      "keyFiles": [
+        "client.ts",
+        "edmEndpoints.ts",
+        "edmQueryKeys.ts"
+      ]
+    },
+    "src\\app": {
+      "path": "src\\app",
+      "purpose": "Application code",
+      "fileCount": 6,
+      "lastAccessed": 1789607516675,
+      "keyFiles": [
+        "apple-icon.png",
+        "global-error.tsx",
+        "globals.css"
+      ]
+    },
+    "src\\components": {
+      "path": "src\\components",
+      "purpose": "UI components",
+      "fileCount": 1,
+      "lastAccessed": 1789607516676,
+      "keyFiles": [
+        "index.ts"
+      ]
+    },
+    "src\\lib": {
+      "path": "src\\lib",
+      "purpose": "Library code",
+      "fileCount": 10,
+      "lastAccessed": 1789607516678,
+      "keyFiles": [
+        "design.ts",
+        "downloadPdf.ts",
+        "home.ts"
+      ]
+    },
+    "src\\mocks": {
+      "path": "src\\mocks",
+      "purpose": "Mock data",
+      "fileCount": 0,
+      "lastAccessed": 1789607516679,
+      "keyFiles": []
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "src/app/(main)/control/safety/page.tsx",
+      "accessCount": 26,
+      "lastAccessed": 1789620771106,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(main)/control/predictive/[id]/PageClient.tsx",
+      "accessCount": 16,
+      "lastAccessed": 1789611810749,
+      "type": "file"
+    },
+    {
+      "path": "src/app/guide/page.tsx",
+      "accessCount": 12,
+      "lastAccessed": 1789619364386,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(main)/control/predictive/page.tsx",
+      "accessCount": 8,
+      "lastAccessed": 1789611722760,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(main)/monitoring/plant/page.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1789609134844,
+      "type": "file"
+    },
+    {
+      "path": "src/hooks/control/useControl.ts",
+      "accessCount": 5,
+      "lastAccessed": 1789620071533,
+      "type": "file"
+    },
+    {
+      "path": "src/mocks/poc/fixtures.ts",
+      "accessCount": 5,
+      "lastAccessed": 1789620111710,
+      "type": "file"
+    },
+    {
+      "path": "src/components/features/monitoring/InverterPanels.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1789608658157,
+      "type": "file"
+    },
+    {
+      "path": "src/components/ui/Design.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1789608608906,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(main)/monitoring/anomalies/page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1789609096234,
+      "type": "file"
+    },
+    {
+      "path": "src/components/features/monitoring/PlantNameCell.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1789609115777,
+      "type": "file"
+    },
+    {
+      "path": "src/api/endpoints.ts",
+      "accessCount": 2,
+      "lastAccessed": 1789612450784,
+      "type": "file"
+    },
+    {
+      "path": "src/constants/plant-mapping.ts",
+      "accessCount": 2,
+      "lastAccessed": 1789619336520,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(auth)/login/page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1789622366594,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/design.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789608460360,
+      "type": "file"
+    },
+    {
+      "path": "src/components/features/SectionCard.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1789609063948,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(main)/monitoring/plant/[id]/PageClient.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1789611504889,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

@@ -18,8 +18,6 @@ import {
   Users,
   ShieldCheck,
   KeyRound,
-  Send,
-  ScrollText,
   Wallet,
   TrendingUp,
   Zap,
@@ -28,7 +26,6 @@ import {
   ClipboardList,
   Activity,
   ChevronDown,
-  Link2,
   LayoutDashboard,
   MessageSquare,
   Monitor,
@@ -36,9 +33,7 @@ import {
   Settings,
   Factory,
   History,
-  Coins,
   Calculator,
-  Target,
   Cpu,
   Database,
   Globe,
@@ -46,7 +41,7 @@ import {
 } from 'lucide-react';
 import { ToastContainer } from '@/components/ui/Toast';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { getPersona, usePersonaOverride, type Persona } from '@/lib/persona';
+import { getPersona, usePersonaOverride, PERSONA_HOME, type Persona } from '@/lib/persona';
 import { cn } from '@/lib/utils';
 import { useMe, useMyMenus, useSignOut } from '@/hooks/auth/useAuth';
 import { useUnreadCount, useNotifications, useMarkRead, useMarkAllRead } from '@/hooks/platform/useNotifications';
@@ -72,6 +67,8 @@ interface GnbChild {
   section?: string;
   badge?: number;
   menuCode?: string;
+  /** 외부 사이트 링크 (새 탭) */
+  external?: boolean;
 }
 
 interface GnbItem {
@@ -134,31 +131,58 @@ const GNB_ITEMS: GnbItem[] = [
     icon: Monitor,
     menuCode: 'CONTROL',
     personas: ['generator', 'consumer', 'admin'],
-    toByPersona: { generator: '/dashboard', consumer: '/consumer', admin: '/monitoring' },
+    toByPersona: { generator: '/dashboard', consumer: '/dashboard', admin: '/dashboard' },
     childrenByPersona: {
       consumer: [
-        { to: '/consumer', icon: LayoutDashboard, label: '대시보드', section: '실시간', end: true }, // 1.1.1
+        { to: '/dashboard', icon: LayoutDashboard, label: '대시보드', section: '실시간', end: true }, // 1.1.1 (발전사업자와 동일)
         { to: '/monitoring/plant', icon: Zap, label: '발전소 상세', section: '실시간' }, // 1.1.4
         { to: '/monitoring/anomalies', icon: AlertTriangle, label: '이상감지 관리', section: '실시간' }, // 1.1.5
-        { to: '/control/disop', icon: ClipboardList, label: 'DiSOP', section: '안전·운영' }, // 1.2.1
-        { to: '/dt', icon: Globe, label: '디지털트윈', section: 'DT' }, // 1.3.1
+        {
+          to: '/control/predictive',
+          icon: ClipboardList,
+          label: 'DiSOP',
+          section: '안전·운영',
+          subChildren: [
+            { to: '/control/predictive', icon: Cpu, label: '예지보전' }, // 1.2.2
+            { to: '/control/safety', icon: ShieldCheck, label: '안전' }, // 1.2.3
+          ],
+        }, // 1.2.1
+        { to: 'https://terrawatt.pairworks.net/', icon: Globe, label: '디지털트윈', section: 'DT', external: true }, // 1.3.1 (외부 TerraWatt)
         { to: '/monitoring/reports', icon: BarChart3, label: '보고서', section: '보고' }, // 1.4.1
       ],
       generator: [
         { to: '/dashboard', icon: LayoutDashboard, label: '대시보드', section: '실시간', end: true }, // 1.1.1
         { to: '/monitoring/plant', icon: Zap, label: '발전소 상세', section: '실시간' }, // 1.1.4
         { to: '/monitoring/anomalies', icon: AlertTriangle, label: '이상감지 관리', section: '실시간' }, // 1.1.5
-        { to: '/control/disop', icon: ClipboardList, label: 'DiSOP', section: '안전·운영' }, // 1.2.1
-        { to: '/dt', icon: Globe, label: '디지털트윈', section: 'DT' }, // 1.3.1
+        {
+          to: '/control/predictive',
+          icon: ClipboardList,
+          label: 'DiSOP',
+          section: '안전·운영',
+          subChildren: [
+            { to: '/control/predictive', icon: Cpu, label: '예지보전' }, // 1.2.2
+            { to: '/control/safety', icon: ShieldCheck, label: '안전' }, // 1.2.3
+          ],
+        }, // 1.2.1
+        { to: 'https://terrawatt.pairworks.net/', icon: Globe, label: '디지털트윈', section: 'DT', external: true }, // 1.3.1 (외부 TerraWatt)
         { to: '/monitoring/reports', icon: BarChart3, label: '보고서', section: '보고' }, // 1.4.1
       ],
       admin: [
-        { to: '/platform', icon: LayoutDashboard, label: '대시보드', section: '실시간', end: true }, // 1.1.1
+        { to: '/dashboard', icon: LayoutDashboard, label: '대시보드', section: '실시간', end: true }, // 1.1.1 (발전사업자와 동일)
         { to: '/monitoring', icon: Monitor, label: '관제 홈(지도)', section: '실시간', end: true }, // 1.1.2
         { to: '/monitoring/plant', icon: Zap, label: '발전소 상세', section: '실시간' }, // 1.1.4
         { to: '/monitoring/anomalies', icon: AlertTriangle, label: '이상감지 관리', section: '실시간' }, // 1.1.5
-        { to: '/control/disop', icon: ClipboardList, label: 'DiSOP', section: '안전·운영' }, // 1.2.1
-        { to: '/dt', icon: Globe, label: '디지털트윈', section: 'DT' }, // 1.3.1
+        {
+          to: '/control/predictive',
+          icon: ClipboardList,
+          label: 'DiSOP',
+          section: '안전·운영',
+          subChildren: [
+            { to: '/control/predictive', icon: Cpu, label: '예지보전' }, // 1.2.2
+            { to: '/control/safety', icon: ShieldCheck, label: '안전' }, // 1.2.3
+          ],
+        }, // 1.2.1
+        { to: 'https://terrawatt.pairworks.net/', icon: Globe, label: '디지털트윈', section: 'DT', external: true }, // 1.3.1 (외부 TerraWatt)
         { to: '/monitoring/reports', icon: BarChart3, label: '보고서', section: '보고' }, // 1.4.1
       ],
     },
@@ -231,27 +255,37 @@ const GNB_ITEMS: GnbItem[] = [
     personas: ['generator', 'consumer', 'admin'],
     children: EDATA_CHILDREN,
   },
-  /* ══ ⑤ 관리 ADMIN — WBS 4.x (설정은 공통, 회원·운영·시스템은 관리자) ══ */
+  /* ══ 설정 (비관리자 공통) — WBS 5.0 ══ */
   {
     to: '/org',
+    label: '설정',
+    icon: Settings,
+    menuCode: 'SETTINGS',
+    personas: ['generator', 'consumer'],
+    children: [
+      { to: '/org', icon: Building2, label: '기업 정보', section: '설정', end: true },
+      { to: '/org/settings', icon: Settings, label: '설정', section: '설정' },
+      { to: '/org/profile', icon: User, label: '내 계정', section: '설정' },
+    ],
+  },
+  /* ══ ⑤ 관리 ADMIN — WBS 4.x (설정은 공통, 회원·운영·시스템은 관리자) ══ */
+  {
+    to: '/platform/companies',
     label: '관리',
     icon: Settings,
     menuCode: 'ADMIN',
-    personas: ['generator', 'consumer', 'admin'],
-    toByPersona: { consumer: '/org', generator: '/org', admin: '/platform/companies' },
-    childrenByPersona: {
-      consumer: [{ to: '/org', icon: Settings, label: '설정', section: '설정' }], // 4.1.1
-      generator: [{ to: '/org', icon: Settings, label: '설정', section: '설정' }], // 4.1.1
-      admin: [
-        { to: '/org', icon: Settings, label: '설정', section: '설정' }, // 4.1.1
+    personas: ['admin'],
+    children: [
+        { to: '/org', icon: Building2, label: '기업 정보', section: '설정', end: true }, // 5.0
+        { to: '/org/settings', icon: Settings, label: '설정', section: '설정' },
+        { to: '/org/profile', icon: User, label: '내 계정', section: '설정' },
         { to: '/platform/companies', icon: Building2, label: '기업 관리', section: '회원' }, // 4.2.1
         { to: '/platform/users', icon: Users, label: '회원 관리', section: '회원' }, // 4.2.2
         { to: '/platform/roles', icon: ShieldCheck, label: '역할·권한', section: '회원' }, // 4.2.3
         { to: '/platform/approvals', icon: ClipboardCheck, label: '승인 관리', section: '운영' }, // 4.3.1
         { to: '/platform/trading/approvals', icon: ShieldCheck, label: '거래 승인', section: '운영' }, // 4.3.2
         { to: '/platform/notification-settings', icon: Bell, label: '알림 설정', section: '시스템' }, // 4.4.1
-      ],
-    },
+    ],
   },
 ];
 
@@ -400,7 +434,7 @@ function GnbBar({
       onMouseLeave={handleHeaderMouseLeave}
     >
       {/* Logo */}
-      <button onClick={() => router.push('/')} className="flex items-center justify-center shrink-0 px-5">
+      <button onClick={() => router.push(PERSONA_HOME[persona])} className="flex items-center justify-center shrink-0 px-5">
         <Image src="/images/logo.png" alt="에너지 플랫폼" width={100} height={100} priority />
       </button>
 
@@ -442,15 +476,20 @@ function GnbBar({
       <div className="flex items-center gap-3 px-5 shrink-0">
         <NotificationBell />
 
-        <div className="flex items-center gap-2.5">
+        <button
+          onClick={() => router.push('/org/profile')}
+          className="flex items-center gap-2.5 rounded-lg px-1.5 py-1 hover:bg-white/[0.06] transition-colors"
+          aria-label="내 계정"
+          title="내 계정"
+        >
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs font-medium text-white">
             {user?.name?.charAt(0) ?? <User size={14} />}
           </div>
-          <div className="hidden flex-col gap-0.5 lg:flex">
+          <div className="hidden flex-col gap-0.5 text-left lg:flex">
             <span className="text-white text-xs font-medium">{user?.name ?? '사용자'}</span>
             <span className="text-white/40 text-[10px]">{user?.companyName ?? ''}</span>
           </div>
-        </div>
+        </button>
 
         <button
           onClick={() => {
@@ -477,6 +516,23 @@ function GnbBar({
 function SidebarLink({ item, indent = false }: { item: GnbChild; indent?: boolean }) {
   const pathname = usePathname();
   const isActive = item.end ? pathname === item.to : pathname === item.to || pathname.startsWith(item.to + '/');
+  if (item.external) {
+    return (
+      <a
+        href={item.to}
+        target="_blank"
+        rel="noreferrer"
+        className={cn(
+          'relative flex items-center gap-3 rounded-lg py-2.5 text-sm transition-all duration-150 active:scale-[0.98] text-slate-400 hover:text-white hover:bg-white/[0.06]',
+          indent ? 'pl-9 pr-3' : 'px-3',
+        )}
+      >
+        <item.icon size={16} className="shrink-0" />
+        <span className="truncate">{item.label}</span>
+        <ExternalLink size={11} className="ml-auto shrink-0 opacity-40" />
+      </a>
+    );
+  }
   return (
     <Link
       href={item.to}
@@ -631,12 +687,13 @@ function SubSidebar({ children: items }: { children: GnbChild[] }) {
   );
 }
 
+
 /* ────────────────────────────────────────────────────────────────── */
 /*  AppLayout                                                        */
 /* ────────────────────────────────────────────────────────────────── */
 
 // /monitoring은 사이드바 노출 대상으로 전환(통합기획 doc 04 §1) — 지도는 콘텐츠 영역 안에 fixed 오프셋으로 렌더
-const FULLSCREEN_MAP_PATHS = ['/dt', '/dt/info'];
+const FULLSCREEN_MAP_PATHS: string[] = []; // DT 는 외부(TerraWatt) 링크로 대체
 // EDATA 경로(/carbon·/e-data·/e-data/inventory)는 표준 사이드바 레이아웃 편입 — embed는 콘텐츠 영역 안에서 렌더
 const IFRAME_PATHS: string[] = []; // vpp iframe 폐기(doc 19 완전 통합) — 네이티브 라우트 전환 완료
 
@@ -841,94 +898,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   );
 }
 
-const NOTIF_ICON_MAP: Record<string, { icon: LucideIcon; color: string }> = {
-  ANOMALY_DETECTED: { icon: AlertTriangle, color: 'text-red-400' },
-  ANOMALY_ACKNOWLEDGED: { icon: AlertTriangle, color: 'text-amber-400' },
-  ANOMALY_WORK_STARTED: { icon: Activity, color: 'text-amber-400' },
-  ANOMALY_RESOLVED: { icon: ShieldCheck, color: 'text-emerald-400' },
-  ANOMALY_FALSE_ALARM: { icon: ShieldCheck, color: 'text-slate-400' },
-  ANOMALY_ESCALATED: { icon: AlertTriangle, color: 'text-red-500' },
-  DETECTION_RESOLVED: { icon: Cpu, color: 'text-emerald-400' },
-  OPERATOR_ACKNOWLEDGED: { icon: Monitor, color: 'text-sky-400' },
-  OPERATOR_ACTION_REPORTED: { icon: ClipboardCheck, color: 'text-sky-400' },
-  SUPPLY_DEMAND_ALERT: { icon: Zap, color: 'text-amber-400' },
-  DAILY_REPORT_GENERATED: { icon: FileText, color: 'text-slate-400' },
-  PPA_CONTRACT_CREATED: { icon: Handshake, color: 'text-sky-400' },
-  PPA_CONTRACT_ACTIVATED: { icon: Handshake, color: 'text-emerald-400' },
-  PPA_CONTRACT_TERMINATED: { icon: Handshake, color: 'text-red-400' },
-  PPA_CONTRACT_ISSUED: { icon: FileText, color: 'text-sky-400' },
-  TRADING_LEASE_PROPOSAL_CREATED: { icon: ScrollText, color: 'text-sky-400' },
-  TRADING_LEASE_PROPOSAL_AGREED: { icon: Handshake, color: 'text-emerald-400' },
-  PPA_CONTRACT_CHANGE_REQUESTED: { icon: Handshake, color: 'text-amber-400' },
-  PPA_CONTRACT_CHANGE_APPROVED: { icon: Handshake, color: 'text-emerald-400' },
-  PPA_CONTRACT_CHANGE_REJECTED: { icon: Handshake, color: 'text-red-400' },
-  PPA_GENERATOR_APPROVAL_REQUESTED: { icon: Factory, color: 'text-amber-400' },
-  PPA_GENERATOR_APPROVAL_COMPLETED: { icon: Factory, color: 'text-emerald-400' },
-  PPA_GENERATOR_APPROVAL_REJECTED: { icon: Factory, color: 'text-red-400' },
-  SETTLEMENT_CONFIRMED: { icon: Calculator, color: 'text-emerald-400' },
-  SETTLEMENT_DISPUTED: { icon: Calculator, color: 'text-red-400' },
-  SETTLEMENT_REVIEW_STARTED: { icon: Calculator, color: 'text-amber-400' },
-  SETTLEMENT_ADJUSTED: { icon: Calculator, color: 'text-sky-400' },
-  SETTLEMENT_RECONFIRMED: { icon: Calculator, color: 'text-emerald-400' },
-  INVOICE_ISSUED: { icon: Receipt, color: 'text-sky-400' },
-  INVOICE_PAID: { icon: CreditCard, color: 'text-emerald-400' },
-  TRADING_REQUEST_CREATED: { icon: ArrowRightLeft, color: 'text-sky-400' },
-  TRADING_REQUEST_UPDATED: { icon: ArrowRightLeft, color: 'text-amber-400' },
-  TRADING_REQUEST_DELETED: { icon: ArrowRightLeft, color: 'text-red-400' },
-  TRADING_REQUEST_STATUS_CHANGED: { icon: ArrowRightLeft, color: 'text-amber-400' },
-  MATCH_CREATED: { icon: Link2, color: 'text-sky-400' },
-  MATCH_GENERATOR_ACCEPTED: { icon: Link2, color: 'text-amber-400' },
-  MATCH_ACCEPTED: { icon: Link2, color: 'text-emerald-400' },
-  MATCH_DECLINED: { icon: Link2, color: 'text-red-400' },
-  CONSULTATION_CREATED: { icon: MessageSquare, color: 'text-sky-400' },
-  CONSULTANT_ASSIGNED: { icon: Users, color: 'text-sky-400' },
-  CONSULTATION_COMPLETED: { icon: MessageSquare, color: 'text-emerald-400' },
-  CONSULTATION_CANCELLED: { icon: MessageSquare, color: 'text-red-400' },
-  PROPOSAL_CREATED: { icon: ScrollText, color: 'text-sky-400' },
-  PROPOSAL_ACCEPTED: { icon: ScrollText, color: 'text-emerald-400' },
-  PROPOSAL_DECLINED: { icon: ScrollText, color: 'text-red-400' },
-  REPORT_SUBMITTED: { icon: FileText, color: 'text-sky-400' },
-  REPORT_APPROVED: { icon: FileText, color: 'text-emerald-400' },
-  REPORT_SPC_REVIEW_REQUESTED: { icon: FileText, color: 'text-amber-400' },
-  REPORT_SPC_APPROVED: { icon: FileText, color: 'text-emerald-400' },
-  REPORT_COMMENT_ADDED: { icon: MessageSquare, color: 'text-slate-300' },
-  CONSULTING_SETTLEMENT_APPROVED: { icon: Wallet, color: 'text-emerald-400' },
-  CONSULTING_SETTLEMENT_PAID: { icon: Wallet, color: 'text-emerald-400' },
-  CONSULTING_INVOICE_ISSUED: { icon: Receipt, color: 'text-sky-400' },
-  REVIEW_CREATED: { icon: ClipboardList, color: 'text-sky-400' },
-  MILESTONE_CREATED: { icon: Target, color: 'text-sky-400' },
-  MILESTONE_STARTED: { icon: Target, color: 'text-amber-400' },
-  MILESTONE_COMPLETED: { icon: Target, color: 'text-emerald-400' },
-  SCHEDULE_REQUESTED: { icon: History, color: 'text-sky-400' },
-  SCHEDULE_CONFIRMED: { icon: History, color: 'text-emerald-400' },
-  SCHEDULE_CANCELLED: { icon: History, color: 'text-red-400' },
-  SCHEDULE_ACCEPTED: { icon: History, color: 'text-emerald-400' },
-  SCHEDULE_REJECTED: { icon: History, color: 'text-red-400' },
-  SCHEDULE_RESCHEDULE_REQUESTED: { icon: History, color: 'text-amber-400' },
-  CHAT_MESSAGE_SENT: { icon: Send, color: 'text-sky-400' },
-  SURVEY_SUBMITTED: { icon: ClipboardList, color: 'text-sky-400' },
-  REFERRAL_CREATED: { icon: Users, color: 'text-sky-400' },
-  CONTRACT_SIGNED: { icon: KeyRound, color: 'text-emerald-400' },
-  LEASE_CONTRACT_CREATED: { icon: Coins, color: 'text-sky-400' },
-  LEASE_TERMINATED: { icon: Coins, color: 'text-red-400' },
-  LEASE_INVOICE_ISSUED: { icon: Receipt, color: 'text-sky-400' },
-  LEASE_INVOICE_PAID: { icon: CreditCard, color: 'text-emerald-400' },
-  LEASE_INVOICE_DISPUTED: { icon: Receipt, color: 'text-red-400' },
-  LEASE_REQUEST_SUBMITTED: { icon: Coins, color: 'text-sky-400' },
-  LEASE_REQUEST_ACCEPTED: { icon: Coins, color: 'text-emerald-400' },
-  LEASE_EQUIPMENT_REGISTERED: { icon: Cpu, color: 'text-sky-400' },
-  LEASE_RECOVERY_SCHEDULED: { icon: Coins, color: 'text-amber-400' },
-  LEASE_RECOVERY_COMPLETED: { icon: Coins, color: 'text-emerald-400' },
-  LEASE_WARRANTY_WARNING: { icon: AlertTriangle, color: 'text-amber-400' },
-  LEASE_INSURANCE_EXPIRED: { icon: AlertTriangle, color: 'text-red-400' },
-  ONBOARDING_STARTED: { icon: LayoutDashboard, color: 'text-sky-400' },
-  ONBOARDING_STEP_SUBMITTED: { icon: LayoutDashboard, color: 'text-sky-400' },
-  ONBOARDING_STEP_APPROVED: { icon: LayoutDashboard, color: 'text-emerald-400' },
-  ONBOARDING_STEP_REJECTED: { icon: LayoutDashboard, color: 'text-red-400' },
-  ONBOARDING_COMPLETED: { icon: LayoutDashboard, color: 'text-emerald-400' },
-  KPX_FORECAST_SUBMITTED: { icon: TrendingUp, color: 'text-sky-400' },
-  DAILY_AGGREGATION_COMPLETED: { icon: Database, color: 'text-slate-400' },
-};
 
 // 알림 클릭 목적지 — 페르소나별로 올바른 화면으로 라우팅한다.
 // (백엔드 link 포맷 "/{linkType}/{linkId}" — trading-request/trading-match/ppa-contract/ppa-contract-change 등)
@@ -1009,17 +978,6 @@ function getNotifLink(n: { type: string; link?: string }, persona: Persona): str
   return null;
 }
 
-function formatTimeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return '방금 전';
-  if (min < 60) return `${min}분 전`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}시간 전`;
-  const day = Math.floor(hr / 24);
-  if (day < 7) return `${day}일 전`;
-  return new Date(dateStr).toLocaleDateString('ko-KR');
-}
 
 function NotificationBell() {
   const router = useRouter();
@@ -1031,8 +989,8 @@ function NotificationBell() {
   const unreadQuery = useUnreadCount();
   const unread = (unreadQuery.data as number) ?? 0;
   const listQuery = useNotifications({ size: 20 });
-  // 확인(읽음)한 알림은 목록에서 제외 — 미확인 알림만 노출
-  const items = ((listQuery.data as any)?.content ?? []).filter((n: any) => !n.isRead);
+  // 읽음·안 읽음 모두 노출(안 읽음은 강조 표시). 최대 5개 높이까지 보이고 이후 스크롤.
+  const items: any[] = (listQuery.data as any)?.content ?? [];
   const markRead = useMarkRead();
   const markAllRead = useMarkAllRead();
 
@@ -1071,7 +1029,7 @@ function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-96 rounded-xl border border-white/[0.08] bg-[#0d1520] shadow-elevation-3 z-50 overflow-hidden animate-slideDown">
+        <div className="absolute right-0 top-full mt-2 w-96 rounded-xl border border-white/15 bg-[#111c2e] shadow-2xl shadow-black/60 ring-1 ring-black/40 z-50 overflow-hidden animate-slideDown">
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
             <span className="text-sm font-semibold text-white">알림</span>
             {unread > 0 && (
@@ -1080,13 +1038,11 @@ function NotificationBell() {
               </button>
             )}
           </div>
-          <div className="max-h-96 overflow-y-auto divide-y divide-white/[0.04]">
+          <div className="max-h-[280px] overflow-y-auto divide-y divide-white/[0.04]">
             {items.length === 0 ? (
               <div className="py-8 text-center text-sm text-slate-500">알림이 없습니다</div>
             ) : (
               items.map((n: any) => {
-                const iconConfig = NOTIF_ICON_MAP[n.type] ?? { icon: Bell, color: 'text-slate-400' };
-                const Icon = iconConfig.icon;
                 const link = getNotifLink(n, persona);
                 return (
                   <button
@@ -1098,21 +1054,11 @@ function NotificationBell() {
                     )}
                     onClick={() => handleClick(n)}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className={cn('mt-0.5 shrink-0', iconConfig.color)}>
-                        <Icon size={16} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-medium text-white truncate flex-1">{n.title}</p>
-                          {!n.isRead && <span className="h-2 w-2 rounded-full bg-sky-400 shrink-0" />}
-                        </div>
-                        <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2">{n.message}</p>
-                        <p className="text-[10px] text-slate-600 mt-1">
-                          {n.createdAt ? formatTimeAgo(n.createdAt) : ''}
-                        </p>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-white truncate flex-1">{n.title}</p>
+                      {!n.isRead && <span className="h-2 w-2 rounded-full bg-sky-400 shrink-0" />}
                     </div>
+                    {n.message && <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{n.message}</p>}
                   </button>
                 );
               })

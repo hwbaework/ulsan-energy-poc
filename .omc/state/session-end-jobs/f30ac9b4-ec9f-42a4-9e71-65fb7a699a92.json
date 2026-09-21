@@ -1,0 +1,220 @@
+{
+  "version": 1,
+  "jobId": "8504ecb9-6b71-43a6-a4cb-099193ea9d5e",
+  "sessionId": "f30ac9b4-ec9f-42a4-9e71-65fb7a699a92",
+  "scopeKey": "341b3351614320ef6ee5deb7a420e46a6a2bb7002bd39149ce0a9b01eee2b057",
+  "revision": 1,
+  "createdAt": "2026-09-17T03:05:01.342Z",
+  "updatedAt": "2026-09-17T06:45:25.242Z",
+  "producerGraceExpiresAt": "2026-09-17T03:05:31.343Z",
+  "bestEffortDeadlineAt": "2026-09-17T03:06:22.343Z",
+  "producers": {
+    "core": {
+      "state": "prepared",
+      "intentKey": "66908f444c33f7cef220bdc48c7937320edc312b7e1a930832fdc03fa0b4f882",
+      "payloadDigest": "66908f444c33f7cef220bdc48c7937320edc312b7e1a930832fdc03fa0b4f882"
+    },
+    "wiki": {
+      "state": "no-op",
+      "sealedAt": "2026-09-17T06:45:25.242Z",
+      "sealedBy": "wiki-producer"
+    }
+  },
+  "actions": {
+    "foreground-cleanup": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "pending",
+      "attempts": 0,
+      "idempotencyKey": "8a7cf4e002c1148d5d5177b67ca7cdef2f3ee3ee402522ce8cb48f0c9b4cd830",
+      "payload": {
+        "transcriptPath": "C:\\Users\\RMS\\.claude\\projects\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92.jsonl",
+        "cwd": "C:\\Users\\RMS\\Desktop\\java\\ulsan-energy-poc",
+        "reason": "other",
+        "input": {
+          "session_id": "f30ac9b4-ec9f-42a4-9e71-65fb7a699a92",
+          "transcript_path": "C:\\Users\\RMS\\.claude\\projects\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92.jsonl",
+          "cwd": "C:\\Users\\RMS\\Desktop\\java\\ulsan-energy-poc",
+          "scratchpad_dir": "C:\\Users\\RMS\\AppData\\Local\\Temp\\claude\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92\\scratchpad",
+          "prompt_id": "9a619306-aa82-498b-a414-c53989fbb883",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "initialTeamNames": [],
+        "openClawRouting": {}
+      },
+      "budgetMs": 9000
+    },
+    "wiki-capture": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "completed",
+      "attempts": 0,
+      "idempotencyKey": "23814f0198345f925e1fd289f09f6467b19368f88fe4c0e9f63732b76467c36a",
+      "payload": {
+        "transcriptPath": "C:\\Users\\RMS\\.claude\\projects\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92.jsonl",
+        "cwd": "C:\\Users\\RMS\\Desktop\\java\\ulsan-energy-poc",
+        "reason": "other",
+        "input": {
+          "session_id": "f30ac9b4-ec9f-42a4-9e71-65fb7a699a92",
+          "transcript_path": "C:\\Users\\RMS\\.claude\\projects\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92.jsonl",
+          "cwd": "C:\\Users\\RMS\\Desktop\\java\\ulsan-energy-poc",
+          "scratchpad_dir": "C:\\Users\\RMS\\AppData\\Local\\Temp\\claude\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92\\scratchpad",
+          "prompt_id": "9a619306-aa82-498b-a414-c53989fbb883",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "initialTeamNames": [],
+        "openClawRouting": {}
+      },
+      "budgetMs": 9000,
+      "completedAt": "2026-09-17T06:45:25.242Z"
+    },
+    "team-cleanup": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "pending",
+      "attempts": 0,
+      "idempotencyKey": "1046cde6cf9b54b262e30cec29b3fa05ff6d9789f0eb75156aee0fb5731b2436",
+      "payload": {
+        "transcriptPath": "C:\\Users\\RMS\\.claude\\projects\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92.jsonl",
+        "cwd": "C:\\Users\\RMS\\Desktop\\java\\ulsan-energy-poc",
+        "reason": "other",
+        "input": {
+          "session_id": "f30ac9b4-ec9f-42a4-9e71-65fb7a699a92",
+          "transcript_path": "C:\\Users\\RMS\\.claude\\projects\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92.jsonl",
+          "cwd": "C:\\Users\\RMS\\Desktop\\java\\ulsan-energy-poc",
+          "scratchpad_dir": "C:\\Users\\RMS\\AppData\\Local\\Temp\\claude\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92\\scratchpad",
+          "prompt_id": "9a619306-aa82-498b-a414-c53989fbb883",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "initialTeamNames": [],
+        "openClawRouting": {}
+      },
+      "budgetMs": 9000
+    },
+    "python-cleanup": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "pending",
+      "attempts": 0,
+      "idempotencyKey": "0706fe0c1308b6d0e1989dc7fd2e5f82297c7ed0e7bf26afc428090e0947764c",
+      "payload": {
+        "transcriptPath": "C:\\Users\\RMS\\.claude\\projects\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92.jsonl",
+        "cwd": "C:\\Users\\RMS\\Desktop\\java\\ulsan-energy-poc",
+        "reason": "other",
+        "input": {
+          "session_id": "f30ac9b4-ec9f-42a4-9e71-65fb7a699a92",
+          "transcript_path": "C:\\Users\\RMS\\.claude\\projects\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92.jsonl",
+          "cwd": "C:\\Users\\RMS\\Desktop\\java\\ulsan-energy-poc",
+          "scratchpad_dir": "C:\\Users\\RMS\\AppData\\Local\\Temp\\claude\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92\\scratchpad",
+          "prompt_id": "9a619306-aa82-498b-a414-c53989fbb883",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "initialTeamNames": [],
+        "openClawRouting": {}
+      },
+      "budgetMs": 9000
+    },
+    "reply-cleanup": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "pending",
+      "attempts": 0,
+      "idempotencyKey": "a0bc98aaaa4dbeb02d6b4c4c2ef07ac88bc2ba592403eb71976f6ebd26299294",
+      "payload": {
+        "transcriptPath": "C:\\Users\\RMS\\.claude\\projects\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92.jsonl",
+        "cwd": "C:\\Users\\RMS\\Desktop\\java\\ulsan-energy-poc",
+        "reason": "other",
+        "input": {
+          "session_id": "f30ac9b4-ec9f-42a4-9e71-65fb7a699a92",
+          "transcript_path": "C:\\Users\\RMS\\.claude\\projects\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92.jsonl",
+          "cwd": "C:\\Users\\RMS\\Desktop\\java\\ulsan-energy-poc",
+          "scratchpad_dir": "C:\\Users\\RMS\\AppData\\Local\\Temp\\claude\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92\\scratchpad",
+          "prompt_id": "9a619306-aa82-498b-a414-c53989fbb883",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "initialTeamNames": [],
+        "openClawRouting": {}
+      },
+      "budgetMs": 9000
+    },
+    "callback": {
+      "class": "best-effort",
+      "phase": "deferred-best-effort",
+      "status": "pending",
+      "attempts": 0,
+      "idempotencyKey": "88c55fcc3576cae4ee0b4ef01de507086362babae66e048a22d3790b73229a94",
+      "payload": {
+        "transcriptPath": "C:\\Users\\RMS\\.claude\\projects\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92.jsonl",
+        "cwd": "C:\\Users\\RMS\\Desktop\\java\\ulsan-energy-poc",
+        "reason": "other",
+        "input": {
+          "session_id": "f30ac9b4-ec9f-42a4-9e71-65fb7a699a92",
+          "transcript_path": "C:\\Users\\RMS\\.claude\\projects\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92.jsonl",
+          "cwd": "C:\\Users\\RMS\\Desktop\\java\\ulsan-energy-poc",
+          "scratchpad_dir": "C:\\Users\\RMS\\AppData\\Local\\Temp\\claude\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92\\scratchpad",
+          "prompt_id": "9a619306-aa82-498b-a414-c53989fbb883",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "initialTeamNames": [],
+        "openClawRouting": {}
+      },
+      "budgetMs": 2000
+    },
+    "notification": {
+      "class": "best-effort",
+      "phase": "deferred-best-effort",
+      "status": "pending",
+      "attempts": 0,
+      "idempotencyKey": "62ac5bb602948050c66849ce0177b5b5634581dd067b529f93aebd8b4872b463",
+      "payload": {
+        "transcriptPath": "C:\\Users\\RMS\\.claude\\projects\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92.jsonl",
+        "cwd": "C:\\Users\\RMS\\Desktop\\java\\ulsan-energy-poc",
+        "reason": "other",
+        "input": {
+          "session_id": "f30ac9b4-ec9f-42a4-9e71-65fb7a699a92",
+          "transcript_path": "C:\\Users\\RMS\\.claude\\projects\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92.jsonl",
+          "cwd": "C:\\Users\\RMS\\Desktop\\java\\ulsan-energy-poc",
+          "scratchpad_dir": "C:\\Users\\RMS\\AppData\\Local\\Temp\\claude\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92\\scratchpad",
+          "prompt_id": "9a619306-aa82-498b-a414-c53989fbb883",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "initialTeamNames": [],
+        "openClawRouting": {}
+      },
+      "budgetMs": 2000
+    },
+    "openclaw": {
+      "class": "best-effort",
+      "phase": "deferred-best-effort",
+      "status": "pending",
+      "attempts": 0,
+      "idempotencyKey": "8aaeb688b1a37d251befbf4b639b488ce5156517e09a018ae91bf2d5cb118151",
+      "payload": {
+        "transcriptPath": "C:\\Users\\RMS\\.claude\\projects\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92.jsonl",
+        "cwd": "C:\\Users\\RMS\\Desktop\\java\\ulsan-energy-poc",
+        "reason": "other",
+        "input": {
+          "session_id": "f30ac9b4-ec9f-42a4-9e71-65fb7a699a92",
+          "transcript_path": "C:\\Users\\RMS\\.claude\\projects\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92.jsonl",
+          "cwd": "C:\\Users\\RMS\\Desktop\\java\\ulsan-energy-poc",
+          "scratchpad_dir": "C:\\Users\\RMS\\AppData\\Local\\Temp\\claude\\C--Users-RMS-Desktop-java-ulsan-energy-poc\\f30ac9b4-ec9f-42a4-9e71-65fb7a699a92\\scratchpad",
+          "prompt_id": "9a619306-aa82-498b-a414-c53989fbb883",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "initialTeamNames": [],
+        "openClawRouting": {}
+      },
+      "budgetMs": 2000
+    }
+  },
+  "owner": null,
+  "phase": "collecting"
+}
