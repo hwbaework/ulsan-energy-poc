@@ -54,7 +54,8 @@ export interface SourceSpec {
 
 export const SOURCE: Record<EnergySource, SourceSpec> = {
   SOLAR: { label: '태양광', color: COLOR.yellow, barClass: 'bg-amber-500', icon: Sun, markerUrl: '/assets/icon/icon_zoom_out_sun.svg' },
-  ORC: { label: 'ORC', color: COLOR.orange, barClass: 'bg-orange-500', icon: Flame, markerUrl: '/assets/icon/icon_zoom_out_orc.svg' },
+  // ORC 는 바이올렛: 태양광(노랑)·연료전지(파랑)·이상감지(빨강)·정상(초록) 어느 것과도 겹치지 않는 색. 핀 SVG 색도 같이 맞춘다.
+  ORC: { label: 'ORC', color: COLOR.violet, barClass: 'bg-violet-500', icon: Flame, markerUrl: '/assets/icon/icon_zoom_out_orc.svg' },
   FUEL_CELL: { label: '연료전지', color: COLOR.blue, barClass: 'bg-blue-500', icon: BatteryCharging, markerUrl: '/assets/icon/icon_zoom_out_fuel_cell.svg' },
 };
 export const SOURCE_ORDER: EnergySource[] = ['SOLAR', 'ORC', 'FUEL_CELL'];

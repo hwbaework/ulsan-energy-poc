@@ -24,6 +24,8 @@ export interface MapMarkerSpec {
   size?: number;
   opacity?: number;
   title?: string;
+  /** 아이콘 이미지에 추가로 적용할 CSS filter (예: 이상감지 빨간 핀) */
+  iconFilter?: string;
   /** 반투명 원(히트맵 등) */
   halo?: { color: string; radius: number };
   onClick?: () => void;
@@ -68,7 +70,7 @@ function buildMarkerElement(spec: MapMarkerSpec): HTMLElement {
     img.style.width = `${Math.round(ICON_W * scale)}px`;
     img.style.height = `${Math.round(ICON_H * scale)}px`;
     img.style.display = 'block';
-    img.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))';
+    img.style.filter = `${spec.iconFilter ? `${spec.iconFilter} ` : ''}drop-shadow(0 2px 4px rgba(0,0,0,0.5))`;
     el.appendChild(img);
     el.style.cursor = spec.onClick ? 'pointer' : 'default';
   }

@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useMemo } from 'react';
-import Image from 'next/image';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Badge } from '@/components/ui/Badge';
@@ -14,8 +13,8 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import type { MapMarkerSpec } from '@/components/ui/MapboxMapView';
 import { cn } from '@/lib/utils';
 import type { MonitoringPlant, EnergySource, PlantStatus } from '@/types/monitoring';
+import { SOURCE, SOURCE_ORDER } from '@/lib/design';
 import {
-  AlertTriangle,
   Zap,
   ChevronRight,
   ChevronLeft,
@@ -44,16 +43,17 @@ const TYPE_MARKER_ICONS: Record<EnergySource, string> = {
   FUEL_CELL: '/assets/icon/icon_zoom_out_fuel_cell.svg',
 };
 
+/** 이상감지 시 핀을 빨강으로 보이게 하는 필터. 각 핀 색(design.ts SOURCE.color)의 hue 를 0°(빨강)로 회전 — 핀 색이 바뀌면 같이 조정 */
+const ANOMALY_PIN_FILTER: Record<EnergySource, string> = {
+  SOLAR: 'hue-rotate(-38deg) saturate(1.4)', // #F59E0B (38°)
+  ORC: 'hue-rotate(102deg) saturate(1.4)', // #8B5CF6 (258°)
+  FUEL_CELL: 'hue-rotate(-217deg) saturate(1.4)', // #3B82F6 (217°)
+};
+
 const TYPE_LABELS: Record<EnergySource, string> = {
   SOLAR: '태양광',
   ORC: 'ORC',
   FUEL_CELL: '연료전지',
-};
-
-const TYPE_EMOJI: Record<EnergySource, string> = {
-  SOLAR: '☀️',
-  ORC: '🔥',
-  FUEL_CELL: '⚡',
 };
 
 const STATUS_COLORS: Record<PlantStatus, string> = {
@@ -141,76 +141,74 @@ function StatusHud({ plants }: { plants: MonitoringPlant[] }) {
       <div className="rounded-xl border border-white/10 bg-[#000C17]/95 px-5 py-3">
         <div className="flex items-center gap-6 flex-wrap">
           {/* 전체 출력 */}
-          <div className="flex-1 min-w-[180px]">
-            <div className="flex items-center gap-2 mb-1">
-              <Zap size={14} className="text-primary" />
-              <span className="text-xs text-slate-400">전체 출력</span>
+          <div className="flex-1 min-w-[190px]">
+            <div className="mb-1">
+              <span className="text-sm text-slate-300">전체 출력</span>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-lg font-bold text-white tabular-nums">{agg.totalOutput.toLocaleString()} kW</span>
-              <span className="text-xs text-slate-500">설비 {capacityMw} MW</span>
+              <span className="text-xl font-bold text-white tabular-nums">{agg.totalOutput.toLocaleString()} kW</span>
+              <span className="text-sm text-slate-400">설비 {capacityMw} MW</span>
             </div>
           </div>
 
-          <div className="w-px h-10 bg-white/10" />
+          <div className="w-px h-11 bg-white/10" />
 
           {/* 이상 사업장 */}
-          <div className="min-w-[90px]">
-            <div className="flex items-center gap-1.5 mb-1">
-              <AlertTriangle size={12} className="text-semantic-yellow" />
-              <span className="text-xs text-slate-400">이상 사업장</span>
+          <div className="min-w-[100px]">
+            <div className="mb-1">
+              <span className="text-sm text-slate-300">이상 사업장</span>
             </div>
             {anomalyCount > 0 ? (
-              <span className="flex items-center gap-1 text-sm font-bold text-semantic-red">
+              <span className="flex items-center gap-1.5 text-sm font-bold text-semantic-red">
                 <span className="h-2 w-2 rounded-full bg-semantic-red" /> {anomalyCount}건
               </span>
             ) : (
-              <span className="text-sm font-medium text-emerald-400">정상</span>
+              <span className="text-sm font-bold text-emerald-400">정상</span>
             )}
           </div>
 
-          <div className="w-px h-10 bg-white/10" />
+          <div className="w-px h-11 bg-white/10" />
 
           {/* 기온 */}
-          <div className="min-w-[70px]">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Thermometer size={12} className="text-sky-400" />
-              <span className="text-xs text-slate-400">기온</span>
+          <div className="min-w-[80px]">
+            <div className="flex items-center gap-2 mb-1">
+              <Thermometer size={16} className="text-sky-400" />
+              <span className="text-sm text-slate-300">기온</span>
             </div>
-            <span className="text-sm font-medium text-white tabular-nums">25.4°C</span>
+            <span className="text-sm font-bold text-white tabular-nums">25.4°C</span>
           </div>
 
-          <div className="w-px h-10 bg-white/10" />
+          <div className="w-px h-11 bg-white/10" />
 
           {/* 풍향/풍속 */}
-          <div className="min-w-[110px]">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Wind size={12} className="text-slate-300" />
-              <span className="text-xs text-slate-400">풍향/풍속</span>
+          <div className="min-w-[120px]">
+            <div className="flex items-center gap-2 mb-1">
+              <Wind size={16} className="text-slate-300" />
+              <span className="text-sm text-slate-300">풍향/풍속</span>
             </div>
-            <span className="text-sm font-medium text-white tabular-nums">남남동 3.1m/s</span>
+            <span className="text-sm font-bold text-white tabular-nums">남남동 3.1m/s</span>
           </div>
 
-          <div className="w-px h-10 bg-white/10" />
+          <div className="w-px h-11 bg-white/10" />
 
           {/* 일출 */}
-          <div className="min-w-[90px]">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Sunrise size={12} className="text-amber-400" />
-              <span className="text-xs text-slate-400">일출</span>
+          <div className="min-w-[95px]">
+            <div className="flex items-center gap-2 mb-1">
+              <Sunrise size={16} className="text-amber-400" />
+              <span className="text-sm text-slate-300">일출</span>
             </div>
-            <span className="text-sm font-medium text-white tabular-nums">06시 09분</span>
+            <span className="text-sm font-bold text-white tabular-nums">06시 09분</span>
           </div>
 
-          <div className="w-px h-10 bg-white/10" />
+          <div className="w-px h-11 bg-white/10" />
 
           {/* 일몰 */}
-          <div className="min-w-[90px]">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Sunset size={12} className="text-orange-400" />
-              <span className="text-xs text-slate-400">일몰</span>
+          <div className="min-w-[95px]">
+            <div className="flex items-center gap-2 mb-1">
+              <Sunset size={16} className="text-orange-400" />
+              <span className="text-sm text-slate-300">일몰</span>
             </div>
-            <span className="text-sm font-medium text-white tabular-nums">18시 29분</span>
+            <span className="text-sm font-bold text-white tabular-nums">18시 29분</span>
           </div>
         </div>
       </div>
@@ -422,85 +420,96 @@ function SidePanel({
   }
 
   /* Level 0: Nothing selected — Portfolio summary */
-  const sourceOutput: Record<EnergySource, number> = { SOLAR: 0, ORC: 0, FUEL_CELL: 0 };
+  const sourceCapacity: Record<EnergySource, number> = { SOLAR: 0, ORC: 0, FUEL_CELL: 0 };
   plants.forEach((p) => {
-    sourceOutput[p.type as EnergySource] += p.currentOutput;
+    sourceCapacity[p.type as EnergySource] += p.capacity;
   });
-  const totalOutput = plants.reduce((s, p) => s + p.currentOutput, 0);
+  const totalCapacity = plants.reduce((s, p) => s + p.capacity, 0);
 
   return (
     <div className="space-y-3 ">
       <h3 className="text-md font-bold text-white">포트폴리오 요약</h3>
 
-      {/* Generation mix by source */}
+      {/* 발전원별 설비 용량 */}
       <div className="rounded-lg border border-accent/20 bg-surface-card p-3">
-        <p className="text-xs text-accent mb-2">발전원별 출력 비중</p>
+        <p className="text-sm text-slate-300 mb-2">발전원별 설비 용량 · 합계 {(totalCapacity / 1000).toFixed(2)} MW</p>
         <div className="space-y-2">
-          {(Object.entries(sourceOutput) as [EnergySource, number][])
-            .filter(([, kw]) => kw > 0 || true)
-            .map(([source, kw]) => {
-              const pct = totalOutput > 0 ? (kw / totalOutput) * 100 : 0;
-              return (
-                <div key={source} className="flex items-center gap-2">
-                  <span className="text-xs w-4">{TYPE_EMOJI[source]}</span>
-                  <span className="text-xs text-slate-300 w-14">{TYPE_LABELS[source]}</span>
-                  <div className="flex-1">
-                    <ProgressBar
-                      value={kw}
-                      max={totalOutput}
-                      className="h-1.5"
-                      barClass={cn(
-                        source === 'SOLAR' ? 'bg-amber-500' : source === 'ORC' ? 'bg-emerald-500' : 'bg-violet-500',
-                      )}
-                    />
-                  </div>
-                  <span className="text-xs text-white tabular-nums w-16 text-right">{kw.toLocaleString()} kW</span>
-                  <span className="text-[10px] text-slate-500 tabular-nums w-8 text-right">{pct.toFixed(0)}%</span>
+          {SOURCE_ORDER.map((source) => {
+            const cap = sourceCapacity[source];
+            return (
+              <div key={source} className="flex items-center gap-2">
+                <span
+                  className="h-2 w-2 rounded-full shrink-0"
+                  style={{ backgroundColor: SOURCE[source].color }}
+                />
+                <span className="text-sm text-slate-300 w-16">{TYPE_LABELS[source]}</span>
+                <div className="flex-1">
+                  <ProgressBar value={cap} max={totalCapacity} className="h-1.5" barClass={SOURCE[source].barClass} />
                 </div>
-              );
-            })}
+                <span className="text-sm font-medium text-white tabular-nums w-20 text-right">
+                  {(cap / 1000).toFixed(2)} MW
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Plant list */}
+      {/* 계약 사업장 */}
       <div className="space-y-2">
-        <p className="text-sm font-medium text-white">발전소 목록</p>
-        {plants.map((plant) => (
-          <button
-            key={plant.plantId}
-            onClick={() => onSelectPlant(plant)}
-            className="w-full rounded-lg border border-accent/20 bg-surface-card p-3 text-left hover:bg-white/5 transition-colors"
-          >
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2">
-                <StatusDot status={plant.status} pulse />
-                <span className="text-sm font-medium text-white">{plant.name}</span>
-                <Badge variant="primary">{TYPE_LABELS[plant.type as EnergySource]}</Badge>
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-white">계약 사업장</p>
+          <div className="flex items-center gap-3 text-xs text-slate-400">
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" /> 정상
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-red-500" /> 이상감지
+            </span>
+          </div>
+        </div>
+        {plants.map((plant) => {
+          return (
+            <button
+              key={plant.plantId}
+              onClick={() => onSelectPlant(plant)}
+              className="w-full rounded-lg border border-accent/20 bg-surface-card p-3 text-left hover:bg-white/5 transition-colors"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <StatusDot status={plant.status} pulse />
+                  <span className="text-sm font-medium text-white">{plant.name}</span>
+                  {(() => {
+                    const src = SOURCE[plant.type as EnergySource];
+                    const Icon = src.icon;
+                    return (
+                      <span className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-xs font-semibold text-white">
+                        <Icon size={13} style={{ color: src.color }} />
+                        {src.label}
+                      </span>
+                    );
+                  })()}
+                </div>
+                <ChevronRight size={14} className="text-slate-500" />
               </div>
-              <ChevronRight size={14} className="text-slate-500" />
-            </div>
-            <div className="flex items-center justify-between text-xs text-slate-400">
-              <span className="tabular-nums">
+              <div className="text-sm text-slate-300 tabular-nums">
                 {plant.currentOutput.toLocaleString()} / {plant.capacity.toLocaleString()} kW
-              </span>
-              <span className="tabular-nums">
-                {plant.capacity > 0 ? ((plant.currentOutput / plant.capacity) * 100).toFixed(0) : 0}%
-              </span>
-            </div>
-            <ProgressBar
-              value={plant.currentOutput}
-              max={plant.capacity}
-              className="mt-1.5 h-1"
-              barClass={cn(
-                plant.status === 'NORMAL'
-                  ? 'bg-emerald-500'
-                  : plant.status === 'WARNING'
-                    ? 'bg-amber-500'
-                    : 'bg-red-500',
-              )}
-            />
-          </button>
-        ))}
+              </div>
+              <ProgressBar
+                value={plant.currentOutput}
+                max={plant.capacity}
+                className="mt-1.5 h-1"
+                barClass={cn(
+                  plant.status === 'NORMAL'
+                    ? 'bg-emerald-500'
+                    : plant.status === 'WARNING'
+                      ? 'bg-amber-500'
+                      : 'bg-red-500',
+                )}
+              />
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -544,8 +553,10 @@ export default function MonitoringPage() {
 
   const ZOOM_IN = 15;
   const RIGHT_PANEL_PX = 396;
-  const TOP_HUD_PX = 82;
   const BOTTOM_BAR_PX = 100;
+  // 상단 HUD(출력·기온 + 발전원 칩)는 내용에 따라 높이가 변하므로 실측값을 쓴다
+  const hudRef = useRef<HTMLDivElement>(null);
+  const topHudPx = () => (hudRef.current?.offsetHeight ?? 82) + 12;
 
   const handleMapClick = useCallback(() => {
     setSelected(null);
@@ -564,7 +575,8 @@ export default function MonitoringPage() {
           [Math.max(...lngs), Math.max(...lats)],
         ],
         {
-          padding: { top: TOP_HUD_PX + 16, bottom: BOTTOM_BAR_PX + 16, left: 16, right: RIGHT_PANEL_PX + 16 },
+          // top 에 핀 높이(80×0.8)를 더해 맨 위 핀 몸통이 HUD·칩에 가리지 않게
+          padding: { top: topHudPx() + 64 + 16, bottom: BOTTOM_BAR_PX + 16, left: 16, right: RIGHT_PANEL_PX + 16 },
           maxZoom: ZOOM_IN,
           duration: 0,
         },
@@ -573,6 +585,11 @@ export default function MonitoringPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [plants],
   );
+
+  // 발전소 데이터가 지도 로드보다 늦게 오면 fitBounds 가 빈 배열로 끝나 마커가 화면 밖에 남는다 → 데이터 도착 시 다시 맞춤
+  useEffect(() => {
+    if (mapRef.current && plants.length > 0) handleMapLoad(mapRef.current);
+  }, [plants, handleMapLoad]);
 
   const handleZoomChanged = useCallback((zoom: number) => {
     setZoomLevel(zoom);
@@ -585,7 +602,7 @@ export default function MonitoringPage() {
     map.flyTo({
       center: [lng, lat],
       zoom: Math.max(map.getZoom(), ZOOM_IN),
-      offset: [-RIGHT_PANEL_PX / 2, (TOP_HUD_PX - BOTTOM_BAR_PX) / 2],
+      offset: [-RIGHT_PANEL_PX / 2, (topHudPx() - BOTTOM_BAR_PX) / 2],
       duration: 1200,
       essential: true,
     });
@@ -630,6 +647,8 @@ export default function MonitoringPage() {
           size: isSelected ? 1.2 : 0.8,
           title: plant.name,
           opacity: isAnomalyDimmed ? 0.3 : 1,
+          // 이상감지: 핀 색을 빨강으로 (핀 PNG 색상을 hue 회전 — 흰 아이콘은 그대로)
+          iconFilter: plant.status === 'ANOMALY' ? ANOMALY_PIN_FILTER[plant.type as EnergySource] : undefined,
           onClick: () => selectPlant(plant),
           onMouseEnter: (e) => {
             setHoveredPlant(plant);
@@ -684,7 +703,7 @@ export default function MonitoringPage() {
       {!overlaysHidden && (
         <>
           {/* Top HUD + 발전원 필터 칩 */}
-          <div className="absolute top-3 left-4 right-[396px] z-10 flex flex-col items-start gap-2">
+          <div ref={hudRef} className="absolute top-3 left-4 right-[396px] z-10 flex flex-col items-start gap-2">
             <StatusHud plants={plants} />
             <SourceChips plants={plants} hidden={hiddenTypes} onToggle={toggleType} />
           </div>
@@ -705,10 +724,10 @@ export default function MonitoringPage() {
       <button
         type="button"
         onClick={() => setOverlaysHidden((v) => !v)}
-        className="absolute bottom-4 left-4 z-20 flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#000C17]/90 px-3 py-2 text-xs text-white hover:bg-[#000C17] transition-colors"
+        className="absolute bottom-4 left-4 z-20 flex items-center gap-2 rounded-lg border border-white/10 bg-[#000C17]/90 px-4 py-2.5 text-sm font-medium text-white hover:bg-[#000C17] transition-colors"
         title={overlaysHidden ? '패널 보이기' : '패널 숨기기'}
       >
-        {overlaysHidden ? <Eye size={13} /> : <EyeOff size={13} />}
+        {overlaysHidden ? <Eye size={16} /> : <EyeOff size={16} />}
         {overlaysHidden ? '패널 보이기' : '패널 숨기기'}
       </button>
     </div>
@@ -725,14 +744,10 @@ function SourceChips({
   hidden: Set<EnergySource>;
   onToggle: (t: EnergySource) => void;
 }) {
-  const CHIPS: { type: EnergySource; label: string; iconUrl: string }[] = [
-    { type: 'SOLAR', label: '태양광', iconUrl: '/assets/icon/icon_zoom_out_sun.svg' },
-    { type: 'ORC', label: 'ORC', iconUrl: '/assets/icon/icon_zoom_out_orc.svg' },
-    { type: 'FUEL_CELL', label: '연료전지', iconUrl: '/assets/icon/icon_zoom_out_fuel_cell.svg' },
-  ];
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {CHIPS.map(({ type, label, iconUrl }) => {
+    <div className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#000C17]/95 p-1.5">
+      {SOURCE_ORDER.map((type) => {
+        const { label, color, icon: Icon } = SOURCE[type];
         const count = plants.filter((p) => (p.type as EnergySource) === type).length;
         const off = hidden.has(type);
         return (
@@ -741,14 +756,13 @@ function SourceChips({
             type="button"
             onClick={() => onToggle(type)}
             className={cn(
-              'flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors',
-              off
-                ? 'border-transparent bg-[#000C17]/60 text-slate-500'
-                : 'border-white/10 bg-[#000C17]/95 text-white',
+              'flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm font-semibold transition-colors hover:bg-white/[0.08]',
+              off ? 'text-slate-500' : 'text-white',
             )}
           >
-            <Image src={iconUrl} width={16} height={16} alt="" className={off ? 'opacity-40' : ''} />
-            {label} <span className="text-slate-400">{count}</span>
+            <Icon size={16} style={{ color: off ? '#64748B' : color }} />
+            {label}
+            <span className={cn('text-xs font-medium', off ? 'text-slate-600' : 'text-slate-400')}>{count}</span>
           </button>
         );
       })}
