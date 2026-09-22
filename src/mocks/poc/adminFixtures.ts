@@ -276,10 +276,12 @@ registerMock(/^\/companies\/(\d+)\/contacts$/, () => []);
 registerMock(/^\/roles$/, () => ROLES, 'GET');
 registerMock(/^\/roles$/, ({ body }) => {
   const b = (body ?? {}) as { code?: string; name?: string; description?: string };
+  const id = Math.max(0, ...ROLES.map((x) => x.id)) + 1;
   const r: MockRole = {
-    id: Math.max(0, ...ROLES.map((x) => x.id)) + 1,
+    id,
     name: b.name ?? '',
-    code: (b.code ?? '').toUpperCase(),
+    // 코드는 자동 부여 — 화면에서 입력받지 않는다
+    code: b.code ? b.code.toUpperCase() : `ROLE_${id}`,
     description: b.description ?? '',
     defaultPath: '/dashboard',
     system: false,

@@ -53,11 +53,9 @@ export default function PlatformRolesPage() {
   const [editRole, setEditRole] = useState<{ id: number } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [fName, setFName] = useState('');
-  const [fCode, setFCode] = useState('');
   const [fDesc, setFDesc] = useState('');
   const openCreate = () => {
     setFName('');
-    setFCode('');
     setFDesc('');
     setCreateOpen(true);
   };
@@ -332,17 +330,17 @@ export default function PlatformRolesPage() {
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="역할 추가" size="md">
         <div className="space-y-4">
           <Input label="역할 이름" value={fName} onChange={(e) => setFName(e.target.value)} placeholder="예: 운영 담당" />
-          <Input label="코드" value={fCode} onChange={(e) => setFCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))} placeholder="예: OPS_STAFF" />
           <Input label="설명" value={fDesc} onChange={(e) => setFDesc(e.target.value)} />
           <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
             <Button variant="secondary" onClick={() => setCreateOpen(false)}>
               취소
             </Button>
             <Button
-              disabled={!fName.trim() || !fCode.trim() || createRole.isPending}
+              disabled={!fName.trim() || createRole.isPending}
               onClick={async () => {
                 try {
-                  const created = await createRole.mutateAsync({ name: fName.trim(), code: fCode.trim(), description: fDesc.trim() || undefined });
+                  // 코드는 서버(목업)가 자동 부여
+                  const created = await createRole.mutateAsync({ name: fName.trim(), code: '', description: fDesc.trim() || undefined });
                   addToast('success', `${fName.trim()} 역할이 추가되었습니다`);
                   setCreateOpen(false);
                   setSelectedId(created.id);
