@@ -60,11 +60,6 @@ export const ENDPOINTS = {
   },
   anomalies: {
     list: `${V1}/anomalies`,
-    detail: (id: number) => `${V1}/anomalies/${id}`,
-    acknowledge: (id: number) => `${V1}/anomalies/${id}/acknowledge`,
-    startWork: (id: number) => `${V1}/anomalies/${id}/start-work`,
-    resolve: (id: number) => `${V1}/anomalies/${id}/resolve`,
-    falseAlarm: (id: number) => `${V1}/anomalies/${id}/false-alarm`,
     detections: `${V1}/anomalies/detections`,
     detectionsUnresolved: `${V1}/anomalies/detections/unresolved`,
     resolveDetection: (id: number) => `${V1}/anomalies/detections/${id}/resolve`,
@@ -211,8 +206,6 @@ export const ENDPOINTS = {
   },
   operator: {
     anomalies: `${V1}/operator/anomalies`,
-    acknowledgeAnomaly: (id: number) => `${V1}/operator/anomalies/${id}/acknowledge`,
-    anomalyAction: (id: number) => `${V1}/operator/anomalies/${id}/action`,
   },
   ppa: {
     contracts: `${V1}/ppa/contracts`,
@@ -339,7 +332,6 @@ export const ENDPOINTS = {
     sopScenarios: `${V1}/control/sop-scenarios`,
     safetyMap: `${V1}/control/safety/map`,
     safetyRules: `${V1}/control/safety/rules`,
-    promoteAnomaly: (anomalyId: number) => `${V1}/control/anomalies/${anomalyId}/promote`,
     sopAdvance: (id: number) => `${V1}/control/sop-events/${id}/advance`,
     sopClose: (id: number) => `${V1}/control/sop-events/${id}/close`,
     // V105: SOP 조치 이력 / V107: 예지보전 실시간 계측.

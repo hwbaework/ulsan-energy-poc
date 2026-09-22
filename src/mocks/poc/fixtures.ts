@@ -274,39 +274,36 @@ function anomaly(
     detectedAt, resolvedAt, affectedConsumers: [], actions, createdAt: detectedAt, updatedAt: resolvedAt ?? detectedAt,
   };
 }
+/**
+ * 이상 목록 — 근거: ITS_울산_에자자_수집데이터_API_명세서_v1.2
+ * severity = DX riskLevel(normal/caution/warning) · status = S-Energy 통신 상태(NORMAL=0 정상 / COMM_ERROR=1 통신오류)
+ * actions·resolvedAt 은 원본 프론트의 처리 워크플로 잔재 — 스펙에 없으며 목록 화면에서는 쓰지 않는다.
+ */
 export const ANOMALY_ROWS: MockAnomaly[] = [
-  // 감지 (미조치) — 건호이엔씨
-  anomaly(4, 17513, '인버터 #2 통신 끊김 (8분)', '인버터 #2 RTU 응답 없음. 8분간 계측값 미수신.', 'MEDIUM', 'DETECTED', daysAgo(0, 8, 40), []),
-  // 확인 — 용인금속
-  anomaly(3, 17511, '일사량 대비 발전량 편차 (-12%)', '동일 일사 조건 대비 발전량이 12% 낮음. 모듈 오염 또는 그늘 의심.', 'LOW', 'ACKNOWLEDGED', daysAgo(1, 11, 10), [
+  // 경고 · 통신오류 진행 중 — 건호이엔씨
+  anomaly(4, 17513, '인버터 #2 통신 끊김 (8분)', '인버터 #2 RTU 응답 없음. 8분간 계측값 미수신.', 'warning', 'COMM_ERROR', daysAgo(0, 8, 40), []),
+  // 등급은 정상인데 통신만 오류 — 태성산업 (등급·통신은 별개 소스라 이런 건도 이상 목록에 뜬다)
+  anomaly(6, 17512, 'RTU 통신 끊김 (3분)', 'RTU 폴링 응답 없음. 3분간 계측값 미수신. 전기안전지수는 정상.', 'normal', 'COMM_ERROR', daysAgo(0, 9, 55), []),
+  // 주의 — 용인금속
+  anomaly(3, 17511, '일사량 대비 발전량 편차 (-12%)', '동일 일사 조건 대비 발전량이 12% 낮음. 모듈 오염 또는 그늘 의심.', 'caution', 'NORMAL', daysAgo(1, 11, 10), [
     act(31, '확인', '이상 인지. 현장 육안 점검 예정.', '김운영', 'ACKNOWLEDGED', daysAgo(1, 11, 30)),
   ]),
-  // 조치중 — 한일튜브
-  anomaly(1, 17514, '인버터 #2 출력 저하 (정격 대비 -18%)', '인버터 #2 AC 출력이 정격 대비 18% 낮음. DC 입력은 정상.', 'MEDIUM', 'IN_PROGRESS', daysAgo(2, 13, 5), [
+  // 주의 — 한일튜브
+  anomaly(1, 17514, '인버터 #2 출력 저하 (정격 대비 -18%)', '인버터 #2 AC 출력이 정격 대비 18% 낮음. DC 입력은 정상.', 'caution', 'NORMAL', daysAgo(2, 13, 5), [
     act(11, '확인', '출력 저하 확인. 인버터 로그 요청.', '김운영', 'ACKNOWLEDGED', daysAgo(2, 13, 20)),
     act(12, '현장 점검', '인버터 #2 냉각 팬 이상 확인. 부품 교체 예정.', '박기사', 'IN_PROGRESS', daysAgo(1, 15, 0), daysAgo(-2, 18, 0).slice(0, 10)),
   ]),
-  // 완료 — 한일튜브 (RTU 통신 지연)
-  anomaly(2, 17514, 'RTU 통신 지연 (응답 > 60초)', 'RTU 폴링 응답 지연 60초 초과. 네트워크 점검.', 'LOW', 'RESOLVED', daysAgo(5, 8, 15), [
+  // 경고였다가 통신 복구 — 한일튜브 (RTU 통신 지연)
+  anomaly(2, 17514, 'RTU 통신 지연 (응답 > 60초)', 'RTU 폴링 응답 지연 60초 초과. 네트워크 점검.', 'warning', 'NORMAL', daysAgo(5, 8, 15), [
     act(21, '확인', '통신 지연 확인.', '김운영', 'ACKNOWLEDGED', daysAgo(5, 8, 30)),
     act(22, '원격 조치', '통신 모듈 원격 재기동 후 정상 응답 확인.', '김운영', 'RESOLVED', daysAgo(5, 9, 10)),
   ], daysAgo(5, 9, 10)),
-  // 완료 — 연료전지
-  anomaly(5, 17601, '스택 온도 상한 근접 (경고)', '스택 온도가 상한 경고치에 근접. 냉각 계통 점검.', 'HIGH', 'RESOLVED', daysAgo(1, 16, 0), [
+  // 경고 — 연료전지
+  anomaly(5, 17601, '스택 온도 상한 근접 (경고)', '스택 온도가 상한 경고치에 근접. 냉각 계통 점검.', 'warning', 'NORMAL', daysAgo(1, 16, 0), [
     act(51, '확인', '온도 경고 확인. 출력 80% 제한.', '이관제', 'ACKNOWLEDGED', daysAgo(1, 16, 10)),
     act(52, '현장 점검', '냉각 팬 1대 정지 확인, 교체 완료. 정격 복귀.', '박기사', 'RESOLVED', daysAgo(1, 18, 40)),
   ], daysAgo(1, 18, 40)),
 ];
-const findAnomaly = (id: number) => ANOMALY_ROWS.find((a) => a.id === id);
-const setStatus = (id: number, status: string) => {
-  const a = findAnomaly(id);
-  if (a) {
-    a.status = status;
-    a.updatedAt = new Date().toISOString().slice(0, 19);
-    if (status === 'RESOLVED' || status === 'FALSE_ALARM') a.resolvedAt = a.updatedAt;
-  }
-  return {};
-};
 
 // 발전소 상세 — 이상감지 요약 포함
 registerMock(/^\/monitoring\/plants\/(\d+)$/, ({ match }) => {
@@ -317,23 +314,8 @@ registerMock(/^\/monitoring\/plants\/(\d+)$/, ({ match }) => {
   }));
   return { ...plant, anomalies };
 });
-// 이상감지 관리 목록/상세/상태 변경/조치 등록
+// 이상감지 관리 목록 — 상세·상태 변경·조치 등록은 스펙에 없어 제공하지 않는다
 registerMock(/^\/anomalies$/, () => pageOf(ANOMALY_ROWS, 100));
-registerMock(/^\/anomalies\/(\d+)$/, ({ match }) => findAnomaly(Number(match[1])) ?? ANOMALY_ROWS[0]);
-registerMock(/^\/anomalies\/(\d+)\/acknowledge$/, ({ match }) => setStatus(Number(match[1]), 'ACKNOWLEDGED'));
-registerMock(/^\/anomalies\/(\d+)\/start-work$/, ({ match }) => setStatus(Number(match[1]), 'IN_PROGRESS'));
-registerMock(/^\/anomalies\/(\d+)\/resolve$/, ({ match }) => setStatus(Number(match[1]), 'RESOLVED'));
-registerMock(/^\/anomalies\/(\d+)\/false-alarm$/, ({ match }) => setStatus(Number(match[1]), 'FALSE_ALARM'));
-registerMock(/^\/operator\/anomalies\/(\d+)\/action$/, ({ match, body }) => {
-  const a = findAnomaly(Number(match[1]));
-  const b = (body ?? {}) as { actionType?: string; content?: string; assignee?: string; expectedResolution?: string };
-  if (a) {
-    const now = new Date().toISOString().slice(0, 19);
-    a.actions.push(act(Date.now() % 1_000_000, b.actionType ?? '조치', b.content ?? '', b.assignee ?? '관리자', 'IN_PROGRESS', now, b.expectedResolution));
-    if (a.status === 'DETECTED' || a.status === 'ACKNOWLEDGED') a.status = 'IN_PROGRESS';
-  }
-  return {};
-}, 'POST');
 
 /* ── 전기안전 진단 (ITS API-006/007) — 발전소별 진단이 주기적으로 쌓이는 누적 로그 ── */
 // safetyIndex 0~100(높을수록 안전). risks 는 항목별 위험 점수(Double). reason 은 산출 근거 객체.

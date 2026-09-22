@@ -6,26 +6,6 @@ export async function getAnomalies(params?: ListQueryParams): Promise<PageRespon
   return getApiClient().get(ENDPOINTS.anomalies.list, params);
 }
 
-export async function getAnomaly(id: number): Promise<Anomaly> {
-  return getApiClient().get(ENDPOINTS.anomalies.detail(id));
-}
-
-export async function acknowledgeAnomaly(id: number): Promise<void> {
-  return getApiClient().patch(ENDPOINTS.anomalies.acknowledge(id));
-}
-
-export async function startWorkAnomaly(id: number): Promise<void> {
-  return getApiClient().patch(ENDPOINTS.anomalies.startWork(id));
-}
-
-export async function resolveAnomaly(id: number): Promise<void> {
-  return getApiClient().patch(ENDPOINTS.anomalies.resolve(id));
-}
-
-export async function markFalseAlarm(id: number): Promise<void> {
-  return getApiClient().patch(ENDPOINTS.anomalies.falseAlarm(id));
-}
-
 export interface AnomalyDetection {
   id: number;
   equipmentId: number;

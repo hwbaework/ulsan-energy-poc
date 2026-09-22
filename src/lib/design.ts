@@ -95,6 +95,29 @@ export function statusOf(status: PlantStatus | string): StatusSpec {
 }
 export const STATUS_KEY = [NORMAL_SPEC, ANOMALY_SPEC];
 
+/* ── 이상 등급 · 통신 상태 (근거: ITS_울산_에자자_수집데이터_API_명세서_v1.2) ── */
+export type PillTone = 'normal' | 'danger' | 'warning' | 'muted';
+export interface PillSpec {
+  label: string;
+  tone: PillTone;
+  order: number;
+}
+/** DX 전기안전지수 riskLevel (API-006/007). normal 은 이상이 아니지만 통신오류 건은 등급 정상으로도 목록에 뜬다 */
+export const ANOMALY_GRADE: Record<string, PillSpec> = {
+  warning: { label: '경고', tone: 'danger', order: 0 },
+  caution: { label: '주의', tone: 'warning', order: 1 },
+  normal: { label: '정상', tone: 'normal', order: 2 },
+};
+/** S-Energy 통신 상태 (API-001): 0 정상 / 1 통신오류 */
+export const COMM_STATUS: Record<string, PillSpec> = {
+  COMM_ERROR: { label: '통신오류', tone: 'danger', order: 0 },
+  NORMAL: { label: '정상', tone: 'normal', order: 1 },
+};
+export const gradeOf = (code: string): PillSpec => ANOMALY_GRADE[code] ?? { label: code, tone: 'muted', order: 99 };
+export const commStatusOf = (code: string): PillSpec => COMM_STATUS[code] ?? { label: code, tone: 'muted', order: 99 };
+/** 이상 목록 포함 조건 — 등급이 정상이 아니거나 통신오류. 둘 다 정상이면 이상이 아니다 */
+export const isAnomaly = (severity: string, status: string): boolean => severity !== 'normal' || status === 'COMM_ERROR';
+
 /* ── 아이콘을 쓰는 지표 ────────────────────────────────── */
 /**
  * 규칙: 숫자 KPI 카드(현재 출력·발전량·설비 용량·금액 …)에는 아이콘을 붙이지 않는다.

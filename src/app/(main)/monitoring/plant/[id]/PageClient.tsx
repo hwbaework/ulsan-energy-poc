@@ -5,47 +5,20 @@ import { useParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
 import { ProgressBar } from '@/components/ui/ProgressBar';
-import { RmsAreaChart, RmsLineChart, ScrollableChart } from '@/components/ui/Chart';
+import { RmsAreaChart, RmsLineChart } from '@/components/ui/Chart';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { SourceBadge, StatusBadge } from '@/components/ui/Design';
-import {
-  ArrowLeft,
-  AlertTriangle,
-  ClipboardCheck,
-  Sun,
-  Thermometer,
-  Wind,
-  Zap,
-  TrendingUp,
-  TrendingDown,
-} from 'lucide-react';
+import { SourceBadge, StatusBadge, StatusPill } from '@/components/ui/Design';
+import { commStatusOf, gradeOf } from '@/lib/design';
+import { ArrowLeft, Sun, Thermometer, Wind, Zap, TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useToastStore } from '@/stores/useToastStore';
 import type { EnergySource, PlantStatus, InverterStatus, PlantConnectionStatus } from '@/types/monitoring';
 import { isLaseePlant } from '@/constants/plant-mapping';
 import { useMonitoringPlantDetail, useMonitoringPlantHistory } from '@/hooks/monitoring/useMonitoring';
 import { ConnectionBanner, InverterDetailSection } from '@/components/features/monitoring/InverterPanels';
 
-
-const STATUS_VARIANT: Record<PlantStatus, 'success' | 'warning' | 'danger' | 'default' | 'info'> = {
-  NORMAL: 'success',
-  WARNING: 'warning',
-  ANOMALY: 'danger',
-  MAINTENANCE: 'info',
-  OFFLINE: 'default',
-};
-
-const STATUS_LABEL: Record<PlantStatus, string> = {
-  NORMAL: '정상',
-  WARNING: '주의',
-  ANOMALY: '이상',
-  MAINTENANCE: '점검',
-  OFFLINE: '오프라인',
-};
 
 interface MockPlantDetail {
   id: number;
@@ -138,13 +111,6 @@ function useRealtimeAccumulator(inverters: InverterStatus[] | undefined) {
   return points;
 }
 
-const SEVERITY_VARIANT: Record<string, 'danger' | 'warning' | 'info' | 'default'> = {
-  CRITICAL: 'danger',
-  HIGH: 'danger',
-  MEDIUM: 'warning',
-  LOW: 'info',
-};
-
 /* ── Main Page ── */
 
 export default function PlantDetailPage() {
@@ -195,10 +161,6 @@ export default function PlantDetailPage() {
         }
       : (undefined as any);
   const [selectedConsumer, setSelectedConsumer] = useState(plant?.consumers?.[0]?.id ?? 0);
-  const [actionModalOpen, setActionModalOpen] = useState(false);
-  const [actionNote, setActionNote] = useState('');
-  const [inspectModalOpen, setInspectModalOpen] = useState(false);
-  const [inspectNote, setInspectNote] = useState('');
   if (!plant) return null;
 
   const hasLasee = isLaseePlant(plant.id);
@@ -244,25 +206,32 @@ export default function PlantDetailPage() {
   ];
 
   const anomalyCols: Column<(typeof plant.anomalies)[0]>[] = [
-    { key: 'title', header: '이상유형', render: (r) => <span className="text-sm text-white">{r.title}</span> },
+    { key: 'title', header: '이상 내용', render: (r) => <span className="text-sm text-white">{r.title}</span> },
     {
       key: 'severity',
       header: '심각도',
-      width: '80px',
-      render: (r) => <Badge variant={SEVERITY_VARIANT[r.severity] ?? 'default'}>{r.severity}</Badge>,
+      width: '90px',
+      render: (r) => {
+        const s = gradeOf(r.severity);
+        return <StatusPill tone={s.tone} label={s.label} />;
+      },
     },
     {
       key: 'detectedAt',
-      header: '감지 시간',
+      header: '감지 시각',
+      width: '180px',
       render: (r) => (
         <span className="text-sm text-slate-400 tabular-nums">{new Date(r.detectedAt).toLocaleString('ko-KR')}</span>
       ),
     },
     {
       key: 'status',
-      header: '상태',
-      width: '80px',
-      render: (r) => <Badge variant="default">{r.status}</Badge>,
+      header: '처리',
+      width: '90px',
+      render: (r) => {
+        const s = commStatusOf(r.status);
+        return <StatusPill tone={s.tone} label={s.label} />;
+      },
     },
   ];
 
@@ -279,15 +248,8 @@ export default function PlantDetailPage() {
           <div className="flex items-center gap-2 mt-1">
             <SourceBadge type={plant.type} />
             <StatusBadge status={plant.status} />
+            <span className="text-sm text-slate-400">{plant.address}</span>
           </div>
-        </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="secondary" onClick={() => setActionModalOpen(true)}>
-            <ClipboardCheck size={14} className="mr-1" /> 조치 기록
-          </Button>
-          <Button size="sm" variant="secondary" onClick={() => setInspectModalOpen(true)}>
-            <AlertTriangle size={14} className="mr-1" /> 현장 점검 요청
-          </Button>
         </div>
       </div>
 
@@ -298,47 +260,39 @@ export default function PlantDetailPage() {
 
       {/* KPI Row */}
       {hasLasee ? (
+        /* KPI: 라벨 + 수치 + 단위(값과 같은 색·크기). 퍼센트·아이콘 없음 */
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
             <p className="text-sm text-slate-300 mb-1">현재 출력</p>
-            <p className="text-2xl font-bold text-white tabular-nums">
-              {plant.currentOutput.toLocaleString()} <span className="text-sm font-normal text-slate-500">kW</span>
-            </p>
+            <p className="text-2xl font-bold text-white tabular-nums">{plant.currentOutput.toLocaleString()} kW</p>
             <div className="mt-2">
-              <ProgressBar value={outputPercent} variant="success" showValue label="가동률" />
+              <ProgressBar value={outputPercent} variant="success" />
             </div>
           </div>
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
             <p className="text-sm text-slate-300 mb-1">금일 발전량</p>
-            <p className="text-2xl font-bold text-white tabular-nums">
-              {plant.todayGeneration.toLocaleString()} <span className="text-sm font-normal text-slate-500">kWh</span>
-            </p>
+            <p className="text-2xl font-bold text-white tabular-nums">{plant.todayGeneration.toLocaleString()} kWh</p>
           </div>
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
             <p className="text-sm text-slate-300 mb-1">설비 용량</p>
-            <p className="text-2xl font-bold text-white tabular-nums">
-              {plant.capacity.toLocaleString()} <span className="text-sm font-normal text-slate-500">kW</span>
-            </p>
+            <p className="text-2xl font-bold text-white tabular-nums">{plant.capacity.toLocaleString()} kW</p>
           </div>
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
             <p className="text-sm text-slate-300 mb-1">누적 발전량</p>
             <p className="text-2xl font-bold text-white tabular-nums">
-              {((apiPlant as any)?.totalEnergy ?? 0).toLocaleString()}{' '}
-              <span className="text-sm font-normal text-slate-500">kWh</span>
+              {((apiPlant as any)?.totalEnergy ?? 0).toLocaleString()} kWh
             </p>
           </div>
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
             <p className="text-sm text-slate-300 mb-1">금일 발전시간</p>
             <p className="text-2xl font-bold text-white tabular-nums">
-              {((apiPlant as any)?.generationHours ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}{' '}
-              <span className="text-sm font-normal text-slate-500">h</span>
+              {((apiPlant as any)?.generationHours ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} h
             </p>
           </div>
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
             <p className="text-sm text-slate-300 mb-1">금액</p>
             <p className="text-2xl font-bold text-white tabular-nums">
-              {((apiPlant as any)?.revenueAmount ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}{' '}
-              <span className="text-sm font-normal text-slate-500">원</span>
+              {((apiPlant as any)?.revenueAmount ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} 원
             </p>
           </div>
         </div>
@@ -393,22 +347,9 @@ export default function PlantDetailPage() {
         </div>
       )}
 
-      {/* 이상감지 + 실시간 계측 */}
+      {/* 금일 발전량 추이(전폭) — 비 LASEE 는 현장 정보 + 실시간 계측 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {hasLasee ? (
-          <SectionCard title="이상감지" description="최근 7일">
-            {plant.anomalies.length > 0 ? (
-              <DataTable
-                columns={anomalyCols}
-                data={plant.anomalies}
-                rowKey={(r) => r.id}
-                onRowClick={(r) => router.push(`/monitoring/anomalies/${r.id}`)}
-              />
-            ) : (
-              <p className="text-sm text-slate-500 text-center py-8">최근 7일간 이상 감지 내역이 없습니다</p>
-            )}
-          </SectionCard>
-        ) : (
+        {hasLasee ? null : (
           <div className="rounded-lg border border-accent/20 bg-surface-card p-5 space-y-4">
             <p className="text-sm font-medium text-white">현장 정보</p>
             <div className="grid grid-cols-2 gap-3">
@@ -475,21 +416,19 @@ export default function PlantDetailPage() {
           </div>
         )}
 
-        {/* 큰 차트: 금일 발전량 추이 (스크롤/휠로 확대·축소) */}
-        <div className="lg:col-span-2">
+        {/* 큰 차트: 금일 발전량 추이 */}
+        <div className={hasLasee ? 'lg:col-span-3' : 'lg:col-span-2'}>
           {hasLasee && historyData && historyData.length > 0 ? (
-            <ScrollableChart
+            <RmsAreaChart
               data={historyData.map((p) => ({
                 time: new Date(p.time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
                 energy: +p.dailyEnergy.toFixed(1),
               }))}
               xKey="time"
-              lines={[{ key: 'energy', name: '누적 발전량 (kWh)', color: '#10B981', type: 'area' }]}
+              areas={[{ key: 'energy', name: '누적 발전량 (kWh)', color: '#10B981' }]}
               title="금일 발전량 추이"
-              description="스크롤/휠로 확대·축소"
+              description="최근 24시간"
               height={280}
-              initialWindow={60}
-              minWindow={10}
             />
           ) : !hasLasee ? (
             <RmsLineChart
@@ -588,7 +527,6 @@ export default function PlantDetailPage() {
                 columns={anomalyCols}
                 data={plant.anomalies}
                 rowKey={(r) => r.id}
-                onRowClick={(r) => router.push(`/monitoring/anomalies/${r.id}`)}
               />
             ) : (
               <p className="text-sm text-slate-500 text-center py-8">최근 7일간 이상 감지 내역이 없습니다</p>
@@ -643,81 +581,6 @@ export default function PlantDetailPage() {
         </div>
       )}
 
-      <Modal open={actionModalOpen} onClose={() => setActionModalOpen(false)} title="조치 기록" size="md">
-        <div className="space-y-4">
-          <div>
-            <p className="text-xs text-slate-400 mb-1">
-              발전소: <span className="text-white font-medium">{plant.name}</span>
-            </p>
-            <p className="text-xs text-slate-400">
-              현재 상태: <Badge variant={STATUS_VARIANT[plant.status]}>{STATUS_LABEL[plant.status]}</Badge>
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-slate-300">조치 내용</label>
-            <textarea
-              rows={4}
-              value={actionNote}
-              onChange={(e) => setActionNote(e.target.value)}
-              placeholder="수행한 조치 내용을 입력하세요..."
-              className="w-full rounded-md border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
-            <Button variant="secondary" onClick={() => setActionModalOpen(false)}>
-              취소
-            </Button>
-            <Button
-              disabled={!actionNote.trim()}
-              onClick={() => {
-                useToastStore.getState().add('success', '조치 기록이 저장되었습니다');
-                setActionNote('');
-                setActionModalOpen(false);
-              }}
-            >
-              저장
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal open={inspectModalOpen} onClose={() => setInspectModalOpen(false)} title="현장 점검 요청" size="md">
-        <div className="space-y-4">
-          <div>
-            <p className="text-xs text-slate-400 mb-1">
-              발전소: <span className="text-white font-medium">{plant.name}</span>
-            </p>
-            <p className="text-xs text-slate-400">
-              담당자: {plant.manager} ({plant.managerPhone})
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-slate-300">점검 요청 사유</label>
-            <textarea
-              rows={4}
-              value={inspectNote}
-              onChange={(e) => setInspectNote(e.target.value)}
-              placeholder="점검이 필요한 사유를 입력하세요..."
-              className="w-full rounded-md border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
-            <Button variant="secondary" onClick={() => setInspectModalOpen(false)}>
-              취소
-            </Button>
-            <Button
-              disabled={!inspectNote.trim()}
-              onClick={() => {
-                useToastStore.getState().add('success', `${plant.manager}에게 현장 점검 요청을 발송했습니다`);
-                setInspectNote('');
-                setInspectModalOpen(false);
-              }}
-            >
-              요청 발송
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }

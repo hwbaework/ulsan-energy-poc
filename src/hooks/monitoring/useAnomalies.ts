@@ -11,46 +11,6 @@ export const useAnomalies = (params?: ListQueryParams) => {
   });
 };
 
-export const useAnomaly = (id: number) => {
-  return useQuery({
-    queryKey: anomalyKeys.detail(id),
-    queryFn: () => anomalyApi.getAnomaly(id),
-    enabled: !!id,
-  });
-};
-
-export const useAcknowledgeAnomaly = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => anomalyApi.acknowledgeAnomaly(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: anomalyKeys.all }),
-  });
-};
-
-export const useStartWorkAnomaly = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => anomalyApi.startWorkAnomaly(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: anomalyKeys.all }),
-  });
-};
-
-export const useResolveAnomaly = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => anomalyApi.resolveAnomaly(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: anomalyKeys.all }),
-  });
-};
-
-export const useMarkFalseAlarm = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => anomalyApi.markFalseAlarm(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: anomalyKeys.all }),
-  });
-};
-
 export const useDetections = (params?: ListQueryParams & { equipmentId?: number }) => {
   return useQuery({
     queryKey: anomalyKeys.detections(params ?? {}),

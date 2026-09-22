@@ -262,7 +262,7 @@ export default function DesignGuidePage() {
             <li>표에서 발전소는 PlantNameCell(아이콘 + 이름 + 발전원 라벨)로 표기한다. 순번은 시스템 ID가 아니라 별도 'No.' 컬럼(1,2,3…)으로 매긴다.</li>
             <li>숫자 KPI 카드(StatCard)에는 sub 설명을 넣지 않는다. 라벨 + 수치만.</li>
             <li>
-              목록 표는 SectionCard로 감싸고 제목(예: &lsquo;기업 목록&rsquo;)을 단다. 검색창·필터(Select)·등록 버튼은 위에 따로 줄로 두지 않고 카드 헤더의 actions(제목 오른쪽)에 한 줄로 붙인다. 순서는 검색 → 필터 → 등록(맨 오른쪽). 검색창 폭은 w-64.
+              목록 표는 SectionCard로 감싸고 제목(예: &lsquo;기업 목록&rsquo;)을 단다. 검색창·필터(Select)·등록 버튼은 위에 따로 줄로 두지 않고 카드 헤더의 actions(제목 오른쪽)에 한 줄로 붙인다. 순서는 필터(Select, 기본값 전체) → 검색 → 등록(맨 오른쪽). 검색창 폭은 w-64.
             </li>
             <li>목록·표는 DataTable(features/DataList)로 만든다. 숫자 열은 우측정렬 + tabular-nums, 정렬 필요한 열은 sortable, 상세로 들어가는 표는 onRowClick.</li>
             <li>상세 화면은 제목 왼쪽에 ← 아이콘 버튼(ghost)으로 뒤로 간다. 오른쪽에 '목록으로' 텍스트 버튼을 두지 않는다.</li>

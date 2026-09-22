@@ -1,17 +1,17 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useMemo, useState } from 'react';
+import { Search } from 'lucide-react';
 import { Select } from '@/components/ui/Select';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard, StatCard, StatsGrid } from '@/components/features';
 
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
+import { StatusPill } from '@/components/ui/Design';
+import { commStatusOf, gradeOf, isAnomaly } from '@/lib/design';
 import type { AnomalyEvent } from '@/types/monitoring';
 import { useAnomalies } from '@/hooks/monitoring/useAnomalies';
-import { usePromoteAnomaly } from '@/hooks/control/useControl';
 import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
 
 interface AnomalyRow extends AnomalyEvent {
@@ -21,28 +21,8 @@ interface AnomalyRow extends AnomalyEvent {
   updatedAt?: string;
 }
 
-const SEVERITY_VARIANT: Record<string, 'danger' | 'warning' | 'info' | 'default'> = {
-  CRITICAL: 'danger',
-  HIGH: 'danger',
-  MEDIUM: 'warning',
-  LOW: 'info',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  DETECTED: '감지됨',
-  ACKNOWLEDGED: '확인됨',
-  IN_PROGRESS: '조치중',
-  RESOLVED: '완료',
-  FALSE_ALARM: '오탐',
-};
-
-const STATUS_VARIANT: Record<string, 'danger' | 'warning' | 'info' | 'success' | 'default'> = {
-  DETECTED: 'danger',
-  ACKNOWLEDGED: 'warning',
-  IN_PROGRESS: 'info',
-  RESOLVED: 'success',
-  FALSE_ALARM: 'default',
-};
+// 등급·상태 표기와 이상 포함 조건은 src/lib/design.ts (ANOMALY_GRADE · COMM_STATUS · isAnomaly) 한 곳에서 정의한다.
+// 처리 워크플로(감지→확인→조치중→완료)는 스펙에 없다. 필터 항목은 데이터에 실제 있는 값만 보여준다.
 
 const TYPE_LABELS: Record<string, string> = {
   SOLAR: '태양광',
@@ -58,13 +38,11 @@ function getDeviceLabel(r: AnomalyRow): string {
 }
 
 export default function AnomaliesPage() {
-  const router = useRouter();
   const [severity, setSeverity] = useState('all');
   const [status, setStatus] = useState('all');
-  const [plant, setPlant] = useState('all');
+  const [query, setQuery] = useState('');
 
   const myPlantMatcher = useMyPlantMatcher();
-  const promote = usePromoteAnomaly();
   const { data: apiData, isError } = useAnomalies({ size: 100 });
   const rawListAll: any[] =
     !isError && apiData ? (Array.isArray(apiData) ? apiData : ((apiData as any)?.content ?? [])) : [];
@@ -77,13 +55,15 @@ export default function AnomaliesPage() {
     myPlantMatcher,
   );
 
-  const anomalies: AnomalyRow[] = rawList.map((a: any) => ({
+  const anomalies: AnomalyRow[] = rawList
+    .filter((a: any) => isAnomaly(a.severity ?? 'normal', a.status ?? 'NORMAL'))
+    .map((a: any) => ({
     id: a.id,
     plantId: a.plantId ?? a.powerStationId ?? 0,
     plantName: a.plantName ?? a.powerStationName ?? '',
     plantType: a.detectionType ?? 'SOLAR',
-    severity: a.severity ?? 'LOW',
-    status: a.status ?? 'DETECTED',
+    severity: a.severity ?? 'caution',
+    status: a.status ?? 'NORMAL',
     title: a.title ?? '',
     description: a.description ?? '',
     detectedAt: a.detectedAt ?? a.createdAt ?? '',
@@ -92,15 +72,27 @@ export default function AnomaliesPage() {
     updatedAt: a.updatedAt ?? '',
   }));
 
+  const q = query.trim().toLowerCase();
   const filtered = anomalies.filter((a) => {
     if (severity !== 'all' && a.severity !== severity) return false;
     if (status !== 'all' && a.status !== status) return false;
-    if (plant !== 'all' && a.plantName !== plant) return false;
+    if (q && !a.plantName.toLowerCase().includes(q) && !a.title.toLowerCase().includes(q)) return false;
     return true;
   });
 
-  const activeCount = anomalies.filter((a) => a.status !== 'RESOLVED' && a.status !== 'FALSE_ALARM').length;
-  const criticalCount = anomalies.filter((a) => a.severity === 'CRITICAL' && a.status !== 'RESOLVED').length;
+  // 필터 항목 = 데이터에 실제 있는 값만 (하드코딩 금지)
+  const severityOptions = useMemo(() => {
+    const codes = [...new Set(anomalies.map((a) => a.severity))].sort((x, y) => gradeOf(x).order - gradeOf(y).order);
+    return [{ value: 'all', label: '전체 등급' }, ...codes.map((c) => ({ value: c, label: gradeOf(c).label }))];
+  }, [anomalies]);
+  const statusOptions = useMemo(() => {
+    const codes = [...new Set(anomalies.map((a) => a.status))].sort((x, y) => commStatusOf(x).order - commStatusOf(y).order);
+    return [{ value: 'all', label: '전체 상태' }, ...codes.map((c) => ({ value: c, label: commStatusOf(c).label }))];
+  }, [anomalies]);
+
+  // 활성 이상 = 목록 전체(등급 주의·경고 또는 통신오류) · 경고 = 등급 경고 건
+  const activeCount = anomalies.length;
+  const warningCount = anomalies.filter((a) => a.severity === 'warning').length;
 
   const columns: Column<AnomalyRow>[] = [
     {
@@ -108,7 +100,7 @@ export default function AnomaliesPage() {
       header: '시간',
       width: '180px',
       render: (r) => (
-        <span className="text-xs text-slate-200 tabular-nums whitespace-nowrap">
+        <span className="text-sm text-slate-300 tabular-nums whitespace-nowrap">
           {new Date(r.detectedAt).toLocaleString('ko-KR', {
             year: 'numeric',
             month: '2-digit',
@@ -130,13 +122,13 @@ export default function AnomaliesPage() {
       key: 'plantType',
       header: '설비',
       width: '90px',
-      render: (r) => <span className="text-xs text-slate-200">{TYPE_LABELS[r.plantType ?? ''] ?? r.plantType}</span>,
+      render: (r) => <span className="text-sm text-slate-300">{TYPE_LABELS[r.plantType ?? ''] ?? r.plantType}</span>,
     },
     {
       key: 'device' as any,
       header: '장비',
       width: '70px',
-      render: (r) => <span className="text-xs text-slate-200">{getDeviceLabel(r)}</span>,
+      render: (r) => <span className="text-sm text-slate-300">{getDeviceLabel(r)}</span>,
     },
     {
       key: 'title',
@@ -146,36 +138,20 @@ export default function AnomaliesPage() {
     },
     {
       key: 'severity',
-      header: '심각도',
+      header: '등급',
       width: '80px',
-      render: (r) => <Badge variant={SEVERITY_VARIANT[r.severity]}>{r.severity}</Badge>,
+      render: (r) => {
+        const s = gradeOf(r.severity);
+        return <StatusPill tone={s.tone} label={s.label} />;
+      },
     },
     {
       key: 'status',
       header: '상태',
       width: '80px',
-      render: (r) => <Badge variant={STATUS_VARIANT[r.status]}>{STATUS_LABELS[r.status]}</Badge>,
-    },
-    {
-      key: 'detail' as any,
-      header: '',
-      width: '120px',
       render: (r) => {
-        // 관제 루프 승격 게이트 (기획 12 §4): HIGH/CRITICAL & 미종결만 DiSOP 승격 가능
-        const promotable = ['HIGH', 'CRITICAL'].includes(r.severity) && ['DETECTED', 'ACKNOWLEDGED'].includes(r.status);
-        return promotable ? (
-          <Button
-            size="sm"
-            variant="primary"
-            disabled={promote.isPending}
-            onClick={(e) => {
-              e.stopPropagation();
-              promote.mutate(r.id, { onSuccess: () => router.push('/control/disop') });
-            }}
-          >
-            DiSOP 승격
-          </Button>
-        ) : null;
+        const s = commStatusOf(r.status);
+        return <StatusPill tone={s.tone} label={s.label} />;
       },
     },
   ];
@@ -189,58 +165,38 @@ export default function AnomaliesPage() {
 
       <StatsGrid columns={2}>
         <StatCard label="활성 이상" value={activeCount} />
-        <StatCard label="긴급(CRITICAL)" value={criticalCount} />
+        <StatCard label="경고" value={warningCount} />
       </StatsGrid>
 
       <SectionCard
         title="이상 감지 목록"
-        description={`총 ${filtered.length}건`}
         actions={
-          <>
+          /* /guide 표기 규칙: 필터 → 검색 */
+          <div className="flex items-center gap-3">
             <div className="w-32">
-              <Select
-                options={[
-                  { value: 'all', label: '전체 심각도' },
-                  { value: 'CRITICAL', label: 'CRITICAL' },
-                  { value: 'HIGH', label: 'HIGH' },
-                  { value: 'MEDIUM', label: 'MEDIUM' },
-                  { value: 'LOW', label: 'LOW' },
-                ]}
-                value={severity}
-                onChange={(e) => setSeverity(e.target.value)}
-              />
+              <Select options={severityOptions} value={severity} onChange={(e) => setSeverity(e.target.value)} />
             </div>
             <div className="w-32">
-              <Select
-                options={[
-                  { value: 'all', label: '전체 상태' },
-                  { value: 'DETECTED', label: '감지됨' },
-                  { value: 'ACKNOWLEDGED', label: '확인됨' },
-                  { value: 'IN_PROGRESS', label: '조치중' },
-                  { value: 'RESOLVED', label: '완료' },
-                  { value: 'FALSE_ALARM', label: '오탐' },
-                ]}
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
+              <Select options={statusOptions} value={status} onChange={(e) => setStatus(e.target.value)} />
+            </div>
+            <div className="relative w-64">
+              <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="발전소 · 이상유형 검색"
+                className="pl-8"
               />
             </div>
-            <div className="w-40">
-              <Select
-                options={[
-                  { value: 'all', label: '전체 발전소' },
-                  { value: '그린솔라 1호', label: '그린솔라 1호' },
-                  { value: '그린솔라 2호', label: '그린솔라 2호' },
-                  { value: '울산 ORC 발전소', label: '울산 ORC 발전소' },
-                  { value: '수소연료전지 1호', label: '수소연료전지 1호' },
-                ]}
-                value={plant}
-                onChange={(e) => setPlant(e.target.value)}
-              />
-            </div>
-          </>
+          </div>
         }
       >
-        <DataTable columns={columns} data={filtered} rowKey={(r) => r.id} />
+        <DataTable
+          columns={columns}
+          data={filtered}
+          rowKey={(r) => r.id}
+          emptyMessage={q || severity !== 'all' || status !== 'all' ? '검색 결과가 없습니다' : '이상 감지 내역이 없습니다'}
+        />
       </SectionCard>
     </div>
   );

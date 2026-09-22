@@ -208,8 +208,6 @@ function useSopMutation(fn: (id: number) => string) {
   });
 }
 
-/** 이상 이벤트 → DiSOP 승격 (HIGH/CRITICAL 한정, 원 이벤트 IN_PROGRESS 연동). */
-export const usePromoteAnomaly = () => useSopMutation(ENDPOINTS.control.promoteAnomaly);
 /** SOP 워크플로 다음 단계 전이 (마지막 단계 도달 시 자동 종료). */
 export const useAdvanceSop = () => useSopMutation(ENDPOINTS.control.sopAdvance);
 /** SOP 상황 종료 — 원 이벤트 resolve 역연동. */

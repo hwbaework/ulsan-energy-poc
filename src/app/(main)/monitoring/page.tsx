@@ -3,8 +3,8 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { StatusBadge, StatusPill } from '@/components/ui/Design';
 
 const MapboxMapView = dynamic(() => import('@/components/ui/MapboxMapView').then((mod) => mod.MapboxMapView), {
   ssr: false,
@@ -222,7 +222,6 @@ function StatusHud({ plants }: { plants: MonitoringPlant[] }) {
 
 function MarkerTooltip({ plant, position }: { plant: MonitoringPlant; position: { x: number; y: number } | null }) {
   if (!position) return null;
-  const pct = plant.capacity > 0 ? ((plant.currentOutput / plant.capacity) * 100).toFixed(0) : '0';
   return (
     <div
       className="fixed z-50 pointer-events-none animate-[fadeIn_100ms_ease-out]"
@@ -232,11 +231,9 @@ function MarkerTooltip({ plant, position }: { plant: MonitoringPlant; position: 
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-white">{plant.name}</span>
           <StatusDot status={plant.status} />
-          <span className="text-[10px] text-slate-400">{STATUS_LABELS_MAP[plant.status]}</span>
+          <span className="text-xs text-slate-400">{STATUS_LABELS_MAP[plant.status]}</span>
         </div>
-        <div className="text-[10px] text-slate-300 mt-0.5 tabular-nums">
-          {plant.currentOutput.toLocaleString()} kW ({pct}%)
-        </div>
+        <div className="text-xs text-slate-300 mt-0.5 tabular-nums">{plant.currentOutput.toLocaleString()} kW</div>
       </div>
     </div>
   );
@@ -261,7 +258,8 @@ function SidePanel({
 
   if (selected) {
     const plant = selected;
-    const outputPercent = plant.capacity > 0 ? ((plant.currentOutput / plant.capacity) * 100).toFixed(1) : '0';
+    const src = SOURCE[plant.type as EnergySource];
+    const SrcIcon = src.icon;
 
     return (
       <div className="space-y-3 ">
@@ -277,20 +275,23 @@ function SidePanel({
               <ChevronLeft size={18} />
             </button>
             <h3 className="text-base font-bold text-white truncate">{plant.name}</h3>
-            <Badge variant="primary">{TYPE_LABELS[plant.type as EnergySource]}</Badge>
-            <StatusDot status={plant.status} pulse />
-            <span className="text-xs text-slate-400">{STATUS_LABELS_MAP[plant.status]}</span>
+            {/* 계약 사업장 목록과 같은 발전원 칩 */}
+            <span className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-xs font-semibold text-white">
+              <SrcIcon size={13} style={{ color: src.color }} />
+              {src.label}
+            </span>
+            <StatusBadge status={plant.status} />
           </div>
-          <p className="mt-0.5 text-xs text-slate-400">{plant.address}</p>
+          <p className="mt-0.5 text-sm text-slate-400">{plant.address}</p>
         </div>
 
         {/* Output */}
         <div className="rounded-lg border border-accent/20 bg-surface-card p-3">
-          <p className="text-xs text-accent mb-1.5">출력</p>
+          <p className="text-sm text-slate-300 mb-1.5">출력</p>
+          {/* 상단 HUD '전체 출력'과 같은 표기: 값 kW + 설비 용량. 퍼센트 없음 */}
           <div className="flex items-baseline gap-2">
-            <span className="text-xl font-bold text-white tabular-nums">{plant.currentOutput.toLocaleString()}</span>
-            <span className="text-xs text-slate-500">/ {plant.capacity.toLocaleString()} kW</span>
-            <span className="text-xs font-medium text-primary ml-auto">{outputPercent}%</span>
+            <span className="text-xl font-bold text-white tabular-nums">{plant.currentOutput.toLocaleString()} kW</span>
+            <span className="text-sm text-slate-400 tabular-nums">설비 {plant.capacity.toLocaleString()} kW</span>
           </div>
           <ProgressBar
             value={plant.currentOutput}
@@ -305,14 +306,12 @@ function SidePanel({
         {/* Daily generation */}
         {plant.dailyEnergy != null && (
           <div className="rounded-lg border border-accent/20 bg-surface-card p-3">
-            <p className="text-xs text-accent mb-1.5">금일 발전량</p>
+            <p className="text-sm text-slate-300 mb-1.5">금일 발전량</p>
             <div className="flex items-baseline gap-2">
-              <span className="text-sm font-bold text-white tabular-nums">
-                {plant.dailyEnergy.toLocaleString()} kWh
-              </span>
+              <span className="text-xl font-bold text-white tabular-nums">{plant.dailyEnergy.toLocaleString()} kWh</span>
             </div>
             {plant.totalEnergy != null && (
-              <div className="text-[10px] text-slate-500 mt-1">누적: {plant.totalEnergy.toLocaleString()} kWh</div>
+              <div className="text-xs text-slate-400 mt-1 tabular-nums">누적 {plant.totalEnergy.toLocaleString()} kWh</div>
             )}
           </div>
         )}
@@ -320,34 +319,30 @@ function SidePanel({
         {/* Connection status (LASEE plants) */}
         {plant.connectionStatus && (
           <div className="rounded-lg border border-accent/20 bg-surface-card p-3">
-            <p className="text-xs text-accent mb-2 flex items-center gap-1">
-              <Radio size={10} /> 통신 상태
+            <p className="text-sm text-slate-300 mb-2 flex items-center gap-1.5">
+              <Radio size={14} /> 통신 상태
             </p>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400 flex items-center gap-1">
+                <span className="text-sm text-slate-300 flex items-center gap-1.5">
                   {plant.connectionStatus.rtuConnection === 'NORMAL' ? (
-                    <Wifi size={10} className="text-emerald-400" />
+                    <Wifi size={14} className="text-emerald-400" />
                   ) : (
-                    <WifiOff size={10} className="text-red-400" />
+                    <WifiOff size={14} className="text-red-400" />
                   )}
                   RTU
                 </span>
-                <Badge
-                  variant={
-                    plant.connectionStatus.rtuPower === 'ON' && plant.connectionStatus.rtuConnection === 'NORMAL'
-                      ? 'success'
-                      : 'danger'
-                  }
-                >
-                  {plant.connectionStatus.rtuPower === 'ON' ? '정상' : '오류'}
-                </Badge>
+                {plant.connectionStatus.rtuPower === 'ON' && plant.connectionStatus.rtuConnection === 'NORMAL' ? (
+                  <StatusPill tone="normal" label="정상" />
+                ) : (
+                  <StatusPill tone="danger" label="오류" />
+                )}
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400">인버터</span>
+                <span className="text-sm text-slate-300">인버터</span>
                 <span
                   className={cn(
-                    'text-xs font-medium tabular-nums',
+                    'text-sm font-medium tabular-nums',
                     plant.connectionStatus.inverterConnections.every((c) => c.state === 'NORMAL')
                       ? 'text-emerald-400'
                       : 'text-amber-400',
@@ -364,40 +359,38 @@ function SidePanel({
         {/* Inverter real-time measurement */}
         {plant.inverters && plant.inverters.length > 0 && (
           <div className="rounded-lg border border-accent/20 bg-surface-card p-3">
-            <p className="text-xs text-accent mb-2 flex items-center gap-1">
-              <Zap size={10} /> 인버터 실시간 계측
+            <p className="text-sm text-slate-300 mb-2 flex items-center gap-1.5">
+              <Zap size={14} /> 인버터 실시간 계측
             </p>
             <div className="space-y-2">
               {plant.inverters.map((inv) => (
-                <div key={inv.number} className="border border-white/5 rounded-md p-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-medium text-white">INV #{inv.number}</span>
-                    <Badge variant={inv.connectionState === 'NORMAL' ? 'success' : 'danger'}>
-                      {inv.connectionState === 'NORMAL' ? '정상' : '오류'}
-                    </Badge>
+                <div key={inv.number} className="border border-white/5 rounded-md p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-white">INV #{inv.number}</span>
+                    {inv.connectionState === 'NORMAL' ? (
+                      <StatusPill tone="normal" label="정상" />
+                    ) : (
+                      <StatusPill tone="danger" label="오류" />
+                    )}
                   </div>
                   <div className="grid grid-cols-3 gap-1 text-center">
                     <div>
-                      <p className="text-[9px] text-slate-500">DC</p>
-                      <p className="text-xs font-medium text-white tabular-nums">{inv.dc.power.toFixed(1)} kW</p>
+                      <p className="text-xs text-slate-400">DC</p>
+                      <p className="text-sm font-semibold text-white tabular-nums">{inv.dc.power.toFixed(1)} kW</p>
                     </div>
                     <div>
-                      <p className="text-[9px] text-slate-500">AC</p>
-                      <p className="text-xs font-medium text-white tabular-nums">{inv.ac.power.toFixed(1)} kW</p>
+                      <p className="text-xs text-slate-400">AC</p>
+                      <p className="text-sm font-semibold text-white tabular-nums">{inv.ac.power.toFixed(1)} kW</p>
                     </div>
                     <div>
-                      <p className="text-[9px] text-slate-500">금일</p>
-                      <p className="text-xs font-medium text-cyan-400 tabular-nums">
-                        {inv.dailyEnergy.toLocaleString()}
-                      </p>
+                      <p className="text-xs text-slate-400">금일</p>
+                      <p className="text-sm font-semibold text-white tabular-nums">{inv.dailyEnergy.toLocaleString()} kWh</p>
                     </div>
                   </div>
                   {inv.statusMessages.length > 0 && (
                     <div className="mt-1 flex flex-wrap gap-1">
                       {inv.statusMessages.map((msg) => (
-                        <Badge key={msg} variant="danger">
-                          {msg}
-                        </Badge>
+                        <StatusPill key={msg} tone="danger" label={msg} />
                       ))}
                     </div>
                   )}

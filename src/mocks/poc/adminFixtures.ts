@@ -61,29 +61,125 @@ export const USERS: MockUser[] = [
 ];
 
 /* ── 역할 ─────────────────────────────────────────────── */
-export const ROLES = [
+interface MockRole {
+  id: number;
+  name: string;
+  code: string;
+  description: string;
+  defaultPath: string;
+  system: boolean;
+}
+export const ROLES: MockRole[] = [
   { id: 1, name: '관리자', code: 'SYSTEM_ADMIN', description: '플랫폼 전체 관리', defaultPath: '/dashboard', system: true },
   { id: 2, name: '발전사업자', code: 'POWER_OPERATOR', description: '발전소 운영·거래', defaultPath: '/dashboard', system: true },
   { id: 3, name: '전기사용자', code: 'CONSUMER_MANAGER', description: '수용가 에너지·거래', defaultPath: '/dashboard', system: true },
+  // 추가한 역할 예시 — 수정·삭제 가능
+  { id: 4, name: '테스트 권한', code: 'TEST_ROLE', description: '테스트용 역할', defaultPath: '/dashboard', system: false },
 ];
 
 /* ── 메뉴 (역할·권한 트리) ─────────────────────────────── */
-export const MENUS = [
-  { id: 1, parentId: null, menuCode: 'CONTROL', name: '통합관제', path: '/dashboard', icon: null, depth: 0, sortOrder: 1, isVisible: true },
-  { id: 2, parentId: null, menuCode: 'RE100', name: 'RE100', path: '/re100', icon: null, depth: 0, sortOrder: 2, isVisible: true },
-  { id: 3, parentId: null, menuCode: 'EDATA', name: 'E-데이터마켓', path: '/e-data/inventory', icon: null, depth: 0, sortOrder: 3, isVisible: true },
-  { id: 4, parentId: null, menuCode: 'ADMIN', name: '관리', path: '/platform/companies', icon: null, depth: 0, sortOrder: 4, isVisible: true },
-];
-// 역할별 보유 메뉴 (관리자=전체, 발전사업자·전기사용자=관리 제외)
-const ROLE_MENUS: Record<number, number[]> = {
-  1: [1, 2, 3, 4],
-  2: [1, 2, 3],
-  3: [1, 2, 3],
-};
+// 메뉴 트리 — app/(main)/layout.tsx 의 GNB/LNB(관리자 페르소나)와 같은 구조. depth 0 = GNB, 1 = LNB, 2 = LNB 하위
+interface MockMenu {
+  id: number;
+  parentId: number | null;
+  menuCode: string;
+  name: string;
+  path: string | null;
+  icon: null;
+  depth: number;
+  sortOrder: number;
+  isVisible: boolean;
+}
+export const MENUS: MockMenu[] = [];
+let menuSeq = 0;
+function addMenu(name: string, menuCode: string, path: string | null, parentId: number | null, depth: number): number {
+  const id = ++menuSeq;
+  MENUS.push({ id, parentId, menuCode, name, path, icon: null, depth, sortOrder: id, isVisible: true });
+  return id;
+}
+// 통합관제
+const M_CONTROL = addMenu('통합관제', 'CONTROL', '/dashboard', null, 0);
+addMenu('대시보드', 'CONTROL_DASHBOARD', '/dashboard', M_CONTROL, 1);
+const M_MAP = addMenu('관제 홈(지도)', 'CONTROL_MAP', '/monitoring', M_CONTROL, 1);
+addMenu('발전소 상세', 'CONTROL_PLANT', '/monitoring/plant', M_CONTROL, 1);
+addMenu('이상감지 관리', 'CONTROL_ANOMALY', '/monitoring/anomalies', M_CONTROL, 1);
+const M_DISOP = addMenu('DiSOP', 'CONTROL_DISOP', null, M_CONTROL, 1);
+addMenu('예지보전', 'CONTROL_DISOP_PREDICTIVE', '/control/predictive', M_DISOP, 2);
+addMenu('안전', 'CONTROL_DISOP_SAFETY', '/control/safety', M_DISOP, 2);
+addMenu('디지털트윈', 'CONTROL_DT', 'https://terrawatt.pairworks.net/', M_CONTROL, 1);
+addMenu('보고서', 'CONTROL_REPORT', '/monitoring/reports', M_CONTROL, 1);
+// RE100
+const M_RE100 = addMenu('RE100', 'RE100', '/platform/trading', null, 0);
+addMenu('거래 신청', 'RE100_TRADING', '/platform/trading', M_RE100, 1);
+addMenu('내 계약', 'RE100_CONTRACTS', '/platform/ppa/contracts', M_RE100, 1);
+addMenu('변경·해지', 'RE100_CONTRACT_CHANGES', '/ppa/contract-changes', M_RE100, 1);
+addMenu('거래 이력', 'RE100_HISTORY', '/trading/history', M_RE100, 1);
+const M_BILLING = addMenu('수익·정산', 'RE100_BILLING', null, M_RE100, 1);
+addMenu('정산', 'RE100_BILLING_SETTLEMENT', '/platform/ppa/billing/settlement', M_BILLING, 2);
+addMenu('수금·지급', 'RE100_BILLING_PAYMENT', '/platform/ppa/billing/settlement/payment', M_BILLING, 2);
+addMenu('이력·감사', 'RE100_BILLING_HISTORY', '/platform/ppa/billing/settlement/history', M_BILLING, 2);
+addMenu('세금계산서', 'RE100_BILLING_TAX', '/platform/ppa/billing/tax-invoice', M_BILLING, 2);
+addMenu('계약 현황', 'RE100_DASHBOARD', '/platform/ppa/dashboard', M_RE100, 1);
+addMenu('거래 승인', 'RE100_APPROVALS', '/platform/trading/approvals', M_RE100, 1);
+addMenu('문서 관리', 'RE100_DOCUMENTS', '/platform/ppa/documents', M_RE100, 1);
+// E-데이터마켓
+const M_EDATA = addMenu('E-데이터마켓', 'EDATA', '/e-data/inventory', null, 0);
+const M_GHG = addMenu('온실가스 인벤토리', 'EDATA_GHG', null, M_EDATA, 1);
+addMenu('배출시설 정보', 'EDATA_GHG_FACILITY', '/e-data/inventory', M_GHG, 2);
+addMenu('배출원 등록', 'EDATA_GHG_SOURCES', '/e-data/inventory/sources', M_GHG, 2);
+addMenu('배출계수 관리', 'EDATA_GHG_FACTORS', '/e-data/inventory/factors', M_GHG, 2);
+addMenu('배출량 산정', 'EDATA_GHG_CALC', '/e-data/inventory/calculation', M_GHG, 2);
+addMenu('명세서', 'EDATA_GHG_STATEMENT', '/e-data/inventory/statement', M_GHG, 2);
+addMenu('보고서', 'EDATA_GHG_REPORT', '/e-data/inventory/disclosure', M_GHG, 2);
+const M_CARBON = addMenu('카본 마켓플레이스', 'EDATA_CARBON', null, M_EDATA, 1);
+addMenu('탄소배출권 정보', 'EDATA_CARBON_INFO', '/carbon', M_CARBON, 2);
+addMenu('탄소배출권 KRX 거래', 'EDATA_CARBON_KRX', '/carbon/krx', M_CARBON, 2);
+addMenu('탄소배출권 장외거래', 'EDATA_CARBON_OTC', '/carbon/otc', M_CARBON, 2);
+addMenu('탄소배출권 계약관리', 'EDATA_CARBON_ETRS', '/carbon/etrs', M_CARBON, 2);
+addMenu('외부감축사업 정보', 'EDATA_CARBON_OFFSET', '/carbon/offset', M_CARBON, 2);
+addMenu('외부감축사업 보고서', 'EDATA_CARBON_VOLUNTARY', '/carbon/voluntary', M_CARBON, 2);
+const M_DATA = addMenu('데이터 마켓플레이스', 'EDATA_MARKET', null, M_EDATA, 1);
+addMenu('데이터 등록/신청', 'EDATA_MARKET_CATALOG', '/e-data/catalog', M_DATA, 2);
+addMenu('거래 현황', 'EDATA_MARKET_TRADING', '/e-data/trading', M_DATA, 2);
+addMenu('정산', 'EDATA_MARKET_SETTLEMENT', '/e-data/trading/settlement', M_DATA, 2);
+addMenu('API 허브', 'EDATA_MARKET_API', '/e-data/api-hub', M_DATA, 2);
+// 관리
+const M_ADMIN = addMenu('관리', 'ADMIN', '/platform/companies', null, 0);
+addMenu('기업 정보', 'ADMIN_ORG', '/org', M_ADMIN, 1);
+addMenu('설정', 'ADMIN_ORG_SETTINGS', '/org/settings', M_ADMIN, 1);
+addMenu('내 계정', 'ADMIN_PROFILE', '/org/profile', M_ADMIN, 1);
+addMenu('기업 관리', 'ADMIN_COMPANIES', '/platform/companies', M_ADMIN, 1);
+addMenu('회원 관리', 'ADMIN_USERS', '/platform/users', M_ADMIN, 1);
+addMenu('역할·권한', 'ADMIN_ROLES', '/platform/roles', M_ADMIN, 1);
+addMenu('승인 관리', 'ADMIN_APPROVALS', '/platform/approvals', M_ADMIN, 1);
+addMenu('거래 승인', 'ADMIN_TRADING_APPROVALS', '/platform/trading/approvals', M_ADMIN, 1);
+addMenu('알림 설정', 'ADMIN_NOTIFICATIONS', '/platform/notification-settings', M_ADMIN, 1);
+
+function isUnder(menu: MockMenu, rootId: number): boolean {
+  let cur: MockMenu | undefined = menu;
+  while (cur) {
+    if (cur.id === rootId) return true;
+    cur = MENUS.find((m) => m.id === cur!.parentId);
+  }
+  return false;
+}
+// 역할별 메뉴 권한 — 관리자=전체 쓰기 · 발전사업자/전기사용자=관리 트리와 관제 홈(지도) 제외 조회. 화면에서 저장하면 여기에 반영된다
+interface MenuPerm { canRead: boolean; canWrite: boolean }
+const ROLE_MENU_PERMS: Record<number, Record<number, MenuPerm>> = { 1: {}, 2: {}, 3: {}, 4: {} };
+for (const m of MENUS) {
+  ROLE_MENU_PERMS[1]![m.id] = { canRead: true, canWrite: true };
+  if (!isUnder(m, M_ADMIN) && m.id !== M_MAP) {
+    ROLE_MENU_PERMS[2]![m.id] = { canRead: true, canWrite: false };
+    ROLE_MENU_PERMS[3]![m.id] = { canRead: true, canWrite: false };
+  }
+  // 테스트 권한: 통합관제만 접근
+  if (isUnder(m, M_CONTROL)) ROLE_MENU_PERMS[4]![m.id] = { canRead: true, canWrite: false };
+}
 function roleMenusOf(roleId: number) {
-  return (ROLE_MENUS[roleId] ?? []).map((menuId) => {
+  return Object.entries(ROLE_MENU_PERMS[roleId] ?? {}).map(([menuIdStr, p]) => {
+    const menuId = Number(menuIdStr);
     const m = MENUS.find((x) => x.id === menuId)!;
-    return { id: roleId * 100 + menuId, roleId, menuId, menuName: m.name, canRead: true, canWrite: roleId === 1, canDelete: roleId === 1 };
+    return { id: roleId * 100 + menuId, roleId, menuId, menuName: m.name, canRead: p.canRead, canWrite: p.canWrite, canDelete: p.canWrite };
   });
 }
 
@@ -132,10 +228,36 @@ registerMock(/^\/users$/, ({ query }) => {
   let rows = byStatus(USERS, status);
   if (kw) rows = rows.filter((u) => u.name.includes(kw) || u.email.includes(kw) || u.companyName.includes(kw));
   return pageOf(rows, 100);
-});
+}, 'GET');
+// 회원 등록 — 초기 비밀번호는 화면에서 a123456789 고정. 역할·연락처·부서는 등록 직후 별도 API 로 붙는다
+registerMock(/^\/users$/, ({ body }) => {
+  const b = (body ?? {}) as { email?: string; name?: string; companyId?: number; phone?: string; department?: string };
+  const company = COMPANIES.find((c) => c.id === Number(b.companyId));
+  const now = new Date().toISOString().slice(0, 19);
+  const u: MockUser = {
+    id: Math.max(0, ...USERS.map((x) => x.id)) + 1,
+    email: b.email ?? '',
+    name: b.name ?? '',
+    phone: b.phone ?? '',
+    status: 'ACTIVE',
+    companyId: company?.id ?? 0,
+    companyName: company?.name ?? '',
+    roles: [],
+    isActive: true,
+    department: b.department ?? '',
+    position: '',
+    lastLoginAt: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  USERS.unshift(u);
+  return u;
+}, 'POST');
 registerMock(/^\/users\/(\d+)$/, ({ match }) => USERS.find((u) => u.id === Number(match[1])) ?? USERS[0]);
 registerMock(/^\/users\/(\d+)\/activate$/, ({ match }) => setUserStatus(Number(match[1]), 'ACTIVE'), 'PATCH');
 registerMock(/^\/users\/(\d+)\/suspend$/, ({ match }) => setUserStatus(Number(match[1]), 'SUSPENDED'), 'PATCH');
+// 비밀번호 초기화 — 관리자가 초기화하면 a123456789 로 바뀐다(목업은 응답만)
+registerMock(/^\/users\/(\d+)\/reset-password$/, () => ({}), 'PATCH');
 
 // 기업
 registerMock(/^\/companies$/, ({ query }) => {
@@ -150,10 +272,61 @@ registerMock(/^\/companies\/(\d+)\/activate$/, ({ match }) => setCompanyStatus(N
 registerMock(/^\/companies\/(\d+)\/suspend$/, ({ match }) => setCompanyStatus(Number(match[1]), 'SUSPENDED'), 'PATCH');
 registerMock(/^\/companies\/(\d+)\/contacts$/, () => []);
 
-// 역할·권한
-registerMock(/^\/roles$/, () => ROLES);
+// 역할·권한 — 역할 추가·수정·삭제, 메뉴 권한 부여·회수, 회원 역할 배정 전부 메모리에 반영
+registerMock(/^\/roles$/, () => ROLES, 'GET');
+registerMock(/^\/roles$/, ({ body }) => {
+  const b = (body ?? {}) as { code?: string; name?: string; description?: string };
+  const r: MockRole = {
+    id: Math.max(0, ...ROLES.map((x) => x.id)) + 1,
+    name: b.name ?? '',
+    code: (b.code ?? '').toUpperCase(),
+    description: b.description ?? '',
+    defaultPath: '/dashboard',
+    system: false,
+  };
+  ROLES.push(r);
+  ROLE_MENU_PERMS[r.id] = {};
+  return r;
+}, 'POST');
+registerMock(/^\/roles\/(\d+)$/, ({ match, body }) => {
+  const r = ROLES.find((x) => x.id === Number(match[1]));
+  const b = (body ?? {}) as { name?: string; description?: string };
+  if (r) {
+    if (typeof b.name === 'string') r.name = b.name;
+    if (typeof b.description === 'string') r.description = b.description;
+  }
+  return r ?? ROLES[0];
+}, 'PUT');
+registerMock(/^\/roles\/(\d+)$/, ({ match }) => {
+  const idx = ROLES.findIndex((x) => x.id === Number(match[1]) && !x.system);
+  if (idx >= 0) {
+    delete ROLE_MENU_PERMS[ROLES[idx]!.id];
+    ROLES.splice(idx, 1);
+  }
+  return {};
+}, 'DELETE');
+registerMock(/^\/roles\/assign-by-code$/, ({ body }) => {
+  const b = (body ?? {}) as { userId?: number; roleCode?: string };
+  const u = USERS.find((x) => x.id === Number(b.userId));
+  if (u && b.roleCode) u.roles = [b.roleCode];
+  return {};
+}, 'POST');
 registerMock(/^\/menus$/, () => MENUS);
-registerMock(/^\/roles\/(\d+)\/menus$/, ({ match }) => roleMenusOf(Number(match[1])));
+registerMock(/^\/roles\/(\d+)\/menus$/, ({ match }) => roleMenusOf(Number(match[1])), 'GET');
+registerMock(/^\/roles\/(\d+)\/menus$/, ({ match, body }) => {
+  const roleId = Number(match[1]);
+  const b = (body ?? {}) as { menuId?: number; canRead?: boolean; canWrite?: boolean };
+  if (b.menuId) {
+    ROLE_MENU_PERMS[roleId] = ROLE_MENU_PERMS[roleId] ?? {};
+    ROLE_MENU_PERMS[roleId]![b.menuId] = { canRead: !!b.canRead, canWrite: !!b.canWrite };
+  }
+  return {};
+}, 'POST');
+registerMock(/^\/roles\/(\d+)\/menus\/(\d+)$/, ({ match }) => {
+  const perms = ROLE_MENU_PERMS[Number(match[1])];
+  if (perms) delete perms[Number(match[2])];
+  return {};
+}, 'DELETE');
 
 // 감사 로그
 registerMock(/^\/audit-logs$/, () => pageOf(AUDIT_LOGS, 20));

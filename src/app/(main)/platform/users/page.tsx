@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, Eye, Pencil, Trash2 } from 'lucide-react';
+import { Shield, Eye, Pencil, Trash2, KeyRound, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Input } from '@/components/ui/Input';
@@ -10,8 +10,10 @@ import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features/SectionCard';
-import { useUsers, useUpdateUser, useDeleteUser } from '@/hooks/platform/useUsers';
+import { useUsers, useCreateUser, useUpdateUser, useDeleteUser, useResetPassword } from '@/hooks/platform/useUsers';
 import { useAssignRoleByCode } from '@/hooks/platform/useRoles';
+import { useCompanies } from '@/hooks/platform/useCompanies';
+import type { CreateUserRequest } from '@/types';
 import { useToastStore } from '@/stores/useToastStore';
 
 interface UserRow {
@@ -35,6 +37,9 @@ const ROLE_OPTIONS = [
 
 const ROLE_LABEL_MAP: Record<string, string> = Object.fromEntries(ROLE_OPTIONS.map((r) => [r.value, r.label]));
 
+/** 관리자가 비밀번호를 초기화하면 이 값으로 바뀐다. 사용자는 로그인 후 직접 변경 */
+const RESET_PASSWORD = 'a123456789';
+
 function roleLabel(code: string): string {
   return ROLE_LABEL_MAP[code] ?? code;
 }
@@ -53,11 +58,33 @@ export default function UsersPage() {
   const [editRole, setEditRole] = useState('');
 
   const [deleteRow, setDeleteRow] = useState<UserRow | null>(null);
+  const [resetRow, setResetRow] = useState<UserRow | null>(null);
+
+  // 회원 등록 폼
+  const [createOpen, setCreateOpen] = useState(false);
+  const [cEmail, setCEmail] = useState('');
+  const [cName, setCName] = useState('');
+  const [cCompanyId, setCCompanyId] = useState('');
+  const [cRole, setCRole] = useState('');
+  const [cPhone, setCPhone] = useState('');
+  const [cDept, setCDept] = useState('');
+  const resetCreateForm = () => {
+    setCEmail('');
+    setCName('');
+    setCCompanyId('');
+    setCRole('');
+    setCPhone('');
+    setCDept('');
+  };
 
   const { data: apiData, isError } = useUsers({ keyword: search || undefined });
+  const { data: companyData } = useCompanies({ size: 100 } as any);
+  const companies: { id: number; name: string }[] = ((companyData as any)?.content ?? []).map((c: any) => ({ id: c.id, name: c.name }));
+  const createUserMut = useCreateUser();
   const updateUserMut = useUpdateUser();
   const assignRoleByCodeMut = useAssignRoleByCode();
   const deleteUserMut = useDeleteUser();
+  const resetPasswordMut = useResetPassword();
 
   const roleOptions = ROLE_OPTIONS.map((r) => ({ value: r.value, label: r.label }));
 
@@ -165,13 +192,27 @@ export default function UsersPage() {
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              setDeleteRow(row);
+              setResetRow(row);
             }}
-            className="rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-red-400 transition-colors"
-            title="삭제"
+            className="rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-amber-400 transition-colors"
+            title="비밀번호 초기화"
           >
-            <Trash2 size={14} />
+            <KeyRound size={14} />
           </button>
+          {/* 관리자(SPC) 회원은 삭제 불가 — 버튼 자체를 두지 않는다 */}
+          {row.role !== 'SYSTEM_ADMIN' && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteRow(row);
+              }}
+              className="rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-red-400 transition-colors"
+              title="삭제"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
         </div>
       ),
     },
@@ -186,14 +227,8 @@ export default function UsersPage() {
       <SectionCard
         title="회원 목록"
         actions={
+          /* /guide 표기 규칙: 필터 → 검색 → 등록 */
           <div className="flex items-center gap-2">
-            <div className="w-64">
-              <Input
-                placeholder="이름, 이메일 또는 기업명 검색"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
             <div className="w-40">
               <Select
                 placeholder="역할 전체"
@@ -205,6 +240,16 @@ export default function UsersPage() {
                 ]}
               />
             </div>
+            <div className="w-64">
+              <Input
+                placeholder="이름, 이메일 또는 기업명 검색"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus size={14} className="mr-1" /> 회원 등록
+            </Button>
           </div>
         }
       >
@@ -269,7 +314,22 @@ export default function UsersPage() {
       <Modal open={!!editRow} onClose={() => setEditRow(null)} title="사용자 수정" size="md">
         {editRow && (
           <div className="space-y-4">
-            <div className="text-sm text-slate-400 mb-2">{editRow.email}</div>
+            {/* 아이디는 변경 불가 — 라벨 + 텍스트로만 노출 */}
+            <div>
+              <p className="text-xs text-slate-400 mb-1">아이디</p>
+              <p className="text-sm text-white">{editRow.email}</p>
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] px-3 py-2.5">
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5">비밀번호</p>
+                <p className="text-sm text-slate-300">
+                  초기화하면 <span className="font-semibold text-white tabular-nums">{RESET_PASSWORD}</span> 로 바뀝니다
+                </p>
+              </div>
+              <Button size="sm" variant="secondary" onClick={() => setResetRow(editRow)}>
+                <KeyRound size={14} className="mr-1" /> 비밀번호 초기화
+              </Button>
+            </div>
             <Input label="이름" value={editName} onChange={(e) => setEditName(e.target.value)} />
             <div className="grid grid-cols-2 gap-3">
               <Input label="연락처" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
@@ -318,6 +378,101 @@ export default function UsersPage() {
                 }}
               >
                 {updateUserMut.isPending || assignRoleByCodeMut.isPending ? '저장 중...' : '저장'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* 회원 등록 */}
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="회원 등록" size="md">
+        <div className="space-y-4">
+          <Input label="아이디 (이메일)" type="email" value={cEmail} onChange={(e) => setCEmail(e.target.value)} placeholder="user@company.co.kr" />
+          <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] px-3 py-2.5">
+            <p className="text-xs text-slate-400 mb-0.5">초기 비밀번호</p>
+            <p className="text-sm text-slate-300">
+              <span className="font-semibold text-white tabular-nums">{RESET_PASSWORD}</span> 로 등록됩니다. 사용자는 로그인 후 직접 변경합니다.
+            </p>
+          </div>
+          <Input label="이름" value={cName} onChange={(e) => setCName(e.target.value)} />
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label="소속"
+              value={cCompanyId}
+              onChange={(e) => setCCompanyId(e.target.value)}
+              options={[{ value: '', label: '선택' }, ...companies.map((c) => ({ value: String(c.id), label: c.name }))]}
+            />
+            <Select
+              label="역할"
+              value={cRole}
+              onChange={(e) => setCRole(e.target.value)}
+              options={[{ value: '', label: '선택' }, ...roleOptions]}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="연락처" value={cPhone} onChange={(e) => setCPhone(e.target.value)} placeholder="010-0000-0000" />
+            <Input label="부서" value={cDept} onChange={(e) => setCDept(e.target.value)} />
+          </div>
+          <div className="flex justify-end items-center gap-2 pt-2 border-t border-white/[0.06]">
+            <Button variant="secondary" onClick={() => setCreateOpen(false)}>
+              취소
+            </Button>
+            <Button
+              disabled={!cEmail.trim() || !cName.trim() || !cRole || createUserMut.isPending || assignRoleByCodeMut.isPending}
+              onClick={async () => {
+                try {
+                  const created = await createUserMut.mutateAsync({
+                    email: cEmail.trim(),
+                    password: RESET_PASSWORD,
+                    name: cName.trim(),
+                    companyId: cCompanyId ? Number(cCompanyId) : undefined,
+                    phone: cPhone || undefined,
+                    department: cDept || undefined,
+                  } as CreateUserRequest);
+                  await assignRoleByCodeMut.mutateAsync({ userId: created.id, roleCode: cRole });
+                  showToast('success', `${cName.trim()}님이 등록되었습니다 · 초기 비밀번호 ${RESET_PASSWORD}`);
+                  resetCreateForm();
+                  setCreateOpen(false);
+                } catch {
+                  showToast('error', '회원 등록에 실패했습니다');
+                }
+              }}
+            >
+              {createUserMut.isPending || assignRoleByCodeMut.isPending ? '등록 중...' : '등록'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* 비밀번호 초기화 확인 */}
+      <Modal open={!!resetRow} onClose={() => setResetRow(null)} title="비밀번호 초기화" size="sm">
+        {resetRow && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-300">
+              <span className="font-medium text-white">{resetRow.name}</span> ({resetRow.email})의 비밀번호를 초기화합니다.
+            </p>
+            <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] px-3 py-2.5">
+              <p className="text-xs text-slate-400 mb-0.5">초기화 후 비밀번호</p>
+              <p className="text-base font-bold text-white tabular-nums">{RESET_PASSWORD}</p>
+            </div>
+            <p className="text-xs text-slate-500">사용자는 로그인 후 비밀번호를 직접 변경해야 합니다.</p>
+            <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
+              <Button variant="secondary" onClick={() => setResetRow(null)}>
+                취소
+              </Button>
+              <Button
+                disabled={resetPasswordMut.isPending}
+                onClick={async () => {
+                  try {
+                    await resetPasswordMut.mutateAsync({ id: resetRow.id, newPassword: RESET_PASSWORD });
+                    showToast('success', `${resetRow.name}님 비밀번호가 ${RESET_PASSWORD} 로 초기화되었습니다`);
+                    setResetRow(null);
+                  } catch {
+                    showToast('error', '비밀번호 초기화에 실패했습니다');
+                  }
+                }}
+              >
+                {resetPasswordMut.isPending ? '초기화 중...' : '초기화'}
               </Button>
             </div>
           </div>

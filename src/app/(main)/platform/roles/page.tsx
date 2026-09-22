@@ -1,20 +1,30 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ShieldCheck, KeyRound, Save, Loader2, Check, AlertTriangle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Save, Loader2, Check, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout';
-import { useRoles, useRoleMenus, useMenus, useAssignMenu, useRevokeMenu } from '@/hooks/platform/useRoles';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
+import { SectionCard } from '@/components/features/SectionCard';
+import { StatusPill } from '@/components/ui/Design';
+import { cn } from '@/lib/utils';
+import {
+  useRoles,
+  useCreateRole,
+  useUpdateRole,
+  useDeleteRole,
+  useRoleMenus,
+  useMenus,
+  useAssignMenu,
+  useRevokeMenu,
+} from '@/hooks/platform/useRoles';
 import { useMe } from '@/hooks/auth';
 import { useToastStore } from '@/stores/useToastStore';
 
-// 역할·권한 — V63 ADMIN_ROLE(/platform/roles) 대응 화면(doc 04 §5).
-// 역할 목록 + 역할별 메뉴 권한(role_menus) 조회·편집. 편집 액션은 백엔드 audit_logs에 기록(ROLE_MENU_ASSIGN/REVOKE).
-// 자기 자신이 보유한 역할의 권한은 회수(축소) 불가 — 관리자 self-lockout 방지.
-
-interface DraftPerm {
-  canRead: boolean;
-  canWrite: boolean;
-}
+// 역할·권한 — 역할 목록 + 역할별 메뉴 접근 권한(트리). 메뉴를 볼 수 있는지만 관리한다(버튼 단위 권한 없음).
+// 기본 역할(관리자·발전사업자·전기사용자)은 이름·설명 수정·삭제 불가, 추가한 역할만 가능.
+// 본인이 보유한 역할의 접근 권한은 회수 불가(관리자 잠금 방지).
 
 export default function PlatformRolesPage() {
   const addToast = useToastStore((s) => s.add);
@@ -34,248 +44,379 @@ export default function PlatformRolesPage() {
 
   const assignMenu = useAssignMenu();
   const revokeMenu = useRevokeMenu();
+  const createRole = useCreateRole();
+  const updateRole = useUpdateRole();
+  const deleteRole = useDeleteRole();
 
-  // 편집 대상 역할이 현재 사용자가 보유한 역할인지(→ 축소 차단)
+  /* ── 역할 추가·수정·삭제 ── */
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editRole, setEditRole] = useState<{ id: number } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [fName, setFName] = useState('');
+  const [fCode, setFCode] = useState('');
+  const [fDesc, setFDesc] = useState('');
+  const openCreate = () => {
+    setFName('');
+    setFCode('');
+    setFDesc('');
+    setCreateOpen(true);
+  };
+  const openEdit = (r: { id: number; name: string; description?: string | null }) => {
+    setFName(r.name);
+    setFDesc(r.description ?? '');
+    setEditRole({ id: r.id });
+  };
+
   const isOwnRole = !!active?.code && myRoleCodes.includes(active.code);
+  // 기본 역할(관리자·발전사업자·전기사용자)은 접근 권한도 고정 — 추가한 역할만 편집
+  const locked = !!active?.system;
 
-  // 원본 권한 맵(menuId → {canRead, canWrite}) — 저장 시 diff 비교 기준
+  /* ── 메뉴 트리 ── */
+  const childrenOf = useMemo(() => {
+    const map = new Map<number | null, typeof allMenus>();
+    [...allMenus]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .forEach((m) => {
+        const key = m.parentId ?? null;
+        map.set(key, [...(map.get(key) ?? []), m]);
+      });
+    return map;
+  }, [allMenus]);
+  const descendantIds = (id: number): number[] => (childrenOf.get(id) ?? []).flatMap((c) => [c.id, ...descendantIds(c.id)]);
+
+  // 기본은 전부 접힌 상태(대메뉴만 보임)
+  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    setCollapsed(new Set(allMenus.filter((m) => allMenus.some((c) => c.parentId === m.id)).map((m) => m.id)));
+  }, [allMenus]);
+  const toggleCollapse = (id: number) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const visibleRows = useMemo(() => {
+    const rows: typeof allMenus = [];
+    const walk = (parentId: number | null) => {
+      (childrenOf.get(parentId) ?? []).forEach((m) => {
+        rows.push(m);
+        if (!collapsed.has(m.id)) walk(m.id);
+      });
+    };
+    walk(null);
+    return rows;
+  }, [childrenOf, collapsed]);
+
+  /* ── 접근 권한 편집 ── */
+  // 원본: menuId → { canRead, canWrite }. canWrite 는 화면에서 다루지 않고 저장 시 원본 값을 그대로 넘긴다
   const original = useMemo(() => {
-    const m = new Map<number, DraftPerm>();
+    const m = new Map<number, { canRead: boolean; canWrite: boolean }>();
     roleMenus.forEach((rm) => m.set(rm.menuId, { canRead: rm.canRead, canWrite: rm.canWrite }));
     return m;
   }, [roleMenus]);
 
-  // 편집 상태(draft) — 역할/원본 변경 시 초기화
-  const [draft, setDraft] = useState<Map<number, DraftPerm>>(new Map());
+  const [draft, setDraft] = useState<Map<number, boolean>>(new Map()); // menuId → 접근 가능
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const next = new Map<number, DraftPerm>();
-    allMenus.forEach((menu) => {
-      const o = original.get(menu.id);
-      next.set(menu.id, { canRead: o?.canRead ?? false, canWrite: o?.canWrite ?? false });
-    });
+    const next = new Map<number, boolean>();
+    allMenus.forEach((menu) => next.set(menu.id, original.get(menu.id)?.canRead ?? false));
     setDraft(next);
     setSaved(false);
   }, [allMenus, original]);
 
-  const toggle = (menuId: number, field: keyof DraftPerm) => {
+  // 상위 메뉴를 켜고 끄면 하위 메뉴도 같이 바뀐다
+  const toggle = (menuId: number) => {
     setDraft((prev) => {
       const next = new Map(prev);
-      const cur = next.get(menuId) ?? { canRead: false, canWrite: false };
-      const updated: DraftPerm = { ...cur, [field]: !cur[field] };
-      // 쓰기 권한은 조회 권한을 전제 — 쓰기 켜면 조회 자동 활성
-      if (field === 'canWrite' && updated.canWrite) updated.canRead = true;
-      // 조회 끄면 쓰기도 해제
-      if (field === 'canRead' && !updated.canRead) updated.canWrite = false;
-      next.set(menuId, updated);
+      const value = !(next.get(menuId) ?? false);
+      for (const id of [menuId, ...descendantIds(menuId)]) next.set(id, value);
       return next;
     });
     setSaved(false);
   };
 
-  // 변경분 계산: assign(신규/변경), revoke(전부 해제)
   const changes = useMemo(() => {
     const assigns: { menuId: number; canRead: boolean; canWrite: boolean }[] = [];
     const revokes: number[] = [];
-    draft.forEach((d, menuId) => {
+    draft.forEach((on, menuId) => {
       const o = original.get(menuId);
-      const hadPerm = !!o;
-      const hasPerm = d.canRead || d.canWrite;
-      if (!hasPerm && hadPerm) {
-        revokes.push(menuId);
-      } else if (hasPerm && (!o || o.canRead !== d.canRead || o.canWrite !== d.canWrite)) {
-        assigns.push({ menuId, canRead: d.canRead, canWrite: d.canWrite });
-      }
+      if (on && !o?.canRead) assigns.push({ menuId, canRead: true, canWrite: o?.canWrite ?? false });
+      if (!on && o) revokes.push(menuId);
     });
     return { assigns, revokes };
   }, [draft, original]);
-
   const dirty = changes.assigns.length > 0 || changes.revokes.length > 0;
-
-  // 자기 역할이면 권한 축소(회수/쓰기 해제) 여부 검사 → self-lockout 차단
-  const selfReduction = useMemo(() => {
-    if (!isOwnRole) return false;
-    const revokesGranted = changes.revokes.length > 0;
-    const downgraded = changes.assigns.some((a) => {
-      const o = original.get(a.menuId);
-      return o && ((o.canRead && !a.canRead) || (o.canWrite && !a.canWrite));
-    });
-    return revokesGranted || downgraded;
-  }, [isOwnRole, changes, original]);
+  const selfReduction = isOwnRole && changes.revokes.length > 0;
 
   const handleSave = async () => {
     if (!dirty || !activeId) return;
     if (selfReduction) {
-      addToast('error', '본인이 보유한 역할의 권한은 회수·축소할 수 없습니다 (관리자 잠금 방지).');
+      addToast('error', '본인이 보유한 역할의 접근 권한은 회수할 수 없습니다');
       return;
     }
     setSaving(true);
     try {
-      for (const a of changes.assigns) {
-        await assignMenu.mutateAsync({ roleId: activeId, data: a });
-      }
-      for (const menuId of changes.revokes) {
-        await revokeMenu.mutateAsync({ roleId: activeId, menuId });
-      }
+      for (const a of changes.assigns) await assignMenu.mutateAsync({ roleId: activeId, data: a });
+      for (const menuId of changes.revokes) await revokeMenu.mutateAsync({ roleId: activeId, menuId });
       setSaved(true);
-      addToast('success', `${active?.name ?? '역할'} 메뉴 권한을 저장했습니다`);
-    } catch (err) {
-      const msg = (err as { message?: string })?.message ?? '저장 실패';
-      addToast('error', `권한 저장 실패: ${msg}`);
+      addToast('success', `${active?.name ?? '역할'} 접근 권한을 저장했습니다`);
+    } catch {
+      addToast('error', '권한 저장에 실패했습니다');
     } finally {
       setSaving(false);
     }
   };
 
-  return (
-    <div className="p-6 space-y-6">
-      <Breadcrumb items={[{ label: '관리' }, { label: '역할·권한' }]} />
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-white">역할·권한</h1>
-        <span className="text-xs text-slate-400">역할별 메뉴 접근 권한 (role_menus) 편집</span>
-      </div>
+  const selectRole = (id: number) => {
+    if (dirty && !confirm('저장하지 않은 변경사항이 있습니다. 다른 역할로 이동할까요?')) return;
+    setSelectedId(id);
+  };
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  return (
+    <div className="space-y-6">
+      <Breadcrumb items={[{ label: '관리' }, { label: '역할·권한' }]} />
+      <h1 className="text-2xl font-bold text-white">역할·권한</h1>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* 역할 목록 */}
-        <div className="rounded-xl border border-white/[0.06] overflow-hidden self-start">
-          <div className="px-4 py-3 text-sm font-semibold text-white bg-white/[0.02] flex items-center gap-2">
-            <ShieldCheck size={14} className="text-sky-400" /> 역할 목록
-          </div>
+        <SectionCard
+          title="역할 목록"
+          noPadding
+          className="!h-auto"
+          actions={
+            <Button size="sm" onClick={openCreate}>
+              <Plus size={14} className="mr-1" /> 역할 추가
+            </Button>
+          }
+        >
           <ul>
-            {roles.map((r) => (
-              <li key={r.id}>
-                <button
-                  onClick={() => {
-                    if (dirty && !confirm('저장하지 않은 변경사항이 있습니다. 다른 역할로 이동할까요?')) return;
-                    setSelectedId(r.id);
-                  }}
-                  className={`w-full text-left px-4 py-3 border-b border-white/[0.04] transition-colors ${
-                    r.id === activeId ? 'bg-sky-500/10' : 'hover:bg-white/[0.03]'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className={`text-sm ${r.id === activeId ? 'text-white font-semibold' : 'text-slate-300'}`}>
-                      {r.name}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      {!!r.code && myRoleCodes.includes(r.code) && (
-                        <span className="rounded bg-sky-500/10 px-1.5 py-0.5 text-[10px] text-sky-400">내 역할</span>
-                      )}
-                      {r.system && (
-                        <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-400">시스템</span>
-                      )}
+            {roles.map((r) => {
+              const mine = !!r.code && myRoleCodes.includes(r.code);
+              const isActive = r.id === activeId;
+              return (
+                <li key={r.id} className="border-b border-white/[0.04] last:border-b-0">
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => selectRole(r.id)}
+                    onKeyDown={(e) => e.key === 'Enter' && selectRole(r.id)}
+                    className={cn('flex items-start justify-between gap-2 px-4 py-3 cursor-pointer transition-colors', isActive ? 'bg-primary/10' : 'hover:bg-white/[0.03]')}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={cn('text-sm', isActive ? 'font-semibold text-white' : 'text-slate-300')}>{r.name}</span>
+                        {mine && <StatusPill tone="normal" label="내 역할" />}
+                      </div>
+                      {r.description && <p className="mt-0.5 text-xs text-slate-500 truncate">{r.description}</p>}
                     </div>
+                    {/* 기본 역할(관리자·발전사업자·전기사용자)은 수정·삭제 없음 — 추가한 역할만 */}
+                    {!r.system && (
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEdit(r);
+                          }}
+                          className="rounded-md p-1.5 text-slate-500 hover:bg-white/[0.06] hover:text-blue-400 transition-colors"
+                          title="수정"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget({ id: r.id, name: r.name });
+                          }}
+                          className="rounded-md p-1.5 text-slate-500 hover:bg-white/[0.06] hover:text-red-400 transition-colors"
+                          title="삭제"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">
-                    {r.code} {r.description ? `· ${r.description}` : ''}
-                  </div>
-                </button>
-              </li>
-            ))}
+                </li>
+              );
+            })}
             {!roles.length && (
-              <li className="px-4 py-8 text-center text-xs text-slate-500">
-                {rolesQ.isLoading ? '불러오는 중…' : '역할 데이터가 없습니다.'}
-              </li>
+              <li className="px-4 py-10 text-center text-sm text-slate-500">{rolesQ.isLoading ? '불러오는 중…' : '역할이 없습니다'}</li>
             )}
           </ul>
-        </div>
+        </SectionCard>
 
-        {/* 선택 역할의 메뉴 권한 편집 */}
-        <div className="lg:col-span-2 rounded-xl border border-white/[0.06] overflow-hidden self-start">
-          <div className="px-4 py-3 text-sm font-semibold text-white bg-white/[0.02] flex items-center justify-between gap-2">
-            <span className="flex items-center gap-2">
-              <KeyRound size={14} className="text-emerald-400" /> {active ? `${active.name} — 메뉴 권한` : '메뉴 권한'}
-            </span>
-            <button
-              onClick={handleSave}
-              disabled={!dirty || saving || selfReduction}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-sky-500/90 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? (
-                <Loader2 size={13} className="animate-spin" />
-              ) : saved && !dirty ? (
-                <Check size={13} />
+        {/* 선택 역할의 메뉴 접근 권한 */}
+        <div className="lg:col-span-2">
+          <SectionCard
+            title={active ? `${active.name} · 메뉴 접근` : '메뉴 접근'}
+            noPadding
+            actions={
+              locked ? (
+                <span className="text-sm text-slate-400">기본 역할 · 접근 고정</span>
               ) : (
-                <Save size={13} />
-              )}
-              {saving
-                ? '저장 중…'
-                : saved && !dirty
-                  ? '저장됨'
-                  : `저장${dirty ? ` (${changes.assigns.length + changes.revokes.length})` : ''}`}
-            </button>
-          </div>
+                <Button size="sm" onClick={handleSave} disabled={!dirty || saving || selfReduction}>
+                  {saving ? <Loader2 size={14} className="mr-1 animate-spin" /> : saved && !dirty ? <Check size={14} className="mr-1" /> : <Save size={14} className="mr-1" />}
+                  {saving ? '저장 중…' : saved && !dirty ? '저장됨' : dirty ? `저장 ${changes.assigns.length + changes.revokes.length}` : '저장'}
+                </Button>
+              )
+            }
+          >
+            {!locked && isOwnRole && (
+              <div className="flex items-center gap-2 px-5 py-3 border-b border-amber-500/20 bg-amber-500/[0.06]">
+                <AlertTriangle size={14} className="text-amber-400 shrink-0" />
+                <p className="text-sm text-amber-300/90">현재 보유한 역할이라 접근 권한을 회수할 수 없습니다.</p>
+              </div>
+            )}
 
-          {isOwnRole && (
-            <div className="flex items-start gap-2 px-4 py-2.5 bg-amber-500/[0.06] border-b border-amber-500/20">
-              <AlertTriangle size={13} className="text-amber-400 mt-0.5 shrink-0" />
-              <p className="text-[11px] text-amber-300/90">
-                현재 보유한 역할입니다. 권한 추가는 가능하지만 기존 권한의 <b>회수·축소는 차단</b>됩니다 (관리자 잠금
-                방지).
-              </p>
-            </div>
-          )}
-
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-white/[0.06] text-left text-xs text-slate-500">
-                <th className="px-4 py-3">메뉴</th>
-                <th className="px-4 py-3 text-center">조회</th>
-                <th className="px-4 py-3 text-center">쓰기</th>
-              </tr>
-            </thead>
-            <tbody>
-              {allMenus.map((menu) => {
-                const d = draft.get(menu.id) ?? { canRead: false, canWrite: false };
-                const o = original.get(menu.id);
-                const lockRead = isOwnRole && !!o?.canRead; // 자기 역할의 기존 조회권한은 해제 불가
-                const lockWrite = isOwnRole && !!o?.canWrite;
-                return (
-                  <tr key={menu.id} className="border-b border-white/[0.04] text-slate-300">
-                    <td className="px-4 py-2.5">
-                      {menu.name}
-                      <span className="ml-1.5 text-[10px] text-slate-600">{menu.menuCode}</span>
-                    </td>
-                    <td className="px-4 py-2.5 text-center">
-                      <input
-                        type="checkbox"
-                        checked={d.canRead}
-                        disabled={lockRead && d.canRead}
-                        onChange={() => toggle(menu.id, 'canRead')}
-                        className="h-4 w-4 accent-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                        aria-label={`${menu.name} 조회 권한`}
-                      />
-                    </td>
-                    <td className="px-4 py-2.5 text-center">
-                      <input
-                        type="checkbox"
-                        checked={d.canWrite}
-                        disabled={lockWrite && d.canWrite}
-                        onChange={() => toggle(menu.id, 'canWrite')}
-                        className="h-4 w-4 accent-sky-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                        aria-label={`${menu.name} 쓰기 권한`}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-              {!allMenus.length && (
-                <tr>
-                  <td colSpan={3} className="px-4 py-8 text-center text-xs text-slate-500">
-                    {menusQ.isLoading ? '불러오는 중…' : '메뉴 데이터가 없습니다.'}
-                  </td>
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-white/[0.06]">
+                  <th className="px-5 py-3 text-left text-xs font-medium text-slate-400">메뉴</th>
+                  <th className="px-5 py-3 text-center text-xs font-medium text-slate-400 w-24">접근</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {visibleRows.map((menu) => {
+                  const on = draft.get(menu.id) ?? false;
+                  const lock = locked || (isOwnRole && !!original.get(menu.id)?.canRead);
+                  const hasChildren = (childrenOf.get(menu.id) ?? []).length > 0;
+                  const depth = menu.depth ?? 0;
+                  return (
+                    <tr key={menu.id} className={cn('border-b border-white/[0.04]', depth === 0 && 'bg-white/[0.02]')}>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-1.5" style={{ paddingLeft: depth * 20 }}>
+                          {hasChildren ? (
+                            <button
+                              type="button"
+                              onClick={() => toggleCollapse(menu.id)}
+                              className="rounded p-0.5 text-slate-500 hover:bg-white/[0.06] hover:text-white"
+                              aria-label={collapsed.has(menu.id) ? '펼치기' : '접기'}
+                            >
+                              {collapsed.has(menu.id) ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                            </button>
+                          ) : (
+                            <span className="w-[22px]" />
+                          )}
+                          <span className={cn('text-sm', depth === 0 ? 'font-semibold text-white' : depth === 1 ? 'text-white' : 'text-slate-300')}>{menu.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={on}
+                          disabled={locked || (lock && on)}
+                          onChange={() => toggle(menu.id)}
+                          className="h-4 w-4 accent-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                          aria-label={`${menu.name} 접근`}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+                {!allMenus.length && (
+                  <tr>
+                    <td colSpan={2} className="px-5 py-10 text-center text-sm text-slate-500">{menusQ.isLoading ? '불러오는 중…' : '메뉴가 없습니다'}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </SectionCard>
         </div>
       </div>
-      <p className="text-[11px] text-slate-500">
-        권한 부여·회수는 즉시 백엔드 감사 로그(audit_logs: ROLE_MENU_ASSIGN / ROLE_MENU_REVOKE)에 기록됩니다. 쓰기
-        권한은 조회 권한을 전제하며, 본인 역할의 기존 권한은 축소할 수 없습니다.
-      </p>
+
+      {/* 역할 추가 */}
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="역할 추가" size="md">
+        <div className="space-y-4">
+          <Input label="역할 이름" value={fName} onChange={(e) => setFName(e.target.value)} placeholder="예: 운영 담당" />
+          <Input label="코드" value={fCode} onChange={(e) => setFCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))} placeholder="예: OPS_STAFF" />
+          <Input label="설명" value={fDesc} onChange={(e) => setFDesc(e.target.value)} />
+          <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
+            <Button variant="secondary" onClick={() => setCreateOpen(false)}>
+              취소
+            </Button>
+            <Button
+              disabled={!fName.trim() || !fCode.trim() || createRole.isPending}
+              onClick={async () => {
+                try {
+                  const created = await createRole.mutateAsync({ name: fName.trim(), code: fCode.trim(), description: fDesc.trim() || undefined });
+                  addToast('success', `${fName.trim()} 역할이 추가되었습니다`);
+                  setCreateOpen(false);
+                  setSelectedId(created.id);
+                } catch {
+                  addToast('error', '역할 추가에 실패했습니다');
+                }
+              }}
+            >
+              {createRole.isPending ? '추가 중...' : '추가'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* 역할 수정 */}
+      <Modal open={!!editRole} onClose={() => setEditRole(null)} title="역할 수정" size="md">
+        {editRole && (
+          <div className="space-y-4">
+            <Input label="역할 이름" value={fName} onChange={(e) => setFName(e.target.value)} />
+            <Input label="설명" value={fDesc} onChange={(e) => setFDesc(e.target.value)} />
+            <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
+              <Button variant="secondary" onClick={() => setEditRole(null)}>
+                취소
+              </Button>
+              <Button
+                disabled={!fName.trim() || updateRole.isPending}
+                onClick={async () => {
+                  try {
+                    await updateRole.mutateAsync({ id: editRole.id, data: { name: fName.trim(), description: fDesc.trim() || undefined } });
+                    addToast('success', '역할이 수정되었습니다');
+                    setEditRole(null);
+                  } catch {
+                    addToast('error', '역할 수정에 실패했습니다');
+                  }
+                }}
+              >
+                {updateRole.isPending ? '저장 중...' : '저장'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* 역할 삭제 */}
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="역할 삭제" size="sm">
+        {deleteTarget && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-300">
+              <span className="font-medium text-white">{deleteTarget.name}</span> 역할을 삭제하시겠습니까?
+            </p>
+            <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
+              <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
+                취소
+              </Button>
+              <Button
+                variant="danger"
+                disabled={deleteRole.isPending}
+                onClick={async () => {
+                  try {
+                    await deleteRole.mutateAsync(deleteTarget.id);
+                    addToast('success', `${deleteTarget.name} 역할이 삭제되었습니다`);
+                    if (selectedId === deleteTarget.id) setSelectedId(null);
+                    setDeleteTarget(null);
+                  } catch {
+                    addToast('error', '역할 삭제에 실패했습니다');
+                  }
+                }}
+              >
+                {deleteRole.isPending ? '삭제 중...' : '삭제'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
