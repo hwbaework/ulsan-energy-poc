@@ -9,16 +9,15 @@
 import { useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQueries } from '@tanstack/react-query';
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, Eye } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, Eye, FileText } from 'lucide-react';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { RmsAreaChart } from '@/components/ui/Chart';
 import { SectionCard } from '@/components/features';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { StatusPill } from '@/components/ui/Design';
-import { commStatusOf, gradeOf, isAnomaly, sourceOf } from '@/lib/design';
+import { isAnomaly, sourceOf } from '@/lib/design';
 import { cn } from '@/lib/utils';
-import { exportExcel } from '@/lib/utils';
+import { exportExcel, exportPdf } from '@/lib/utils';
 import * as monitoringApi from '@/api/monitoring/monitoring';
 import type { PlantHistoryPoint } from '@/api/monitoring/monitoring';
 import { monitoringKeys } from '@/api/queryKeys';
@@ -101,10 +100,6 @@ function summarizeDays(points: PlantHistoryPoint[]) {
     byDay.set(day, d);
   }
   return byDay;
-}
-
-function fmtDateTime(iso: string) {
-  return new Date(iso).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 const MONTH_OPTIONS = [{ value: 'all', label: '전체' }, ...Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1).padStart(2, '0'), label: `${i + 1}월` }))];
@@ -208,19 +203,7 @@ export default function ReportsClient() {
     return selected.days.map((d) => ({ day: d, ...total.get(d)! })).filter((r) => r.energy > 0);
   }, [historyQueries, selected]);
 
-  /* 이상감지 집계 */
-  const anomalyByPlant = plants
-    .map((plant) => {
-      const list = anomalies.filter((a) => a.plantId === plant.plantId);
-      return {
-        plant,
-        warning: list.filter((a) => a.severity === 'warning').length,
-        caution: list.filter((a) => a.severity === 'caution').length,
-        commError: list.filter((a) => a.status === 'COMM_ERROR').length,
-        total: list.length,
-      };
-    })
-    .filter((r) => r.total > 0);
+  /* 이상감지 집계 — 요약 건수만 */
   const warningTotal = anomalies.filter((a) => a.severity === 'warning').length;
   const commErrorTotal = anomalies.filter((a) => a.status === 'COMM_ERROR').length;
 
@@ -234,12 +217,22 @@ export default function ReportsClient() {
         rows: generationRows.map((r) => [r.plant.name, sourceOf(r.plant.type).label, r.plant.capacity, r.energy, r.hours, r.anomalies]),
       };
     }
+    // 이상감지 보고서는 요약만 — 건수 집계
     return {
       file: `${doc.title}${titleSuffix}`,
       sheet: KIND_LABEL.anomaly,
-      headers: ['감지 시각', '발전소', '발전원', '이상유형', '등급', '상태'],
-      rows: anomalies.map((a) => [fmtDateTime(a.detectedAt), a.plantName, sourceOf(a.plantType).label, a.title, gradeOf(a.severity).label, commStatusOf(a.status).label]),
+      headers: ['항목', '건수'],
+      rows: [
+        ['이상', anomalies.length],
+        ['경고', warningTotal],
+        ['주의', anomalies.filter((a) => a.severity === 'caution').length],
+        ['통신오류', commErrorTotal],
+      ],
     };
+  };
+  const onPdf = (doc: ReportDoc) => {
+    const d = exportData(doc);
+    void exportPdf(d.file, `${doc.title}${titleSuffix}`, d.headers, d.rows);
   };
   const onExcel = (doc: ReportDoc) => {
     const d = exportData(doc);
@@ -298,7 +291,7 @@ export default function ReportsClient() {
                   <th className={th}>문서</th>
                   <th className={th}>종류</th>
                   <th className={th}>생성일</th>
-                  <th className={th}>미리보기 · Excel</th>
+                  <th className={th}>미리보기 · PDF · Excel</th>
                 </tr>
               </thead>
               <tbody>
@@ -316,6 +309,9 @@ export default function ReportsClient() {
                     <td className={cn(td, 'whitespace-nowrap')}>
                       <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedId(d.id); }} className="rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-white" title="미리보기">
                         <Eye size={15} />
+                      </button>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedId(d.id); onPdf(d); }} className="rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-white" title="PDF">
+                        <FileText size={15} />
                       </button>
                       <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedId(d.id); onExcel(d); }} className="rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-white" title="Excel">
                         <Download size={15} />
@@ -339,10 +335,15 @@ export default function ReportsClient() {
             {/* 표지 — 위 줄: 구분 + Excel, 아래: 제목 전체 폭(버튼과 한 줄에 두면 제목이 줄바꿈됨) */}
             <div className="border-b border-white/[0.06] pb-5">
               <div className="flex items-center justify-between gap-4 mb-2">
-                <p className="text-sm text-slate-400">통합관제 · 월간 보고서</p>
-                <Button size="sm" variant="secondary" onClick={() => onExcel(selected)}>
-                  <Download size={14} className="mr-1" /> Excel
-                </Button>
+                <p className="text-sm text-slate-400">통합관제 · {selected.kind === 'anomaly' ? '이상감지 보고서' : '월간 보고서'}</p>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => onPdf(selected)}>
+                    <FileText size={14} className="mr-1" /> PDF
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => onExcel(selected)}>
+                    <Download size={14} className="mr-1" /> Excel
+                  </Button>
+                </div>
               </div>
               <h2 className="text-lg font-bold text-white">{selected.title}{titleSuffix}</h2>
               <dl className="mt-3 grid grid-cols-[64px_1fr] gap-y-1 text-sm">
@@ -463,79 +464,19 @@ export default function ReportsClient() {
               </>
             ) : (
               <>
+                {/* 이상감지 보고서 — 요약만. 개별 이상 목록·편차 수치는 산출 근거가 없어 넣지 않는다 */}
                 <section>
-                  <h3 className="text-sm font-bold text-white mb-3">1. 요약</h3>
+                  <h3 className="text-sm font-bold text-white mb-3">요약</h3>
                   <dl className="grid grid-cols-[96px_1fr] gap-y-1.5 text-sm">
                     <dt className="text-slate-400">이상</dt>
                     <dd className={cn('tabular-nums font-semibold', anomalies.length > 0 ? 'text-red-400' : 'text-white')}>{anomalies.length} 건</dd>
                     <dt className="text-slate-400">경고</dt>
                     <dd className="text-white tabular-nums">{warningTotal} 건</dd>
+                    <dt className="text-slate-400">주의</dt>
+                    <dd className="text-white tabular-nums">{anomalies.filter((a) => a.severity === 'caution').length} 건</dd>
                     <dt className="text-slate-400">통신오류</dt>
                     <dd className="text-white tabular-nums">{commErrorTotal} 건</dd>
                   </dl>
-                </section>
-
-                {plants.length > 1 && (
-                  <section>
-                    <h3 className="text-sm font-bold text-white mb-3">2. 발전소별 이상</h3>
-                    {anomalyByPlant.length === 0 ? (
-                      <p className="text-sm text-slate-500 py-4 text-center">이 달 이상 감지 내역이 없습니다</p>
-                    ) : (
-                      <table className="w-full">
-                        <thead className="border-b border-white/[0.06]">
-                          <tr>
-                            <th className={th}>발전소</th>
-                            <th className={th}>경고</th>
-                            <th className={th}>주의</th>
-                            <th className={th}>통신오류</th>
-                            <th className={th}>합계</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {anomalyByPlant.map((r) => (
-                            <tr key={r.plant.plantId} className="border-b border-white/5">
-                              <td className={cn(td, 'text-white')}>
-                                {r.plant.name} <span className="text-xs text-slate-400">{sourceOf(r.plant.type).label}</span>
-                              </td>
-                              <td className={cn(td, num, 'text-slate-300')}>{r.warning}</td>
-                              <td className={cn(td, num, 'text-slate-300')}>{r.caution}</td>
-                              <td className={cn(td, num, 'text-slate-300')}>{r.commError}</td>
-                              <td className={cn(td, num, 'font-semibold text-white')}>{r.total}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </section>
-                )}
-
-                <section>
-                  <h3 className="text-sm font-bold text-white mb-3">{plants.length > 1 ? '3. 이상 목록' : '2. 이상 목록'}</h3>
-                  {anomalies.length === 0 ? (
-                    <p className="text-sm text-slate-500 py-4 text-center">이상 감지 내역이 없습니다</p>
-                  ) : (
-                    /* 좁은 패널이라 표 대신 항목 카드: 제목 / 발전소 · 시각 / 등급·상태 칩 */
-                    <ul className="space-y-2">
-                      {anomalies.map((a) => {
-                        const g = gradeOf(a.severity);
-                        const s = commStatusOf(a.status);
-                        return (
-                          <li key={a.id} className="flex items-start justify-between gap-3 rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] px-4 py-3">
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium text-white">{a.title}</p>
-                              <p className="mt-0.5 text-sm text-slate-400 tabular-nums">
-                                {plants.length > 1 ? `${a.plantName} · ` : ''}{fmtDateTime(a.detectedAt)}
-                              </p>
-                            </div>
-                            <div className="flex shrink-0 gap-1.5">
-                              <StatusPill tone={g.tone} label={g.label} />
-                              <StatusPill tone={s.tone} label={s.label} />
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
                 </section>
               </>
             )}
