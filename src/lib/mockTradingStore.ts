@@ -36,6 +36,7 @@ import type {
 // mock 전용 확장 — 백엔드 TradingRequest 에 없는 필드 (API 연결 시 백엔드 협의 필요)
 export interface MockTradingRequest extends TradingRequest {
   ppaSubType?: 'onsite' | 'offsite'; // 직접 PPA 하위 유형 — 백엔드 dealType 은 'PPA' 단일
+  contractKind?: 'SELF_CONSUMPTION' | 'ONSITE'; // 울산 에자자 계약 유형: 자가소비 / 온사이트 PPA
 }
 
 // mock 전용 확장 — 백엔드 TradingMatch 에 없는 필드 (API 연결 시 백엔드 협의 필요)
@@ -63,7 +64,8 @@ export interface MockTradingState {
 
 // v3 — showcase 모드 (버튼 상태변경 제거 이전에 localStorage 에 저장된 v1/v2 데이터 무시)
 // 현재는 어떤 버튼도 mutation 을 호출하지 않으므로 이 키에 데이터가 쓰일 일 없음 = 항상 seed 고정
-const STORAGE_KEY = 'energy-frontend:mock-trading-v9';
+// v10 — 승인 대기 시드를 POC 발전사(울산 발전(주) · 한일튜브)로 교체. 키를 올려 저장된 옛 상태를 버린다
+const STORAGE_KEY = 'energy-frontend:mock-trading-v10';
 
 /* 수용가 신청 12종 — 3개 유형 × 4단계 전부 노출 (mock 뽑아내기 모드)
  *   Offsite PPA: id 1~4 (step 1~4)
@@ -157,23 +159,25 @@ const SEED: MockTradingState = {
      *   MATCHING = 희망가 기입 완료·매칭 풀 / MATCHED = 계약 체결
      * desiredUnitPrice 0 = 희망가 미기입 (승인 후 발전사가 기입) */
     {
+      // 승인 대기 — POC 발전사업자(울산 발전(주))의 한일튜브 추가 공급 신청
       id: 13,
       requesterType: 'GENERATOR',
-      companyId: 2,
-      companyName: '주식회사 알엠에스플랫폼',
+      companyId: 3,
+      companyName: '울산 발전(주)',
       dealType: 'PPA',
+      contractKind: 'ONSITE', // 계약 유형: 자가소비 / 온사이트 PPA (PlantContractKind)
       status: 'SUBMITTED', // 승인 대기 — 희망가는 승인 후 기입
-      capacityKw: 1500,
+      capacityKw: 429.44,
       durationYears: 20,
       desiredUnitPrice: 0,
-      region: '울산',
-      plantName: 'C발전소',
-      expectedAnnualKwh: 2_100_000,
+      region: '울산 남구',
+      plantName: '한일튜브',
+      expectedAnnualKwh: 560_000,
       recEligible: true,
-      notes: '자원: 태양광 / 사업자번호: 611-86-00591',
+      notes: '자원: 태양광 / 사업자번호: 610-81-20002',
       currentStep: 2,
-      submittedAt: '2026-06-10T10:00:00',
-      createdAt: '2026-06-10T10:00:00',
+      submittedAt: '2026-09-20T10:00:00',
+      createdAt: '2026-09-20T10:00:00',
     },
     {
       id: 14,

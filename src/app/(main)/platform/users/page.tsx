@@ -16,11 +16,19 @@ import { useCompanies } from '@/hooks/platform/useCompanies';
 import type { CreateUserRequest } from '@/types';
 import { useToastStore } from '@/stores/useToastStore';
 
+type AccountType = 'COMPANY_ADMIN' | 'COMPANY_MEMBER';
+const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = { COMPANY_ADMIN: '기업 관리자', COMPANY_MEMBER: '기업 회원' };
+const ACCOUNT_TYPE_OPTIONS = [
+  { value: 'COMPANY_MEMBER', label: '기업 회원' },
+  { value: 'COMPANY_ADMIN', label: '기업 관리자' },
+];
+
 interface UserRow {
   id: number;
   name: string;
   email: string;
   company: string;
+  accountType: AccountType;
   role: string;
   status: 'ACTIVE' | 'PENDING' | 'SUSPENDED';
   lastLogin: string;
@@ -65,6 +73,7 @@ export default function UsersPage() {
   const [cEmail, setCEmail] = useState('');
   const [cName, setCName] = useState('');
   const [cCompanyId, setCCompanyId] = useState('');
+  const [cAccountType, setCAccountType] = useState<AccountType>('COMPANY_MEMBER');
   const [cRole, setCRole] = useState('');
   const [cPhone, setCPhone] = useState('');
   const [cDept, setCDept] = useState('');
@@ -72,6 +81,7 @@ export default function UsersPage() {
     setCEmail('');
     setCName('');
     setCCompanyId('');
+    setCAccountType('COMPANY_MEMBER');
     setCRole('');
     setCPhone('');
     setCDept('');
@@ -95,7 +105,8 @@ export default function UsersPage() {
           name: u.name,
           email: u.email,
           company: u.companyName ?? '',
-          role: u.roles?.[0] ?? '-',
+          accountType: ((u as any).accountType ?? 'COMPANY_MEMBER') as AccountType,
+          role: u.roles?.[0] ?? 'CONSUMER_MANAGER',
           status: (u.status as UserRow['status']) ?? 'ACTIVE',
           lastLogin: u.lastLoginAt?.replace('T', ' ').slice(5, 16) ?? '-',
           phone: u.phone ?? '',
@@ -140,18 +151,21 @@ export default function UsersPage() {
       render: (row) => <span className="text-sm text-slate-300">{row.company || '-'}</span>,
     },
     {
+      key: 'accountType',
+      header: '구분',
+      width: '110px',
+      render: (row) => <span className="text-sm text-slate-300">{ACCOUNT_TYPE_LABEL[row.accountType]}</span>,
+    },
+    {
       key: 'role',
       header: '역할',
       width: '160px',
-      render: (row) =>
-        row.role === '-' ? (
-          <span className="text-sm text-slate-500">미배정</span>
-        ) : (
-          <div className="flex items-center gap-1.5">
-            <Shield size={12} className="text-violet-400" />
-            <span className="text-sm text-slate-300">{roleLabel(row.role)}</span>
-          </div>
-        ),
+      render: (row) => (
+        <div className="flex items-center gap-1.5">
+          <Shield size={12} className="text-violet-400" />
+          <span className="text-sm text-slate-300">{roleLabel(row.role)}</span>
+        </div>
+      ),
     },
     {
       key: 'lastLogin',
@@ -163,9 +177,8 @@ export default function UsersPage() {
       key: 'actions' as keyof UserRow,
       header: '',
       width: '130px',
-      align: 'center',
       render: (row) => (
-        <div className="flex items-center justify-center gap-1">
+        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={(e) => {
@@ -275,8 +288,12 @@ export default function UsersPage() {
                 <p className="text-sm text-white">{detailRow.company || '-'}</p>
               </div>
               <div>
+                <p className="text-xs text-slate-500 mb-1">구분</p>
+                <p className="text-sm text-white">{ACCOUNT_TYPE_LABEL[detailRow.accountType]}</p>
+              </div>
+              <div>
                 <p className="text-xs text-slate-500 mb-1">역할</p>
-                <p className="text-sm text-white">{detailRow.role === '-' ? '미배정' : roleLabel(detailRow.role)}</p>
+                <p className="text-sm text-white">{roleLabel(detailRow.role)}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-500 mb-1">최근 로그인</p>
@@ -395,13 +412,14 @@ export default function UsersPage() {
             </p>
           </div>
           <Input label="이름" value={cName} onChange={(e) => setCName(e.target.value)} />
+          <Select
+            label="소속"
+            value={cCompanyId}
+            onChange={(e) => setCCompanyId(e.target.value)}
+            options={[{ value: '', label: '선택' }, ...companies.map((c) => ({ value: String(c.id), label: c.name }))]}
+          />
           <div className="grid grid-cols-2 gap-3">
-            <Select
-              label="소속"
-              value={cCompanyId}
-              onChange={(e) => setCCompanyId(e.target.value)}
-              options={[{ value: '', label: '선택' }, ...companies.map((c) => ({ value: String(c.id), label: c.name }))]}
-            />
+            <Select label="구분" value={cAccountType} onChange={(e) => setCAccountType(e.target.value as AccountType)} options={ACCOUNT_TYPE_OPTIONS} />
             <Select
               label="역할"
               value={cRole}
@@ -428,6 +446,7 @@ export default function UsersPage() {
                     companyId: cCompanyId ? Number(cCompanyId) : undefined,
                     phone: cPhone || undefined,
                     department: cDept || undefined,
+                    accountType: cAccountType,
                   } as CreateUserRequest);
                   await assignRoleByCodeMut.mutateAsync({ userId: created.id, roleCode: cRole });
                   showToast('success', `${cName.trim()}님이 등록되었습니다 · 초기 비밀번호 ${RESET_PASSWORD}`);

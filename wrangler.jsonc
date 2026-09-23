@@ -9,5 +9,5 @@
     "not_found_handling": "404-page",
     "html_handling": "auto-trailing-slash"
   },
-  "routes": [{ "pattern": "ulsanenergypoc.pairwork.net", "custom_domain": true }]
+  "routes": [{ "pattern": "ulsan-energy.pairworks.net", "custom_domain": true }]
 }

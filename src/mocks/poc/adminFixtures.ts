@@ -48,16 +48,20 @@ interface MockUser {
   isActive: boolean;
   department: string;
   position: string;
+  /** 기업 관리자 = 기업의 첫 계정(가입 시 기업 정보 함께 등록) · 기업 회원 = 이미 있는 기업에 합류한 계정 */
+  accountType: 'COMPANY_ADMIN' | 'COMPANY_MEMBER';
   lastLoginAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
 export const USERS: MockUser[] = [
-  { id: 1, email: 'admin@test.com', name: '김관리', phone: '010-1000-0001', status: 'ACTIVE', companyId: 1, companyName: '울산 에너지 플랫폼', roles: ['SYSTEM_ADMIN'], isActive: true, department: '운영팀', position: '팀장', lastLoginAt: daysAgo(0), createdAt: daysAgo(400), updatedAt: daysAgo(0) },
-  { id: 2, email: 'operator@test.com', name: '박발전', phone: '010-2000-0002', status: 'ACTIVE', companyId: 2, companyName: '울산 발전(주)', roles: ['POWER_OPERATOR'], isActive: true, department: '발전운영팀', position: '과장', lastLoginAt: daysAgo(1), createdAt: daysAgo(320), updatedAt: daysAgo(1) },
-  { id: 3, email: 'consumer@test.com', name: '이수용', phone: '010-3000-0003', status: 'ACTIVE', companyId: 3, companyName: '울산 수용가(주)', roles: ['CONSUMER_MANAGER'], isActive: true, department: '시설관리팀', position: '대리', lastLoginAt: daysAgo(2), createdAt: daysAgo(300), updatedAt: daysAgo(2) },
-  { id: 4, email: 'kim@hanil.co.kr', name: '김한일', phone: '010-4000-0004', status: 'ACTIVE', companyId: 4, companyName: '한일튜브', roles: ['CONSUMER_MANAGER'], isActive: true, department: '설비팀', position: '차장', lastLoginAt: daysAgo(3), createdAt: daysAgo(90), updatedAt: daysAgo(3) },
-  { id: 5, email: 'park@yongin.co.kr', name: '박용인', phone: '010-5000-0005', status: 'PENDING', companyId: 5, companyName: '용인금속', roles: ['CONSUMER_MANAGER'], isActive: false, department: '관리부', position: '사원', lastLoginAt: null, createdAt: daysAgo(1), updatedAt: daysAgo(1) },
+  { id: 1, email: 'admin@test.com', name: '김관리', phone: '010-1000-0001', status: 'ACTIVE', companyId: 1, companyName: '울산 에너지 플랫폼', roles: ['SYSTEM_ADMIN'], isActive: true, department: '운영팀', position: '팀장', accountType: 'COMPANY_ADMIN', lastLoginAt: daysAgo(0), createdAt: daysAgo(400), updatedAt: daysAgo(0) },
+  { id: 2, email: 'operator@test.com', name: '박발전', phone: '010-2000-0002', status: 'ACTIVE', companyId: 2, companyName: '울산 발전(주)', roles: ['POWER_OPERATOR'], isActive: true, department: '발전운영팀', position: '과장', accountType: 'COMPANY_ADMIN', lastLoginAt: daysAgo(1), createdAt: daysAgo(320), updatedAt: daysAgo(1) },
+  { id: 3, email: 'consumer@test.com', name: '이수용', phone: '010-3000-0003', status: 'ACTIVE', companyId: 3, companyName: '울산 수용가(주)', roles: ['CONSUMER_MANAGER'], isActive: true, department: '시설관리팀', position: '대리', accountType: 'COMPANY_ADMIN', lastLoginAt: daysAgo(2), createdAt: daysAgo(300), updatedAt: daysAgo(2) },
+  { id: 4, email: 'kim@hanil.co.kr', name: '김한일', phone: '010-4000-0004', status: 'ACTIVE', companyId: 4, companyName: '한일튜브', roles: ['CONSUMER_MANAGER'], isActive: true, department: '설비팀', position: '차장', accountType: 'COMPANY_ADMIN', lastLoginAt: daysAgo(3), createdAt: daysAgo(90), updatedAt: daysAgo(3) },
+  // 승인 대기 — 기업 관리자(용인금속 첫 가입) · 기업 회원(한일튜브 소속 추가 가입)
+  { id: 5, email: 'park@yongin.co.kr', name: '박용인', phone: '010-5000-0005', status: 'PENDING', companyId: 5, companyName: '용인금속', roles: ['CONSUMER_MANAGER'], isActive: false, department: '관리부', position: '과장', accountType: 'COMPANY_ADMIN', lastLoginAt: null, createdAt: daysAgo(1), updatedAt: daysAgo(1) },
+  { id: 6, email: 'lee@hanil.co.kr', name: '이설비', phone: '010-6000-0006', status: 'PENDING', companyId: 4, companyName: '한일튜브', roles: ['CONSUMER_MANAGER'], isActive: false, department: '설비팀', position: '사원', accountType: 'COMPANY_MEMBER', lastLoginAt: null, createdAt: daysAgo(0), updatedAt: daysAgo(0) },
 ];
 
 /* ── 역할 ─────────────────────────────────────────────── */
@@ -231,7 +235,7 @@ registerMock(/^\/users$/, ({ query }) => {
 }, 'GET');
 // 회원 등록 — 초기 비밀번호는 화면에서 a123456789 고정. 역할·연락처·부서는 등록 직후 별도 API 로 붙는다
 registerMock(/^\/users$/, ({ body }) => {
-  const b = (body ?? {}) as { email?: string; name?: string; companyId?: number; phone?: string; department?: string };
+  const b = (body ?? {}) as { email?: string; name?: string; companyId?: number; phone?: string; department?: string; accountType?: 'COMPANY_ADMIN' | 'COMPANY_MEMBER' };
   const company = COMPANIES.find((c) => c.id === Number(b.companyId));
   const now = new Date().toISOString().slice(0, 19);
   const u: MockUser = {
@@ -246,6 +250,7 @@ registerMock(/^\/users$/, ({ body }) => {
     isActive: true,
     department: b.department ?? '',
     position: '',
+    accountType: b.accountType ?? 'COMPANY_MEMBER',
     lastLoginAt: null,
     createdAt: now,
     updatedAt: now,

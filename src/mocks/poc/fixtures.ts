@@ -167,16 +167,55 @@ registerMock(/^\/consumer\/sites\/(\d+)$/, ({ match }) => SITES.find((s) => s.id
 /* ── 공통 ─────────────────────────────────────────────── */
 registerMock(/^\/me$/, () => useAuthStore.getState().user);
 registerMock(/^\/me\/menus$/, () => []);
-// 알림 목업 — 스크롤 테스트용 8개(안 읽음 3 + 읽음 5)
+/* ── 알림 항목(알림 설정 카탈로그) — 이름은 메뉴명 그대로. 그 메뉴에 새로 확인할 일이 생기면 알린다.
+ *    통신오류는 이상감지에 포함(이상 = 등급 정상 아님 또는 통신오류). 웹 알림/이메일 설정은 메모리에 반영 ── */
+const NOTIFICATION_EVENTS = [
+  // 통합관제
+  { eventKey: 'ANOMALY', label: '이상감지 관리', domain: '통합관제' },
+  // RE100 — 신청·계약·정산·청구·세금계산서가 생기는 메뉴 (하위 메뉴는 상위 › 하위)
+  { eventKey: 'TRADING_REQUEST', label: '거래 신청', domain: 'RE100' },
+  { eventKey: 'CONTRACT', label: '내 계약', domain: 'RE100' },
+  { eventKey: 'SETTLEMENT', label: '수익·정산 › 정산', domain: 'RE100' },
+  { eventKey: 'PAYMENT', label: '수익·정산 › 수금·지급', domain: 'RE100' },
+  { eventKey: 'INVOICE', label: '수익·정산 › 청구서', domain: 'RE100' },
+  { eventKey: 'TAX_INVOICE', label: '수익·정산 › 세금계산서', domain: 'RE100' },
+  // E-데이터마켓 — 등록/신청·거래·정산·계약이 생기는 메뉴
+  { eventKey: 'EDATA_CATALOG', label: '데이터 마켓플레이스 › 데이터 등록/신청', domain: 'E-데이터마켓' },
+  { eventKey: 'EDATA_TRADING', label: '데이터 마켓플레이스 › 거래 현황', domain: 'E-데이터마켓' },
+  { eventKey: 'EDATA_SETTLEMENT', label: '데이터 마켓플레이스 › 정산', domain: 'E-데이터마켓' },
+  { eventKey: 'CARBON_OTC', label: '카본 마켓플레이스 › 탄소배출권 장외거래', domain: 'E-데이터마켓' },
+  { eventKey: 'CARBON_ETRS', label: '카본 마켓플레이스 › 탄소배출권 계약관리', domain: 'E-데이터마켓' },
+  // 관리
+  { eventKey: 'APPROVAL', label: '승인 관리', domain: '관리' },
+  { eventKey: 'TRADING_APPROVAL', label: '거래 승인', domain: '관리' },
+];
+// 기본값: 웹 알림 전부 켬 · 이메일은 즉시 대응이 필요한 것만
+const EMAIL_DEFAULT_ON = new Set(['ANOMALY', 'APPROVAL', 'TRADING_APPROVAL', 'EDATA_CATALOG']);
+const NOTIFICATION_SETTINGS = NOTIFICATION_EVENTS.map((e) => ({ eventKey: e.eventKey, inAppEnabled: true, emailEnabled: EMAIL_DEFAULT_ON.has(e.eventKey) }));
+registerMock(/^\/notifications\/event-catalog$/, () => NOTIFICATION_EVENTS);
+registerMock(/^\/notifications\/settings$/, () => NOTIFICATION_SETTINGS, 'GET');
+registerMock(/^\/notifications\/settings$/, ({ body }) => {
+  const list = (Array.isArray(body) ? body : []) as { eventKey: string; inAppEnabled: boolean; emailEnabled: boolean }[];
+  for (const s of list) {
+    const cur = NOTIFICATION_SETTINGS.find((x) => x.eventKey === s.eventKey);
+    if (cur) {
+      cur.inAppEnabled = !!s.inAppEnabled;
+      cur.emailEnabled = !!s.emailEnabled;
+    }
+  }
+  return {};
+}, 'PUT');
+
+// 알림 목업(종 아이콘) — 제목은 알림 항목(메뉴명)과 동일. 8개(안 읽음 3 + 읽음 5)
 const NOTIFICATIONS = [
-  { id: 1, type: 'SUPPLY_DEMAND_ALERT', title: '수급 경보', message: '금일 오후 피크 시간대 전력 수급 주의보가 발령되었습니다.', isRead: false, createdAt: '2026-09-18T17:40:00' },
-  { id: 2, type: 'ANOMALY_DETECTED', title: '설비 이상 감지', message: '1호 인버터에서 이상 신호가 감지되었습니다.', isRead: false, createdAt: '2026-09-18T16:20:00' },
-  { id: 3, type: 'PPA_CONTRACT_CREATED', title: 'PPA 계약 생성', message: '신규 PPA 계약 초안이 생성되었습니다.', isRead: false, createdAt: '2026-09-18T14:05:00' },
-  { id: 4, type: 'DAILY_REPORT_GENERATED', title: '일일 리포트 생성', message: '어제 발전량 요약 리포트가 생성되었습니다.', isRead: true, createdAt: '2026-09-18T09:00:00' },
-  { id: 5, type: 'SETTLEMENT_CONFIRMED', title: '정산 확정', message: '8월분 정산이 확정되었습니다.', isRead: true, createdAt: '2026-09-17T18:30:00' },
-  { id: 6, type: 'INVOICE_ISSUED', title: '세금계산서 발행', message: '8월분 세금계산서가 발행되었습니다.', isRead: true, createdAt: '2026-09-17T11:10:00' },
-  { id: 7, type: 'TRADING_REQUEST_CREATED', title: '거래 신청 등록', message: '신규 전력 거래 신청이 등록되었습니다.', isRead: true, createdAt: '2026-09-16T15:45:00' },
-  { id: 8, type: 'MATCH_ACCEPTED', title: '매칭 수락', message: '거래 상대방이 매칭을 수락했습니다.', isRead: true, createdAt: '2026-09-16T10:00:00' },
+  { id: 1, type: 'ANOMALY', title: '이상감지 관리', message: '태성산업 RTU 통신오류 — 3분간 응답 없음', isRead: false, createdAt: '2026-09-18T17:40:00' },
+  { id: 2, type: 'ANOMALY', title: '이상감지 관리', message: '건호이엔씨 인버터 #2 통신 끊김', isRead: false, createdAt: '2026-09-18T16:20:00' },
+  { id: 3, type: 'APPROVAL', title: '승인 관리', message: '용인금속 박용인 가입 신청 (기업 관리자)', isRead: false, createdAt: '2026-09-18T14:05:00' },
+  { id: 4, type: 'TRADING_APPROVAL', title: '거래 승인', message: '울산 발전(주) 한일튜브 공급 신청', isRead: true, createdAt: '2026-09-18T09:00:00' },
+  { id: 5, type: 'SETTLEMENT', title: '수익·정산 › 정산', message: '8월분 정산이 확정되었습니다.', isRead: true, createdAt: '2026-09-17T18:30:00' },
+  { id: 6, type: 'EDATA_CATALOG', title: '데이터 마켓플레이스 › 데이터 등록/신청', message: '새 데이터 이용 신청이 접수되었습니다.', isRead: true, createdAt: '2026-09-17T11:10:00' },
+  { id: 7, type: 'TRADING_REQUEST', title: '거래 신청', message: '신규 전력 거래 신청이 등록되었습니다.', isRead: true, createdAt: '2026-09-16T15:45:00' },
+  { id: 8, type: 'CONTRACT', title: '내 계약', message: 'PPA-2026-ON-001 계약이 생성되었습니다.', isRead: true, createdAt: '2026-09-16T10:00:00' },
 ];
 registerMock(/^\/notifications\/unread-count$/, () => NOTIFICATIONS.filter((n) => !n.isRead).length);
 registerMock(/^\/notifications\/read-all$/, () => {

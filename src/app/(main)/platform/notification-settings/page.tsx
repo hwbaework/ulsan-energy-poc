@@ -1,16 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Bell, Mail, Check, Loader2 } from 'lucide-react';
+import { Check, Loader2, Save } from 'lucide-react';
+import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { SectionCard } from '@/components/features';
 import { Button } from '@/components/ui/Button';
-import {
-  getNotificationSettings,
-  saveNotificationSettings,
-  getNotificationEventCatalog,
-} from '@/api/platform/notifications';
+import { cn } from '@/lib/utils';
+import { getNotificationSettings, saveNotificationSettings, getNotificationEventCatalog } from '@/api/platform/notifications';
+import { useToastStore } from '@/stores/useToastStore';
 
-interface EventConfig {
+// 알림 설정 — 오른쪽 상단 종(웹 알림)과 이메일로 어떤 항목을 보낼지 정한다. 관리자가 받는 플랫폼 전체 설정.
+// 항목 목록과 저장값은 목업(/notifications/event-catalog · /notifications/settings)
+
+interface EventRow {
   key: string;
   label: string;
   domain: string;
@@ -18,184 +20,128 @@ interface EventConfig {
   email: boolean;
 }
 
-// 이벤트 카탈로그(키·라벨·도메인)는 백엔드가 SoR — GET /notifications/event-catalog 로 조회.
-// 사용자 채널 설정(inApp/email)은 GET /notifications/settings 로 병합한다.
+function Toggle({ on, onChange, label }: { on: boolean; onChange: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      onClick={onChange}
+      className={cn('relative h-5 w-9 rounded-full transition-colors', on ? 'bg-emerald-500' : 'bg-white/10')}
+    >
+      <span className={cn('absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform', on ? 'translate-x-4' : 'translate-x-0')} />
+    </button>
+  );
+}
 
 export default function NotificationSettingsPage() {
-  const [events, setEvents] = useState<EventConfig[]>([]);
-  const [domainOrder, setDomainOrder] = useState<string[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const addToast = useToastStore((s) => s.add);
+  const [rows, setRows] = useState<EventRow[]>([]);
+  const [domains, setDomains] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const [catalog, serverSettings] = await Promise.all([
-          getNotificationEventCatalog(),
-          getNotificationSettings().catch(() => []),
-        ]);
-        const settingMap = new Map(serverSettings.map((s) => [s.eventKey, s]));
-        setEvents(
-          catalog.map((evt) => {
-            const s = settingMap.get(evt.eventKey);
-            return {
-              key: evt.eventKey,
-              label: evt.label,
-              domain: evt.domain,
-              inApp: s?.inAppEnabled ?? true,
-              email: s?.emailEnabled ?? false,
-            };
-          }),
+        const [catalog, settings] = await Promise.all([getNotificationEventCatalog(), getNotificationSettings().catch(() => [])]);
+        const map = new Map(settings.map((s) => [s.eventKey, s]));
+        setRows(
+          catalog.map((e) => ({
+            key: e.eventKey,
+            label: e.label,
+            domain: e.domain,
+            inApp: map.get(e.eventKey)?.inAppEnabled ?? true,
+            email: map.get(e.eventKey)?.emailEnabled ?? false,
+          })),
         );
-        setDomainOrder([...new Set(catalog.map((e) => e.domain))]);
-      } catch {
-        setLoadError(true);
+        setDomains([...new Set(catalog.map((e) => e.domain))]);
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  const toggle = (key: string, channel: 'inApp' | 'email') => {
-    setEvents((prev) => prev.map((e) => (e.key === key ? { ...e, [channel]: !e[channel] } : e)));
-    setSaved(false);
+  const toggle = (key: string, ch: 'inApp' | 'email') => {
+    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, [ch]: !r[ch] } : r)));
+    setDirty(true);
+  };
+  // 구분 행의 토글은 그 구분 전체를 켜고 끈다
+  const toggleDomain = (domain: string, ch: 'inApp' | 'email') => {
+    const allOn = rows.filter((r) => r.domain === domain).every((r) => r[ch]);
+    setRows((prev) => prev.map((r) => (r.domain === domain ? { ...r, [ch]: !allOn } : r)));
+    setDirty(true);
   };
 
-  const toggleDomain = (domain: string, channel: 'inApp' | 'email', value: boolean) => {
-    setEvents((prev) => prev.map((e) => (e.domain === domain ? { ...e, [channel]: value } : e)));
-    setSaved(false);
-  };
-
-  const handleSave = async () => {
+  const save = async () => {
     setSaving(true);
     try {
-      await saveNotificationSettings(
-        events.map((e) => ({
-          eventKey: e.key,
-          inAppEnabled: e.inApp,
-          emailEnabled: e.email,
-        })),
-      );
-      setSaved(true);
+      await saveNotificationSettings(rows.map((r) => ({ eventKey: r.key, inAppEnabled: r.inApp, emailEnabled: r.email })));
+      setDirty(false);
+      addToast('success', '알림 설정을 저장했습니다');
+    } catch {
+      addToast('error', '저장에 실패했습니다');
     } finally {
       setSaving(false);
     }
   };
 
-  const domains = domainOrder;
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="animate-spin text-sky-400" size={24} />
-      </div>
-    );
-  }
-
-  if (loadError) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-white">알림 설정</h1>
-        <div className="rounded-xl border border-rose-500/20 bg-rose-500/[0.06] p-6 text-sm text-rose-300">
-          이벤트 카탈로그를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.
-        </div>
-      </div>
-    );
-  }
+  const th = 'px-5 py-3 text-left text-xs font-medium text-slate-400';
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">알림 설정</h1>
-          <p className="mt-1 text-sm text-slate-400">이벤트별 알림 채널을 설정합니다 ({events.length}개 이벤트)</p>
-        </div>
-        <Button onClick={handleSave} disabled={saving || saved}>
-          {saving ? (
-            <>
-              <Loader2 size={14} className="animate-spin" /> 저장 중...
-            </>
-          ) : saved ? (
-            <>
-              <Check size={14} /> 저장됨
-            </>
-          ) : (
-            '설정 저장'
-          )}
-        </Button>
-      </div>
+      <Breadcrumb items={[{ label: '관리' }, { label: '알림 설정' }]} />
+      <h1 className="text-2xl font-bold text-white">알림 설정</h1>
 
-      {domains.map((domain) => {
-        const domainEvents = events.filter((e) => e.domain === domain);
-        const allInApp = domainEvents.every((e) => e.inApp);
-        const allEmail = domainEvents.every((e) => e.email);
-        return (
-          <SectionCard key={domain} title={`${domain} (${domainEvents.length})`}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-left text-xs text-slate-400 border-b border-white/[0.06]">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">이벤트</th>
-                    <th className="px-4 py-3 font-medium text-center">
-                      <button
-                        className="inline-flex items-center gap-1 hover:text-sky-400 transition-colors"
-                        onClick={() => toggleDomain(domain, 'inApp', !allInApp)}
-                      >
-                        <Bell size={12} /> 인앱
-                      </button>
-                    </th>
-                    <th className="px-4 py-3 font-medium text-center">
-                      <button
-                        className="inline-flex items-center gap-1 hover:text-sky-400 transition-colors"
-                        onClick={() => toggleDomain(domain, 'email', !allEmail)}
-                      >
-                        <Mail size={12} /> 이메일
-                      </button>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/[0.06]">
-                  {domainEvents.map((evt) => (
-                    <tr key={evt.key} className="hover:bg-white/[0.03]">
-                      <td className="px-4 py-3 text-white">{evt.label}</td>
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => toggle(evt.key, 'inApp')}
-                          className={`w-8 h-5 rounded-full transition-colors ${
-                            evt.inApp ? 'bg-emerald-500' : 'bg-white/10'
-                          }`}
-                        >
-                          <div
-                            className={`w-3.5 h-3.5 rounded-full bg-white transition-transform mx-0.5 ${
-                              evt.inApp ? 'translate-x-3' : 'translate-x-0'
-                            }`}
-                          />
-                        </button>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => toggle(evt.key, 'email')}
-                          className={`w-8 h-5 rounded-full transition-colors ${
-                            evt.email ? 'bg-emerald-500' : 'bg-white/10'
-                          }`}
-                        >
-                          <div
-                            className={`w-3.5 h-3.5 rounded-full bg-white transition-transform mx-0.5 ${
-                              evt.email ? 'translate-x-3' : 'translate-x-0'
-                            }`}
-                          />
-                        </button>
-                      </td>
+      <SectionCard
+        title="알림 항목"
+        noPadding
+        actions={
+          <Button size="sm" onClick={save} disabled={!dirty || saving || loading}>
+            {saving ? <Loader2 size={14} className="mr-1 animate-spin" /> : dirty ? <Save size={14} className="mr-1" /> : <Check size={14} className="mr-1" />}
+            {saving ? '저장 중…' : dirty ? '저장' : '저장됨'}
+          </Button>
+        }
+      >
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="animate-spin text-slate-400" size={20} />
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-white/[0.06]">
+                <th className={th}>항목</th>
+                <th className={cn(th, 'w-32')}>웹 알림</th>
+                <th className={cn(th, 'w-32')}>이메일</th>
+              </tr>
+            </thead>
+            <tbody>
+              {domains.map((domain) => {
+                const items = rows.filter((r) => r.domain === domain);
+                const allInApp = items.every((r) => r.inApp);
+                const allEmail = items.every((r) => r.email);
+                return [
+                  <tr key={`${domain}-head`} className="border-b border-white/[0.04] bg-white/[0.02]">
+                    <td className="px-5 py-3 text-sm font-semibold text-white">{domain}</td>
+                    <td className="px-5 py-3"><Toggle on={allInApp} onChange={() => toggleDomain(domain, 'inApp')} label={`${domain} 웹 알림 전체`} /></td>
+                    <td className="px-5 py-3"><Toggle on={allEmail} onChange={() => toggleDomain(domain, 'email')} label={`${domain} 이메일 전체`} /></td>
+                  </tr>,
+                  ...items.map((r) => (
+                    <tr key={r.key} className="border-b border-white/[0.04]">
+                      <td className="px-5 py-3 pl-11 text-sm text-slate-300">{r.label}</td>
+                      <td className="px-5 py-3"><Toggle on={r.inApp} onChange={() => toggle(r.key, 'inApp')} label={`${r.label} 웹 알림`} /></td>
+                      <td className="px-5 py-3"><Toggle on={r.email} onChange={() => toggle(r.key, 'email')} label={`${r.label} 이메일`} /></td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </SectionCard>
-        );
-      })}
+                  )),
+                ];
+              })}
+            </tbody>
+          </table>
+        )}
+      </SectionCard>
     </div>
   );
 }

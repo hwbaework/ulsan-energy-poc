@@ -9,7 +9,13 @@
  */
 import type { LucideIcon } from 'lucide-react';
 import { BatteryCharging, Flame, Sun, Sunrise, Sunset, Thermometer, Wind, Zap } from 'lucide-react';
-import type { EnergySource, PlantStatus } from '@/types/monitoring';
+import type { EnergySource, PlantContractKind, PlantStatus } from '@/types/monitoring';
+
+/* ── 계약 유형 — 울산 에자자는 자가소비 · 온사이트 PPA 두 가지만 ── */
+export const CONTRACT_KIND_LABEL: Record<PlantContractKind, string> = {
+  SELF_CONSUMPTION: '자가소비',
+  ONSITE: '온사이트 PPA',
+};
 
 /* ── 컬러 토큰 (컬러가이드.html) ───────────────────────────────── */
 export const COLOR = {
