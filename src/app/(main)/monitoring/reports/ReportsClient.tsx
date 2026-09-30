@@ -9,15 +9,14 @@
 import { useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQueries } from '@tanstack/react-query';
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, Eye, FileText } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
-import { RmsAreaChart } from '@/components/ui/Chart';
 import { SectionCard } from '@/components/features';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { isAnomaly, sourceOf } from '@/lib/design';
 import { cn } from '@/lib/utils';
-import { exportExcel, exportPdf } from '@/lib/utils';
+import { exportExcel, exportPdf, generateReportHtml, type ReportPreviewDoc, type ReportPreviewSection } from '@/lib/utils';
 import * as monitoringApi from '@/api/monitoring/monitoring';
 import type { PlantHistoryPoint } from '@/api/monitoring/monitoring';
 import { monitoringKeys } from '@/api/queryKeys';
@@ -134,6 +133,7 @@ export default function ReportsClient() {
     [hasReport, year, monthFilter, kindFilter],
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // 처음부터 맨 위 문서가 열려 있고, 다른 행을 누르면 오른쪽이 그 문서로 바뀐다
   const selected = docs.find((d) => d.id === selectedId) ?? docs[0] ?? null;
   const scopeName = scope === 'all' ? '전체 발전소' : (plants[0]?.name ?? '');
   const titleSuffix = scope === 'all' ? '' : ` · ${scopeName}`;
@@ -238,10 +238,93 @@ export default function ReportsClient() {
     const d = exportData(doc);
     void exportExcel(d.file, d.sheet, d.headers, d.rows);
   };
+  /* 미리보기에 그릴 문서 — PDF·Excel 로 받는 내용과 같은 구성 */
+  const previewDoc = useMemo<ReportPreviewDoc | null>(() => {
+    if (!selected) return null;
+    const cap = capacityTotal >= 1000 ? `${(capacityTotal / 1000).toFixed(2)} MW` : `${capacityTotal.toLocaleString()} kW`;
+    const meta: [string, string][] = [
+      ['기간', selected.period],
+      ['대상', `${scopeLabel} · 설비 ${cap}`],
+      ['생성일', selected.createdAt],
+    ];
+    const title = `${selected.title}${titleSuffix}`;
+
+    // 이상감지 보고서는 요약만 — 개별 이상 목록·편차 수치는 산출 근거가 없어 넣지 않는다
+    if (selected.kind === 'anomaly') {
+      return {
+        title,
+        kindLabel: '통합관제 · 이상감지 보고서',
+        meta,
+        sections: [
+          {
+            heading: '요약',
+            rows: [
+              ['이상', `${anomalies.length} 건`],
+              ['경고', `${warningTotal} 건`],
+              ['주의', `${anomalies.filter((a) => a.severity === 'caution').length} 건`],
+              ['통신오류', `${commErrorTotal} 건`],
+            ],
+          },
+        ],
+        note: '이상감지 관리에 기록된 이상(등급 주의·경고 또는 통신오류)을 전체 기간으로 집계한 보고서입니다.',
+      };
+    }
+
+    const sections: ReportPreviewSection[] = [
+      {
+        heading: '요약',
+        rows: [
+          ['총 발전량', `${genTotal.toLocaleString()} kWh`],
+          ['총 발전시간', `${hoursTotal.toLocaleString()} h`],
+          ['이상', `${anomalies.length} 건`],
+        ],
+      },
+    ];
+    if (plants.length === 1) {
+      const p = plants[0]!;
+      sections.push({
+        heading: '실적',
+        rows: [
+          ['발전소', `${p.name} (${sourceOf(p.type).label})`],
+          ['설비용량', `${p.capacity.toLocaleString()} kW`],
+          ['발전량', `${genTotal.toLocaleString()} kWh`],
+          ['발전시간', `${hoursTotal} h`],
+        ],
+      });
+    } else {
+      sections.push({
+        heading: '발전소별 실적',
+        headers: ['발전소', '설비용량', '발전량', '발전시간', '이상'],
+        rows: [
+          ...generationRows.map((r) => [
+            `${r.plant.name} (${sourceOf(r.plant.type).label})`,
+            `${r.plant.capacity.toLocaleString()} kW`,
+            `${r.energy.toLocaleString()} kWh`,
+            `${r.hours} h`,
+            `${r.anomalies} 건`,
+          ]),
+          ['합계', `${capacityTotal.toLocaleString()} kW`, `${genTotal.toLocaleString()} kWh`, `${hoursTotal} h`, `${anomalies.length} 건`],
+        ],
+        emphasizeLast: true,
+      });
+    }
+    sections.push({
+      heading: '일별 발전량',
+      headers: ['일자', '발전량', '발전시간'],
+      rows: dailyRows.map((r) => [r.day.replace(/-/g, '.'), `${Math.round(r.energy).toLocaleString()} kWh`, `${r.hours} h`]),
+    });
+
+    return {
+      title,
+      kindLabel: '통합관제 · 월간 보고서',
+      meta,
+      sections,
+      note: '통합관제에서 수집한 발전 이력을 월 단위로 집계한 보고서입니다. 월 마감 후 자동 생성됩니다.',
+    };
+  }, [selected, capacityTotal, scopeLabel, titleSuffix, anomalies, warningTotal, commErrorTotal, genTotal, hoursTotal, plants, generationRows, dailyRows]);
 
   const th = 'px-4 py-2.5 text-left text-xs font-medium text-slate-400';
   const td = 'px-4 py-3 text-sm';
-  const num = 'tabular-nums';
 
   return (
     <div className="space-y-6">
@@ -278,10 +361,10 @@ export default function ReportsClient() {
         <div className="w-36">
           <Select options={KIND_OPTIONS} value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} />
         </div>
-        <span className="ml-auto text-sm text-slate-400">{docs.length}건</span>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_520px] gap-6 items-start">
+      {/* 목록 왼쪽 · 미리보기 문서 오른쪽 — 창이 좁아도(768px~) 옆에 붙는다 */}
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] xl:grid-cols-[minmax(0,1fr)_480px] gap-6 items-start">
         {/* 문서 목록 */}
         <SectionCard title="보고서 목록" noPadding className="min-w-0 !h-auto">
           <div className="overflow-x-auto">
@@ -291,7 +374,7 @@ export default function ReportsClient() {
                   <th className={th}>문서</th>
                   <th className={th}>종류</th>
                   <th className={th}>생성일</th>
-                  <th className={th}>미리보기 · PDF · Excel</th>
+                  <th className={th}>PDF · Excel</th>
                 </tr>
               </thead>
               <tbody>
@@ -307,9 +390,6 @@ export default function ReportsClient() {
                     </td>
                     <td className={cn(td, 'text-slate-400 tabular-nums whitespace-nowrap')}>{d.createdAt}</td>
                     <td className={cn(td, 'whitespace-nowrap')}>
-                      <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedId(d.id); }} className="rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-white" title="미리보기">
-                        <Eye size={15} />
-                      </button>
                       <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedId(d.id); onPdf(d); }} className="rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-white" title="PDF">
                         <FileText size={15} />
                       </button>
@@ -329,157 +409,30 @@ export default function ReportsClient() {
           </div>
         </SectionCard>
 
-        {/* 문서 본문 */}
-        {selected && (
-          <div className="min-w-0 rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] p-6 space-y-6 xl:sticky xl:top-4">
-            {/* 표지 — 위 줄: 구분 + Excel, 아래: 제목 전체 폭(버튼과 한 줄에 두면 제목이 줄바꿈됨) */}
-            <div className="border-b border-white/[0.06] pb-5">
-              <div className="flex items-center justify-between gap-4 mb-2">
-                <p className="text-sm text-slate-400">통합관제 · {selected.kind === 'anomaly' ? '이상감지 보고서' : '월간 보고서'}</p>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="secondary" onClick={() => onPdf(selected)}>
-                    <FileText size={14} className="mr-1" /> PDF
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => onExcel(selected)}>
-                    <Download size={14} className="mr-1" /> Excel
-                  </Button>
-                </div>
+        {/* 문서 미리보기 — 실제 문서(종이) 모습 그대로. 행을 누르면 이 자리가 그 문서로 바뀐다 */}
+        {selected && previewDoc && (
+          <div className="min-w-0 rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] overflow-hidden md:sticky md:top-4">
+            <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-3">
+              <div className="min-w-0">
+                <p className="text-xs text-slate-400">미리보기</p>
+                <p className="truncate text-sm font-semibold text-white">{selected.title}{titleSuffix}</p>
               </div>
-              <h2 className="text-lg font-bold text-white">{selected.title}{titleSuffix}</h2>
-              <dl className="mt-3 grid grid-cols-[64px_1fr] gap-y-1 text-sm">
-                <dt className="text-slate-400">기간</dt>
-                <dd className="text-white tabular-nums">{selected.period}</dd>
-                <dt className="text-slate-400">대상</dt>
-                <dd className="text-white">{scopeLabel} · 설비 {capacityTotal >= 1000 ? `${(capacityTotal / 1000).toFixed(2)} MW` : `${capacityTotal.toLocaleString()} kW`}</dd>
-                <dt className="text-slate-400">생성일</dt>
-                <dd className="text-white tabular-nums">{selected.createdAt}</dd>
-              </dl>
+              <div className="flex shrink-0 gap-2">
+                <Button size="sm" variant="secondary" onClick={() => onPdf(selected)}>
+                  <FileText size={14} className="mr-1" /> PDF
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => onExcel(selected)}>
+                  <Download size={14} className="mr-1" /> Excel
+                </Button>
+              </div>
             </div>
-
-            {selected.kind === 'generation' ? (
-              <>
-                {/* 1. 요약 — 박스 없이 줄글 */}
-                <section>
-                  <h3 className="text-sm font-bold text-white mb-3">1. 요약</h3>
-                  <dl className="grid grid-cols-[96px_1fr] gap-y-1.5 text-sm">
-                    <dt className="text-slate-400">총 발전량</dt>
-                    <dd className="text-white tabular-nums font-semibold">{genTotal.toLocaleString()} kWh</dd>
-                    <dt className="text-slate-400">총 발전시간</dt>
-                    <dd className="text-white tabular-nums">{hoursTotal.toLocaleString()} h</dd>
-                    <dt className="text-slate-400">이상</dt>
-                    <dd className={cn('tabular-nums', anomalies.length > 0 ? 'text-red-400 font-semibold' : 'text-white')}>{anomalies.length} 건</dd>
-                  </dl>
-                </section>
-
-                {/* 2. 실적 — 발전소 하나면 줄글, 여럿이면 발전소별 표 */}
-                {plants.length === 1 ? (
-                  <section>
-                    <h3 className="text-sm font-bold text-white mb-3">2. 실적</h3>
-                    <dl className="grid grid-cols-[96px_1fr] gap-y-1.5 text-sm">
-                      <dt className="text-slate-400">발전소</dt>
-                      <dd className="text-white">{plants[0]!.name} <span className="text-slate-400">{sourceOf(plants[0]!.type).label}</span></dd>
-                      <dt className="text-slate-400">설비용량</dt>
-                      <dd className="text-white tabular-nums">{plants[0]!.capacity.toLocaleString()} kW</dd>
-                      <dt className="text-slate-400">발전량</dt>
-                      <dd className="text-white tabular-nums">{genTotal.toLocaleString()} kWh</dd>
-                      <dt className="text-slate-400">발전시간</dt>
-                      <dd className="text-white tabular-nums">{hoursTotal} h</dd>
-                    </dl>
-                  </section>
-                ) : (
-                <section>
-                  <h3 className="text-sm font-bold text-white mb-3">2. 발전소별 실적</h3>
-                  <table className="w-full">
-                    <thead className="border-b border-white/[0.06]">
-                      <tr>
-                        <th className={th}>발전소</th>
-                        <th className={th}>설비용량</th>
-                        <th className={th}>발전량</th>
-                        <th className={th}>발전시간</th>
-                        <th className={th}>이상</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {generationRows.map((r) => (
-                        <tr key={r.plant.plantId} className="border-b border-white/5">
-                          <td className={cn(td, 'text-white')}>
-                            {r.plant.name} <span className="text-xs text-slate-400">{sourceOf(r.plant.type).label}</span>
-                          </td>
-                          <td className={cn(td, num, 'text-slate-300')}>{r.plant.capacity.toLocaleString()} kW</td>
-                          <td className={cn(td, num, 'font-semibold text-white')}>{r.energy.toLocaleString()} kWh</td>
-                          <td className={cn(td, num, 'text-slate-300')}>{r.hours} h</td>
-                          <td className={cn(td, num, r.anomalies > 0 ? 'text-red-400 font-semibold' : 'text-slate-300')}>{r.anomalies} 건</td>
-                        </tr>
-                      ))}
-                      <tr className="bg-white/[0.02]">
-                        <td className={cn(td, 'font-bold text-white')}>합계</td>
-                        <td className={cn(td, num, 'font-bold text-white')}>{capacityTotal.toLocaleString()} kW</td>
-                        <td className={cn(td, num, 'font-bold text-white')}>{genTotal.toLocaleString()} kWh</td>
-                        <td className={cn(td, num, 'font-bold text-white')}>{hoursTotal} h</td>
-                        <td className={cn(td, num, 'font-bold text-white')}>{anomalies.length} 건</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </section>
-                )}
-
-                {/* 3. 일별 발전량 — 차트로 흐름, 표로 수치 */}
-                <section>
-                  <h3 className="text-sm font-bold text-white mb-3">3. 일별 발전량</h3>
-                  {dailyRows.length === 0 ? (
-                    <p className="text-sm text-slate-500 py-4 text-center">발전 이력이 없습니다</p>
-                  ) : (
-                    <>
-                    <div className="mb-3">
-                      <RmsAreaChart
-                        data={dailyRows.map((r) => ({ day: r.day.slice(8).replace(/^0/, '') + '일', energy: Math.round(r.energy) }))}
-                        xKey="day"
-                        areas={[{ key: 'energy', name: '발전량 (kWh)', color: '#10B981' }]}
-                        height={180}
-                      />
-                    </div>
-                    <div className="max-h-60 overflow-y-auto">
-                      <table className="w-full">
-                        <thead className="border-b border-white/[0.06] sticky top-0 bg-[#0d1520]">
-                          <tr>
-                            <th className={th}>일자</th>
-                            <th className={th}>발전량</th>
-                            <th className={th}>발전시간</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {dailyRows.map((r) => (
-                            <tr key={r.day} className="border-b border-white/5">
-                              <td className={cn(td, 'text-slate-300 tabular-nums')}>{r.day.replace(/-/g, '.')}</td>
-                              <td className={cn(td, num, 'text-white')}>{Math.round(r.energy).toLocaleString()} kWh</td>
-                              <td className={cn(td, num, 'text-slate-300')}>{r.hours} h</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    </>
-                  )}
-                </section>
-              </>
-            ) : (
-              <>
-                {/* 이상감지 보고서 — 요약만. 개별 이상 목록·편차 수치는 산출 근거가 없어 넣지 않는다 */}
-                <section>
-                  <h3 className="text-sm font-bold text-white mb-3">요약</h3>
-                  <dl className="grid grid-cols-[96px_1fr] gap-y-1.5 text-sm">
-                    <dt className="text-slate-400">이상</dt>
-                    <dd className={cn('tabular-nums font-semibold', anomalies.length > 0 ? 'text-red-400' : 'text-white')}>{anomalies.length} 건</dd>
-                    <dt className="text-slate-400">경고</dt>
-                    <dd className="text-white tabular-nums">{warningTotal} 건</dd>
-                    <dt className="text-slate-400">주의</dt>
-                    <dd className="text-white tabular-nums">{anomalies.filter((a) => a.severity === 'caution').length} 건</dd>
-                    <dt className="text-slate-400">통신오류</dt>
-                    <dd className="text-white tabular-nums">{commErrorTotal} 건</dd>
-                  </dl>
-                </section>
-              </>
-            )}
+            {/* 문서는 iframe 안에서 흰 종이로 — 화면 테마와 섞이지 않는다 */}
+            <iframe
+              srcDoc={generateReportHtml(previewDoc)}
+              title="보고서 미리보기"
+              className="w-full bg-white"
+              style={{ height: '72vh', minHeight: 560, border: 'none' }}
+            />
           </div>
         )}
       </div>

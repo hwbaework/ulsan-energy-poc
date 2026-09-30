@@ -552,3 +552,98 @@ export function generateSettlementNoticeHtml(data: SettlementNoticeExportData): 
 </body>
 </html>`;
 }
+
+/* ─── 보고서 문서 미리보기 (화면 옆에서 실제 문서 모습으로 본다) ─── */
+
+export interface ReportPreviewSection {
+  heading: string;
+  headers?: string[]; // 없으면 라벨·값 2열 목록
+  rows: (string | number)[][];
+  emphasizeLast?: boolean; // 마지막 행을 합계로 강조
+}
+
+export interface ReportPreviewDoc {
+  title: string;
+  kindLabel: string; // 통합관제 · 월간 보고서
+  meta: [string, string][]; // 기간 · 대상 · 생성일
+  sections: ReportPreviewSection[];
+  note: string;
+}
+
+/** 보고서 한 건을 문서(흰 종이) 형태로 — 미리보기 iframe 에 그대로 넣는다 */
+export function generateReportHtml(doc: ReportPreviewDoc): string {
+  const esc = (v: string | number | undefined) =>
+    String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const metaRows = doc.meta
+    .map(
+      ([label, value]) =>
+        `<div class="meta-row"><span class="meta-label">${esc(label)}</span><span class="meta-value">${esc(value)}</span></div>`,
+    )
+    .join('');
+
+  const sections = doc.sections
+    .map((s, si) => {
+      const heading = `${si + 1}. ${esc(s.heading)}`;
+      if (!s.rows.length) {
+        return `<section><h2>${heading}</h2><p class="empty">자료가 없습니다</p></section>`;
+      }
+      if (!s.headers) {
+        const rows = s.rows
+          .map(([label, value]) => `<tr><th class="lbl">${esc(label)}</th><td class="num">${esc(value)}</td></tr>`)
+          .join('');
+        return `<section><h2>${heading}</h2><table class="doc list"><tbody>${rows}</tbody></table></section>`;
+      }
+      const head = s.headers.map((h, i) => `<th class="${i === 0 ? 'tl' : 'num'}">${esc(h)}</th>`).join('');
+      const body = s.rows
+        .map((r, ri) => {
+          const last = s.emphasizeLast && ri === s.rows.length - 1;
+          const cells = r.map((c, i) => `<td class="${i === 0 ? 'tl' : 'num'}">${esc(c)}</td>`).join('');
+          return `<tr class="${last ? 'total-row' : ''}">${cells}</tr>`;
+        })
+        .join('');
+      return `<section><h2>${heading}</h2><table class="doc"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></section>`;
+    })
+    .join('');
+
+  return `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<title>${esc(doc.title)}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #eceff3; color: #1a1a1a; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; }
+  .paper { background: #fff; margin: 14px; padding: 26px 26px 30px; box-shadow: 0 2px 10px rgba(0,0,0,.15); }
+  .kind { font-size: 11px; color: #888; margin-bottom: 4px; }
+  h1 { font-size: 16px; font-weight: 800; letter-spacing: -0.3px; margin-bottom: 12px; }
+  .meta { border-top: 1px solid #ddd; border-bottom: 1px solid #ddd; padding: 9px 0; margin-bottom: 18px; }
+  .meta-row { display: flex; gap: 12px; font-size: 12px; line-height: 1.9; }
+  .meta-label { color: #888; min-width: 50px; flex-shrink: 0; }
+  .meta-value { font-weight: 600; }
+  section { margin-bottom: 18px; }
+  h2 { font-size: 12.5px; font-weight: 700; margin-bottom: 7px; }
+  table.doc { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  table.doc th, table.doc td { border: 1px solid #ccd2d8; padding: 5px 8px; }
+  table.doc thead tr { background: #dce4ec; }
+  table.doc th { font-weight: 700; }
+  table.doc .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.doc .tl { text-align: left; }
+  table.doc.list th.lbl { background: #f2f5f8; color: #555; font-weight: 600; text-align: left; width: 45%; }
+  table.doc tr.total-row td { background: #edf1f5; font-weight: 800; }
+  p.empty { font-size: 12px; color: #999; padding: 14px 0; text-align: center; border: 1px dashed #ddd; }
+  .note { border-top: 1px solid #ddd; padding-top: 10px; font-size: 11px; color: #777; line-height: 1.6; }
+  @media print { html, body { background: #fff; } .paper { margin: 0; box-shadow: none; padding: 0; } @page { size: A4 portrait; margin: 16mm; } }
+</style>
+</head>
+<body>
+<div class="paper">
+  <p class="kind">${esc(doc.kindLabel)}</p>
+  <h1>${esc(doc.title)}</h1>
+  <div class="meta">${metaRows}</div>
+  ${sections}
+  <p class="note">${esc(doc.note)}</p>
+</div>
+</body>
+</html>`;
+}
