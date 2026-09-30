@@ -15,7 +15,6 @@ import {
   Wallet,
   X,
   Plus,
-  CheckCircle2,
 } from 'lucide-react';
 import { StatCard, StatsGrid, OnboardingModal, AssetRegistrationBanner } from '@/components/features';
 
@@ -30,25 +29,6 @@ import { useMarketPrices } from '@/hooks/trading/useTrading';
 
 // ── Mock Data ──
 
-const PLANTS: {
-  id: number;
-  name: string;
-  shortName: string;
-  dataKey: string;
-  color: string;
-  customer: string;
-  capacityKw: number;
-  monthlyGenKwh: number;
-  monthlySupplyKwh: number;
-  status: 'normal' | 'maintenance' | 'fault';
-}[] = [];
-
-const PLANT_STATUS_NORMAL = {
-  tone: 'text-emerald-300',
-  bg: 'bg-emerald-500/[0.10]',
-  ring: 'ring-emerald-500/30',
-  label: '정상',
-} as const;
 
 // 시간/일/월 단위 토글 (lease/dashboard 패턴)
 type TimeUnit = 'hour' | 'day' | 'month';
@@ -310,6 +290,10 @@ export default function DashboardPage() {
   );
   // 발전소별 선 표시 토글 (기본 꺼짐 — 칩으로 켠다)
   const [visiblePlantKeys, setVisiblePlantKeys] = useState<Set<string>>(new Set());
+  // 계약 단위 항목이 여럿이면 처음부터 전부 켜 둔다 — 한일튜브(자가소비)·(onsite) 가 바로 보이게
+  useEffect(() => {
+    if (contractPlants.length > 1) setVisiblePlantKeys(new Set(contractPlants.map((p) => p.key)));
+  }, [contractPlants]);
   const togglePlantKey = (key: string) => {
     setVisiblePlantKeys((prev) => {
       const next = new Set(prev);
@@ -369,6 +353,9 @@ export default function DashboardPage() {
   const yearlyEnergyKwh = useMemo(() => sumDailyEnergy(yearHistory), [yearHistory]);
   // CO₂ 저감 — 전체(hanil) + 발전소별(p_<id>) 시리즈
   const [visibleCo2PlantKeys, setVisibleCo2PlantKeys] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (contractPlants.length > 1) setVisibleCo2PlantKeys(new Set(contractPlants.map((p) => p.key)));
+  }, [contractPlants]);
   const toggleCo2PlantKey = (key: string) => {
     setVisibleCo2PlantKeys((prev) => {
       const next = new Set(prev);
@@ -788,56 +775,6 @@ export default function DashboardPage() {
               />
             </div>
 
-            {/* 발전소 상태 보드 1줄 — lease/dashboard 패턴 단순화 */}
-            <div className="border-t border-white/[0.06] overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-left">
-                  <tr className="border-b border-white/[0.06] text-[11px] text-slate-500 bg-white/[0.02]">
-                    <th className="px-4 py-2 text-left font-medium">발전소</th>
-                    <th className="px-4 py-2 text-left font-medium">상태</th>
-                    <th className="px-4 py-2 text-left font-medium">용량</th>
-                    <th className="px-4 py-2 text-left font-medium">이번 달 발전</th>
-                    <th className="px-4 py-2 text-left font-medium">수용가 공급</th>
-                    <th className="px-4 py-2 text-left font-medium">수용가</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {PLANTS.map((p) => (
-                    <tr key={p.id} className="border-b border-white/[0.04] hover:bg-white/[0.02]">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500/[0.10]">
-                            <Sun size={13} className="text-amber-400" />
-                          </span>
-                          <p className="text-sm font-semibold text-white">{p.name}</p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span
-                          className={cn(
-                            'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium ring-1',
-                            PLANT_STATUS_NORMAL.bg,
-                            PLANT_STATUS_NORMAL.tone,
-                            PLANT_STATUS_NORMAL.ring,
-                          )}
-                        >
-                          <CheckCircle2 size={10} />
-                          {PLANT_STATUS_NORMAL.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 tabular-nums text-sm text-white">{p.capacityKw.toLocaleString()} kW</td>
-                      <td className="px-4 py-3 tabular-nums text-sm text-violet-300">
-                        {p.monthlyGenKwh.toLocaleString()} kWh
-                      </td>
-                      <td className="px-4 py-3 tabular-nums text-sm text-emerald-300 font-semibold">
-                        {p.monthlySupplyKwh.toLocaleString()} kWh
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-300">{p.customer}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           </div>
 
           <div className="rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] overflow-hidden">

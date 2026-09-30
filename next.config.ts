@@ -6,6 +6,8 @@ import type { NextConfig } from 'next';
  */
 const nextConfig: NextConfig = {
   output: 'export',
+  // 개발 서버(.next)와 배포 빌드(.next-build)를 분리 — 빌드가 켜져 있는 dev 서버의 청크를 덮어써 500 이 나던 것 방지
+  distDir: process.env.NODE_ENV === 'production' ? '.next-build' : '.next',
   trailingSlash: false,
   images: { unoptimized: true },
   eslint: { ignoreDuringBuilds: true },
