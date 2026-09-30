@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev -p 3030",
     "build": "next build",
-    "start": "node scripts/serve-out.cjs out 3030",
+    "start": "node scripts/serve-out.cjs .next-build 3030",
     "lint": "next lint",
     "lint:strict": "tsc --noEmit && eslint src/",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",

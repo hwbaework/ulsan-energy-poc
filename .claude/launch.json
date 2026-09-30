@@ -10,7 +10,7 @@
     {
       "name": "static",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["scripts/serve-out.cjs", "out", "3031"],
+      "runtimeArgs": ["scripts/serve-out.cjs", ".next-build", "3031"],
       "port": 3031
     }
   ]

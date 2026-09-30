@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useOnboardingStore } from '@/stores';
 import {
@@ -291,8 +291,13 @@ export default function DashboardPage() {
   // 발전소별 선 표시 토글 (기본 꺼짐 — 칩으로 켠다)
   const [visiblePlantKeys, setVisiblePlantKeys] = useState<Set<string>>(new Set());
   // 계약 단위 항목이 여럿이면 처음부터 전부 켜 둔다 — 한일튜브(자가소비)·(onsite) 가 바로 보이게
+  const chipsInitRef = useRef(false);
   useEffect(() => {
-    if (contractPlants.length > 1) setVisiblePlantKeys(new Set(contractPlants.map((p) => p.key)));
+    if (chipsInitRef.current || contractPlants.length <= 1) return;
+    chipsInitRef.current = true;
+    const all = new Set(contractPlants.map((p) => p.key));
+    setVisiblePlantKeys(all);
+    setVisibleCo2PlantKeys(all);
   }, [contractPlants]);
   const togglePlantKey = (key: string) => {
     setVisiblePlantKeys((prev) => {
@@ -353,9 +358,7 @@ export default function DashboardPage() {
   const yearlyEnergyKwh = useMemo(() => sumDailyEnergy(yearHistory), [yearHistory]);
   // CO₂ 저감 — 전체(hanil) + 발전소별(p_<id>) 시리즈
   const [visibleCo2PlantKeys, setVisibleCo2PlantKeys] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    if (contractPlants.length > 1) setVisibleCo2PlantKeys(new Set(contractPlants.map((p) => p.key)));
-  }, [contractPlants]);
+
   const toggleCo2PlantKey = (key: string) => {
     setVisibleCo2PlantKeys((prev) => {
       const next = new Set(prev);

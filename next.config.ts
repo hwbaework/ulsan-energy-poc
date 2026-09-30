@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 
 /**
  * ulsan-energy-poc — 정적 export (백엔드·DB 없음).
- * `next build` 결과가 ./out 에 생성되며 Cloudflare Workers(정적 에셋)로 배포한다.
+ * `next build` 결과(정적 export)가 ./.next-build 에 생성되며 Cloudflare Workers(정적 에셋)로 배포한다. dev 는 ./.next 를 쓴다.
  */
 const nextConfig: NextConfig = {
   output: 'export',
