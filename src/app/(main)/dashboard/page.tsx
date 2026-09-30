@@ -23,6 +23,7 @@ import { RmsAreaLineChart, RmsLineChart } from '@/components/ui/Chart';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { useScopedPlants, usePlantsHistory } from '@/hooks/monitoring/useScopedPlants';
+import { expandByContract } from '@/lib/contract-plants';
 import { useMyPlantIds } from '@/hooks/monitoring/useMyPlantFilter';
 import { useEnergySettings } from '@/hooks/common/useSettings';
 import { useMarketPrices } from '@/hooks/trading/useTrading';
@@ -108,7 +109,6 @@ function withForecast(rows: Array<Record<string, unknown> & { x: string }>, tu: 
 const DEFAULT_CO2_EMISSION_FACTOR = 0.4594;
 const EMPTY_IDS: number[] = [];
 const PLANT_COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#EAB308'] as const;
-const plantKey = (id: number) => `p_${id}`;
 const shortPlantName = (name: string) => name.replace(/^울산\s*/, '');
 
 /** 시간대별(오늘) 발전량 행 — 이력이 없으면 빈 배열(가짜 값 금지) */
@@ -298,6 +298,8 @@ export default function DashboardPage() {
   // 역할별 범위: 관리자=전체, 발전사업자·전기사용자=자사 계약 발전소
   const { plants: scopedPlants } = useScopedPlants();
   const scopedIds = useMemo(() => scopedPlants.map((p) => p.plantId), [scopedPlants]);
+  // 발전소별 칩·계열은 계약 단위 — 한일튜브(자가소비)·한일튜브(onsite). 이력은 발전소 것에 계약 몫(share)을 곱한다
+  const contractPlants = useMemo(() => expandByContract(scopedPlants), [scopedPlants]);
   const plant = useMemo(
     () => ({
       currentOutput: scopedPlants.reduce((sum, p) => sum + p.currentOutput, 0),
@@ -378,18 +380,18 @@ export default function DashboardPage() {
   const co2ChartData = useMemo(() => {
     const rows = buildCo2FromHistory(yearHistory, co2Unit, co2Factor) as Array<Record<string, string | number>>;
     const perPlant = new Map<string, Record<string, number>>();
-    for (const pl of scopedPlants) {
+    for (const pl of contractPlants) {
       const hist = yearByPlant[pl.plantId];
       if (!hist || hist.length === 0) continue;
       for (const r of buildCo2FromHistory(hist, co2Unit, co2Factor) as Array<Record<string, string | number>>) {
         const x = String(r.x);
         const cur = perPlant.get(x) ?? {};
-        cur[plantKey(pl.plantId)] = Number(r.hanil ?? 0);
+        cur[pl.key] = Math.round(Number(r.hanil ?? 0) * pl.share * 1000) / 1000;
         perPlant.set(x, cur);
       }
     }
     return rows.map((r) => ({ ...r, ...(perPlant.get(String(r.x)) ?? {}) }));
-  }, [yearHistory, yearByPlant, scopedPlants, co2Unit, co2Factor]);
+  }, [yearHistory, yearByPlant, contractPlants, co2Unit, co2Factor]);
 
   const co2TodayTon = toTonWith(plant?.dailyEnergy ?? 0, co2Factor);
   const co2ThisMonthTon = toTonWith(monthlyEnergyKwh > 0 ? monthlyEnergyKwh : (plant?.dailyEnergy ?? 0), co2Factor);
@@ -439,7 +441,7 @@ export default function DashboardPage() {
     // 발전소별 시리즈 — 같은 x 라벨에 p_<id> 값을 붙인다
     const byPlant = genCtl.tu === 'hour' ? hourlyByPlant : genCtl.tu === 'day' ? dailyByPlant : monthlyByPlant;
     const perPlant = new Map<string, Record<string, number>>();
-    for (const p of scopedPlants) {
+    for (const p of contractPlants) {
       const hist = byPlant[p.plantId];
       if (!hist || hist.length === 0) continue;
       const prows =
@@ -450,7 +452,7 @@ export default function DashboardPage() {
             : buildMonthlyGenData(hist, genCtl.year);
       for (const r of prows) {
         const cur = perPlant.get(r.x) ?? {};
-        cur[plantKey(p.plantId)] = Number((r as Record<string, unknown>).generation ?? 0);
+        cur[p.key] = Math.round(Number((r as Record<string, unknown>).generation ?? 0) * p.share);
         perPlant.set(r.x, cur);
       }
     }
@@ -466,7 +468,7 @@ export default function DashboardPage() {
     hourlyByPlant,
     dailyByPlant,
     monthlyByPlant,
-    scopedPlants,
+    contractPlants,
   ]);
 
   useEffect(() => {
@@ -641,10 +643,10 @@ export default function DashboardPage() {
                       </button>
                     );
                   })}
-                  {scopedPlants.length > 1 && <span className="mx-1 h-4 w-px bg-white/10" />}
-                  {scopedPlants.length > 1 &&
-                    scopedPlants.map((p, i) => {
-                      const key = plantKey(p.plantId);
+                  {contractPlants.length > 1 && <span className="mx-1 h-4 w-px bg-white/10" />}
+                  {contractPlants.length > 1 &&
+                    contractPlants.map((p, i) => {
+                      const key = p.key;
                       const on = visiblePlantKeys.has(key);
                       const color = PLANT_COLORS[i % PLANT_COLORS.length];
                       return (
@@ -665,7 +667,7 @@ export default function DashboardPage() {
                             className="h-2 w-2 rounded-full shrink-0 transition-opacity"
                             style={{ backgroundColor: color, opacity: on ? 1 : 0.3 }}
                           />
-                          {shortPlantName(p.name)}
+                          {shortPlantName(p.displayName)}
                           {on ? <X size={10} className="opacity-70" /> : <Plus size={10} className="opacity-50" />}
                         </button>
                       );
@@ -773,12 +775,12 @@ export default function DashboardPage() {
                           dashed: true,
                         },
                       ]),
-                  ...scopedPlants
+                  ...contractPlants
                     .map((p, i) => ({ p, i }))
-                    .filter(({ p }) => visiblePlantKeys.has(plantKey(p.plantId)))
+                    .filter(({ p }) => visiblePlantKeys.has(p.key))
                     .map(({ p, i }) => ({
-                      key: plantKey(p.plantId),
-                      name: shortPlantName(p.name),
+                      key: p.key,
+                      name: shortPlantName(p.displayName),
                       color: PLANT_COLORS[i % PLANT_COLORS.length],
                     })),
                 ]}
@@ -913,10 +915,10 @@ export default function DashboardPage() {
                     </button>
                   );
                 })}
-                {scopedPlants.length > 1 && <span className="mx-1 h-4 w-px bg-white/10" />}
-                {scopedPlants.length > 1 &&
-                  scopedPlants.map((pl, i) => {
-                    const key = plantKey(pl.plantId);
+                {contractPlants.length > 1 && <span className="mx-1 h-4 w-px bg-white/10" />}
+                {contractPlants.length > 1 &&
+                  contractPlants.map((pl, i) => {
+                    const key = pl.key;
                     const on = visibleCo2PlantKeys.has(key);
                     const color = PLANT_COLORS[i % PLANT_COLORS.length];
                     return (
@@ -936,7 +938,7 @@ export default function DashboardPage() {
                           className="h-2 w-2 rounded-full shrink-0 transition-opacity"
                           style={{ backgroundColor: color, opacity: on ? 1 : 0.3 }}
                         />
-                        {shortPlantName(pl.name)}
+                        {shortPlantName(pl.displayName)}
                         {on ? <X size={10} className="opacity-70" /> : <Plus size={10} className="opacity-50" />}
                       </button>
                     );
@@ -951,12 +953,12 @@ export default function DashboardPage() {
                     name: `${m.label} (tCO₂)`,
                     color: m.color,
                   })),
-                  ...scopedPlants
+                  ...contractPlants
                     .map((pl, i) => ({ pl, i }))
-                    .filter(({ pl }) => visibleCo2PlantKeys.has(plantKey(pl.plantId)))
+                    .filter(({ pl }) => visibleCo2PlantKeys.has(pl.key))
                     .map(({ pl, i }) => ({
-                      key: plantKey(pl.plantId),
-                      name: `${shortPlantName(pl.name)} (tCO₂)`,
+                      key: pl.key,
+                      name: `${shortPlantName(pl.displayName)} (tCO₂)`,
                       color: PLANT_COLORS[i % PLANT_COLORS.length],
                     })),
                 ]}

@@ -10,6 +10,7 @@ import { SectionCard, StatCard, StatsGrid } from '@/components/features';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { StatusPill } from '@/components/ui/Design';
 import { CONTRACT_KIND, commStatusOf, contractKindsOf, gradeOf, isAnomaly } from '@/lib/design';
+import { contractDisplayName } from '@/lib/contract-plants';
 import type { AnomalyEvent, PlantContractKind } from '@/types/monitoring';
 import { useAnomalies } from '@/hooks/monitoring/useAnomalies';
 import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
@@ -17,8 +18,10 @@ import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/u
 
 interface AnomalyRow extends AnomalyEvent {
   plantType?: string;
-  /** 이상이 속한 계약 — 응답에 있으면 그 계약, 없으면 발전소의 계약 전부 */
-  contractKinds: PlantContractKind[];
+  /** 이상이 속한 계약 — 이상 하나는 계약 하나. 응답에 없으면 발전소의 계약이 하나일 때만 채움 */
+  contractKind?: PlantContractKind;
+  /** 계약 단위 이름 — 한일튜브(onsite) */
+  displayName: string;
   description?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -47,10 +50,7 @@ export default function AnomaliesPage() {
 
   const myPlantMatcher = useMyPlantMatcher();
   const { data: plantList } = useMonitoringPlants();
-  const kindsOfPlant = (plantId: number): PlantContractKind[] => {
-    const p = (plantList ?? []).find((x) => x.plantId === plantId);
-    return p ? contractKindsOf(p) : [];
-  };
+  const plantOf = (plantId: number) => (plantList ?? []).find((x) => x.plantId === plantId);
   const { data: apiData, isError } = useAnomalies({ size: 100 });
   const rawListAll: any[] =
     !isError && apiData ? (Array.isArray(apiData) ? apiData : ((apiData as any)?.content ?? [])) : [];
@@ -65,12 +65,19 @@ export default function AnomaliesPage() {
 
   const anomalies: AnomalyRow[] = rawList
     .filter((a: any) => isAnomaly(a.severity ?? 'normal', a.status ?? 'NORMAL'))
-    .map((a: any) => ({
+    .map((a: any) => {
+      const plantId = a.plantId ?? a.powerStationId ?? 0;
+      const p = plantOf(plantId);
+      const kinds = p ? contractKindsOf(p) : [];
+      const contractKind = (a.contractKind as PlantContractKind | undefined) ?? (kinds.length === 1 ? kinds[0] : undefined);
+      const plantName = a.plantName ?? a.powerStationName ?? '';
+      return {
     id: a.id,
-    plantId: a.plantId ?? a.powerStationId ?? 0,
-    plantName: a.plantName ?? a.powerStationName ?? '',
+    plantId,
+    plantName,
+    displayName: contractDisplayName(plantName, contractKind, kinds.length > 1),
     plantType: a.detectionType ?? 'SOLAR',
-    contractKinds: a.contractKind ? [a.contractKind as PlantContractKind] : kindsOfPlant(a.plantId ?? a.powerStationId ?? 0),
+    contractKind,
     severity: a.severity ?? 'caution',
     status: a.status ?? 'NORMAL',
     title: a.title ?? '',
@@ -79,13 +86,14 @@ export default function AnomaliesPage() {
     resolvedAt: a.resolvedAt,
     createdAt: a.createdAt ?? '',
     updatedAt: a.updatedAt ?? '',
-  }));
+      };
+    });
 
   const q = query.trim().toLowerCase();
   const filtered = anomalies.filter((a) => {
     if (severity !== 'all' && a.severity !== severity) return false;
     if (status !== 'all' && a.status !== status) return false;
-    if (q && !a.plantName.toLowerCase().includes(q) && !a.title.toLowerCase().includes(q)) return false;
+    if (q && !a.displayName.toLowerCase().includes(q) && !a.title.toLowerCase().includes(q)) return false;
     return true;
   });
 
@@ -125,7 +133,7 @@ export default function AnomaliesPage() {
       key: 'plantName',
       header: '발전소',
       width: '130px',
-      render: (r) => <span className="text-sm font-medium text-white truncate block">{r.plantName}</span>,
+      render: (r) => <span className="text-sm font-medium text-white truncate block">{r.displayName}</span>,
     },
     {
       key: 'plantType',
@@ -135,12 +143,10 @@ export default function AnomaliesPage() {
     },
     {
       // 계약 유형 — 자가소비 / onsite. 발전소 단위 이상(RTU 등)은 계약 전부
-      key: 'contractKinds',
+      key: 'contractKind',
       header: '계약 유형',
       width: '110px',
-      render: (r) => (
-        <span className="text-sm text-slate-300">{r.contractKinds.length ? r.contractKinds.map((k) => CONTRACT_KIND[k].label).join(' · ') : '-'}</span>
-      ),
+      render: (r) => <span className="text-sm text-slate-300">{r.contractKind ? CONTRACT_KIND[r.contractKind].label : '-'}</span>,
     },
     {
       key: 'device' as any,

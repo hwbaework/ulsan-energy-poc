@@ -7,7 +7,7 @@
  * - 외부 제출 양식은 없다(내부 보고·검증용)
  */
 import { useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useQueries } from '@tanstack/react-query';
 import { ArrowLeft, ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react';
 import { Select } from '@/components/ui/Select';
@@ -23,6 +23,8 @@ import { monitoringKeys } from '@/api/queryKeys';
 import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
 import { useAnomalies } from '@/hooks/monitoring/useAnomalies';
 import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
+import { expandByContract } from '@/lib/contract-plants';
+import type { PlantContractKind } from '@/types/monitoring';
 
 /* ── 문서 정의 ── */
 
@@ -113,6 +115,7 @@ const KIND_OPTIONS = [
 export default function ReportsClient() {
   const router = useRouter();
   const { plantId: scope } = useParams<{ plantId: string }>(); // 'all' 또는 발전소 ID
+  const contract = useSearchParams().get('contract') as PlantContractKind | null; // 계약 하나만 볼 때
   const [year, setYear] = useState(THIS_YEAR);
   const [monthFilter, setMonthFilter] = useState('all');
   const [kindFilter, setKindFilter] = useState('all');
@@ -121,7 +124,12 @@ export default function ReportsClient() {
   const { data: allPlants } = useMonitoringPlants();
   const myPlantMatcher = useMyPlantMatcher();
   const myPlants = useMemo(() => filterPlantsByOwnership(allPlants ?? [], myPlantMatcher), [allPlants, myPlantMatcher]);
-  const plants = useMemo(() => (scope === 'all' ? myPlants : myPlants.filter((p) => String(p.plantId) === scope)), [myPlants, scope]);
+  // 계약 하나 = 항목 하나 — 이름은 "한일튜브(onsite)", 값은 계약 용량 몫(share)
+  const plants = useMemo(() => {
+    const items = expandByContract(scope === 'all' ? myPlants : myPlants.filter((p) => String(p.plantId) === scope));
+    const picked = items.filter((c) => c.contractKind === contract);
+    return picked.length > 0 ? picked : items;
+  }, [myPlants, scope, contract]);
   // 연료전지·ORC 는 아직 보고서 항목이 정해지지 않아 문서를 만들지 않는다(빈 상태)
   const hasReport = plants.length > 0 && plants.every((p) => p.type === 'SOLAR');
 
@@ -135,7 +143,7 @@ export default function ReportsClient() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // 처음부터 맨 위 문서가 열려 있고, 다른 행을 누르면 오른쪽이 그 문서로 바뀐다
   const selected = docs.find((d) => d.id === selectedId) ?? docs[0] ?? null;
-  const scopeName = scope === 'all' ? '전체 발전소' : (plants[0]?.name ?? '');
+  const scopeName = scope === 'all' ? '전체 발전소' : (plants[0]?.displayName ?? '');
   const titleSuffix = scope === 'all' ? '' : ` · ${scopeName}`;
   const capacityTotal = plants.reduce((s, p) => s + p.capacity, 0);
   const scopeLabel = scope === 'all' ? `발전소 ${plants.length}개` : scopeName;
@@ -179,7 +187,7 @@ export default function ReportsClient() {
         let energy = 0;
         let hours = 0;
         summarizeDays(historyQueries[i]?.data ?? []).forEach((d) => {
-          energy += d.energy;
+          energy += d.energy * plant.share; // 계약 용량 몫
           hours += d.hours;
         });
         return { plant, energy: Math.round(energy), hours, anomalies: anomalies.filter((a) => a.plantId === plant.plantId).length };
@@ -191,11 +199,12 @@ export default function ReportsClient() {
   const dailyRows = useMemo(() => {
     if (!selected) return [];
     const total = new Map<string, { energy: number; hours: number }>(selected.days.map((d) => [d, { energy: 0, hours: 0 }]));
-    historyQueries.forEach((q) => {
+    historyQueries.forEach((q, i) => {
+      const share = plants[i]?.share ?? 1;
       summarizeDays(q.data ?? []).forEach((v, day) => {
         const t = total.get(day);
         if (t) {
-          t.energy += v.energy;
+          t.energy += v.energy * share;
           t.hours = Math.max(t.hours, v.hours);
         }
       });
@@ -214,7 +223,7 @@ export default function ReportsClient() {
         file: `${doc.title}${titleSuffix}`,
         sheet: KIND_LABEL.generation,
         headers: ['발전소', '발전원', '설비용량 kW', '발전량 kWh', '발전시간 h', '이상 건수'],
-        rows: generationRows.map((r) => [r.plant.name, sourceOf(r.plant.type).label, r.plant.capacity, r.energy, r.hours, r.anomalies]),
+        rows: generationRows.map((r) => [r.plant.displayName, sourceOf(r.plant.type).label, r.plant.capacity, r.energy, r.hours, r.anomalies]),
       };
     }
     // 이상감지 보고서는 요약만 — 건수 집계
@@ -285,7 +294,7 @@ export default function ReportsClient() {
       sections.push({
         heading: '실적',
         rows: [
-          ['발전소', `${p.name} (${sourceOf(p.type).label})`],
+          ['발전소', `${p.displayName} (${sourceOf(p.type).label})`],
           ['설비용량', `${p.capacity.toLocaleString()} kW`],
           ['발전량', `${genTotal.toLocaleString()} kWh`],
           ['발전시간', `${hoursTotal} h`],
@@ -297,7 +306,7 @@ export default function ReportsClient() {
         headers: ['발전소', '설비용량', '발전량', '발전시간', '이상'],
         rows: [
           ...generationRows.map((r) => [
-            `${r.plant.name} (${sourceOf(r.plant.type).label})`,
+            `${r.plant.displayName} (${sourceOf(r.plant.type).label})`,
             `${r.plant.capacity.toLocaleString()} kW`,
             `${r.energy.toLocaleString()} kWh`,
             `${r.hours} h`,

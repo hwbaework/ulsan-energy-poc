@@ -12,32 +12,29 @@ const MapboxMapView = dynamic(() => import('@/components/ui/MapboxMapView').then
 import type { MapLike as MapboxMap, MapMarkerSpec } from '@/components/ui/MapboxMapView';
 import type { PlantContractKind } from '@/types/monitoring';
 import { contractSplitOf } from '@/lib/design';
+import { expandByContract } from '@/lib/contract-plants';
 
 /**
- * 계약 사업장 한 행 = 발전소 × 계약. 혼합 계약(한일튜브)은 자가소비·onsite 두 행, 값은 계약 용량 몫.
+ * 계약 사업장 한 행 = 발전소 × 계약 — "한일튜브(자가소비)" · "한일튜브(onsite)". 값은 계약 용량 몫.
  * 지도 핀은 위치가 하나라 발전소당 1개 — 핀을 누르면 그 발전소의 계약 전부, 행을 누르면 그 계약만 본다.
  */
 interface ContractRow {
   plant: MonitoringPlant;
   kind?: PlantContractKind;
+  displayName: string;
   capacity: number;
   currentOutput: number;
   dailyEnergy?: number;
 }
 function contractRowsOf(plant: MonitoringPlant): ContractRow[] {
-  const split = contractSplitOf(plant);
-  if (split.length === 0) return [{ plant, capacity: plant.capacity, currentOutput: plant.currentOutput, dailyEnergy: plant.dailyEnergy }];
-  const total = split.reduce((s, c) => s + c.capacityKw, 0) || 1;
-  return split.map((c) => {
-    const share = c.capacityKw / total;
-    return {
-      plant,
-      kind: c.kind,
-      capacity: c.capacityKw,
-      currentOutput: Math.round(plant.currentOutput * share),
-      dailyEnergy: plant.dailyEnergy != null ? Math.round(plant.dailyEnergy * share) : undefined,
-    };
-  });
+  return expandByContract([plant]).map((c) => ({
+    plant,
+    kind: c.contractKind,
+    displayName: c.displayName,
+    capacity: c.capacity,
+    currentOutput: c.currentOutput,
+    dailyEnergy: c.dailyEnergy,
+  }));
 }
 import { cn } from '@/lib/utils';
 import type { MonitoringPlant, EnergySource, PlantStatus } from '@/types/monitoring';
@@ -309,7 +306,7 @@ function SidePanel({
             >
               <ChevronLeft size={18} />
             </button>
-            <h3 className="text-base font-bold text-white truncate">{plant.name}</h3>
+            <h3 className="text-base font-bold text-white truncate">{picked?.displayName ?? plant.name}</h3>
             {/* 계약 사업장 목록과 같은 발전원 칩 */}
             <span className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-xs font-semibold text-white">
               <SrcIcon size={13} style={{ color: src.color }} />
@@ -510,7 +507,7 @@ function SidePanel({
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <StatusDot status={plant.status} pulse />
-                  <span className="text-sm font-medium text-white">{plant.name}</span>
+                  <span className="text-sm font-medium text-white">{row.displayName}</span>
                   {(() => {
                     const src = SOURCE[plant.type as EnergySource];
                     const Icon = src.icon;

@@ -17,6 +17,7 @@ import type { MonitoringPlant } from '@/types/monitoring';
 import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
 import { useAnomalies } from '@/hooks/monitoring/useAnomalies';
 import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
+import { contractHref, expandByContract, type ContractPlant } from '@/lib/contract-plants';
 
 const now = new Date();
 const THIS_MONTH = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -24,8 +25,8 @@ const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 const LAST_REPORT = `${prev.getFullYear()}년 ${prev.getMonth() + 1}월`; // 마감된 최근 보고서
 
 interface Row {
-  key: string; // 'all' | plantId
-  plant: MonitoringPlant | null; // null = 전체
+  key: string; // plantId-계약
+  plant: ContractPlant; // 계약 하나 = 행 하나
   capacity: number;
   anomalies: number; // 이번 달
 }
@@ -38,12 +39,15 @@ export default function ReportsEntryPage() {
   const myPlantMatcher = useMyPlantMatcher();
   // 연료전지·ORC 는 아직 보고서 항목이 정해지지 않아 값을 비워 둔다(목록에는 표시)
   const plants = useMemo(() => filterPlantsByOwnership(allPlants ?? [], myPlantMatcher), [allPlants, myPlantMatcher]);
+  // 계약 하나 = 행 하나. 한일튜브는 (자가소비)·(onsite) 두 행
+  const items = useMemo(() => expandByContract(plants), [plants]);
   const hasReport = (p: MonitoringPlant) => p.type === 'SOLAR';
 
-  // 발전소가 1개면 고를 게 없으니 바로 그 발전소 보고서로
+  // 항목이 1개면 고를 게 없으니 바로 그 보고서로
+  const single = !isLoading && items.length === 1 ? items[0] : null;
   useEffect(() => {
-    if (!isLoading && plants.length === 1) router.replace(`/monitoring/reports/${plants[0]!.plantId}`);
-  }, [isLoading, plants, router]);
+    if (single) router.replace(contractHref(`/monitoring/reports/${single.plantId}`, single.contractKind));
+  }, [single, router]);
 
   const { data: anomalyData } = useAnomalies({ size: 100 });
   const anomalyCount = useMemo(() => {
@@ -58,19 +62,22 @@ export default function ReportsEntryPage() {
   // 행을 누르면 그 발전소 보고서로 (전체 행 없음, 버튼 없음)
   const rows = useMemo<Row[]>(() => {
     const q = query.trim().toLowerCase();
-    return plants
-      .filter((p) => !q || p.name.toLowerCase().includes(q) || (p.address ?? '').toLowerCase().includes(q))
-      .map((p) => ({ key: String(p.plantId), plant: p, capacity: p.capacity, anomalies: anomalyCount.get(p.plantId) ?? 0 }));
-  }, [plants, query, anomalyCount]);
+    return items
+      .filter((p) => !q || p.displayName.toLowerCase().includes(q) || (p.address ?? '').toLowerCase().includes(q))
+      .map((p) => ({ key: p.key, plant: p, capacity: p.capacity, anomalies: anomalyCount.get(p.plantId) ?? 0 }));
+  }, [items, query, anomalyCount]);
 
   const columns: Column<Row>[] = [
-    { key: 'plant', header: '발전소', width: '240px', render: (r) => <PlantNameCell type={r.plant!.type} name={r.plant!.name} /> },
+    { key: 'plant', header: '발전소', width: '240px', render: (r) => <PlantNameCell type={r.plant.type} name={r.plant.displayName} /> },
     { key: 'address' as keyof Row, header: '위치', render: (r) => <span className="text-sm text-slate-300">{r.plant?.address ?? '-'}</span> },
     { key: 'capacity', header: '설비용량', width: '130px', render: (r) => <span className="text-sm text-slate-300 tabular-nums whitespace-nowrap">{r.capacity.toLocaleString()} kW</span> },
-    { key: 'last' as keyof Row, header: '최근 보고서', width: '140px', render: (r) => <span className="text-sm text-slate-300 whitespace-nowrap">{hasReport(r.plant!) ? LAST_REPORT : ''}</span> },
-    { key: 'anomalies', header: '이번 달 이상', width: '120px', render: (r) => (hasReport(r.plant!) ? <span className={`text-sm tabular-nums whitespace-nowrap ${r.anomalies > 0 ? 'text-red-400 font-semibold' : 'text-slate-300'}`}>{r.anomalies} 건</span> : null) },
+    { key: 'last' as keyof Row, header: '최근 보고서', width: '140px', render: (r) => <span className="text-sm text-slate-300 whitespace-nowrap">{hasReport(r.plant) ? LAST_REPORT : ''}</span> },
+    { key: 'anomalies', header: '이번 달 이상', width: '120px', render: (r) => (hasReport(r.plant) ? <span className={`text-sm tabular-nums whitespace-nowrap ${r.anomalies > 0 ? 'text-red-400 font-semibold' : 'text-slate-300'}`}>{r.anomalies} 건</span> : null) },
     { key: 'go' as keyof Row, header: '', width: '48px', render: () => <ChevronRight size={16} className="text-slate-500" /> },
   ];
+
+  // 로딩 중이거나 바로 넘어갈 때는 목록을 그리지 않는다 — 전기사용자가 보고서 앞에서 한 번 보던 화면
+  if (isLoading || single) return null;
 
   return (
     <div className="space-y-6">
@@ -86,7 +93,7 @@ export default function ReportsEntryPage() {
           </div>
         }
       >
-        <DataTable columns={columns} data={rows} rowKey={(r) => r.key} onRowClick={(r) => router.push(`/monitoring/reports/${r.key}`)} emptyMessage="검색 결과가 없습니다" />
+        <DataTable columns={columns} data={rows} rowKey={(r) => r.key} onRowClick={(r) => router.push(contractHref(`/monitoring/reports/${r.plant.plantId}`, r.plant.contractKind))} emptyMessage="검색 결과가 없습니다" />
       </SectionCard>
     </div>
   );

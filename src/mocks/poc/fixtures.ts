@@ -316,8 +316,10 @@ function anomaly(
   detectedAt: string, actions: MockAction[], resolvedAt: string | null = null, contractKind?: PlantContractKind,
 ): MockAnomaly {
   const plant = PLANTS.find((p) => p.plantId === plantId);
+  // 이상 하나는 계약 하나에 속한다 — 계약이 하나뿐인 발전소는 그 계약, 혼합 계약은 호출부에서 지정
+  const kind = contractKind ?? (plant?.contractTypes?.length === 1 ? plant.contractTypes[0] : plant?.contractType);
   return {
-    id, plantId, contractKind, plantName: plant?.name ?? '', detectionType: plant?.type ?? 'SOLAR', title, description, severity, status,
+    id, plantId, contractKind: kind, plantName: plant?.name ?? '', detectionType: plant?.type ?? 'SOLAR', title, description, severity, status,
     detectedAt, resolvedAt, affectedConsumers: [], actions, createdAt: detectedAt, updatedAt: resolvedAt ?? detectedAt,
   };
 }
@@ -344,7 +346,11 @@ export const ANOMALY_ROWS: MockAnomaly[] = [
   anomaly(2, 17514, 'RTU 통신 지연 (응답 > 60초)', 'RTU 폴링 응답 지연 60초 초과. 네트워크 점검.', 'warning', 'NORMAL', daysAgo(5, 8, 15), [
     act(21, '확인', '통신 지연 확인.', '김운영', 'ACKNOWLEDGED', daysAgo(5, 8, 30)),
     act(22, '원격 조치', '통신 모듈 원격 재기동 후 정상 응답 확인.', '김운영', 'RESOLVED', daysAgo(5, 9, 10)),
-  ], daysAgo(5, 9, 10)),
+  ], daysAgo(5, 9, 10), 'SELF_CONSUMPTION'),
+  // 주의 — 한길 (자가소비) · 전기사용자 화면에 이상이 하나는 보이도록
+  anomaly(7, 17515, '인버터 #1 출력 저하', '인버터 #1 AC 출력이 정격보다 낮음. 모듈 그늘 또는 오염 의심.', 'caution', 'NORMAL', daysAgo(1, 9, 20), [
+    act(71, '확인', '출력 저하 확인. 현장 육안 점검 예정.', '이수용', 'ACKNOWLEDGED', daysAgo(1, 10, 0)),
+  ]),
   // 경고 — 연료전지
   anomaly(5, 17601, '스택 온도 상한 근접 (경고)', '스택 온도가 상한 경고치에 근접. 냉각 계통 점검.', 'warning', 'NORMAL', daysAgo(1, 16, 0), [
     act(51, '확인', '온도 경고 확인. 출력 80% 제한.', '이관제', 'ACKNOWLEDGED', daysAgo(1, 16, 10)),

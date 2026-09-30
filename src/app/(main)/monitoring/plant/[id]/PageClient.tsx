@@ -19,6 +19,7 @@ import type { EnergySource, PlantStatus, InverterStatus, PlantConnectionStatus, 
 import { isLaseePlant } from '@/constants/plant-mapping';
 import { useMonitoringPlantDetail, useMonitoringPlantHistory, useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
 import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
+import { contractDisplayName, expandByContract } from '@/lib/contract-plants';
 import { ConnectionBanner, InverterDetailSection } from '@/components/features/monitoring/InverterPanels';
 
 
@@ -151,7 +152,8 @@ export default function PlantDetailPage() {
   // 돌아갈 목록이 있는지 — 발전소가 1개인 역할(발전사업자)은 목록 화면이 없으므로 뒤로 버튼도 없다
   const { data: allPlants } = useMonitoringPlants();
   const myPlantMatcher = useMyPlantMatcher();
-  const hasPlantList = useMemo(() => filterPlantsByOwnership(allPlants ?? [], myPlantMatcher).length > 1, [allPlants, myPlantMatcher]);
+  // 계약 단위 항목이 2개 이상이면 돌아갈 목록이 있다 (한일튜브는 자가소비·onsite 두 항목)
+  const hasPlantList = useMemo(() => expandByContract(filterPlantsByOwnership(allPlants ?? [], myPlantMatcher)).length > 1, [allPlants, myPlantMatcher]);
   const realtimeSeries = useRealtimeAccumulator((apiPlant as any)?.inverters);
 
   const historyRange = useMemo(() => {
@@ -283,7 +285,9 @@ export default function PlantDetailPage() {
           </Button>
         )}
         <div className="flex-1">
-          <h1 className="text-xl font-bold text-white">{plant.name}</h1>
+          <h1 className="text-xl font-bold text-white">
+            {contractDisplayName(plant.name, selectedContract ?? undefined, contractSplitOf(plant).length > 1)}
+          </h1>
           <div className="flex items-center gap-2 mt-1">
             <SourceBadge type={plant.type} />
             {/* 계약 유형 — 목록에서 고른 계약 하나, 바로 들어왔으면 이 발전소의 계약 전부 */}
