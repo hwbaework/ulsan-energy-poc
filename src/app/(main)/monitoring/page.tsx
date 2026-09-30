@@ -4,13 +4,41 @@ import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/Button';
-import { StatusBadge, StatusPill } from '@/components/ui/Design';
+import { StatusBadge, StatusPill, ContractBadge } from '@/components/ui/Design';
 
 const MapboxMapView = dynamic(() => import('@/components/ui/MapboxMapView').then((mod) => mod.MapboxMapView), {
   ssr: false,
 });
-import type { Map as MapboxMap } from 'mapbox-gl';
-import type { MapMarkerSpec } from '@/components/ui/MapboxMapView';
+import type { MapLike as MapboxMap, MapMarkerSpec } from '@/components/ui/MapboxMapView';
+import type { PlantContractKind } from '@/types/monitoring';
+import { contractSplitOf } from '@/lib/design';
+
+/**
+ * 계약 사업장 한 행 = 발전소 × 계약. 혼합 계약(한일튜브)은 자가소비·onsite 두 행, 값은 계약 용량 몫.
+ * 지도 핀은 위치가 하나라 발전소당 1개 — 핀을 누르면 그 발전소의 계약 전부, 행을 누르면 그 계약만 본다.
+ */
+interface ContractRow {
+  plant: MonitoringPlant;
+  kind?: PlantContractKind;
+  capacity: number;
+  currentOutput: number;
+  dailyEnergy?: number;
+}
+function contractRowsOf(plant: MonitoringPlant): ContractRow[] {
+  const split = contractSplitOf(plant);
+  if (split.length === 0) return [{ plant, capacity: plant.capacity, currentOutput: plant.currentOutput, dailyEnergy: plant.dailyEnergy }];
+  const total = split.reduce((s, c) => s + c.capacityKw, 0) || 1;
+  return split.map((c) => {
+    const share = c.capacityKw / total;
+    return {
+      plant,
+      kind: c.kind,
+      capacity: c.capacityKw,
+      currentOutput: Math.round(plant.currentOutput * share),
+      dailyEnergy: plant.dailyEnergy != null ? Math.round(plant.dailyEnergy * share) : undefined,
+    };
+  });
+}
 import { cn } from '@/lib/utils';
 import type { MonitoringPlant, EnergySource, PlantStatus } from '@/types/monitoring';
 import { SOURCE, SOURCE_ORDER } from '@/lib/design';
@@ -246,12 +274,15 @@ function MarkerTooltip({ plant, position }: { plant: MonitoringPlant; position: 
 function SidePanel({
   plants,
   selected,
+  selectedKind,
   onSelectPlant,
   onBack,
 }: {
   plants: MonitoringPlant[];
   selected: MonitoringPlant | null;
-  onSelectPlant: (plant: MonitoringPlant) => void;
+  /** 목록에서 고른 계약 — 핀으로 골랐으면 없음(발전소 전체) */
+  selectedKind?: PlantContractKind;
+  onSelectPlant: (plant: MonitoringPlant, kind?: PlantContractKind) => void;
   onBack?: () => void;
 }) {
   const router = useRouter();
@@ -260,6 +291,10 @@ function SidePanel({
     const plant = selected;
     const src = SOURCE[plant.type as EnergySource];
     const SrcIcon = src.icon;
+    // 고른 계약이 있으면 그 계약 몫, 없으면 발전소 전체
+    const picked = selectedKind ? contractRowsOf(plant).find((r) => r.kind === selectedKind) : undefined;
+    const shown = picked ?? { capacity: plant.capacity, currentOutput: plant.currentOutput, dailyEnergy: plant.dailyEnergy };
+    const shownKinds = picked ? [picked.kind!] : contractSplitOf(plant).map((c) => c.kind);
 
     return (
       <div className="space-y-3 ">
@@ -280,6 +315,9 @@ function SidePanel({
               <SrcIcon size={13} style={{ color: src.color }} />
               {src.label}
             </span>
+            {shownKinds.map((k) => (
+              <ContractBadge key={k} kind={k} size="md" boxed />
+            ))}
             <StatusBadge status={plant.status} />
           </div>
           <p className="mt-0.5 text-sm text-slate-400">{plant.address}</p>
@@ -290,12 +328,12 @@ function SidePanel({
           <p className="text-sm text-slate-300 mb-1.5">출력</p>
           {/* 상단 HUD '전체 출력'과 같은 표기: 값 kW + 설비 용량. 퍼센트 없음 */}
           <div className="flex items-baseline gap-2">
-            <span className="text-xl font-bold text-white tabular-nums">{plant.currentOutput.toLocaleString()} kW</span>
-            <span className="text-sm text-slate-400 tabular-nums">설비 {plant.capacity.toLocaleString()} kW</span>
+            <span className="text-xl font-bold text-white tabular-nums">{shown.currentOutput.toLocaleString()} kW</span>
+            <span className="text-sm text-slate-400 tabular-nums">설비 {shown.capacity.toLocaleString()} kW</span>
           </div>
           <ProgressBar
-            value={plant.currentOutput}
-            max={plant.capacity}
+            value={shown.currentOutput}
+            max={shown.capacity}
             className="mt-2 h-2"
             barClass={cn(
               plant.status === 'NORMAL' ? 'bg-emerald-500' : plant.status === 'WARNING' ? 'bg-amber-500' : 'bg-red-500',
@@ -304,11 +342,11 @@ function SidePanel({
         </div>
 
         {/* Daily generation */}
-        {plant.dailyEnergy != null && (
+        {shown.dailyEnergy != null && (
           <div className="rounded-lg border border-accent/20 bg-surface-card p-3">
             <p className="text-sm text-slate-300 mb-1.5">금일 발전량</p>
             <div className="flex items-baseline gap-2">
-              <span className="text-xl font-bold text-white tabular-nums">{plant.dailyEnergy.toLocaleString()} kWh</span>
+              <span className="text-xl font-bold text-white tabular-nums">{shown.dailyEnergy.toLocaleString()} kWh</span>
             </div>
             {plant.totalEnergy != null && (
               <div className="text-xs text-slate-400 mt-1 tabular-nums">누적 {plant.totalEnergy.toLocaleString()} kWh</div>
@@ -461,11 +499,12 @@ function SidePanel({
             </span>
           </div>
         </div>
-        {plants.map((plant) => {
+        {plants.flatMap(contractRowsOf).map((row) => {
+          const plant = row.plant;
           return (
             <button
-              key={plant.plantId}
-              onClick={() => onSelectPlant(plant)}
+              key={`${plant.plantId}-${row.kind ?? 'all'}`}
+              onClick={() => onSelectPlant(plant, row.kind)}
               className="w-full rounded-lg border border-accent/20 bg-surface-card p-3 text-left hover:bg-white/5 transition-colors"
             >
               <div className="flex items-center justify-between mb-1">
@@ -482,15 +521,16 @@ function SidePanel({
                       </span>
                     );
                   })()}
+                  {row.kind && <ContractBadge kind={row.kind} size="md" boxed />}
                 </div>
                 <ChevronRight size={14} className="text-slate-500" />
               </div>
               <div className="text-sm text-slate-300 tabular-nums">
-                {plant.currentOutput.toLocaleString()} / {plant.capacity.toLocaleString()} kW
+                {row.currentOutput.toLocaleString()} / {row.capacity.toLocaleString()} kW
               </div>
               <ProgressBar
-                value={plant.currentOutput}
-                max={plant.capacity}
+                value={row.currentOutput}
+                max={row.capacity}
                 className="mt-1.5 h-1"
                 barClass={cn(
                   plant.status === 'NORMAL'
@@ -525,6 +565,7 @@ export default function MonitoringPage() {
   );
 
   const [selected, setSelected] = useState<MonitoringPlant | null>(null);
+  const [selectedKind, setSelectedKind] = useState<PlantContractKind | undefined>(undefined);
   const [hoveredPlant, setHoveredPlant] = useState<MonitoringPlant | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
   const [, setZoomLevel] = useState(15);
@@ -603,11 +644,13 @@ export default function MonitoringPage() {
   }, []);
 
   const selectPlant = useCallback(
-    (plant: MonitoringPlant) => {
+    (plant: MonitoringPlant, kind?: PlantContractKind) => {
       setSelected((prev) => {
-        if (prev?.plantId === plant.plantId) return null;
+        // 같은 발전소·같은 계약을 다시 누르면 해제
+        if (prev?.plantId === plant.plantId && kind === undefined) return null;
         return plant;
       });
+      setSelectedKind(kind);
       flyTo(plant.latitude ?? 0, plant.longitude ?? 0);
     },
     [flyTo],
@@ -707,7 +750,7 @@ export default function MonitoringPage() {
           {/* Right panel overlay */}
           <div className="absolute top-3 right-4 bottom-3 z-10 w-[380px] flex flex-col gap-3 overflow-hidden">
             <div className="flex-1 overflow-y-auto rounded-xl border border-white/10 bg-[#000C17]/95 p-4 space-y-4">
-              <SidePanel plants={plants} selected={selected} onSelectPlant={selectPlant} onBack={() => setSelected(null)} />
+              <SidePanel plants={plants} selected={selected} selectedKind={selectedKind} onSelectPlant={selectPlant} onBack={() => setSelected(null)} />
             </div>
           </div>
         </>

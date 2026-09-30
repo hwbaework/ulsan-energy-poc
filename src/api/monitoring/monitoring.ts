@@ -10,6 +10,7 @@ import type {
   AnomalyImpact,
   PlantContractKind,
   PlantAnomalySummary,
+  PlantContractSplit,
 } from '@/types/monitoring';
 
 export interface LaseeMonitoringPlant {
@@ -24,6 +25,7 @@ export interface LaseeMonitoringPlant {
   totalEnergy: number;
   contractType?: PlantContractKind;
   contractTypes?: PlantContractKind[];
+  contracts?: PlantContractSplit[];
   anomalies?: PlantAnomalySummary[];
   connectionStatus: {
     rtuPower: 'ON' | 'OFF';
@@ -71,6 +73,7 @@ function toMonitoringPlant(p: LaseeMonitoringPlant): MonitoringPlant {
     longitude: coords?.longitude ?? 0,
     contractType: p.contractType,
     contractTypes: p.contractTypes,
+    contracts: p.contracts,
     anomalies: p.anomalies,
   };
 }

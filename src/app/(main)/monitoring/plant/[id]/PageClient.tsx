@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -10,13 +10,15 @@ import { RmsAreaChart, RmsLineChart } from '@/components/ui/Chart';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { SourceBadge, StatusBadge, StatusPill } from '@/components/ui/Design';
-import { commStatusOf, gradeOf } from '@/lib/design';
+import { ContractBadge, SourceBadge, StatusBadge, StatusPill } from '@/components/ui/Design';
+import { CONTRACT_KIND, commStatusOf, contractSplitOf, gradeOf } from '@/lib/design';
+import { useEnergySettings } from '@/hooks/common/useSettings';
 import { ArrowLeft, Sun, Thermometer, Wind, Zap, TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { EnergySource, PlantStatus, InverterStatus, PlantConnectionStatus } from '@/types/monitoring';
+import type { EnergySource, PlantStatus, InverterStatus, PlantConnectionStatus, PlantContractKind } from '@/types/monitoring';
 import { isLaseePlant } from '@/constants/plant-mapping';
-import { useMonitoringPlantDetail, useMonitoringPlantHistory } from '@/hooks/monitoring/useMonitoring';
+import { useMonitoringPlantDetail, useMonitoringPlantHistory, useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
+import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
 import { ConnectionBanner, InverterDetailSection } from '@/components/features/monitoring/InverterPanels';
 
 
@@ -52,6 +54,9 @@ interface MockPlantDetail {
   consumers: { id: number; name: string; contractType: string; capacity: number; contractAmount: number }[];
   connectionStatus?: PlantConnectionStatus;
   inverters?: InverterStatus[];
+  contractType?: string;
+  contractTypes?: string[];
+  contracts?: { kind: string; capacityKw: number }[];
 }
 
 const HOURLY = Array.from({ length: 24 }, (_, i) => ({
@@ -80,6 +85,16 @@ const REALTIME_SERIES = Array.from({ length: 60 }, (_, i) => {
 });
 
 const MAX_REALTIME_POINTS = 120;
+
+/** 이력 점(시간별) → 기간 발전량. dailyEnergy 는 그날 누적값이라 하루 최댓값의 합이 기간 발전량 */
+function sumDailyEnergy(points: { time: string; dailyEnergy: number }[] | undefined): number {
+  if (!points?.length) return 0;
+  const byDay = new Map<string, number>();
+  for (const p of points) byDay.set(p.time.slice(0, 10), Math.max(byDay.get(p.time.slice(0, 10)) ?? 0, p.dailyEnergy ?? 0));
+  let total = 0;
+  byDay.forEach((v) => (total += v));
+  return Math.round(total);
+}
 
 interface RealtimePoint {
   [key: string]: string | number;
@@ -115,9 +130,28 @@ function useRealtimeAccumulator(inverters: InverterStatus[] | undefined) {
 
 export default function PlantDetailPage() {
   const { id } = useParams<{ id: string }>();
+  // 목록에서 계약 행을 골라 들어오면 그 계약만 보여준다 (?contract=SELF_CONSUMPTION | ONSITE)
+  const selectedContract = useSearchParams().get('contract') as PlantContractKind | null;
   const router = useRouter();
   const numId = Number(id);
   const { data: apiPlant, isError } = useMonitoringPlantDetail(numId);
+  // 계약 유형별 단가 — 자가소비는 한전 단가(절감액), 온사이트는 PPA 계약 단가(PPA 요금). 관리자 에너지 설정값
+  const { data: energySettings } = useEnergySettings();
+  const unitPriceOf = (key: string) => Number((energySettings as any)?.[key] ?? 0);
+  // 월·년 발전량 — 이번 달 1일~오늘, 올해 1월 1일~오늘 이력
+  const periodRange = useMemo(() => {
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    return { monthFrom: `${today.slice(0, 7)}-01`, yearFrom: `${now.getFullYear()}-01-01`, today };
+  }, []);
+  const { data: monthHistory } = useMonitoringPlantHistory(isLaseePlant(numId) ? numId : 0, periodRange.monthFrom, periodRange.today);
+  const { data: yearHistory } = useMonitoringPlantHistory(isLaseePlant(numId) ? numId : 0, periodRange.yearFrom, periodRange.today);
+  const monthEnergy = useMemo(() => sumDailyEnergy(monthHistory as any), [monthHistory]);
+  const yearEnergy = useMemo(() => sumDailyEnergy(yearHistory as any), [yearHistory]);
+  // 돌아갈 목록이 있는지 — 발전소가 1개인 역할(발전사업자)은 목록 화면이 없으므로 뒤로 버튼도 없다
+  const { data: allPlants } = useMonitoringPlants();
+  const myPlantMatcher = useMyPlantMatcher();
+  const hasPlantList = useMemo(() => filterPlantsByOwnership(allPlants ?? [], myPlantMatcher).length > 1, [allPlants, myPlantMatcher]);
   const realtimeSeries = useRealtimeAccumulator((apiPlant as any)?.inverters);
 
   const historyRange = useMemo(() => {
@@ -158,6 +192,9 @@ export default function PlantDetailPage() {
           consumers: (apiPlant as any).consumers ?? [],
           connectionStatus: (apiPlant as any).connectionStatus,
           inverters: (apiPlant as any).inverters,
+          contractType: (apiPlant as any).contractType,
+          contractTypes: (apiPlant as any).contractTypes,
+          contracts: (apiPlant as any).contracts,
         }
       : (undefined as any);
   const [selectedConsumer, setSelectedConsumer] = useState(plant?.consumers?.[0]?.id ?? 0);
@@ -240,13 +277,22 @@ export default function PlantDetailPage() {
       {/* Header */}
       <Breadcrumb items={[{ label: '통합관제', path: '/dashboard' }, { label: '발전소 상세' }]} />
       <div className="flex items-center gap-3">
-        <Button size="sm" variant="ghost" onClick={() => router.push('/monitoring/plant')} aria-label="발전소 목록으로">
-          <ArrowLeft size={16} />
-        </Button>
+        {hasPlantList && (
+          <Button size="sm" variant="ghost" onClick={() => router.push('/monitoring/plant')} aria-label="발전소 목록으로">
+            <ArrowLeft size={16} />
+          </Button>
+        )}
         <div className="flex-1">
           <h1 className="text-xl font-bold text-white">{plant.name}</h1>
           <div className="flex items-center gap-2 mt-1">
             <SourceBadge type={plant.type} />
+            {/* 계약 유형 — 목록에서 고른 계약 하나, 바로 들어왔으면 이 발전소의 계약 전부 */}
+            {(selectedContract && contractSplitOf(plant).some((c) => c.kind === selectedContract)
+              ? [selectedContract]
+              : contractSplitOf(plant).map((c) => c.kind)
+            ).map((k) => (
+              <ContractBadge key={k} kind={k} className="rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5" />
+            ))}
             <StatusBadge status={plant.status} />
             <span className="text-sm text-slate-400">{plant.address}</span>
           </div>
@@ -260,41 +306,57 @@ export default function PlantDetailPage() {
 
       {/* KPI Row */}
       {hasLasee ? (
-        /* KPI: 라벨 + 수치 + 단위(값과 같은 색·크기). 퍼센트·아이콘 없음 */
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-sm text-slate-300 mb-1">현재 출력</p>
-            <p className="text-2xl font-bold text-white tabular-nums">{plant.currentOutput.toLocaleString()} kW</p>
-            <div className="mt-2">
-              <ProgressBar value={outputPercent} variant="success" />
-            </div>
-          </div>
-          <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-sm text-slate-300 mb-1">금일 발전량</p>
-            <p className="text-2xl font-bold text-white tabular-nums">{plant.todayGeneration.toLocaleString()} kWh</p>
-          </div>
-          <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-sm text-slate-300 mb-1">설비 용량</p>
-            <p className="text-2xl font-bold text-white tabular-nums">{plant.capacity.toLocaleString()} kW</p>
-          </div>
-          <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-sm text-slate-300 mb-1">누적 발전량</p>
-            <p className="text-2xl font-bold text-white tabular-nums">
-              {((apiPlant as any)?.totalEnergy ?? 0).toLocaleString()} kWh
-            </p>
-          </div>
-          <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-sm text-slate-300 mb-1">금일 발전시간</p>
-            <p className="text-2xl font-bold text-white tabular-nums">
-              {((apiPlant as any)?.generationHours ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} h
-            </p>
-          </div>
-          <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-sm text-slate-300 mb-1">금액</p>
-            <p className="text-2xl font-bold text-white tabular-nums">
-              {((apiPlant as any)?.revenueAmount ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} 원
-            </p>
-          </div>
+        /* 계약별로 행을 나눈다 — 자가소비 / onsite 각각 KPI 한 줄. 출력·발전량은 계약 용량 비율로 배분(계약별 계측 없음) */
+        <div className="space-y-5">
+          {(() => {
+            const split = contractSplitOf(plant);
+            const total = split.reduce((s, c) => s + c.capacityKw, 0) || plant.capacity || 1;
+            const all = split.length > 0 ? split : [{ kind: undefined as PlantContractKind | undefined, capacityKw: plant.capacity }];
+            // 목록에서 고른 계약만 — 없거나 안 맞으면 전부
+            const picked = all.filter((c) => c.kind === selectedContract);
+            const rows = picked.length > 0 ? picked : all;
+            const card = (label: string, value: string, sub?: string) => (
+              <div key={label} className="rounded-lg border border-accent/20 bg-surface-card p-4">
+                <p className="text-sm text-slate-300 mb-1">{label}</p>
+                <p className="text-2xl font-bold text-white tabular-nums">{value}</p>
+                {sub && <p className="mt-1 text-xs text-slate-500 tabular-nums">{sub}</p>}
+              </div>
+            );
+            return rows.map((c) => {
+              const share = c.capacityKw / total;
+              const meta = c.kind ? CONTRACT_KIND[c.kind] : undefined;
+              const output = Math.round(plant.currentOutput * share);
+              const energy = Math.round(plant.todayGeneration * share);
+              const cumulative = Math.round(((apiPlant as any)?.totalEnergy ?? 0) * share);
+              const month = Math.round(monthEnergy * share);
+              const year = Math.round(yearEnergy * share);
+              // onsite — 이달 발전량 × 계약 단가 = SPC 에 납부하는 금액
+              const ppaPrice = unitPriceOf(CONTRACT_KIND.ONSITE.priceKey);
+              const payment = Math.round(month * ppaPrice);
+              const isOnsite = c.kind === 'ONSITE';
+              return (
+                <section key={c.kind ?? 'all'} className="space-y-2">
+                  {/* 계약 유형은 헤더 배지로 보인다. 두 계약을 한 화면에 같이 볼 때만 행을 구분하는 제목을 둔다 */}
+                  {rows.length > 1 && meta && <h2 className="text-base font-bold text-white">{meta.label}</h2>}
+                  {/* 자가소비: 설비 용량 · 현재 출력 · 금일 발전량 · 누적 발전량 · 년 발전량 · 월 발전량
+                      onsite:  설비 용량 · 현재 출력 · 금일 발전량 · 누적 발전량 · 월 발전량 · SPC 납부액 */}
+                  {/* 3 + 3 두 줄 */}
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                    {card('설비 용량', `${c.capacityKw.toLocaleString()} kW`)}
+                    {card('현재 출력', `${output.toLocaleString()} kW`)}
+                    {card('금일 발전량', `${energy.toLocaleString()} kWh`)}
+                    {card('누적 발전량', `${cumulative.toLocaleString()} kWh`)}
+                    {isOnsite
+                      ? [
+                          card('월 발전량', `${month.toLocaleString()} kWh`),
+                          card('SPC 납부액', `${payment.toLocaleString()} 원`, `이달 ${month.toLocaleString()} kWh × ₩${ppaPrice.toLocaleString()}/kWh`),
+                        ]
+                      : [card('년 발전량', `${year.toLocaleString()} kWh`), card('월 발전량', `${month.toLocaleString()} kWh`)]}
+                  </div>
+                </section>
+              );
+            });
+          })()}
         </div>
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">

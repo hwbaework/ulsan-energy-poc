@@ -10,21 +10,25 @@ interface MyPlantMatcher {
   names: Set<string>;
 }
 
+/**
+ * 역할별 발전소 범위 — 관리자는 전체(null), 발전사업자·전기사용자는 자사 계약 발전소만.
+ * 발전사업자 = 소유 발전소(온사이트 PPA), 전기사용자 = 자가소비 발전소. 둘 다 power-stations/by-company 로 판별.
+ */
 export function useMyPlantMatcher(): MyPlantMatcher | null {
   const user = useAuthStore((s) => s.user);
   const persona = getPersona(user);
   const companyId = user?.companyId ?? 0;
-  const isGenerator = persona === 'generator';
+  const scoped = persona === 'generator' || persona === 'consumer';
 
   const { data: stations } = useQuery({
     queryKey: powerStationKeys.list({ ownerCompanyId: companyId }),
     queryFn: () => getPowerStationsByCompany(companyId),
-    enabled: isGenerator && companyId > 0,
+    enabled: scoped && companyId > 0,
     staleTime: 60_000,
   });
 
   return useMemo(() => {
-    if (!isGenerator) return null;
+    if (!scoped) return null;
     const list = Array.isArray(stations) ? stations : [];
 
     const ids = new Set<string>();
@@ -34,7 +38,7 @@ export function useMyPlantMatcher(): MyPlantMatcher | null {
       if (s.name) names.add(s.name);
     }
     return { ids, names };
-  }, [isGenerator, stations]);
+  }, [scoped, stations]);
 }
 
 export function useMyPlantIds(): {
@@ -47,23 +51,24 @@ export function useMyPlantIds(): {
   const persona = getPersona(user);
   const companyId = user?.companyId ?? 0;
   const isGenerator = persona === 'generator';
+  const scoped = isGenerator || persona === 'consumer';
 
   const { data: stations, isLoading } = useQuery({
     queryKey: powerStationKeys.list({ ownerCompanyId: companyId }),
     queryFn: () => getPowerStationsByCompany(companyId),
-    enabled: isGenerator && companyId > 0,
+    enabled: scoped && companyId > 0,
     staleTime: 60_000,
   });
 
   return useMemo(() => {
-    if (!isGenerator)
-      return { plantIds: [], hasPlants: true, isLoading: false, isGenerator: false };
+    // 관리자는 전체 범위 — 발전소 유무를 따지지 않는다
+    if (!scoped) return { plantIds: [], hasPlants: true, isLoading: false, isGenerator: false };
     const list = Array.isArray(stations) ? stations : [];
     const ids = list
       .map((s) => (s.externalPlantId ? Number(s.externalPlantId) : 0))
       .filter((id) => id > 0);
-    return { plantIds: ids, hasPlants: ids.length > 0, isLoading, isGenerator: true };
-  }, [isGenerator, stations, isLoading]);
+    return { plantIds: ids, hasPlants: ids.length > 0, isLoading, isGenerator };
+  }, [scoped, isGenerator, stations, isLoading]);
 }
 
 function extractCoreName(name: string): string {

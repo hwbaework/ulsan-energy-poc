@@ -64,6 +64,7 @@ export function InverterDetailSection({ inverters }: { inverters: InverterStatus
 
   const totalDailyEnergy = inverters.reduce((s, inv) => s + inv.dailyEnergy, 0);
   const totalAcPower = inverters.reduce((s, inv) => s + inv.ac.power, 0);
+  const totalDcPower = inverters.reduce((s, inv) => s + inv.dc.power, 0);
 
   return (
     <div className="space-y-4">
@@ -75,16 +76,16 @@ export function InverterDetailSection({ inverters }: { inverters: InverterStatus
           <p className="text-2xl font-bold text-white tabular-nums">{inverters.length}대</p>
         </div>
         <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-4 text-center">
-          <p className="text-sm text-slate-300 mb-1">총 AC 출력</p>
+          <p className="text-sm text-slate-300 mb-1">총 DC 전력</p>
+          <p className="text-2xl font-bold text-white tabular-nums">{totalDcPower.toFixed(1)} kW</p>
+        </div>
+        <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-4 text-center">
+          <p className="text-sm text-slate-300 mb-1">총 AC 전력</p>
           <p className="text-2xl font-bold text-white tabular-nums">{totalAcPower.toFixed(1)} kW</p>
         </div>
         <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-4 text-center">
           <p className="text-sm text-slate-300 mb-1">금일 합산 발전</p>
           <p className="text-2xl font-bold text-white tabular-nums">{totalDailyEnergy.toFixed(1)} kWh</p>
-        </div>
-        <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-4 text-center">
-          <p className="text-sm text-slate-300 mb-1">평균 역률</p>
-          <p className="text-2xl font-bold text-slate-500 tabular-nums">-</p>
         </div>
       </div>
 

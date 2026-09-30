@@ -8,7 +8,8 @@
  */
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { METRICS, sourceOf, statusOf, type MetricKey } from '@/lib/design';
+import { METRICS, sourceOf, statusOf, type MetricKey, CONTRACT_KIND, contractKindsOf } from '@/lib/design';
+import type { PlantContractKind } from '@/types/monitoring';
 
 export function SourceIcon({ type, size = 16, className }: { type: string; size?: number; className?: string }) {
   const s = sourceOf(type);
@@ -35,6 +36,63 @@ export function SourceBadge({ type, withIcon = true, className }: { type: string
   );
 }
 
+/** 계약 유형 배지 — 자가소비 / 온사이트 PPA. 발전소 목록·상세·관제 홈이 같이 쓴다 */
+/**
+ * size: 'sm' = 목록·상세의 SourceBadge 와 같은 크기(10px) / 'md' = 관제 홈 발전원 칩과 같은 크기(text-xs semibold)
+ * 옆에 놓이는 칩과 글자 크기를 맞춘다. 색으로 구분하지 않는다 — 유형은 글자로만 읽힌다
+ */
+export function ContractBadge({
+  kind,
+  size = 'sm',
+  boxed = false,
+  className,
+}: {
+  kind: PlantContractKind;
+  size?: 'sm' | 'md';
+  /** 지도·상세 헤더처럼 옆 칩과 같은 네모로 보일 때 true. 목록 컬럼은 글자만 */
+  boxed?: boolean;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center whitespace-nowrap',
+        size === 'md' ? 'text-xs font-semibold' : 'text-[10px] font-medium',
+        boxed
+          ? cn('rounded-md border border-white/10 bg-white/[0.04] text-white', size === 'md' ? 'px-2 py-0.5' : 'px-1.5 py-0.5')
+          : size === 'md'
+            ? 'text-slate-300'
+            : 'text-slate-400',
+        className,
+      )}
+    >
+      {CONTRACT_KIND[kind].label}
+    </span>
+  );
+}
+
+/** 발전소의 계약 유형 배지 묶음 — 계약이 없으면 '-' */
+export function ContractBadges({
+  plant,
+  size = 'sm',
+  boxed = false,
+  className,
+}: {
+  plant: { contractType?: string; contractTypes?: string[] };
+  size?: 'sm' | 'md';
+  boxed?: boolean;
+  className?: string;
+}) {
+  const kinds = contractKindsOf(plant);
+  if (kinds.length === 0) return <span className={cn('text-xs text-slate-500', className)}>-</span>;
+  return (
+    <span className={cn('inline-flex items-center gap-1', className)}>
+      {kinds.map((k) => (
+        <ContractBadge key={k} kind={k} size={size} boxed={boxed} />
+      ))}
+    </span>
+  );
+}
 export function StatusDot({ status, pulse = false, className }: { status: string; pulse?: boolean; className?: string }) {
   const s = statusOf(status);
   return (

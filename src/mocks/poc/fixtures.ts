@@ -17,12 +17,12 @@ const NOW = '2026-09-15T10:00:00';
 /* ── 발전소·발전자산 (울산미포 7개소 — DT정리 v0.84 "2. 건물" 기준) ─────── */
 const PLANT_SPECS: Record<
   number,
-  { type: 'SOLAR' | 'ORC' | 'FUEL_CELL'; capacity: number; status: LaseeMonitoringPlant['status']; contract?: PlantContractKind; contracts?: PlantContractKind[] }
+  { type: 'SOLAR' | 'ORC' | 'FUEL_CELL'; capacity: number; status: LaseeMonitoringPlant['status']; contract?: PlantContractKind; contracts?: PlantContractKind[]; split?: { kind: PlantContractKind; capacityKw: number }[] }
 > = {
   17511: { type: 'SOLAR', capacity: 152.32, status: 'NORMAL', contract: 'SELF_CONSUMPTION' }, // 용인금속 · 자가소비
   17512: { type: 'SOLAR', capacity: 46.08, status: 'NORMAL', contract: 'SELF_CONSUMPTION' }, // 태성산업 · 자가소비
   17513: { type: 'SOLAR', capacity: 33.92, status: 'ANOMALY', contract: 'SELF_CONSUMPTION' }, // 건호이엔씨 · 자가소비 (미조치 이상감지 1건)
-  17514: { type: 'SOLAR', capacity: 429.44, status: 'NORMAL', contract: 'ONSITE', contracts: ['SELF_CONSUMPTION', 'ONSITE'] }, // 한일튜브 · 자가소비(99.84)+PPA(329.6)
+  17514: { type: 'SOLAR', capacity: 429.44, status: 'NORMAL', contract: 'ONSITE', contracts: ['SELF_CONSUMPTION', 'ONSITE'], split: [{ kind: 'SELF_CONSUMPTION', capacityKw: 129.44 }, { kind: 'ONSITE', capacityKw: 300 }] }, // 한일튜브 · 자가소비(99.84)+PPA(329.6)
   17515: { type: 'SOLAR', capacity: 90.88, status: 'NORMAL', contract: 'SELF_CONSUMPTION' }, // 한길 · 자가소비
   17601: { type: 'FUEL_CELL', capacity: 2000, status: 'NORMAL' }, // 연료전지 — 계약 유형 없음 (용량 미확인, 임시 2MW)
   17602: { type: 'ORC', capacity: 500, status: 'NORMAL' }, // ORC — 계약 유형 없음 (용량 미확인, 임시)
@@ -69,6 +69,8 @@ export const PLANTS: LaseeMonitoringPlant[] = LASEE_PLANTS.map((p, idx) => {
     currentOutput: Math.round(spec.capacity * ratio),
     contractType: spec.contract,
     contractTypes: spec.contracts ?? (spec.contract ? [spec.contract] : undefined),
+    // 계약별 용량 — 혼합 계약만 분할, 단일 계약은 설비 전체
+    contracts: spec.split ?? (spec.contract ? [{ kind: spec.contract, capacityKw: spec.capacity }] : undefined),
     dailyEnergy: Math.round(spec.capacity * 3.1 * (ratio > 0 ? 1 : 0.2)),
     totalEnergy: Math.round(spec.capacity * 1650),
     connectionStatus: {
@@ -142,11 +144,13 @@ function stationOf(plant: LaseeMonitoringPlant, id: number, ownerCompanyId: numb
     updatedAt: NOW,
   };
 }
+// 계약 유형 2가지에 역할을 하나씩 — 발전사업자 = 온사이트 PPA(한일튜브) / 전기사용자 = 자가소비(한길)
 const HANIL = PLANTS.find((p) => p.plantId === 17514) ?? PLANTS[0]!;
-/** 발전사업자(회사 3) 소유 발전소 — 1개 */
+const HANGIL = PLANTS.find((p) => p.plantId === 17515) ?? PLANTS[0]!;
+/** 발전사업자(회사 3) 소유 발전소 — 한일튜브 1개 (온사이트 PPA) */
 export const POWER_STATIONS: PowerStation[] = [stationOf(HANIL, 1, 3, '울산 발전(주)')];
-/** 전기사용자(회사 2) 계약 사업장 발전소 — 1개 */
-export const CONSUMER_STATIONS: PowerStation[] = [stationOf(HANIL, 101, 2, '울산 수용가(주)')];
+/** 전기사용자(회사 2) 자가소비 발전소 — 한길 1개 */
+export const CONSUMER_STATIONS: PowerStation[] = [stationOf(HANGIL, 101, 2, '울산 수용가(주)')];
 registerMock(/^\/power-stations\/by-company\/(\d+)$/, ({ match }) => {
   const companyId = Number(match[1]);
   if (companyId === 3) return POWER_STATIONS;
@@ -233,6 +237,8 @@ registerMock(/^\/notifications$/, () => pageOf(NOTIFICATIONS));
 registerMock(/^\/settings\/public\/energy$/, () => ({
   SMP_PRICE_CAP: '180', // ₩/kWh — SMP 상한제 값(설정)
   CO2_EMISSION_FACTOR: '0.4594', // tCO₂/MWh
+  KEPCO_UNIT_PRICE: '152.3', // ₩/kWh — 한전 산업용 단가. 자가소비 절감액 = 발전량 × 이 값
+  PPA_UNIT_PRICE: '138.0', // ₩/kWh — 온사이트 PPA 계약 단가. PPA 요금 = 발전량 × 이 값
 }));
 
 /* ── SMP 시장 정보 (대시보드 최근 30일 일평균) ───────────────── */
@@ -287,6 +293,8 @@ interface MockAction {
 interface MockAnomaly {
   id: number;
   plantId: number;
+  /** 이상이 속한 계약 — 인버터 단위 이상은 계약을 특정할 수 있다. 없으면 발전소 전체(RTU 등) */
+  contractKind?: PlantContractKind;
   plantName: string;
   detectionType: string;
   title: string;
@@ -305,11 +313,11 @@ function act(id: number, type: string, content: string, assignee: string, status
 }
 function anomaly(
   id: number, plantId: number, title: string, description: string, severity: string, status: string,
-  detectedAt: string, actions: MockAction[], resolvedAt: string | null = null,
+  detectedAt: string, actions: MockAction[], resolvedAt: string | null = null, contractKind?: PlantContractKind,
 ): MockAnomaly {
   const plant = PLANTS.find((p) => p.plantId === plantId);
   return {
-    id, plantId, plantName: plant?.name ?? '', detectionType: plant?.type ?? 'SOLAR', title, description, severity, status,
+    id, plantId, contractKind, plantName: plant?.name ?? '', detectionType: plant?.type ?? 'SOLAR', title, description, severity, status,
     detectedAt, resolvedAt, affectedConsumers: [], actions, createdAt: detectedAt, updatedAt: resolvedAt ?? detectedAt,
   };
 }
@@ -331,7 +339,7 @@ export const ANOMALY_ROWS: MockAnomaly[] = [
   anomaly(1, 17514, '인버터 #2 출력 저하', '인버터 #2 AC 출력이 정격보다 낮음. DC 입력은 정상.', 'caution', 'NORMAL', daysAgo(2, 13, 5), [
     act(11, '확인', '출력 저하 확인. 인버터 로그 요청.', '김운영', 'ACKNOWLEDGED', daysAgo(2, 13, 20)),
     act(12, '현장 점검', '인버터 #2 냉각 팬 이상 확인. 부품 교체 예정.', '박기사', 'IN_PROGRESS', daysAgo(1, 15, 0), daysAgo(-2, 18, 0).slice(0, 10)),
-  ]),
+  ], null, 'ONSITE'),
   // 경고였다가 통신 복구 — 한일튜브 (RTU 통신 지연)
   anomaly(2, 17514, 'RTU 통신 지연 (응답 > 60초)', 'RTU 폴링 응답 지연 60초 초과. 네트워크 점검.', 'warning', 'NORMAL', daysAgo(5, 8, 15), [
     act(21, '확인', '통신 지연 확인.', '김운영', 'ACKNOWLEDGED', daysAgo(5, 8, 30)),

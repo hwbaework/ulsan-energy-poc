@@ -9,13 +9,16 @@ import { SectionCard, StatCard, StatsGrid } from '@/components/features';
 
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { StatusPill } from '@/components/ui/Design';
-import { commStatusOf, gradeOf, isAnomaly } from '@/lib/design';
-import type { AnomalyEvent } from '@/types/monitoring';
+import { CONTRACT_KIND, commStatusOf, contractKindsOf, gradeOf, isAnomaly } from '@/lib/design';
+import type { AnomalyEvent, PlantContractKind } from '@/types/monitoring';
 import { useAnomalies } from '@/hooks/monitoring/useAnomalies';
+import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
 import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
 
 interface AnomalyRow extends AnomalyEvent {
   plantType?: string;
+  /** 이상이 속한 계약 — 응답에 있으면 그 계약, 없으면 발전소의 계약 전부 */
+  contractKinds: PlantContractKind[];
   description?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -43,6 +46,11 @@ export default function AnomaliesPage() {
   const [query, setQuery] = useState('');
 
   const myPlantMatcher = useMyPlantMatcher();
+  const { data: plantList } = useMonitoringPlants();
+  const kindsOfPlant = (plantId: number): PlantContractKind[] => {
+    const p = (plantList ?? []).find((x) => x.plantId === plantId);
+    return p ? contractKindsOf(p) : [];
+  };
   const { data: apiData, isError } = useAnomalies({ size: 100 });
   const rawListAll: any[] =
     !isError && apiData ? (Array.isArray(apiData) ? apiData : ((apiData as any)?.content ?? [])) : [];
@@ -62,6 +70,7 @@ export default function AnomaliesPage() {
     plantId: a.plantId ?? a.powerStationId ?? 0,
     plantName: a.plantName ?? a.powerStationName ?? '',
     plantType: a.detectionType ?? 'SOLAR',
+    contractKinds: a.contractKind ? [a.contractKind as PlantContractKind] : kindsOfPlant(a.plantId ?? a.powerStationId ?? 0),
     severity: a.severity ?? 'caution',
     status: a.status ?? 'NORMAL',
     title: a.title ?? '',
@@ -123,6 +132,15 @@ export default function AnomaliesPage() {
       header: '설비',
       width: '90px',
       render: (r) => <span className="text-sm text-slate-300">{TYPE_LABELS[r.plantType ?? ''] ?? r.plantType}</span>,
+    },
+    {
+      // 계약 유형 — 자가소비 / onsite. 발전소 단위 이상(RTU 등)은 계약 전부
+      key: 'contractKinds',
+      header: '계약 유형',
+      width: '110px',
+      render: (r) => (
+        <span className="text-sm text-slate-300">{r.contractKinds.length ? r.contractKinds.map((k) => CONTRACT_KIND[k].label).join(' · ') : '-'}</span>
+      ),
     },
     {
       key: 'device' as any,

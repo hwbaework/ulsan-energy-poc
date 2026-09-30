@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { DataTable, type Column } from '@/components/features/DataList';
@@ -10,8 +10,32 @@ import { StatusBadge } from '@/components/ui/Design';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { PlantNameCell } from '@/components/features/monitoring/PlantNameCell';
-import type { EnergySource, MonitoringPlant } from '@/types/monitoring';
-import { SOURCE, SOURCE_ORDER, sourceOf } from '@/lib/design';
+import type { EnergySource, MonitoringPlant, PlantContractKind } from '@/types/monitoring';
+import { CONTRACT_KIND, SOURCE, SOURCE_ORDER, contractSplitOf, sourceOf } from '@/lib/design';
+
+/** 목록 한 행 = 발전소 × 계약. 혼합 계약(한일튜브)은 자가소비·onsite 두 행으로, 값은 계약 용량 몫 */
+interface PlantRow extends MonitoringPlant {
+  rowKey: string;
+  contractKind?: PlantContractKind;
+}
+function toRows(plants: MonitoringPlant[]): PlantRow[] {
+  return plants.flatMap((p) => {
+    const split = contractSplitOf(p);
+    if (split.length === 0) return [{ ...p, rowKey: String(p.plantId) }];
+    const total = split.reduce((s, c) => s + c.capacityKw, 0) || 1;
+    return split.map((c) => {
+      const share = c.capacityKw / total;
+      return {
+        ...p,
+        rowKey: `${p.plantId}-${c.kind}`,
+        contractKind: c.kind,
+        capacity: c.capacityKw,
+        currentOutput: Math.round(p.currentOutput * share),
+        dailyEnergy: Math.round((p.dailyEnergy ?? 0) * share),
+      };
+    });
+  });
+}
 import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
 import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
 
@@ -19,16 +43,21 @@ import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/u
 
 export default function MonitoringPlantListPage() {
   const router = useRouter();
-  const { data: allPlants = [] } = useMonitoringPlants();
+  const { data: allPlants = [], isLoading } = useMonitoringPlants();
   const myPlantMatcher = useMyPlantMatcher();
-  const plants = filterPlantsByOwnership(allPlants, myPlantMatcher);
+  const plants = useMemo(() => filterPlantsByOwnership(allPlants, myPlantMatcher), [allPlants, myPlantMatcher]);
+
+  // 발전소가 1개면 고를 게 없으니 목록 없이 바로 그 발전소 상세로 (보고서와 같은 규칙)
+  useEffect(() => {
+    if (!isLoading && plants.length === 1) router.replace(`/monitoring/plant/${plants[0]!.plantId}`);
+  }, [isLoading, plants, router]);
 
   // 목록 검색·발전원 필터 — KPI(운영중·용량·출력)는 이와 무관하게 전체 기준
   const [query, setQuery] = useState('');
   const [sourceType, setSourceType] = useState<'ALL' | EnergySource>('ALL');
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return plants.filter(
+    return toRows(plants).filter(
       (p) =>
         (sourceType === 'ALL' || p.type === sourceType) &&
         (!q ||
@@ -42,12 +71,19 @@ export default function MonitoringPlantListPage() {
   const totalCapacity = plants.reduce((s, p) => s + p.capacity, 0);
   const totalOutput = plants.reduce((s, p) => s + p.currentOutput, 0);
 
-  const columns: Column<MonitoringPlant>[] = [
+  const columns: Column<PlantRow>[] = [
     {
       key: 'name',
       header: '발전소명',
       width: '220px',
       render: (row) => <PlantNameCell type={row.type} name={row.name} />,
+    },
+    {
+      // 계약 유형 — 행 하나가 계약 하나. 혼합 계약 발전소는 자가소비·onsite 행이 따로 있다
+      key: 'contractKind',
+      header: '계약 유형',
+      width: '120px',
+      render: (row) => <span className="text-sm text-slate-300">{row.contractKind ? CONTRACT_KIND[row.contractKind].label : '-'}</span>,
     },
     { key: 'address', header: '위치', render: (row) => <span className="text-sm text-slate-400">{row.address}</span> },
     {
@@ -131,8 +167,8 @@ export default function MonitoringPlantListPage() {
         <DataTable
           columns={columns}
           data={filtered}
-          rowKey={(row) => row.plantId}
-          onRowClick={(row) => router.push(`/monitoring/plant/${row.plantId}`)}
+          rowKey={(row) => row.rowKey}
+          onRowClick={(row) => router.push(row.contractKind ? `/monitoring/plant/${row.plantId}?contract=${row.contractKind}` : `/monitoring/plant/${row.plantId}`)}
           emptyMessage={query ? '검색 결과가 없습니다' : '등록된 발전소가 없습니다'}
         />
       </SectionCard>
