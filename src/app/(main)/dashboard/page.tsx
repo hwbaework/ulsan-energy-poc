@@ -143,10 +143,10 @@ function buildMonthlyGenData(history: any[] | undefined, year: number) {
 }
 
 // ── 관리자: 회사(계약 발전소) 하나를 골라 작년·올해 발전량을 막대로 비교 ──
-type CompareUnit = 'month' | 'year';
+type CompareUnit = 'day' | 'month';
 const COMPARE_UNIT_OPTIONS: { value: CompareUnit; label: string }[] = [
+  { value: 'day', label: '일' },
   { value: 'month', label: '월' },
-  { value: 'year', label: '년' },
 ];
 const COMPARE_COLORS = { prev: '#3B82F6', cur: '#10B981' } as const;
 
@@ -500,45 +500,88 @@ export default function DashboardPage() {
     contractPlants,
   ]);
 
-  // 관리자: 발전량 비교 — 월 = 고른 해의 월별(전 해와), 년 = 고른 해까지 5년 연간. 요약은 둘 다 고른 해 vs 전 해 동기
+  // 관리자: 발전량 비교 — 일 = 고른 달의 일별(전 해 같은 달과), 월 = 고른 해의 월별(전 해와). 요약은 고른 해 vs 전 해 같은 기간
   const [cmpUnit, setCmpUnit] = useState<CompareUnit>('month');
   const [cmpYear, setCmpYear] = useState(todayYear);
   const todayMonthNum = Number(todayStr.slice(5, 7));
+  const todayDayNum = Number(todayStr.slice(8, 10));
+  const [cmpMonth, setCmpMonth] = useState(todayMonthNum);
   const cmpBaseYear = cmpYear;
-  const cmpYears = useMemo(
-    () => (cmpUnit === 'year' ? Array.from({ length: 5 }, (_, i) => cmpYear - 4 + i) : [cmpYear - 1, cmpYear]),
-    [cmpUnit, cmpYear],
-  );
+  const cmpYears = useMemo(() => [cmpYear - 1, cmpYear], [cmpYear]);
   const { byYear: cmpByYear } = usePlantYearlyEnergy(isAdmin ? (selectedCompany?.plantId ?? 0) : 0, cmpYears, todayStr);
-  // 동기 비교 범위 — 올해면 끝난 달까지(이번 달은 집계 중이라 제외), 지난 해면 연간
+  // 같은 기간 비교 — 월: 올해면 끝난 달까지(이번 달은 집계 중이라 제외), 지난 해면 연간. 일: 이번 달이면 오늘까지, 아니면 그 달 전부
   const cmpLastMonth = cmpBaseYear === todayYear ? Math.max(0, todayMonthNum - 1) : 12;
+  const cmpDaysInMonth = new Date(cmpYear, cmpMonth, 0).getDate();
+  const cmpLastDay =
+    cmpYear === todayYear && cmpMonth === todayMonthNum
+      ? todayDayNum
+      : cmpYear > todayYear || (cmpYear === todayYear && cmpMonth > todayMonthNum)
+        ? 0
+        : cmpDaysInMonth;
   // 고른 회사(계약)의 몫 — 이력은 설비 전체 값이라 곱해서 쓴다 (한일튜브 자가소비·onsite 분리)
   const cmpShare = selectedCompany?.share ?? 1;
   const cmpChartData = useMemo(() => {
     const scale = (v: number) => Math.round(v * cmpShare);
-    if (cmpUnit === 'month') {
-      const prev = cmpByYear[cmpYear - 1]?.months ?? [];
-      const cur = cmpByYear[cmpYear]?.months ?? [];
-      return Array.from({ length: 12 }, (_, i) => ({
-        x: `${i + 1}월`,
+    // 축은 전부(1일~말일 · 1~12월), 아직 오지 않은 날·달은 값 없이 둔다
+    if (cmpUnit === 'day') {
+      const mm = String(cmpMonth).padStart(2, '0');
+      const prev = cmpByYear[cmpYear - 1]?.days[mm] ?? [];
+      const cur = cmpByYear[cmpYear]?.days[mm] ?? [];
+      return Array.from({ length: cmpDaysInMonth }, (_, i) => ({
+        x: `${i + 1}일`,
         prev: scale(prev[i] ?? 0),
-        // 아직 오지 않은 달·집계 중인 이번 달은 그리지 않는다
-        ...(i < cmpLastMonth ? { cur: scale(cur[i] ?? 0) } : {}),
+        ...(i < cmpLastDay ? { cur: scale(cur[i] ?? 0) } : {}),
       }));
     }
-    return cmpYears.map((y) => ({ x: `${y}년`, total: scale(cmpByYear[y]?.total ?? 0) }));
-  }, [cmpUnit, cmpYear, cmpYears, cmpByYear, cmpLastMonth, cmpShare]);
+    const prev = cmpByYear[cmpYear - 1]?.months ?? [];
+    const cur = cmpByYear[cmpYear]?.months ?? [];
+    return Array.from({ length: 12 }, (_, i) => ({
+      x: `${i + 1}월`,
+      prev: scale(prev[i] ?? 0),
+      ...(i < cmpLastMonth ? { cur: scale(cur[i] ?? 0) } : {}),
+    }));
+  }, [cmpUnit, cmpYear, cmpMonth, cmpByYear, cmpLastMonth, cmpLastDay, cmpDaysInMonth, cmpShare]);
   const cmpSummary = useMemo(() => {
-    const sumTo = (y: number) => (cmpByYear[y]?.months ?? []).slice(0, cmpLastMonth).reduce((a, v) => a + v, 0) * cmpShare;
+    const sumTo = (y: number) =>
+      cmpUnit === 'day'
+        ? (cmpByYear[y]?.days[String(cmpMonth).padStart(2, '0')] ?? []).slice(0, cmpLastDay).reduce((a, v) => a + v, 0) * cmpShare
+        : (cmpByYear[y]?.months ?? []).slice(0, cmpLastMonth).reduce((a, v) => a + v, 0) * cmpShare;
     const prev = Math.round(sumTo(cmpBaseYear - 1));
     const cur = Math.round(sumTo(cmpBaseYear));
     const diffPct = prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : null;
     return { prev, cur, diffPct };
-  }, [cmpByYear, cmpBaseYear, cmpLastMonth, cmpShare]);
-  const cmpRangeLabel = cmpLastMonth === 12 ? '연간' : cmpLastMonth === 0 ? '집계 전' : `1~${cmpLastMonth}월`;
-  // ‹ › 피커 — 해를 넘긴다. 올해 이후로는 못 간다
-  const cmpStep = (delta: number) => setCmpYear((y) => Math.min(y + delta, todayYear));
-  const cmpAtLatest = cmpYear >= todayYear;
+  }, [cmpUnit, cmpMonth, cmpByYear, cmpBaseYear, cmpLastMonth, cmpLastDay, cmpShare]);
+  // 기간 라벨 — 날짜는 하이픈 양식: 2025-01 ~ 2025-09 · 2025-10-01 ~ 2025-10-01 · 2025 연간
+  const cmpRangeLabel = (y: number) => {
+    if (cmpUnit === 'day') {
+      const mm = String(cmpMonth).padStart(2, '0');
+      return cmpLastDay === 0 ? `${y}-${mm}` : `${y}-${mm}-01 ~ ${y}-${mm}-${String(cmpLastDay).padStart(2, '0')}`;
+    }
+    if (cmpLastMonth === 12) return `${y} 연간`;
+    if (cmpLastMonth === 0) return `${y} (집계 전)`;
+    return `${y}-01 ~ ${y}-${String(cmpLastMonth).padStart(2, '0')}`;
+  };
+  // ‹ › 피커 — 일은 달 단위(연도 경계 넘김), 월은 해 단위. 오늘 이후로는 못 간다
+  const cmpStep = (delta: number) => {
+    if (cmpUnit === 'month') {
+      setCmpYear((y) => Math.min(y + delta, todayYear));
+      return;
+    }
+    let m = cmpMonth + delta;
+    let y = cmpYear;
+    if (m < 1) {
+      m = 12;
+      y -= 1;
+    }
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+    if (y > todayYear || (y === todayYear && m > todayMonthNum)) return;
+    setCmpYear(y);
+    setCmpMonth(m);
+  };
+  const cmpAtLatest = cmpUnit === 'day' ? cmpYear === todayYear && cmpMonth === todayMonthNum : cmpYear >= todayYear;
 
   useEffect(() => {
     hydrate();
@@ -673,9 +716,9 @@ export default function DashboardPage() {
                 <div>
                   <h3 className="text-md font-semibold text-white">발전량 비교</h3>
                   <p className="mt-0.5 text-xs text-slate-400">
-                    {cmpUnit === 'month'
-                      ? `${cmpYear - 1}년 · ${cmpYear}년 월별 발전량 (kWh)`
-                      : `${cmpYear - 4}년 ~ ${cmpYear}년 연간 발전량 (kWh)`}
+                    {cmpUnit === 'day'
+                      ? `${cmpYear - 1}-${String(cmpMonth).padStart(2, '0')} · ${cmpYear}-${String(cmpMonth).padStart(2, '0')} 일별 발전량 (kWh)`
+                      : `${cmpYear - 1} · ${cmpYear} 월별 발전량 (kWh)`}
                   </p>
                 </div>
                 <div className="flex rounded-md bg-white/[0.04] p-0.5 ring-1 ring-white/[0.06]">
@@ -699,7 +742,7 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                   <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.06] p-3">
                     <p className="text-sm text-slate-300">
-                      {cmpBaseYear - 1}년 {cmpRangeLabel} 발전량
+                      {cmpRangeLabel(cmpBaseYear - 1)} 발전량
                     </p>
                     <p className="text-xl font-semibold text-white tabular-nums mt-1">
                       {cmpSummary.prev.toLocaleString()} <span className="text-white">kWh</span>
@@ -707,14 +750,14 @@ export default function DashboardPage() {
                   </div>
                   <div className="rounded-lg bg-emerald-500/[0.06] ring-1 ring-emerald-500/30 p-3">
                     <p className="text-sm text-emerald-300/90">
-                      {cmpBaseYear}년 {cmpRangeLabel} 발전량
+                      {cmpRangeLabel(cmpBaseYear)} 발전량
                     </p>
                     <p className="text-xl font-semibold text-emerald-300 tabular-nums mt-1">
                       {cmpSummary.cur.toLocaleString()} <span className="text-emerald-300">kWh</span>
                     </p>
                   </div>
                   <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.06] p-3">
-                    <p className="text-sm text-slate-300">전년 동기 대비</p>
+                    <p className="text-sm text-slate-300">{cmpBaseYear - 1} 같은 기간 대비</p>
                     <p
                       className={cn(
                         'text-xl font-semibold tabular-nums mt-1',
@@ -755,7 +798,7 @@ export default function DashboardPage() {
                     <ChevronLeft size={13} />
                   </button>
                   <span className="text-sm font-semibold text-white tabular-nums px-1 min-w-[88px] text-center">
-                    {cmpYear}년
+                    {cmpUnit === 'day' ? `${cmpYear}-${String(cmpMonth).padStart(2, '0')}` : `${cmpYear}`}
                   </span>
                   <button
                     type="button"
@@ -773,19 +816,15 @@ export default function DashboardPage() {
                   </button>
                 </div>
                 </div>
-                {/* 두 해 모두 반투명 면(전 해 파랑 · 고른 해 초록)으로 겹쳐 그려 차이 구간이 보이게. 년은 5년 연간 면 하나 */}
+                {/* 두 해 모두 반투명 면(전 해 파랑 · 고른 해 초록)으로 겹쳐 그려 차이 구간이 보이게 */}
                 <RmsAreaLineChart
                   data={cmpChartData}
                   xKey="x"
                   stacked={false}
-                  areas={
-                    cmpUnit === 'month'
-                      ? [
-                          { key: 'prev', name: `${cmpYear - 1}년 (kWh)`, color: COMPARE_COLORS.prev },
-                          { key: 'cur', name: `${cmpYear}년 (kWh)`, color: COMPARE_COLORS.cur },
-                        ]
-                      : [{ key: 'total', name: '연간 발전량 (kWh)', color: COMPARE_COLORS.cur }]
-                  }
+                  areas={[
+                    { key: 'prev', name: `${cmpYear - 1} (kWh)`, color: COMPARE_COLORS.prev },
+                    { key: 'cur', name: `${cmpYear} (kWh)`, color: COMPARE_COLORS.cur },
+                  ]}
                   height={280}
                 />
                 {/* 월별 증감 — 전 해 같은 달 대비 */}
@@ -937,7 +976,7 @@ export default function DashboardPage() {
                   <span className="text-sm font-semibold text-white tabular-nums px-2 min-w-[100px] text-center">
                     {genCtl.tu === 'hour' && genCtl.date}
                     {genCtl.tu === 'day' && genCtl.month}
-                    {genCtl.tu === 'month' && `${genCtl.year}년`}
+                    {genCtl.tu === 'month' && `${genCtl.year}`}
                   </span>
                   {(() => {
                     const isAtFutureBound =
@@ -1028,7 +1067,7 @@ export default function DashboardPage() {
               <div>
                 <h3 className="text-md font-semibold text-white">CO₂ 저감량</h3>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  {co2Unit === 'day' ? `${co2Year}-${String(co2Month).padStart(2, '0')} 일별 CO₂ 저감 (tCO₂)` : `${co2Year}년 월별 CO₂ 저감 (tCO₂)`}
+                  {co2Unit === 'day' ? `${co2Year}-${String(co2Month).padStart(2, '0')} 일별 CO₂ 저감 (tCO₂)` : `${co2Year} 월별 CO₂ 저감 (tCO₂)`}
                 </p>
               </div>
               <div className="flex rounded-md bg-white/[0.04] p-0.5 ring-1 ring-white/[0.06]">
@@ -1118,7 +1157,7 @@ export default function DashboardPage() {
                       <ChevronLeft size={13} />
                     </button>
                     <span className="text-sm font-semibold text-white tabular-nums px-1 min-w-[88px] text-center">
-                      {co2Unit === 'day' ? `${co2Year}-${String(co2Month).padStart(2, '0')}` : `${co2Year}년`}
+                      {co2Unit === 'day' ? `${co2Year}-${String(co2Month).padStart(2, '0')}` : `${co2Year}`}
                     </span>
                     <button
                       type="button"
