@@ -1028,7 +1028,7 @@ export default function DashboardPage() {
               <div>
                 <h3 className="text-md font-semibold text-white">CO₂ 저감량</h3>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  {co2Unit === 'day' ? `${co2Year}년 ${co2Month}월 일별 CO₂ 저감 (tCO₂)` : `${co2Year}년 월별 CO₂ 저감 (tCO₂)`}
+                  {co2Unit === 'day' ? `${co2Year}-${String(co2Month).padStart(2, '0')} 일별 CO₂ 저감 (tCO₂)` : `${co2Year}년 월별 CO₂ 저감 (tCO₂)`}
                 </p>
               </div>
               <div className="flex rounded-md bg-white/[0.04] p-0.5 ring-1 ring-white/[0.06]">
@@ -1118,7 +1118,7 @@ export default function DashboardPage() {
                       <ChevronLeft size={13} />
                     </button>
                     <span className="text-sm font-semibold text-white tabular-nums px-1 min-w-[88px] text-center">
-                      {co2Unit === 'day' ? `${co2Year}년 ${co2Month}월` : `${co2Year}년`}
+                      {co2Unit === 'day' ? `${co2Year}-${String(co2Month).padStart(2, '0')}` : `${co2Year}년`}
                     </span>
                     <button
                       type="button"
