@@ -84,10 +84,10 @@ type GenSeriesId = (typeof GEN_SERIES)[number]['id'];
 
 const CO2_LINES = [{ id: 'hanil', label: '전체', color: '#10B981' }] as const;
 
-type Co2Unit = 'month' | 'year';
+type Co2Unit = 'day' | 'month';
 const CO2_UNIT_OPTIONS: { value: Co2Unit; label: string }[] = [
+  { value: 'day', label: '일' },
   { value: 'month', label: '월' },
-  { value: 'year', label: '년' },
 ];
 
 const toTonWith = (kwh: number, factor: number) => Math.round((kwh * factor) / 10) / 100;
@@ -105,11 +105,12 @@ function buildDailyGenData(history: any[] | undefined, month: string) {
   }
   const [y = 0, m = 1] = month.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
-  const lastDay = month === today.slice(0, 7) ? Number(today.slice(8, 10)) : daysInMonth;
-  return Array.from({ length: lastDay }, (_, i) => {
+  // 축은 늘 1일~말일 전부, 아직 오지 않은 날은 값 없이 둔다(선이 거기서 멈춤)
+  const lastDay = month > today.slice(0, 7) ? 0 : month === today.slice(0, 7) ? Number(today.slice(8, 10)) : daysInMonth;
+  return Array.from({ length: daysInMonth }, (_, i) => {
     const day = i + 1;
     const dateKey = `${month}-${String(day).padStart(2, '0')}`;
-    return { x: `${day}일`, generation: byDate.get(dateKey) ?? 0 };
+    return day <= lastDay ? { x: `${day}일`, generation: byDate.get(dateKey) ?? 0 } : { x: `${day}일` };
   });
 }
 
@@ -133,10 +134,11 @@ function buildMonthlyGenData(history: any[] | undefined, year: number) {
       byMonth.set(m, (byMonth.get(m) ?? 0) + kwh);
     }
   }
-  const lastMonth = year === currentYear ? currentMonth : 12;
-  return Array.from({ length: lastMonth }, (_, i) => {
+  // 축은 늘 1~12월 전부, 아직 오지 않은 달은 값 없이 둔다
+  const lastMonth = year > currentYear ? 0 : year === currentYear ? currentMonth : 12;
+  return Array.from({ length: 12 }, (_, i) => {
     const m = `${year}-${String(i + 1).padStart(2, '0')}`;
-    return { x: `${i + 1}월`, generation: Math.round(byMonth.get(m) ?? 0) };
+    return i < lastMonth ? { x: `${i + 1}월`, generation: Math.round(byMonth.get(m) ?? 0) } : { x: `${i + 1}월` };
   });
 }
 
@@ -256,7 +258,7 @@ export default function DashboardPage() {
   });
 
   // CO₂ 저감량 토글 + 단위 (일/월/년)
-  const [co2Unit, setCo2Unit] = useState<Co2Unit>('month');
+  const [co2Unit, setCo2Unit] = useState<Co2Unit>('day');
 
   const user = useAuthStore((s) => s.user);
   const personaOverride = usePersonaOverride((s) => s.override);
@@ -345,44 +347,73 @@ export default function DashboardPage() {
   const co2Plants = allContractPlants;
   const [co2CompanyKey, setCo2CompanyKey] = useState('');
   const co2Company = isAdmin ? (co2Plants.find((p) => p.key === co2CompanyKey) ?? co2Plants[0]) : undefined;
-  // 발전사업자·전기사용자 — 계약 발전소가 둘 이상이면 전체 | 발전소 하나 를 고른다 (한일튜브 자가소비·onsite)
-  const [co2PickKey, setCo2PickKey] = useState('all');
+  // 발전사업자·전기사용자 — 발전소 칩(발전소 발전·공급과 같은 디자인)으로 끄고 켠다. 처음엔 전부 켬. 카드·선은 켜진 것만
+  const [co2Off, setCo2Off] = useState<Set<string>>(new Set());
+  const toggleCo2Plant = (key: string) =>
+    setCo2Off((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   const co2Targets = useMemo(
-    () => (isAdmin ? (co2Company ? [co2Company] : []) : co2PickKey === 'all' ? co2Plants : co2Plants.filter((p) => p.key === co2PickKey)),
-    [isAdmin, co2Company, co2Plants, co2PickKey],
+    () => (isAdmin ? (co2Company ? [co2Company] : []) : co2Plants.filter((p) => !co2Off.has(p.key))),
+    [isAdmin, co2Company, co2Plants, co2Off],
   );
+  // ‹ › 피커 — 일: 고른 달(달 단위로 넘김, 연도 경계 넘김), 월: 고른 해(해 단위)
   const [co2Year, setCo2Year] = useState(todayYear);
-  // 월: 고른 해 + 전 해(전년 대비용), 년: 고른 해까지 5년
-  const co2Years = useMemo(
-    () => (co2Unit === 'year' ? Array.from({ length: 5 }, (_, i) => co2Year - 4 + i) : [co2Year - 1, co2Year]),
-    [co2Unit, co2Year],
-  );
+  const [co2Month, setCo2Month] = useState(Number(todayStr.slice(5, 7)));
+  const co2Years = useMemo(() => [co2Year], [co2Year]);
   const co2PlantIds = useMemo(() => Array.from(new Set(co2Targets.map((p) => p.plantId))), [co2Targets]);
   const co2ByPlantYear = usePlantsYearlyEnergy(co2PlantIds, co2Years, todayStr);
-  const co2Step = (delta: number) => setCo2Year((y) => Math.min(y + delta, todayYear));
-  const co2AtLatest = co2Year >= todayYear;
+  const co2Step = (delta: number) => {
+    const tm = Number(todayStr.slice(5, 7));
+    if (co2Unit === 'month') {
+      setCo2Year((y) => Math.min(y + delta, todayYear));
+      return;
+    }
+    let m = co2Month + delta;
+    let y = co2Year;
+    if (m < 1) {
+      m = 12;
+      y -= 1;
+    }
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+    if (y > todayYear || (y === todayYear && m > tm)) return;
+    setCo2Year(y);
+    setCo2Month(m);
+  };
+  const co2AtLatest = co2Unit === 'day' ? co2Year === todayYear && co2Month === Number(todayStr.slice(5, 7)) : co2Year >= todayYear;
   // 계약 발전소의 그 해(또는 그 달) 발전량 — 이력은 설비 전체라 계약 몫(share)을 곱한다
   type Co2Plant = (typeof co2Plants)[number];
-  const co2KwhOf = (p: Co2Plant, year: number, monthIdx?: number) => {
+  const co2KwhOf = (p: Co2Plant, year: number, monthIdx?: number, dayIdx?: number) => {
     const ye = co2ByPlantYear[p.plantId]?.[year];
     if (!ye) return 0;
-    return (monthIdx === undefined ? ye.total : (ye.months[monthIdx] ?? 0)) * p.share;
+    if (monthIdx === undefined) return ye.total * p.share;
+    if (dayIdx === undefined) return (ye.months[monthIdx] ?? 0) * p.share;
+    return (ye.days[String(monthIdx + 1).padStart(2, '0')]?.[dayIdx] ?? 0) * p.share;
   };
   const co2ChartData = useMemo((): Array<Record<string, string | number>> => {
     const tm = Number(todayStr.slice(5, 7));
+    const td = Number(todayStr.slice(8, 10));
     const row = (x: string, pick: (p: Co2Plant) => number) => {
       const r: Record<string, string | number> = { x, hanil: toTonWith(co2Targets.reduce((a, p) => a + pick(p), 0), co2Factor) };
       if (!isAdmin) for (const p of co2Targets) r[p.key] = toTonWith(pick(p), co2Factor);
       return r;
     };
-    if (co2Unit === 'month') {
-      // 아직 오지 않은 달은 그리지 않는다
-      const last = co2Year === todayYear ? tm : 12;
-      return Array.from({ length: 12 }, (_, i) => (i < last ? row(`${i + 1}월`, (p) => co2KwhOf(p, co2Year, i)) : { x: `${i + 1}월` }));
+    // 축은 늘 전부(1일~말일 · 1~12월), 아직 오지 않은 날·달은 값 없이 둔다
+    if (co2Unit === 'day') {
+      const n = new Date(co2Year, co2Month, 0).getDate();
+      const last = co2Year === todayYear && co2Month === tm ? td : n;
+      return Array.from({ length: n }, (_, i) => (i < last ? row(`${i + 1}일`, (p) => co2KwhOf(p, co2Year, co2Month - 1, i)) : { x: `${i + 1}일` }));
     }
-    return co2Years.map((y) => row(`${y}년`, (p) => co2KwhOf(p, y)));
+    const last = co2Year === todayYear ? tm : 12;
+    return Array.from({ length: 12 }, (_, i) => (i < last ? row(`${i + 1}월`, (p) => co2KwhOf(p, co2Year, i)) : { x: `${i + 1}월` }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [co2Targets, co2ByPlantYear, co2Unit, co2Year, co2Years, co2Factor, isAdmin, todayStr, todayYear]);
+  }, [co2Targets, co2ByPlantYear, co2Unit, co2Year, co2Month, co2Factor, isAdmin, todayStr, todayYear]);
   // CO₂ 기본 계열 이름 — 관리자는 고른 회사, 그 외는 전체
   const co2MainLabel = isAdmin && co2Company ? shortPlantName(co2Company.displayName) : '전체';
   // 카드 — 오늘 / 이번 달 / 올해 누적. 피커와 무관하게 늘 오늘 기준 (관리자: 고른 회사, 그 외: 자사 계약 발전소 합)
@@ -997,7 +1028,7 @@ export default function DashboardPage() {
               <div>
                 <h3 className="text-md font-semibold text-white">CO₂ 저감량</h3>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  {co2Unit === 'month' ? `${co2Year}년 월별 CO₂ 저감 (tCO₂)` : `${co2Year - 4}년 ~ ${co2Year}년 연간 CO₂ 저감 (tCO₂)`}
+                  {co2Unit === 'day' ? `${co2Year}년 ${co2Month}월 일별 CO₂ 저감 (tCO₂)` : `${co2Year}년 월별 CO₂ 저감 (tCO₂)`}
                 </p>
               </div>
               <div className="flex rounded-md bg-white/[0.04] p-0.5 ring-1 ring-white/[0.06]">
@@ -1050,25 +1081,32 @@ export default function DashboardPage() {
                       className="h-7 text-xs"
                     />
                   </div>
-                  ) : co2Plants.length > 1 ? (
-                  /* 계약 발전소 둘 이상 — 전체 | 발전소 버튼 (월/년 토글과 같은 꼴) */
-                  <div className="flex rounded-md bg-white/[0.04] p-0.5 ring-1 ring-white/[0.06]">
-                    {[{ key: 'all', label: '전체' }, ...co2Plants.map((p) => ({ key: p.key, label: shortPlantName(p.displayName) }))].map((opt) => (
-                      <button
-                        key={opt.key}
-                        type="button"
-                        onClick={() => setCo2PickKey(opt.key)}
-                        className={cn(
-                          'rounded px-2.5 h-7 text-xs transition-colors whitespace-nowrap',
-                          co2PickKey === opt.key ? 'bg-primary text-white font-medium' : 'text-slate-400 hover:text-white',
-                        )}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
                   ) : (
-                    <span />
+                  /* 발전소 칩 — 발전소 발전·공급 차트의 칩과 같은 디자인 (색 점 · 켜짐 × / 꺼짐 +) */
+                  <div className="flex flex-wrap gap-1.5">
+                    {co2Plants.map((pl, i) => {
+                      const on = !co2Off.has(pl.key);
+                      const color = PLANT_COLORS[i % PLANT_COLORS.length];
+                      return (
+                        <button
+                          key={pl.key}
+                          type="button"
+                          onClick={() => toggleCo2Plant(pl.key)}
+                          className={cn(
+                            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 transition-colors',
+                            on
+                              ? 'bg-white/[0.06] text-white ring-white/[0.12] hover:bg-white/[0.10]'
+                              : 'bg-transparent text-slate-600 ring-white/[0.06] hover:text-slate-400',
+                          )}
+                          aria-pressed={on}
+                        >
+                          <span className="h-2 w-2 rounded-full shrink-0 transition-opacity" style={{ backgroundColor: color, opacity: on ? 1 : 0.3 }} />
+                          {shortPlantName(pl.displayName)}
+                          {on ? <X size={10} className="opacity-70" /> : <Plus size={10} className="opacity-50" />}
+                        </button>
+                      );
+                    })}
+                  </div>
                   )}
                   <div className="flex items-center gap-1">
                     <button
@@ -1080,7 +1118,7 @@ export default function DashboardPage() {
                       <ChevronLeft size={13} />
                     </button>
                     <span className="text-sm font-semibold text-white tabular-nums px-1 min-w-[88px] text-center">
-                      {co2Year}년
+                      {co2Unit === 'day' ? `${co2Year}년 ${co2Month}월` : `${co2Year}년`}
                     </span>
                     <button
                       type="button"
