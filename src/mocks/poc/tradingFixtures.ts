@@ -4,19 +4,32 @@
  */
 import { registerMock, pageOf } from './registry';
 import { settlementsOf, useTradingPocStore } from '@/stores/useTradingPocStore';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { getPersona } from '@/lib/persona';
 import type { PpaContract } from '@/types/ppa';
+import type { Contract } from '@/types/trading-poc';
+
+/** 로그인 회사 범위 — 관리자(SPC)는 전체, 발전사업자·전기사용자는 자기 회사가 당사자인 계약만 (화면 훅 useTradingRole 과 같은 규칙) */
+function scopedContracts(): Contract[] {
+  const user = useAuthStore.getState().user;
+  const persona = getPersona(user);
+  const all = useTradingPocStore.getState().contracts;
+  if (persona === 'admin' || persona === 'spc') return all;
+  const id = user?.companyId ?? 0;
+  return all.filter((c) => c.generatorCompanyId === id || c.consumerCompanyId === id);
+}
 
 /* /ppa/settlements?year=2026&size=100 — 월 정산 (status CONFIRMED · PENDING) */
 registerMock(/^\/ppa\/settlements$/, ({ query }) => {
   const year = query.get('year');
-  const list = settlementsOf(useTradingPocStore.getState().contracts).filter((s) => !year || s.period.startsWith(year));
+  const list = settlementsOf(scopedContracts()).filter((s) => !year || s.period.startsWith(year));
   return pageOf(list, Number(query.get('size') ?? 200));
 });
-registerMock(/^\/ppa\/settlements\/(\d+)$/, ({ match }) => settlementsOf(useTradingPocStore.getState().contracts).find((s) => s.id === Number(match[1])) ?? null);
+registerMock(/^\/ppa\/settlements\/(\d+)$/, ({ match }) => settlementsOf(scopedContracts()).find((s) => s.id === Number(match[1])) ?? null);
 
 /* /ppa/contracts — 기존 PpaContract 모양 (contractType PPA · ppaSubType onsite|self) */
 registerMock(/^\/ppa\/contracts$/, () => {
-  const list: PpaContract[] = useTradingPocStore.getState().contracts.map((c) => ({
+  const list: PpaContract[] = scopedContracts().map((c) => ({
     id: c.id,
     contractNumber: c.no,
     contractType: 'PPA',
