@@ -86,6 +86,40 @@ export const PLANTS: LaseeMonitoringPlant[] = LASEE_PLANTS.map((p, idx) => {
 });
 
 registerMock(/^\/monitoring\/map\/plants$/, () => PLANTS);
+/** 월별 일사 계수 — 울산 태양광: 봄·초가을이 좋고, 장마(6~7월)·한겨울이 낮다 */
+const SEASON_FACTOR = [0.72, 0.8, 0.98, 1.08, 1.12, 0.92, 0.74, 0.88, 0.96, 0.92, 0.74, 0.66];
+/** 해·월별 날씨 보정 — 2025년은 장마가 길고 4월이 맑았고, 2026년은 5월에 비가 잦고 8월이 맑았다 (연간 비교에서 차이가 보이게) */
+const YEAR_MONTH_WEATHER: Record<string, number> = {
+  '2025-04': 1.1, '2025-06': 0.85, '2025-07': 0.72, '2025-08': 0.95, '2025-11': 0.88,
+  '2026-03': 0.9, '2026-05': 0.76, '2026-06': 1.02, '2026-07': 0.9, '2026-08': 1.08, '2026-09': 0.86,
+  '2024-07': 0.7, '2024-09': 0.82, '2023-07': 0.66, '2023-08': 0.8, '2022-06': 0.78,
+};
+/** 비 오는 날 확률 — 장마철이 높다 */
+const RAIN_PROB = [0.12, 0.12, 0.16, 0.16, 0.18, 0.28, 0.4, 0.28, 0.2, 0.12, 0.14, 0.12];
+/** 결정적 난수 0~1 — 같은 날·같은 발전소면 늘 같은 값 */
+const noise = (n: number, salt: number) => {
+  const x = Math.sin(n * 12.9898 + salt * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+};
+/**
+ * 그날의 기상 계수(0.03~1.05). 맑음 0.85~1.05, 흐림 0.45~0.7, 비 0.03~0.25 — 비 오는 날은 발전이 거의 없다.
+ * 계절·그 해 월별 날씨까지 곱해서 작년과 올해가 실제처럼 다르게 나온다.
+ */
+function weatherFactor(dateStr: string, dayIdx: number, plantId: number): number {
+  const m = Number(dateStr.slice(5, 7)) - 1;
+  const season = SEASON_FACTOR[m] ?? 0.9;
+  const yearMonth = YEAR_MONTH_WEATHER[dateStr.slice(0, 7)] ?? 1;
+  const r = noise(dayIdx, 1); // 날씨는 지역 공통(발전소마다 같은 날 비)
+  // 그 해 그 달이 궂었으면(계수<1) 비 오는 날도 더 잦다
+  const rainProb = (RAIN_PROB[m] ?? 0.15) * (yearMonth < 1 ? 1 + (1 - yearMonth) * 0.8 : 1);
+  let sky: number;
+  if (r < rainProb) sky = 0.03 + noise(dayIdx, 2) * 0.22;
+  else if (r < rainProb + 0.25) sky = 0.45 + noise(dayIdx, 3) * 0.25;
+  else sky = 0.85 + noise(dayIdx, 4) * 0.2;
+  const local = 0.96 + noise(dayIdx, plantId) * 0.08; // 발전소별 미세 차이
+  return Math.min(1.05, season * yearMonth * sky * local);
+}
+
 registerMock(/^\/monitoring\/plants\/(\d+)\/history$/, ({ match, query }) => {
   const id = Number(match[1]);
   const plant = PLANTS.find((p) => p.plantId === id) ?? PLANTS[0]!;
@@ -95,8 +129,8 @@ registerMock(/^\/monitoring\/plants\/(\d+)\/history$/, ({ match, query }) => {
   for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
     const dayIdx = Math.floor(d.getTime() / 86_400_000);
     const dateStr = d.toISOString().slice(0, 10);
-    // 일별 기상 계수(0.55~1.0) — 예상(표준 곡선)과 차이가 나도록 흐린 날을 섞는다
-    const dayFactor = 0.78 + Math.sin(dayIdx / 1.9) * 0.14 + Math.sin(dayIdx / 5.3) * 0.08;
+    // 일별 기상 계수 — 계절(월) × 그 해 날씨(장마 길이 등) × 그날 날씨(맑음·흐림·비). 해마다 달라야 발전량 비교가 의미 있다
+    const dayFactor = weatherFactor(dateStr, dayIdx, id);
     let energy = 0;
     for (let h = 0; h < 24; h++) {
       const sun = Math.max(0, Math.sin(((h - 6) / 12) * Math.PI));
