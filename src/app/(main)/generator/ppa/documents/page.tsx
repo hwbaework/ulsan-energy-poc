@@ -497,12 +497,10 @@ export default function GeneratorPpaDocumentsPage() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb
-        items={[{ label: '전력거래', path: '/generator/trading' }, { label: '직접 PPA' }, { label: '보고서' }]}
-      />
+      <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '문서 관리' }]} />
 
       <div>
-        <h1 className="text-2xl font-bold text-white">문서 보관함</h1>
+        <h1 className="text-2xl font-bold text-white">문서 관리</h1>
         <p className="mt-1 text-sm text-slate-400">발급된 모든 문서가 자동으로 분류·저장됩니다</p>
       </div>
 

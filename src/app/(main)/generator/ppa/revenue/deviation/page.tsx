@@ -123,9 +123,7 @@ export default function GeneratorPpaRevenueDeviationPage() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb
-        items={[{ label: '전력거래', path: '/generator/trading' }, { label: '직접 PPA' }, { label: '발전량 편차' }]}
-      />
+      <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '수익·정산' }, { label: '발전량 편차' }]} />
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>

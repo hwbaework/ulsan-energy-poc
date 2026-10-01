@@ -119,7 +119,7 @@ export default function TradingApprovalsPage() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb items={[{ label: '관리' }, { label: '거래 승인' }]} />
+      <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '거래 승인' }]} />
       <h1 className="text-2xl font-bold text-white">거래 승인</h1>
 
       <SectionCard title="공급 신청 승인 대기">

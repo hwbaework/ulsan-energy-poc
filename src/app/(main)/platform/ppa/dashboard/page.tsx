@@ -161,7 +161,7 @@ export default function PlatformContractDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb items={[{ label: '계약 현황' }]} />
+      <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '계약 현황' }]} />
 
       <div>
         <h1 className="text-2xl font-bold text-white">계약 현황</h1>

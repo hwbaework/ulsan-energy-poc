@@ -107,7 +107,7 @@ export default function ConsultingStatusListPage() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb items={[{ label: '통합에너지 컨설팅', path: '/consulting' }, { label: '내 컨설팅' }]} />
+      <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '내 컨설팅' }]} />
 
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>

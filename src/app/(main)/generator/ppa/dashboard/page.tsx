@@ -439,12 +439,12 @@ export default function GeneratorPpaDashboardPage() {
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
-      <Breadcrumb items={[{ label: '발전소', path: '/dashboard' }, { label: '발전현황' }]} />
+      <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '계약 현황' }]} />
 
       {/* Header — 우측 사업장 Dropdown (lease/dashboard 패턴 정합) */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">발전 현황</h1>
+          <h1 className="text-2xl font-bold text-white">계약 현황</h1>
           <p className="mt-1 text-sm text-slate-400">
             {isAll
               ? `${PLANTS.length}개 발전소 통합 · 총 ${kpis.totalCap.toLocaleString()} kW`

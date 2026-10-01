@@ -448,14 +448,12 @@ export default function PlatformPpaDocumentsPage() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb
-        items={[{ label: '전력거래', path: '/platform/trading' }, { label: '직접 PPA' }, { label: '문서 보관함' }]}
-      />
+      <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '문서 관리' }]} />
 
       {/* header */}
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">문서 보관함</h1>
+          <h1 className="text-2xl font-bold text-white">문서 관리</h1>
           <p className="mt-1 text-sm text-slate-400">
             회원·자격 / 계약 / 발전소 / 정산·결제 / 인증·보고 / 감사·운영 문서가 자동 분류·저장됩니다
           </p>

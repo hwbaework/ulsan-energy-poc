@@ -559,12 +559,12 @@ export default function PlatformTradingPage() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb items={[{ label: mode === 'resources' ? '자원 관리' : '거래 현황' }]} />
+      <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: mode === 'resources' ? '자원 관리' : '거래 신청' }]} />
 
       {/* header */}
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">{mode === 'resources' ? '자원 관리' : '거래 현황'}</h1>
+          <h1 className="text-2xl font-bold text-white">{mode === 'resources' ? '자원 관리' : '거래 신청'}</h1>
           <p className="mt-1 text-sm text-slate-400">
             {mode === 'resources' ? (
               <>발전사업자 공급 자원 등록 승인 · 매칭 풀 관리 — 승인된 자원은 수용가 매칭에 사용됩니다</>

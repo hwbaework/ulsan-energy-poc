@@ -738,9 +738,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
 
   return (
     <div className="space-y-6">
-      <Breadcrumb
-        items={[{ label: '전력거래', path: '/platform/trading' }, { label: '직접 PPA' }, { label: '정산' }]}
-      />
+      <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '수익·정산' }, { label: '정산' }]} />
 
       {/* header */}
       <div className="flex items-end justify-between gap-4">

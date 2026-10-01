@@ -290,17 +290,11 @@ export default function GeneratorPpaRevenueInvoicesPage() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb
-        items={[
-          { label: '전력거래', path: '/generator/trading' },
-          { label: isDirect ? '직접 PPA' : '온사이트 PPA' },
-          { label: '청구서' },
-        ]}
-      />
+      <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '수익·정산' }, { label: '청구서' }]} />
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">정산</h1>
+          <h1 className="text-2xl font-bold text-white">청구서</h1>
           <p className="mt-1 text-sm text-slate-400">월별 정산 분해 · 매출/매입 세금계산서 자동 검증</p>
         </div>
         <Dropdown

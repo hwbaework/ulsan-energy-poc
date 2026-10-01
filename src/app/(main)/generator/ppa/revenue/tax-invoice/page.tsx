@@ -400,13 +400,7 @@ export default function GeneratorTaxInvoicePage() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb
-        items={[
-          { label: '전력거래', path: '/generator/trading' },
-          { label: isDirect ? '직접 PPA' : '온사이트 PPA' },
-          { label: '세금계산서' },
-        ]}
-      />
+      <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '수익·정산' }, { label: '세금계산서' }]} />
 
       {/* Header */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">

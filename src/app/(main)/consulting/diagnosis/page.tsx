@@ -477,12 +477,12 @@ function DiagnosisContent() {
 
       <div className="relative z-10 w-full max-w-2xl mx-4 rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.08] shadow-2xl overflow-hidden">
         <div className="px-8 pt-5">
-          <Breadcrumb items={[{ label: '통합에너지 컨설팅', path: '/consulting' }, { label: '무료 진단' }]} />
+          <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '무료진단' }]} />
         </div>
 
         <div className="flex items-center justify-between border-b border-white/[0.06] px-8 py-5">
           <div>
-            <h1 className="text-xl font-bold text-white">무료 진단</h1>
+            <h1 className="text-xl font-bold text-white">무료진단</h1>
             <p className="mt-0.5 text-xs text-slate-400">5단계로 우리 기업에 맞는 에너지 전략을 진단합니다</p>
           </div>
           <button

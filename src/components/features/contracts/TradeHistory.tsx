@@ -94,11 +94,11 @@ export function TradeHistory() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb items={[{ label: '전력거래' }, { label: '거래 완료' }]} />
+      <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '거래 이력' }]} />
       <div>
-        <h1 className="text-2xl font-bold text-white">거래 완료</h1>
+        <h1 className="text-2xl font-bold text-white">거래 이력</h1>
         <p className="mt-1 text-sm text-slate-400">
-          체결 완료·취소된 지난 거래 이력입니다. 진행 중 거래는 거래 현황에서 확인하세요.
+          체결 완료·취소된 지난 거래 이력입니다. 진행 중 거래는 거래 신청에서 확인하세요.
         </p>
       </div>
 

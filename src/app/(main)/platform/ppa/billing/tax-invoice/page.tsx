@@ -304,9 +304,7 @@ export default function PlatformPpaTaxInvoicePage() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb
-        items={[{ label: '전력거래', path: '/platform/trading' }, { label: '직접 PPA' }, { label: '세금계산서' }]}
-      />
+      <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '수익·정산' }, { label: '세금계산서' }]} />
 
       <div className="flex items-end justify-between gap-4">
         <div>

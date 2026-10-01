@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { ArrowRight, Clock, Send, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -64,13 +64,7 @@ export default function ConsultingPage() {
     .filter((r) => r.relatedDomain === 'RE100')
     .filter((r) => !activeDomains.has(r.relatedDomain));
 
-  useEffect(() => {
-    if (persona === 'spc' || persona === 'admin') {
-      router.replace('/consulting/projects');
-    }
-  }, [persona, router]);
-
-  if (persona === 'spc' || persona === 'admin') return null;
+  // 관리자도 같은 컨설팅 홈을 본다 — 전에는 프로젝트 목록으로 튕겨서 메뉴 "컨설팅 홈"과 화면이 어긋났다
 
   if (persona === 'consultant') {
     return <ConsultantWorkView router={router} />;
@@ -78,19 +72,23 @@ export default function ConsultingPage() {
 
   return (
     <div className="flex gap-6">
-      {/* Left: Main content — 메인이라 breadcrumb 없음 */}
       <div className="flex-1 min-w-0 space-y-10">
+        {/* 메뉴 이름과 같은 제목 — 다른 RE100 화면과 같은 꼴 */}
+        <div className="space-y-6">
+          <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '컨설팅 홈' }]} />
+          <h1 className="text-2xl font-bold text-white">컨설팅 홈</h1>
+        </div>
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-[#0d1520] to-[#0d1520] ring-1 ring-white/[0.06] p-8 lg:p-12">
           <div className="absolute -top-20 -right-20 h-60 w-60 rounded-full bg-primary/5 blur-3xl" />
           <div className="relative max-w-2xl">
             <Badge variant="primary" className="mb-4">
               에너지 컨설팅 플랫폼
             </Badge>
-            <h1 className="text-2xl lg:text-3xl font-bold text-white leading-tight">
+            <h2 className="text-2xl lg:text-3xl font-bold text-white leading-tight">
               RE100 달성을 위한
               <br />
               컨설턴트 매칭 서비스
-            </h1>
+            </h2>
             <p className="mt-4 text-sm lg:text-base text-slate-400 leading-relaxed max-w-lg">
               AI 기반 진단으로 우리 기업에 꼭 맞는 에너지 컨설턴트를 찾아드립니다. 무료 진단부터 시작해보세요.
             </p>
