@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { ArrowRight, Clock, Send, ChevronRight } from 'lucide-react';
+import { ArrowRight, Clock, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { SectionCard } from '@/components/features';
@@ -54,8 +54,10 @@ export default function ConsultingPage() {
   const consultations = (apiConsultations ?? []) as any[];
   const { data: diagnoses } = useDiagnosesByCompany(companyId);
   const diagnosisList = (diagnoses ?? []) as Diagnosis[];
-  const activeProject = consultations.find((c: any) => !['COMPLETED', 'CANCELLED'].includes(c.status));
-  const pendingProposals = consultations.filter((c: any) => c.status === 'APPLIED').length;
+  // 내 컨설팅 — 취소 빼고 전부(진행 중이 먼저)
+  const myConsultations = consultations
+    .filter((c: any) => c.status !== 'CANCELLED')
+    .sort((a: any, b: any) => (STATUS_TO_STEP[a.status] ?? 0) - (STATUS_TO_STEP[b.status] ?? 0));
   // 해야 할 일 — 이미 해당 도메인으로 컨설팅이 진행 중이면 to-do에서 제외
   const activeDomains = new Set(
     consultations.filter((c: any) => !['CANCELLED'].includes(c.status)).map((c: any) => c.domain),
@@ -71,8 +73,8 @@ export default function ConsultingPage() {
   }
 
   return (
-    <div className="flex gap-6">
-      <div className="flex-1 min-w-0 space-y-10">
+    <div className="space-y-10">
+      <div className="space-y-10">
         {/* 메뉴 이름과 같은 제목 — 다른 RE100 화면과 같은 꼴 */}
         <div className="space-y-6">
           <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '컨설팅 홈' }]} />
@@ -89,19 +91,71 @@ export default function ConsultingPage() {
               <br />
               컨설턴트 매칭 서비스
             </h2>
-            <p className="mt-4 text-sm lg:text-base text-slate-400 leading-relaxed max-w-lg">
-              AI 기반 진단으로 우리 기업에 꼭 맞는 에너지 컨설턴트를 찾아드립니다. 무료 진단부터 시작해보세요.
+            <p className="mt-4 text-sm lg:text-base text-slate-400 leading-relaxed">
+              AI 기반 진단으로 우리 기업에 맞는 에너지 컨설턴트를 찾아드립니다.
+              <br />
+              무료진단부터 시작하세요.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Button size="lg" onClick={() => router.push('/consulting/diagnosis')}>
                 무료 진단 시작하기
                 <ArrowRight size={16} className="ml-1" />
               </Button>
-              <Button size="lg" variant="secondary" onClick={() => router.push('/consulting/marketplace')}>
-                컨설턴트 둘러보기
-              </Button>
             </div>
           </div>
+        </div>
+
+        {/* 내 컨설팅 — 메뉴 '내 컨설팅'의 요약. 없음 / 진행 중 / 완료 전부 여기서 보인다 */}
+        <div className="rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] overflow-hidden">
+          <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">내 컨설팅</h2>
+            <Button size="sm" variant="secondary" onClick={() => router.push('/consulting/status')}>
+              전체 보기
+              <ChevronRight size={13} className="ml-1" />
+            </Button>
+          </div>
+          {myConsultations.length === 0 ? (
+            <div className="px-6 py-6 flex items-center justify-between gap-4 flex-wrap">
+              <p className="text-sm text-slate-500">진행 중인 컨설팅 없음 — 무료진단을 받으면 컨설턴트 매칭이 시작됩니다</p>
+              <Button size="sm" onClick={() => router.push('/consulting/diagnosis')}>
+                무료진단 시작하기
+                <ArrowRight size={13} className="ml-1" />
+              </Button>
+            </div>
+          ) : (
+            <div className="divide-y divide-white/[0.04]">
+              {myConsultations.map((c: any) => {
+                const idx = STATUS_TO_STEP[c.status] ?? 0;
+                const done = c.status === 'COMPLETED';
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => router.push(`/consulting/status/${c.id}`)}
+                    className="w-full px-6 py-4 flex items-center gap-4 text-left hover:bg-white/[0.02] transition-colors"
+                  >
+                    <span className={cn('h-2 w-2 rounded-full shrink-0', done ? 'bg-emerald-400' : 'bg-primary')} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium text-white">{c.title ?? c.domain ?? 'RE100 컨설팅'}</p>
+                        <span className="text-[11px] text-slate-500">{c.consultantName ? `컨설턴트 ${c.consultantName}` : '컨설턴트 선택 전'}</span>
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-1">
+                        {CONSULTING_PIPELINE.map((_, i) => (
+                          <span key={i} className={cn('h-1 flex-1 rounded-full', i <= idx ? (done ? 'bg-emerald-400' : 'bg-primary') : 'bg-white/[0.08]')} />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className={cn('text-sm font-medium', done ? 'text-emerald-300' : 'text-primary')}>{done ? '완료' : CONSULTING_PIPELINE[idx]}</p>
+                      <p className="text-[11px] text-slate-500 tabular-nums">{idx + 1}/{CONSULTING_PIPELINE.length} 단계</p>
+                    </div>
+                    <ChevronRight size={14} className="text-slate-600 shrink-0" />
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* 최근 진단 결과 — Diagnosis API 기반 */}
@@ -255,97 +309,6 @@ export default function ConsultingPage() {
             })}
           </div>
         </div>
-      </div>
-      {/* end left */}
-
-      {/* Right: Project timeline */}
-      <div className="hidden lg:block w-[300px] shrink-0">
-        {activeProject ? (
-          <ActiveProjectSidebar project={activeProject} router={router} />
-        ) : (
-          <div className="sticky top-0 rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.06] p-5">
-            <p className="text-sm font-semibold text-white mb-2">진행 중인 컨설팅</p>
-            <p className="text-xs text-slate-500">아직 진행 중인 컨설팅이 없습니다</p>
-            <Button size="sm" className="mt-3 w-full" onClick={() => router.push('/consulting/diagnosis')}>
-              무료 진단 시작하기
-            </Button>
-          </div>
-        )}
-
-        {pendingProposals > 0 && (
-          <button
-            onClick={() => router.push('/consulting/proposals')}
-            className="mt-4 w-full text-left rounded-xl bg-blue-500/10 ring-1 ring-blue-500/20 p-4 hover:ring-blue-500/40 transition-all"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <Send size={14} className="text-blue-400" />
-              <p className="text-sm font-medium text-blue-400">{pendingProposals}건 견적 요청 중</p>
-              <ChevronRight size={14} className="text-blue-400/60 ml-auto" />
-            </div>
-            <p className="text-xs text-slate-400">제안서가 도착하면 알림으로 안내드립니다</p>
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ActiveProjectSidebar({ project, router }: { project: any; router: ReturnType<typeof useRouter> }) {
-  // 표준 파이프라인(신청 → 정산) 전체를 표시 — 백엔드 status 로 현재 단계만 산출
-  const currentIdx = STATUS_TO_STEP[project.status] ?? 0;
-  const doneCount = CONSULTING_PIPELINE.filter((_, i) => i < currentIdx).length;
-
-  return (
-    <div className="sticky top-0 rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.06] overflow-hidden">
-      <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
-        <div>
-          <p className="text-sm font-semibold text-white">진행 중인 컨설팅</p>
-          <p className="text-[10px] text-slate-500 mt-0.5">{project.domain} 컨설팅</p>
-        </div>
-        <span className="text-xs font-bold text-primary tabular-nums">
-          {doneCount}/{CONSULTING_PIPELINE.length}
-        </span>
-      </div>
-
-      {project.consultantName && (
-        <div className="px-5 py-3 border-b border-white/[0.06] flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-            {project.consultantName.charAt(0)}
-          </div>
-          <div>
-            <p className="text-xs font-medium text-white">{project.consultantName}</p>
-            <p className="text-[10px] text-slate-500">
-              {project.origin === 'outsource' ? `${project.agencyName ?? '용역사'} 배정` : '독립 컨설턴트'}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* 컴팩트 — 현재 단계 + 진행률 바만. 전체 10단계 타임라인은 내 컨설팅(/status)에 */}
-      <div className="px-5 py-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-slate-400">현재 단계</span>
-          <Badge variant="primary" className="text-[10px]">
-            {CONSULTING_PIPELINE[currentIdx] ?? '진행 중'}
-          </Badge>
-        </div>
-        <div className="flex gap-0.5">
-          {CONSULTING_PIPELINE.map((_, i) => (
-            <div
-              key={i}
-              className={cn(
-                'h-1.5 flex-1 rounded-full',
-                i < currentIdx ? 'bg-emerald-500' : i === currentIdx ? 'bg-primary' : 'bg-white/[0.06]',
-              )}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="px-5 py-4 border-t border-white/[0.06] bg-primary/[0.03]">
-        <Button size="sm" className="w-full h-8 text-xs" onClick={() => router.push('/consulting/status')}>
-          내 컨설팅에서 보기 <ArrowRight size={12} className="ml-1" />
-        </Button>
       </div>
     </div>
   );
