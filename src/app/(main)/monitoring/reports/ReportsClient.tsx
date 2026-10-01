@@ -14,7 +14,7 @@ import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { SectionCard } from '@/components/features';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { isAnomaly, sourceOf } from '@/lib/design';
+import { CONTRACT_KIND, isAnomaly, sourceOf } from '@/lib/design';
 import { cn } from '@/lib/utils';
 import { exportExcel, exportPdf, generateReportHtml, type ReportPreviewDoc, type ReportPreviewSection } from '@/lib/utils';
 import * as monitoringApi from '@/api/monitoring/monitoring';
@@ -222,8 +222,16 @@ export default function ReportsClient() {
       return {
         file: `${doc.title}${titleSuffix}`,
         sheet: KIND_LABEL.generation,
-        headers: ['발전소', '발전원', '설비용량 kW', '발전량 kWh', '발전시간 h', '이상 건수'],
-        rows: generationRows.map((r) => [r.plant.displayName, sourceOf(r.plant.type).label, r.plant.capacity, r.energy, r.hours, r.anomalies]),
+        headers: ['발전소', '발전원', '계약 유형', '설비용량 kW', '발전량 kWh', '발전시간 h', '이상 건수'],
+        rows: generationRows.map((r) => [
+          r.plant.displayName,
+          sourceOf(r.plant.type).label,
+          r.plant.contractKind ? CONTRACT_KIND[r.plant.contractKind].label : '-',
+          r.plant.capacity,
+          r.energy,
+          r.hours,
+          r.anomalies,
+        ]),
       };
     }
     // 이상감지 보고서는 요약만 — 건수 집계
@@ -251,9 +259,12 @@ export default function ReportsClient() {
   const previewDoc = useMemo<ReportPreviewDoc | null>(() => {
     if (!selected) return null;
     const cap = capacityTotal >= 1000 ? `${(capacityTotal / 1000).toFixed(2)} MW` : `${capacityTotal.toLocaleString()} kW`;
+    // 계약 유형 — 발전소 하나(계약 하나)를 볼 때만. 자가소비 / onsite 에 따라 보고서 성격이 다르다
+    const kind = scope !== 'all' ? plants[0]?.contractKind : undefined;
     const meta: [string, string][] = [
       ['기간', selected.period],
       ['대상', `${scopeLabel} · 설비 ${cap}`],
+      ...(kind ? ([['계약 유형', CONTRACT_KIND[kind].label]] as [string, string][]) : []),
       ['생성일', selected.createdAt],
     ];
     const title = `${selected.title}${titleSuffix}`;

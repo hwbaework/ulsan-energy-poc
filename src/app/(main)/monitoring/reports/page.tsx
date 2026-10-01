@@ -12,7 +12,7 @@ import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { PlantNameCell } from '@/components/features/monitoring/PlantNameCell';
-import { isAnomaly } from '@/lib/design';
+import { CONTRACT_KIND, isAnomaly } from '@/lib/design';
 import type { MonitoringPlant } from '@/types/monitoring';
 import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
 import { useAnomalies } from '@/hooks/monitoring/useAnomalies';
@@ -69,6 +69,7 @@ export default function ReportsEntryPage() {
 
   const columns: Column<Row>[] = [
     { key: 'plant', header: '발전소', width: '240px', render: (r) => <PlantNameCell type={r.plant.type} name={r.plant.displayName} /> },
+    { key: 'contract' as keyof Row, header: '계약 유형', width: '110px', render: (r) => <span className="text-sm text-slate-300">{r.plant.contractKind ? CONTRACT_KIND[r.plant.contractKind].label : '-'}</span> },
     { key: 'address' as keyof Row, header: '위치', render: (r) => <span className="text-sm text-slate-300">{r.plant?.address ?? '-'}</span> },
     { key: 'capacity', header: '설비용량', width: '130px', render: (r) => <span className="text-sm text-slate-300 tabular-nums whitespace-nowrap">{r.capacity.toLocaleString()} kW</span> },
     { key: 'last' as keyof Row, header: '최근 보고서', width: '140px', render: (r) => <span className="text-sm text-slate-300 whitespace-nowrap">{hasReport(r.plant) ? LAST_REPORT : ''}</span> },
