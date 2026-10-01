@@ -257,15 +257,6 @@ export default function DashboardPage() {
 
   // CO₂ 저감량 토글 + 단위 (일/월/년)
   const [co2Unit, setCo2Unit] = useState<Co2Unit>('month');
-  const [hiddenCo2Lines, setHiddenCo2Lines] = useState<Set<string>>(new Set());
-  const toggleCo2Line = (id: string) => {
-    setHiddenCo2Lines((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
 
   const user = useAuthStore((s) => s.user);
   const personaOverride = usePersonaOverride((s) => s.override);
@@ -365,22 +356,6 @@ export default function DashboardPage() {
   const co2ByPlantYear = usePlantsYearlyEnergy(co2PlantIds, co2Years, todayStr);
   const co2Step = (delta: number) => setCo2Year((y) => Math.min(y + delta, todayYear));
   const co2AtLatest = co2Year >= todayYear;
-  // 발전소별 선 토글 (전기사용자·발전사업자) — 처음엔 전부 켠다
-  const [visibleCo2PlantKeys, setVisibleCo2PlantKeys] = useState<Set<string>>(new Set());
-  const co2ChipsInitRef = useRef(false);
-  useEffect(() => {
-    if (co2ChipsInitRef.current || co2Plants.length === 0) return;
-    co2ChipsInitRef.current = true;
-    setVisibleCo2PlantKeys(new Set((isAdmin ? [] : co2Plants).map((p) => p.key)));
-  }, [co2Plants, isAdmin]);
-  const toggleCo2PlantKey = (key: string) => {
-    setVisibleCo2PlantKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
   // 계약 발전소의 그 해(또는 그 달) 발전량 — 이력은 설비 전체라 계약 몫(share)을 곱한다
   type Co2Plant = (typeof co2Plants)[number];
   const co2KwhOf = (p: Co2Plant, year: number, monthIdx?: number) => {
@@ -405,23 +380,15 @@ export default function DashboardPage() {
   }, [co2Targets, co2ByPlantYear, co2Unit, co2Year, co2Years, co2Factor, isAdmin, todayStr, todayYear]);
   // CO₂ 기본 계열 이름 — 관리자는 고른 회사, 그 외는 전체
   const co2MainLabel = isAdmin && co2Company ? shortPlantName(co2Company.displayName) : '전체';
-  // 카드 — 피커의 해 기준. 월: 그 해 누적·월 평균·전년 대비, 년: 그 해 연간·5년 누적·전년 대비
-  const co2Cards = useMemo(() => {
-    const totalOf = (y: number) => co2Targets.reduce((a, p) => a + co2KwhOf(p, y), 0);
-    // 월 모드의 전년 대비는 같은 기간(1~이번 달)끼리 — 올해 9개월을 작년 12개월과 비교하지 않는다
-    const upto = co2Year === todayYear ? Math.max(0, Number(todayStr.slice(5, 7)) - 1) : 12; // 집계 중인 이번 달은 제외(발전량 비교와 같은 기준)
-    const sameRange = (y: number) => co2Targets.reduce((a, p) => a + Array.from({ length: upto }, (_, i) => co2KwhOf(p, y, i)).reduce((x, v) => x + v, 0), 0);
-    const cur = co2Unit === 'year' ? totalOf(co2Year) : sameRange(co2Year);
-    const prev = co2Unit === 'year' ? totalOf(co2Year - 1) : sameRange(co2Year - 1);
-    const diffPct = prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : null;
-    if (co2Unit === 'year') {
-      const five = co2Years.reduce((a, y) => a + totalOf(y), 0);
-      return { a: { label: `${co2Year}년 연간 CO₂ 저감`, value: toTonWith(cur, co2Factor) }, b: { label: `${co2Year - 4}~${co2Year}년 누적`, value: toTonWith(five, co2Factor) }, diffPct, diffLabel: `${co2Year - 1}년 대비` };
-    }
-    const monthsWithData = Math.max(1, ...co2Targets.map((p) => (co2ByPlantYear[p.plantId]?.[co2Year]?.months ?? []).filter((v) => v > 0).length));
-    return { a: { label: `${co2Year}년 누적 CO₂ 저감`, value: toTonWith(cur, co2Factor) }, b: { label: '월 평균', value: toTonWith(cur / monthsWithData, co2Factor) }, diffPct, diffLabel: `${co2Year - 1}년 동기 대비` };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [co2Targets, co2ByPlantYear, co2Factor, co2Year, co2Years, co2Unit, todayStr, todayYear]);
+  // 카드 — 오늘 / 이번 달 / 올해 누적. 피커와 무관하게 늘 오늘 기준 (관리자: 고른 회사, 그 외: 자사 계약 발전소 합)
+  const co2KpiYears = useMemo(() => [todayYear], [todayYear]);
+  const co2KpiByPlant = usePlantsYearlyEnergy(co2PlantIds, co2KpiYears, todayStr);
+  const co2TodayTon = toTonWith(co2Targets.reduce((a, p) => a + (p.dailyEnergy ?? 0) * p.share, 0), co2Factor);
+  const co2ThisMonthTon = toTonWith(
+    co2Targets.reduce((a, p) => a + (co2KpiByPlant[p.plantId]?.[todayYear]?.months[Number(todayStr.slice(5, 7)) - 1] ?? 0) * p.share, 0),
+    co2Factor,
+  );
+  const co2YtdTon = toTonWith(co2Targets.reduce((a, p) => a + (co2KpiByPlant[p.plantId]?.[todayYear]?.total ?? 0) * p.share, 0), co2Factor);
 
   // 일별 차트: 선택 월의 1일~말일 범위
   const dailyRange = useMemo(() => {
@@ -1045,34 +1012,27 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="px-5 py-4">
-              {/* KPI 카드 — 피커의 해 기준: 누적(연간)·월 평균(5년 누적)·전년 대비 (단위: tCO₂) */}
-              {(
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-                  <div className="rounded-lg bg-emerald-500/[0.06] ring-1 ring-emerald-500/30 p-3">
-                    <p className="text-sm text-emerald-300/90">{co2Cards.a.label}</p>
-                    <p className="text-xl font-semibold text-emerald-300 tabular-nums mt-1">
-                      {co2Cards.a.value.toFixed(2)} <span className="text-emerald-300">tCO₂</span>
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.06] p-3">
-                    <p className="text-sm text-slate-300">{co2Cards.b.label}</p>
-                    <p className="text-xl font-semibold text-white tabular-nums mt-1">
-                      {co2Cards.b.value.toFixed(2)} <span className="text-white">tCO₂</span>
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.06] p-3">
-                    <p className="text-sm text-slate-300">{co2Cards.diffLabel}</p>
-                    <p
-                      className={cn(
-                        'text-xl font-semibold tabular-nums mt-1',
-                        co2Cards.diffPct == null ? 'text-slate-500' : co2Cards.diffPct >= 0 ? 'text-emerald-300' : 'text-red-400',
-                      )}
-                    >
-                      {co2Cards.diffPct == null ? '-' : `${co2Cards.diffPct > 0 ? '+' : ''}${co2Cards.diffPct}%`}
-                    </p>
-                  </div>
+              {/* 누적 KPI 카드 — 오늘 / 이번 달 / 올해 누적 (단위: tCO₂) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                <div className="rounded-lg bg-emerald-500/[0.06] ring-1 ring-emerald-500/30 p-3">
+                  <p className="text-sm text-emerald-300/90">오늘 CO₂ 저감</p>
+                  <p className="text-xl font-semibold text-emerald-300 tabular-nums mt-1">
+                    {co2TodayTon.toFixed(2)} <span className="text-emerald-300">tCO₂</span>
+                  </p>
                 </div>
-              )}
+                <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.06] p-3">
+                  <p className="text-sm text-slate-300">이번 달 CO₂ 저감</p>
+                  <p className="text-xl font-semibold text-white tabular-nums mt-1">
+                    {co2ThisMonthTon.toFixed(2)} <span className="text-white">tCO₂</span>
+                  </p>
+                </div>
+                <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.06] p-3">
+                  <p className="text-sm text-slate-300">올해 누적 (YTD)</p>
+                  <p className="text-xl font-semibold text-white tabular-nums mt-1">
+                    {co2YtdTon.toFixed(2)} <span className="text-white">tCO₂</span>
+                  </p>
+                </div>
+              </div>
 
               <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
                   {isAdmin ? (
@@ -1116,85 +1076,20 @@ export default function DashboardPage() {
                     </button>
                   </div>
               </div>
-              {/* 시리즈 칩 — 전체 / 발전소별 토글. 관리자는 셀렉트로만 고르므로 칩 없음 */}
-              <div className={cn('flex flex-wrap gap-1.5 mb-3', isAdmin && 'hidden')}>
-                {!isAdmin &&
-                  CO2_LINES.map((m) => {
-                  const hidden = hiddenCo2Lines.has(m.id);
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => toggleCo2Line(m.id)}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 transition-colors',
-                        hidden
-                          ? 'bg-transparent text-slate-600 ring-white/[0.06] hover:text-slate-400'
-                          : 'bg-white/[0.06] text-white ring-white/[0.12] hover:bg-white/[0.10]',
-                      )}
-                      aria-pressed={!hidden}
-                    >
-                      <span
-                        className="h-2 w-2 rounded-full shrink-0 transition-opacity"
-                        style={{ backgroundColor: m.color, opacity: hidden ? 0.3 : 1 }}
-                      />
-                      {co2MainLabel}
-                      {hidden ? <Plus size={10} className="opacity-50" /> : <X size={10} className="opacity-70" />}
-                    </button>
-                  );
-                })}
-                {!isAdmin && co2Plants.length > 1 && <span className="mx-1 h-4 w-px bg-white/10" />}
-                {!isAdmin &&
-                  co2Plants.length > 1 &&
-                  co2Plants
-                    .map((pl, i) => ({ pl, i }))
-                    .map(({ pl, i }) => {
-                    const key = pl.key;
-                    const on = visibleCo2PlantKeys.has(key);
-                    const color = PLANT_COLORS[i % PLANT_COLORS.length];
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => toggleCo2PlantKey(key)}
-                        className={cn(
-                          'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 transition-colors',
-                          on
-                            ? 'bg-white/[0.06] text-white ring-white/[0.12] hover:bg-white/[0.10]'
-                            : 'bg-transparent text-slate-600 ring-white/[0.06] hover:text-slate-400',
-                        )}
-                        aria-pressed={on}
-                      >
-                        <span
-                          className="h-2 w-2 rounded-full shrink-0 transition-opacity"
-                          style={{ backgroundColor: color, opacity: on ? 1 : 0.3 }}
-                        />
-                        {shortPlantName(pl.displayName)}
-                        {on ? <X size={10} className="opacity-70" /> : <Plus size={10} className="opacity-50" />}
-                      </button>
-                    );
-                  })}
-              </div>
-              {/* 선 아래를 칠한 면 그래프 */}
+              {/* 선 아래를 칠한 면 그래프 — 관리자: 고른 회사 한 선, 그 외: 계약 발전소별 선 (한일튜브 자가소비·onsite) */}
               <RmsAreaLineChart
                 data={co2ChartData}
                 xKey="x"
                 stacked={false}
-                areas={[
-                  ...(isAdmin ? [...CO2_LINES] : CO2_LINES.filter((m) => !hiddenCo2Lines.has(m.id))).map((m) => ({
-                    key: m.id,
-                    name: `${co2MainLabel} (tCO₂)`,
-                    color: m.color,
-                  })),
-                  ...(isAdmin ? [] : co2Plants)
-                    .map((pl, i) => ({ pl, i }))
-                    .filter(({ pl }) => visibleCo2PlantKeys.has(pl.key))
-                    .map(({ pl, i }) => ({
-                      key: pl.key,
-                      name: `${shortPlantName(pl.displayName)} (tCO₂)`,
-                      color: PLANT_COLORS[i % PLANT_COLORS.length],
-                    })),
-                ]}
+                areas={
+                  isAdmin
+                    ? [{ key: 'hanil', name: `${co2MainLabel} (tCO₂)`, color: CO2_LINES[0].color }]
+                    : co2Plants.map((pl, i) => ({
+                        key: pl.key,
+                        name: `${shortPlantName(pl.displayName)} (tCO₂)`,
+                        color: PLANT_COLORS[i % PLANT_COLORS.length],
+                      }))
+                }
                 height={260}
               />
             </div>
