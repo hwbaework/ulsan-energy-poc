@@ -168,12 +168,6 @@ export function ContractChangeManagement() {
 
   // 제목은 메뉴와 같게 — 역할별 안내는 두지 않는다
   const title = '변경·해지';
-  const intro =
-    persona === 'spc'
-      ? '들어온 변경·해지 요청을 검토하고 승인/거절합니다. (해지는 발전사 동의 후 승인)'
-      : persona === 'generator'
-        ? '나에게 동의 요청된 변경·해지 건을 검토하고 동의/거절합니다.'
-        : '내가 신청한 변경·해지의 진행 상태를 확인합니다.';
 
   const BOARD: { key: typeof filter; label: string; n: number }[] = [
     { key: 'all', label: '전체', n: counts.all },
@@ -187,7 +181,6 @@ export function ContractChangeManagement() {
       <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '변경·해지' }]} />
       <div>
         <h1 className="text-2xl font-bold text-white">{title}</h1>
-        <p className="mt-1 text-sm text-slate-400">{intro}</p>
       </div>
 
       <div className="flex flex-wrap gap-3">
