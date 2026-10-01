@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { StatCard, StatsGrid, OnboardingModal, AssetRegistrationBanner } from '@/components/features';
 
-import { RmsAreaLineChart, RmsBarChart, RmsLineChart } from '@/components/ui/Chart';
+import { RmsAreaLineChart, RmsLineChart } from '@/components/ui/Chart';
 import { Select } from '@/components/ui/Select';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
@@ -192,7 +192,7 @@ const COMPARE_UNIT_OPTIONS: { value: CompareUnit; label: string }[] = [
   { value: 'month', label: '월' },
   { value: 'year', label: '년' },
 ];
-const COMPARE_COLORS = { prev: '#3B82F6', cur: '#10B981', other: '#475569' } as const; // other = 년 단위에서 비교 대상이 아닌 해
+const COMPARE_COLORS = { prev: '#3B82F6', cur: '#10B981' } as const;
 
 interface YearEnergy {
   /** 1월~12월 발전량(kWh) */
@@ -295,7 +295,7 @@ export default function DashboardPage() {
   // 발전소별 칩·계열은 계약 단위 — 한일튜브(자가소비)·한일튜브(onsite). 이력은 발전소 것에 계약 몫(share)을 곱한다
   const allContractPlants = useMemo(() => expandByContract(scopedPlants), [scopedPlants]);
 
-  // 관리자: 회사(계약 발전소) 하나만 골라 본다 — 지표·발전량 비교·CO₂ 전부 그 회사 기준
+  // 관리자: 발전량 비교에서만 회사(계약 발전소) 하나를 골라 비교한다 — 지표·CO₂ 는 전체(전 회사)
   const [selectedCompanyKey, setSelectedCompanyKey] = useState('');
   const selectedCompany = useMemo(
     () => allContractPlants.find((p) => p.key === selectedCompanyKey) ?? allContractPlants[0],
@@ -305,13 +305,10 @@ export default function DashboardPage() {
     () => allContractPlants.map((p) => ({ value: p.key, label: shortPlantName(p.displayName) })),
     [allContractPlants],
   );
-  const activePlants = useMemo(
-    () => (isAdmin ? (selectedCompany ? [selectedCompany] : []) : scopedPlants),
-    [isAdmin, selectedCompany, scopedPlants],
-  );
+  const activePlants = scopedPlants; // 관리자는 전체 합산, 발전사업자·전기사용자는 자사 범위
   const scopedIds = useMemo(() => activePlants.map((p) => p.plantId), [activePlants]);
-  // 관리자가 고른 계약의 몫 — 이력은 설비 전체 값이라 곱해서 쓴다
-  const activeShare = isAdmin ? (selectedCompany?.share ?? 1) : 1;
+  // 지표·CO₂ 는 설비 전체 값 그대로 (계약 몫은 발전량 비교에서만 곱한다)
+  const activeShare = 1;
   // 발전소별 칩은 관리자 화면엔 없다(회사 하나만 보니까)
   const contractPlants = useMemo(() => (isAdmin ? [] : allContractPlants), [isAdmin, allContractPlants]);
   const plant = useMemo(
@@ -376,6 +373,7 @@ export default function DashboardPage() {
   const co2Plants = allContractPlants;
   const co2PlantIds = useMemo(() => Array.from(new Set(allContractPlants.map((p) => p.plantId))), [allContractPlants]);
   const { byPlant: yearByPlantCo2 } = usePlantsHistory(co2PlantIds, yearStart, todayStr);
+  const { byPlant: monthByPlantCo2 } = usePlantsHistory(co2PlantIds, monthStart, todayStr);
 
   const sumDailyEnergy = (history: typeof monthHistory) => {
     if (!history || !Array.isArray(history) || history.length === 0) return 0;
@@ -400,8 +398,9 @@ export default function DashboardPage() {
   useEffect(() => {
     if (co2ChipsInitRef.current || co2Plants.length === 0) return;
     co2ChipsInitRef.current = true;
-    setVisibleCo2PlantKeys(new Set(co2Plants.map((p) => p.key)));
-  }, [co2Plants]);
+    // 관리자는 첫 회사만 켜고 시작(고른 회사만 본다), 그 외는 자사 계약 발전소 전부
+    setVisibleCo2PlantKeys(new Set((isAdmin ? co2Plants.slice(0, 1) : co2Plants).map((p) => p.key)));
+  }, [co2Plants, isAdmin]);
 
   const toggleCo2PlantKey = (key: string) => {
     setVisibleCo2PlantKeys((prev) => {
@@ -429,11 +428,30 @@ export default function DashboardPage() {
     return rows.map((r) => ({ ...r, ...(perPlant.get(String(r.x)) ?? {}) }));
   }, [yearHistory, yearByPlantCo2, co2Plants, co2Unit, co2Factor, activeShare]);
   // CO₂ 기본 계열 이름 — 관리자는 고른 회사, 그 외는 전체
-  const co2MainLabel = isAdmin && selectedCompany ? shortPlantName(selectedCompany.displayName) : '전체';
+  const co2MainLabel = '전체';
 
-  const co2TodayTon = toTonWith(plant?.dailyEnergy ?? 0, co2Factor);
-  const co2ThisMonthTon = toTonWith(monthlyEnergyKwh > 0 ? monthlyEnergyKwh : (plant?.dailyEnergy ?? 0), co2Factor);
-  const co2YtdTon = toTonWith(yearlyEnergyKwh > 0 ? yearlyEnergyKwh : (plant?.dailyEnergy ?? 0), co2Factor);
+  // 관리자 CO₂ 카드 — 칩으로 고른 회사(계약)만 합산. 이력은 설비 전체 값이라 계약 몫(share)을 곱한다
+  const co2Selected = useMemo(() => {
+    if (!isAdmin) return null;
+    const sel = co2Plants.filter((p) => visibleCo2PlantKeys.has(p.key));
+    let today = 0;
+    let thisMonth = 0;
+    let ytd = 0;
+    for (const p of sel) {
+      const hist = yearByPlantCo2[p.plantId] ?? [];
+      today += (p.dailyEnergy ?? 0) * p.share;
+      thisMonth += sumDailyEnergy(monthByPlantCo2[p.plantId] ?? []) * p.share;
+      ytd += sumDailyEnergy(hist) * p.share;
+    }
+    return { today, thisMonth, ytd };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, co2Plants, visibleCo2PlantKeys, yearByPlantCo2, monthByPlantCo2]);
+  const co2TodayTon = toTonWith(co2Selected ? co2Selected.today : (plant?.dailyEnergy ?? 0), co2Factor);
+  const co2ThisMonthTon = toTonWith(
+    co2Selected ? co2Selected.thisMonth : monthlyEnergyKwh > 0 ? monthlyEnergyKwh : (plant?.dailyEnergy ?? 0),
+    co2Factor,
+  );
+  const co2YtdTon = toTonWith(co2Selected ? co2Selected.ytd : yearlyEnergyKwh > 0 ? yearlyEnergyKwh : (plant?.dailyEnergy ?? 0), co2Factor);
 
   // 일별 차트: 선택 월의 1일~말일 범위
   const dailyRange = useMemo(() => {
@@ -520,8 +538,10 @@ export default function DashboardPage() {
   const { byYear: cmpByYear } = usePlantYearlyEnergy(isAdmin ? (selectedCompany?.plantId ?? 0) : 0, cmpYears, todayStr);
   // 동기 비교 범위 — 올해면 1~이번 달, 지난 해면 연간
   const cmpLastMonth = cmpBaseYear === todayYear ? Number(todayStr.slice(5, 7)) : 12;
+  // 고른 회사(계약)의 몫 — 이력은 설비 전체 값이라 곱해서 쓴다 (한일튜브 자가소비·onsite 분리)
+  const cmpShare = selectedCompany?.share ?? 1;
   const cmpChartData = useMemo(() => {
-    const scale = (v: number) => Math.round(v * activeShare);
+    const scale = (v: number) => Math.round(v * cmpShare);
     if (cmpUnit === 'month') {
       const prev = cmpByYear[cmpYear - 1]?.months ?? [];
       const cur = cmpByYear[cmpYear]?.months ?? [];
@@ -532,20 +552,16 @@ export default function DashboardPage() {
         ...(i < cmpLastMonth ? { cur: scale(cur[i] ?? 0) } : {}),
       }));
     }
-    // 년: 비교 대상(전 해 · 고른 해)은 월 단위와 같은 색으로, 나머지 해는 회색
-    return cmpYears.map((y) => {
-      const total = scale(cmpByYear[y]?.total ?? 0);
-      return { x: `${y}년`, ...(y === cmpYear ? { cur: total } : y === cmpYear - 1 ? { prev: total } : { other: total }) };
-    });
-  }, [cmpUnit, cmpYear, cmpYears, cmpByYear, cmpLastMonth, activeShare]);
+    return cmpYears.map((y) => ({ x: `${y}년`, total: scale(cmpByYear[y]?.total ?? 0) }));
+  }, [cmpUnit, cmpYear, cmpYears, cmpByYear, cmpLastMonth, cmpShare]);
   const cmpSummary = useMemo(() => {
     const sumTo = (y: number) =>
-      (cmpByYear[y]?.months ?? []).slice(0, cmpLastMonth).reduce((s, v) => s + v, 0) * activeShare;
+      (cmpByYear[y]?.months ?? []).slice(0, cmpLastMonth).reduce((s, v) => s + v, 0) * cmpShare;
     const prev = Math.round(sumTo(cmpBaseYear - 1));
     const cur = Math.round(sumTo(cmpBaseYear));
     const diffPct = prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : null;
     return { prev, cur, diffPct };
-  }, [cmpByYear, cmpBaseYear, cmpLastMonth, activeShare]);
+  }, [cmpByYear, cmpBaseYear, cmpLastMonth, cmpShare]);
   const cmpRangeLabel = cmpLastMonth === 12 ? '연간' : `1~${cmpLastMonth}월`;
 
   useEffect(() => {
@@ -637,20 +653,6 @@ export default function DashboardPage() {
         <>
           <div className="flex items-center justify-between flex-wrap gap-3">
             <h1 className="text-xl font-bold text-white">대시보드</h1>
-            {isAdmin && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400">회사</span>
-                <div className="w-52">
-                  <Select
-                    options={companyOptions}
-                    value={selectedCompany?.key ?? ''}
-                    placeholder="회사 선택"
-                    onChange={(e) => setSelectedCompanyKey(e.target.value)}
-                    className="h-8 text-xs"
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Stats — QA #1 전일발전량 표시, #2 전일대비 삭제, #4 금액 계산식 */}
@@ -689,6 +691,19 @@ export default function DashboardPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
+                {/* 회사 — 비교는 회사(계약) 하나씩. 전체 합산은 없다 */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400">회사</span>
+                  <div className="w-48">
+                    <Select
+                      options={companyOptions}
+                      value={selectedCompany?.key ?? ''}
+                      placeholder="회사 선택"
+                      onChange={(e) => setSelectedCompanyKey(e.target.value)}
+                      className="h-7 text-xs"
+                    />
+                  </div>
+                </div>
                 {/* < 연도 > — 월·년 모두 고른 해 기준 */}
                 <div className="flex items-center gap-1">
                   <button
@@ -770,23 +785,19 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <RmsBarChart
+                {/* 선 그래프 — 월: 전 해·고른 해 두 선, 년: 5년 연간 한 선 */}
+                <RmsLineChart
                   data={cmpChartData}
                   xKey="x"
-                  bars={
+                  lines={
                     cmpUnit === 'month'
                       ? [
                           { key: 'prev', name: `${cmpYear - 1}년 (kWh)`, color: COMPARE_COLORS.prev },
                           { key: 'cur', name: `${cmpYear}년 (kWh)`, color: COMPARE_COLORS.cur },
                         ]
-                      : [
-                          { key: 'other', name: '연간 발전량 (kWh)', color: COMPARE_COLORS.other },
-                          { key: 'prev', name: `${cmpYear - 1}년 (kWh)`, color: COMPARE_COLORS.prev },
-                          { key: 'cur', name: `${cmpYear}년 (kWh)`, color: COMPARE_COLORS.cur },
-                        ]
+                      : [{ key: 'total', name: '연간 발전량 (kWh)', color: COMPARE_COLORS.cur }]
                   }
                   height={280}
-                  stacked={cmpUnit !== 'month'} // 년: 해마다 계열 하나뿐이라 한 자리에 그린다(빈 칸 없이)
                 />
               </div>
             </div>
