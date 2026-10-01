@@ -445,11 +445,6 @@ export default function GeneratorPpaDashboardPage() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">계약 현황</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            {isAll
-              ? `${PLANTS.length}개 발전소 통합 · 총 ${kpis.totalCap.toLocaleString()} kW`
-              : `${scopedPlants[0]?.name} · ${scopedPlants[0]?.capacityKw.toLocaleString()} kW`}
-          </p>
         </div>
         <Dropdown
           align="right"

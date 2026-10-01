@@ -165,9 +165,6 @@ export default function PlatformContractDashboardPage() {
 
       <div>
         <h1 className="text-2xl font-bold text-white">계약 현황</h1>
-        <p className="mt-1 text-sm text-slate-400">
-          SPC 체결 계약 전체 — {CONTRACTS.length}건 · {counts.totalKw.toLocaleString()} kW
-        </p>
       </div>
 
       {/* KPI 요약 카드 */}

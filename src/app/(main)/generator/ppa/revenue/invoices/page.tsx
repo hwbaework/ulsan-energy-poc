@@ -295,7 +295,6 @@ export default function GeneratorPpaRevenueInvoicesPage() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">청구서</h1>
-          <p className="mt-1 text-sm text-slate-400">월별 정산 분해 · 매출/매입 세금계산서 자동 검증</p>
         </div>
         <Dropdown
           align="right"

@@ -407,17 +407,10 @@ function ConsultantWorkView({ router }: { router: ReturnType<typeof useRouter> }
       origin: (c.origin ?? 'marketplace') as 'marketplace' | 'outsource' | 'referral',
     }));
 
-  const actionRequired = ACTIVE_PROJECTS.filter(
-    (p) => p.unreadMessages > 0 || p.pendingDocuments > 0 || p.phase !== 'COMPLETED',
-  );
-
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-white">진행중인 컨설팅</h1>
-        <p className="mt-1 text-sm text-slate-400">
-          {ACTIVE_PROJECTS.length}건 진행중 · {actionRequired.length}건 액션 필요
-        </p>
       </div>
 
       {/* 프로젝트 카드 목록 */}

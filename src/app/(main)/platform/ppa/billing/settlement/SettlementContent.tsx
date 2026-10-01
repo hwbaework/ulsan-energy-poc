@@ -744,7 +744,6 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">정산</h1>
-          <p className="mt-1 text-sm text-slate-400">정산 사이클 관리 · 자동 검증 · 결제 실행 · REC 인증 · 감사 추적</p>
         </div>
         <div className="rounded-lg border border-amber-500/[0.20] bg-amber-500/[0.04] px-3 py-2 text-xs flex items-center gap-2">
           <Clock size={12} className="text-amber-300" />

@@ -159,7 +159,6 @@ export default function PpaReportPage() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">운영 보고서</h1>
-          <p className="mt-1 text-sm text-slate-400">{year}년 에너지 거래 운영 실적 종합 보고서</p>
         </div>
         <Button variant="primary" onClick={handlePdfExport}>
           <Download size={14} className="mr-1.5" />

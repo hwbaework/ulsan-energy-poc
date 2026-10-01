@@ -406,7 +406,6 @@ export default function GeneratorTaxInvoicePage() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">세금계산서</h1>
-          <p className="mt-1 text-sm text-slate-400">월별 매출 세금계산서 발급 · 입금 통합 관리</p>
         </div>
 
         {/* Scope: 발전소 */}

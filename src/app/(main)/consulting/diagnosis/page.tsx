@@ -483,7 +483,6 @@ function DiagnosisContent() {
         <div className="flex items-center justify-between border-b border-white/[0.06] px-8 py-5">
           <div>
             <h1 className="text-xl font-bold text-white">무료진단</h1>
-            <p className="mt-0.5 text-xs text-slate-400">5단계로 우리 기업에 맞는 에너지 전략을 진단합니다</p>
           </div>
           <button
             onClick={() => router.push('/consulting')}

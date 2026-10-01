@@ -454,9 +454,6 @@ export default function PlatformPpaDocumentsPage() {
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">문서 관리</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            회원·자격 / 계약 / 발전소 / 정산·결제 / 인증·보고 / 감사·운영 문서가 자동 분류·저장됩니다
-          </p>
         </div>
         <Button variant="primary" onClick={() => router.push('/platform/ppa/documents/generation')}>
           <Plus size={14} className="mr-1.5" />

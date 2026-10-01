@@ -565,22 +565,6 @@ export default function PlatformTradingPage() {
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">{mode === 'resources' ? '자원 관리' : '거래 신청'}</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            {mode === 'resources' ? (
-              <>발전사업자 공급 자원 등록 승인 · 매칭 풀 관리 — 승인된 자원은 수용가 매칭에 사용됩니다</>
-            ) : (
-              <>
-                수용가 신청 매칭 처리 — 매칭 완료 후 계약은{' '}
-                <button
-                  onClick={() => router.push('/platform/ppa/status')}
-                  className="text-primary hover:text-primary/80 underline-offset-2 hover:underline"
-                >
-                  거래현황
-                </button>
-                으로 이동
-              </>
-            )}
-          </p>
         </div>
       </div>
 

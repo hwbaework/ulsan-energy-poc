@@ -166,9 +166,8 @@ export function ContractChangeManagement() {
     }
   };
 
-  // 제목은 메뉴와 같게 "변경·해지" — 역할별 역할(처리·동의·신청)은 부제로
+  // 제목은 메뉴와 같게 — 역할별 안내는 두지 않는다
   const title = '변경·해지';
-  const roleNote = persona === 'spc' ? '계약 변경·해지 요청 처리' : persona === 'generator' ? '계약 변경·해지 동의' : '내 변경·해지 신청';
   const intro =
     persona === 'spc'
       ? '들어온 변경·해지 요청을 검토하고 승인/거절합니다. (해지는 발전사 동의 후 승인)'
@@ -188,7 +187,6 @@ export function ContractChangeManagement() {
       <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '변경·해지' }]} />
       <div>
         <h1 className="text-2xl font-bold text-white">{title}</h1>
-        <p className="mt-1 text-sm text-slate-400">{roleNote}</p>
         <p className="mt-1 text-sm text-slate-400">{intro}</p>
       </div>
 

@@ -309,9 +309,6 @@ export default function PlatformPpaTaxInvoicePage() {
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">세금계산서</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            매입·매출 1:1:1 매핑 자동 발행 · 국세청 e세로 연동 · 수정세금계산서 관리
-          </p>
         </div>
         <div className="rounded-lg border border-violet-500/[0.20] bg-violet-500/[0.04] px-3 py-2 text-xs flex items-center gap-2">
           <Hash size={12} className="text-violet-300" />

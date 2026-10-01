@@ -521,9 +521,6 @@ export function ContractWorkspace({ persona: personaOverride }: { persona?: Pers
       <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '내 계약' }]} />
       <div>
         <h1 className="text-2xl font-bold text-white">내 계약</h1>
-        <p className="mt-1 text-sm text-slate-400">
-          {persona === 'spc' ? '전체 계약' : `내 계약`} · 총 {contracts.length}건
-        </p>
       </div>
 
       {contracts.length === 0 ? (

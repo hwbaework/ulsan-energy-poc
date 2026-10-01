@@ -128,7 +128,6 @@ export default function GeneratorPpaRevenueDeviationPage() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">발전량 편차</h1>
-          <p className="mt-1 text-sm text-slate-400">예상 대비 실 발전량 비교 · 편차 분석</p>
         </div>
         <Dropdown
           align="right"

@@ -97,9 +97,6 @@ export function TradeHistory() {
       <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '거래 이력' }]} />
       <div>
         <h1 className="text-2xl font-bold text-white">거래 이력</h1>
-        <p className="mt-1 text-sm text-slate-400">
-          체결 완료·취소된 지난 거래 이력입니다. 진행 중 거래는 거래 신청에서 확인하세요.
-        </p>
       </div>
 
       <SectionCard title={`거래 이력 ${sorted.length}건`}>

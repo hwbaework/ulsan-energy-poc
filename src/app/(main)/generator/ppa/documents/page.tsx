@@ -501,7 +501,6 @@ export default function GeneratorPpaDocumentsPage() {
 
       <div>
         <h1 className="text-2xl font-bold text-white">문서 관리</h1>
-        <p className="mt-1 text-sm text-slate-400">발급된 모든 문서가 자동으로 분류·저장됩니다</p>
       </div>
 
       {/* Top Stats */}

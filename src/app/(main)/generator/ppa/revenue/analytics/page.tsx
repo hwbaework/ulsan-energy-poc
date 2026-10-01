@@ -270,11 +270,6 @@ export default function GeneratorPpaRevenueAnalyticsPage() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">수익 분석</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            {isDirect
-              ? `${directContracts.length}개 계약 — Onsite·Offsite PPA 수익 분석`
-              : `${leaseContracts.length}개 계약 — 직접 PPA 수익 분석`}
-          </p>
         </div>
       </div>
 

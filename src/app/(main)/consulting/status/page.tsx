@@ -112,7 +112,6 @@ export default function ConsultingStatusListPage() {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold text-white">내 컨설팅</h1>
-          <p className="mt-1 text-sm text-slate-400">총 {items.length}건 — 행을 눌러 진행 상황을 확인하세요</p>
         </div>
         <Button size="sm" variant="secondary" onClick={() => router.push('/consulting/diagnosis')}>
           새 컨설팅 시작 — 무료 진단

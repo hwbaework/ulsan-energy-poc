@@ -82,9 +82,6 @@ export default function GeneratorTradingPage() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">거래 신청</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            진행 중인 전력거래 {trades.length}건 · 공급 자원 등록은 &apos;자원 관리&apos; 메뉴에서
-          </p>
         </div>
       </div>
 
