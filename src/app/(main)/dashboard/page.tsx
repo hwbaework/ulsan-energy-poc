@@ -345,7 +345,12 @@ export default function DashboardPage() {
   const co2Plants = allContractPlants;
   const [co2CompanyKey, setCo2CompanyKey] = useState('');
   const co2Company = isAdmin ? (co2Plants.find((p) => p.key === co2CompanyKey) ?? co2Plants[0]) : undefined;
-  const co2Targets = useMemo(() => (isAdmin ? (co2Company ? [co2Company] : []) : co2Plants), [isAdmin, co2Company, co2Plants]);
+  // 발전사업자·전기사용자 — 계약 발전소가 둘 이상이면 전체 | 발전소 하나 를 고른다 (한일튜브 자가소비·onsite)
+  const [co2PickKey, setCo2PickKey] = useState('all');
+  const co2Targets = useMemo(
+    () => (isAdmin ? (co2Company ? [co2Company] : []) : co2PickKey === 'all' ? co2Plants : co2Plants.filter((p) => p.key === co2PickKey)),
+    [isAdmin, co2Company, co2Plants, co2PickKey],
+  );
   const [co2Year, setCo2Year] = useState(todayYear);
   // 월: 고른 해 + 전 해(전년 대비용), 년: 고른 해까지 5년
   const co2Years = useMemo(
@@ -602,8 +607,8 @@ export default function DashboardPage() {
               value={
                 plant?.currentOutput === undefined
                   ? '- kW'
-                  : plant.currentOutput >= 1000
-                    ? `${(plant.currentOutput / 1000).toFixed(2)} MW` // 전체 합산은 MW 로
+                  : isAdmin && plant.currentOutput >= 1000
+                    ? `${(plant.currentOutput / 1000).toFixed(2)} MW` // 관리자 전체 합산만 MW, 그 외는 kW
                     : `${plant.currentOutput.toFixed(1)} kW`
               }
             />
@@ -613,9 +618,9 @@ export default function DashboardPage() {
               value={
                 yesterdayEnergy <= 0
                   ? '- kWh'
-                  : yesterdayEnergy >= 1000
-                    ? `${(yesterdayEnergy / 1000).toFixed(2)} MWh` // 전체 합산은 MWh 로
-                    : `${yesterdayEnergy.toFixed(1)} kWh`
+                  : isAdmin && yesterdayEnergy >= 1000
+                    ? `${(yesterdayEnergy / 1000).toFixed(2)} MWh` // 관리자 전체 합산만 MWh, 그 외는 kWh
+                    : `${yesterdayEnergy.toLocaleString('ko-KR', { maximumFractionDigits: 1 })} kWh`
               }
             />
 
@@ -1045,6 +1050,23 @@ export default function DashboardPage() {
                       className="h-7 text-xs"
                     />
                   </div>
+                  ) : co2Plants.length > 1 ? (
+                  /* 계약 발전소 둘 이상 — 전체 | 발전소 버튼 (월/년 토글과 같은 꼴) */
+                  <div className="flex rounded-md bg-white/[0.04] p-0.5 ring-1 ring-white/[0.06]">
+                    {[{ key: 'all', label: '전체' }, ...co2Plants.map((p) => ({ key: p.key, label: shortPlantName(p.displayName) }))].map((opt) => (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => setCo2PickKey(opt.key)}
+                        className={cn(
+                          'rounded px-2.5 h-7 text-xs transition-colors whitespace-nowrap',
+                          co2PickKey === opt.key ? 'bg-primary text-white font-medium' : 'text-slate-400 hover:text-white',
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                   ) : (
                     <span />
                   )}
@@ -1084,11 +1106,14 @@ export default function DashboardPage() {
                 areas={
                   isAdmin
                     ? [{ key: 'hanil', name: `${co2MainLabel} (tCO₂)`, color: CO2_LINES[0].color }]
-                    : co2Plants.map((pl, i) => ({
-                        key: pl.key,
-                        name: `${shortPlantName(pl.displayName)} (tCO₂)`,
-                        color: PLANT_COLORS[i % PLANT_COLORS.length],
-                      }))
+                    : co2Plants
+                        .map((pl, i) => ({ pl, i }))
+                        .filter(({ pl }) => co2Targets.includes(pl))
+                        .map(({ pl, i }) => ({
+                          key: pl.key,
+                          name: `${shortPlantName(pl.displayName)} (tCO₂)`,
+                          color: PLANT_COLORS[i % PLANT_COLORS.length],
+                        }))
                 }
                 height={260}
               />
