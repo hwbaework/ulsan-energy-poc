@@ -89,6 +89,7 @@ const STATUS_META: Record<
 };
 
 const KIND_ICON: Record<string, { icon: LucideIcon; color: string }> = {
+  self: { icon: Sun, color: 'text-amber-400' },
   offsite: { icon: Wind, color: 'text-sky-400' },
   onsite: { icon: Sun, color: 'text-amber-400' },
   lease: { icon: Battery, color: 'text-violet-400' },
@@ -171,7 +172,7 @@ function MetaRow({ label, value, valueClass }: { label: string; value: React.Rea
 
 export default function GeneratorPpaRevenueInvoicesPage() {
   const pathname = usePathname();
-  const isDirect = pathname.includes('/direct/');
+  const isDirect = pathname.includes('/direct/') || pathname.startsWith('/platform/'); // 관리자 경로도 같은 화면
 
   const { data: apiSettlements } = usePpaSettlements();
   const { data: apiLeaseInvoices } = useAllLeaseInvoices();
@@ -183,14 +184,7 @@ export default function GeneratorPpaRevenueInvoicesPage() {
       Array.isArray(apiSettlements) ? apiSettlements : ((apiSettlements as any)?.content ?? [])
     ) as PpaSettlement[];
     const leaseList = (apiLeaseInvoices ?? []) as LeaseInvoiceType[];
-    let fromPpa = ppaList.map(ppaSettlementToRecord);
-    if (isGeneratorView) {
-      fromPpa = fromPpa.map((r) => ({
-        ...r,
-        plantName:
-          r.ppaKind === 'offsite' ? 'Offsite PPA 계약' : r.ppaKind === 'onsite' ? 'Onsite PPA 계약' : r.plantName,
-      }));
-    }
+    const fromPpa = ppaList.map(ppaSettlementToRecord);
     const fromLease = leaseList.map(leaseToRecord);
     let merged = [...fromPpa, ...fromLease].sort((a, b) => b.period.localeCompare(a.period));
     if (isDirect) {
@@ -199,7 +193,7 @@ export default function GeneratorPpaRevenueInvoicesPage() {
       merged = merged.filter((r) => r.ppaKind === 'lease');
     }
     return merged;
-  }, [apiSettlements, apiLeaseInvoices, isGeneratorView, isDirect]);
+  }, [apiSettlements, apiLeaseInvoices, isDirect]);
 
   const plantNames = useMemo(() => {
     const names = new Set(allRecords.map((r) => r.plantName));

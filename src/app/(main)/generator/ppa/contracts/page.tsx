@@ -1,8 +1,8 @@
 'use client';
 
-import { ContractWorkspace } from '@/components/features/contracts/ContractWorkspace';
+// RE100 › 내 계약 — 발전사업자
+import { MyContractsScreen } from '@/components/features/trading-poc/MyContractsScreen';
 
-// 발전사 계약관리 — 공유 ContractWorkspace (페르소나 자동 판별)
-export default function GeneratorPpaContractsPage() {
-  return <ContractWorkspace />;
+export default function Page() {
+  return <MyContractsScreen />;
 }

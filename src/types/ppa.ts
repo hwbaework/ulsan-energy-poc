@@ -40,7 +40,7 @@ export interface PpaSettlement {
   transmissionLoss: number;
   welfareCost: number;
   vatBase: number;
-  ppaKind: 'offsite' | 'onsite' | 'lease';
+  ppaKind: 'offsite' | 'onsite' | 'lease' | 'self'; // self = 자가소비(운영관리)
   matchingRate: number;
   createdAt: string;
 }

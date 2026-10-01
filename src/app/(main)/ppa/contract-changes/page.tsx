@@ -1,8 +1,8 @@
 'use client';
 
-import { ContractChangeManagement } from '@/components/features/contracts/ContractChangeManagement';
+// RE100 › 변경·해지 — 전 역할 공통 경로
+import { ContractChangesScreen } from '@/components/features/trading-poc/ContractChangesScreen';
 
-// 변경·해지 처리 — 공유 컴포넌트 (페르소나 자동 판별: 수용가 추적 / 발전사 동의 / SPC 승인)
-export default function ContractChangesPage() {
-  return <ContractChangeManagement />;
+export default function Page() {
+  return <ContractChangesScreen />;
 }

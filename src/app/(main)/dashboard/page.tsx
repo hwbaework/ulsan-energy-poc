@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueries } from '@tanstack/react-query';
 import { useOnboardingStore } from '@/stores';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { getPersona, usePersonaOverride } from '@/lib/persona';
 import {
   FileText,
   Zap,
@@ -18,14 +21,17 @@ import {
 } from 'lucide-react';
 import { StatCard, StatsGrid, OnboardingModal, AssetRegistrationBanner } from '@/components/features';
 
-import { RmsAreaLineChart, RmsLineChart } from '@/components/ui/Chart';
+import { RmsAreaLineChart, RmsBarChart, RmsLineChart } from '@/components/ui/Chart';
+import { Select } from '@/components/ui/Select';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { useScopedPlants, usePlantsHistory } from '@/hooks/monitoring/useScopedPlants';
 import { expandByContract } from '@/lib/contract-plants';
 import { useMyPlantIds } from '@/hooks/monitoring/useMyPlantFilter';
 import { useEnergySettings } from '@/hooks/common/useSettings';
-import { useMarketPrices } from '@/hooks/trading/useTrading';
+import * as monitoringApi from '@/api/monitoring';
+import type { PlantHistoryPoint } from '@/api/monitoring/monitoring';
+import { monitoringKeys } from '@/api/queryKeys';
 
 // ── Mock Data ──
 
@@ -37,33 +43,6 @@ const TIME_UNIT_OPTIONS: { value: TimeUnit; label: string }[] = [
   { value: 'day', label: '일' },
   { value: 'month', label: '월' },
 ];
-
-const DEFAULT_SMP_PRICE_CAP = 180;
-const SMP_MARKETS = [
-  { id: 'land', label: '육지', color: '#3B82F6' },
-  { id: 'jeju', label: '제주도', color: '#F97316' },
-  { id: 'cap', label: '상한가', color: '#EF4444' },
-] as const;
-
-function buildSmpFromApi(data: any[] | undefined, smpCap: number) {
-  if (!data || !Array.isArray(data) || data.length === 0) return [];
-  const byDate = new Map<string, { land?: number; jeju?: number }>();
-  for (const d of data) {
-    const key = d.priceDate;
-    const entry = byDate.get(key) ?? {};
-    if (d.region === 'LAND') entry.land = Number(d.price);
-    else if (d.region === 'JEJU') entry.jeju = Number(d.price);
-    byDate.set(key, entry);
-  }
-  return [...byDate.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([date, v]) => ({
-      x: `${date.slice(5).replace('-', '/')}`,
-      land: v.land ?? 0,
-      jeju: v.jeju ?? 0,
-      cap: smpCap,
-    }));
-}
 
 /** 예상 발전량 — 설비 용량 × 표준 일사 곡선. 시간 단위는 kW, 일/월 단위는 kWh(일 3.4h 등가 가동 기준) */
 function withForecast(rows: Array<Record<string, unknown> & { x: string }>, tu: TimeUnit, capacityKw: number) {
@@ -207,6 +186,60 @@ function buildMonthlyGenData(history: any[] | undefined, year: number) {
   });
 }
 
+// ── 관리자: 회사(계약 발전소) 하나를 골라 작년·올해 발전량을 막대로 비교 ──
+type CompareUnit = 'month' | 'year';
+const COMPARE_UNIT_OPTIONS: { value: CompareUnit; label: string }[] = [
+  { value: 'month', label: '월' },
+  { value: 'year', label: '년' },
+];
+const COMPARE_COLORS = { prev: '#3B82F6', cur: '#10B981', other: '#475569' } as const; // other = 년 단위에서 비교 대상이 아닌 해
+
+interface YearEnergy {
+  /** 1월~12월 발전량(kWh) */
+  months: number[];
+  total: number;
+}
+
+/** 시간별 이력 → 일별 최대 dailyEnergy → 월별 합. 해당 연도·오늘까지만 센다 */
+function sumByMonth(history: PlantHistoryPoint[] | undefined, year: number, todayStr: string): YearEnergy {
+  const months = Array<number>(12).fill(0);
+  if (!history || history.length === 0) return { months, total: 0 };
+  const byDate = new Map<string, number>();
+  for (const h of history) {
+    const dateKey = h.time ? h.time.slice(0, 10) : '';
+    if (!dateKey || dateKey > todayStr || Number(dateKey.slice(0, 4)) !== year) continue;
+    byDate.set(dateKey, Math.max(byDate.get(dateKey) ?? 0, h.dailyEnergy ?? 0));
+  }
+  let total = 0;
+  for (const [date, kwh] of byDate) {
+    const m = Number(date.slice(5, 7)) - 1;
+    months[m] = (months[m] ?? 0) + kwh;
+    total += kwh;
+  }
+  return { months, total };
+}
+
+/** 발전소 하나의 연도별 발전량 — 연도마다 1/1~12/31 이력을 한 번씩 조회 */
+function usePlantYearlyEnergy(plantId: number, years: number[], todayStr: string) {
+  const results = useQueries({
+    queries: years.map((y) => ({
+      queryKey: monitoringKeys.plantHistory(plantId, `${y}-01-01`, `${y}-12-31`),
+      queryFn: () => monitoringApi.getPlantHistory(plantId, `${y}-01-01`, `${y}-12-31`),
+      staleTime: 5 * 60_000,
+      enabled: plantId > 0,
+    })),
+  });
+  const dataKey = results.map((r) => (r.data ? r.data.length : -1)).join(',');
+  return useMemo(() => {
+    const byYear: Record<number, YearEnergy> = {};
+    years.forEach((y, i) => {
+      byYear[y] = sumByMonth(results[i]?.data, y, todayStr);
+    });
+    return { byYear, isLoading: results.some((r) => r.isLoading) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataKey, plantId, years.join(','), todayStr]);
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const { isCompleted, complete, hydrate } = useOnboardingStore();
@@ -216,7 +249,6 @@ export default function DashboardPage() {
   const co2Factor = energySettings?.CO2_EMISSION_FACTOR
     ? Number(energySettings.CO2_EMISSION_FACTOR)
     : DEFAULT_CO2_EMISSION_FACTOR;
-  const smpPriceCap = energySettings?.SMP_PRICE_CAP ? Number(energySettings.SMP_PRICE_CAP) : DEFAULT_SMP_PRICE_CAP;
 
   // 칩 X/Plus 토글 — 클릭으로 차트 라인 표시/숨김
   // 발전소 발전·공급 시리즈 토글 (현재/예상 발전량)
@@ -253,40 +285,42 @@ export default function DashboardPage() {
     });
   };
 
-  // SMP 시장 토글 + 단위 (일/월/년)
-  // SMP — 최근 30일만 표시
-  const [hiddenSmpMarkets, setHiddenSmpMarkets] = useState<Set<string>>(new Set());
-  const toggleSmpMarket = (id: string) => {
-    setHiddenSmpMarkets((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-  const smpRange = useMemo(() => {
-    const to = new Date();
-    const from = new Date();
-    from.setDate(from.getDate() - 30);
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
-    return { from: fmt(from), to: fmt(to) };
-  }, []);
-  const { data: smpRaw } = useMarketPrices(smpRange);
-  const smpChartData = useMemo(() => buildSmpFromApi(smpRaw, smpPriceCap), [smpRaw, smpPriceCap]);
+  const user = useAuthStore((s) => s.user);
+  const personaOverride = usePersonaOverride((s) => s.override);
+  const isAdmin = (personaOverride ?? getPersona(user)) === 'admin';
 
   const { hasPlants, isGenerator } = useMyPlantIds();
   // 역할별 범위: 관리자=전체, 발전사업자·전기사용자=자사 계약 발전소
   const { plants: scopedPlants } = useScopedPlants();
-  const scopedIds = useMemo(() => scopedPlants.map((p) => p.plantId), [scopedPlants]);
   // 발전소별 칩·계열은 계약 단위 — 한일튜브(자가소비)·한일튜브(onsite). 이력은 발전소 것에 계약 몫(share)을 곱한다
-  const contractPlants = useMemo(() => expandByContract(scopedPlants), [scopedPlants]);
+  const allContractPlants = useMemo(() => expandByContract(scopedPlants), [scopedPlants]);
+
+  // 관리자: 회사(계약 발전소) 하나만 골라 본다 — 지표·발전량 비교·CO₂ 전부 그 회사 기준
+  const [selectedCompanyKey, setSelectedCompanyKey] = useState('');
+  const selectedCompany = useMemo(
+    () => allContractPlants.find((p) => p.key === selectedCompanyKey) ?? allContractPlants[0],
+    [allContractPlants, selectedCompanyKey],
+  );
+  const companyOptions = useMemo(
+    () => allContractPlants.map((p) => ({ value: p.key, label: shortPlantName(p.displayName) })),
+    [allContractPlants],
+  );
+  const activePlants = useMemo(
+    () => (isAdmin ? (selectedCompany ? [selectedCompany] : []) : scopedPlants),
+    [isAdmin, selectedCompany, scopedPlants],
+  );
+  const scopedIds = useMemo(() => activePlants.map((p) => p.plantId), [activePlants]);
+  // 관리자가 고른 계약의 몫 — 이력은 설비 전체 값이라 곱해서 쓴다
+  const activeShare = isAdmin ? (selectedCompany?.share ?? 1) : 1;
+  // 발전소별 칩은 관리자 화면엔 없다(회사 하나만 보니까)
+  const contractPlants = useMemo(() => (isAdmin ? [] : allContractPlants), [isAdmin, allContractPlants]);
   const plant = useMemo(
     () => ({
-      currentOutput: scopedPlants.reduce((sum, p) => sum + p.currentOutput, 0),
-      capacity: scopedPlants.reduce((sum, p) => sum + p.capacity, 0),
-      dailyEnergy: scopedPlants.reduce((sum, p) => sum + (p.dailyEnergy ?? 0), 0),
+      currentOutput: activePlants.reduce((sum, p) => sum + p.currentOutput, 0),
+      capacity: activePlants.reduce((sum, p) => sum + p.capacity, 0),
+      dailyEnergy: activePlants.reduce((sum, p) => sum + (p.dailyEnergy ?? 0), 0),
     }),
-    [scopedPlants],
+    [activePlants],
   );
   // 발전소별 선 표시 토글 (기본 꺼짐 — 칩으로 켠다)
   const [visiblePlantKeys, setVisiblePlantKeys] = useState<Set<string>>(new Set());
@@ -297,7 +331,6 @@ export default function DashboardPage() {
     chipsInitRef.current = true;
     const all = new Set(contractPlants.map((p) => p.key));
     setVisiblePlantKeys(all);
-    setVisibleCo2PlantKeys(all);
   }, [contractPlants]);
   const togglePlantKey = (key: string) => {
     setVisiblePlantKeys((prev) => {
@@ -319,8 +352,8 @@ export default function DashboardPage() {
   const yesterdayEnergy = useMemo(() => {
     if (!yesterdayHistory || !Array.isArray(yesterdayHistory) || yesterdayHistory.length === 0) return 0;
     const maxEnergy = Math.max(...yesterdayHistory.map((h) => h.dailyEnergy ?? 0));
-    return maxEnergy;
-  }, [yesterdayHistory]);
+    return maxEnergy * activeShare;
+  }, [yesterdayHistory, activeShare]);
 
   const yesterdayHours = useMemo(() => {
     if (!yesterdayHistory || !Array.isArray(yesterdayHistory)) return 0;
@@ -338,7 +371,11 @@ export default function DashboardPage() {
   const monthStart = useMemo(() => `${todayStr.slice(0, 7)}-01`, [todayStr]);
   const yearStart = useMemo(() => `${todayYear}-01-01`, [todayYear]);
   const { merged: monthHistory } = usePlantsHistory(scopedIds, monthStart, todayStr);
-  const { merged: yearHistory, byPlant: yearByPlant } = usePlantsHistory(scopedIds, yearStart, todayStr);
+  const { merged: yearHistory } = usePlantsHistory(scopedIds, yearStart, todayStr);
+  // CO₂ 발전소별 계열 — 관리자도 전 회사(계약 발전소)를 다 그린다. 발전사업자·전기사용자는 자사 계약 발전소
+  const co2Plants = allContractPlants;
+  const co2PlantIds = useMemo(() => Array.from(new Set(allContractPlants.map((p) => p.plantId))), [allContractPlants]);
+  const { byPlant: yearByPlantCo2 } = usePlantsHistory(co2PlantIds, yearStart, todayStr);
 
   const sumDailyEnergy = (history: typeof monthHistory) => {
     if (!history || !Array.isArray(history) || history.length === 0) return 0;
@@ -354,10 +391,17 @@ export default function DashboardPage() {
     return total;
   };
 
-  const monthlyEnergyKwh = useMemo(() => sumDailyEnergy(monthHistory), [monthHistory]);
-  const yearlyEnergyKwh = useMemo(() => sumDailyEnergy(yearHistory), [yearHistory]);
+  const monthlyEnergyKwh = useMemo(() => sumDailyEnergy(monthHistory) * activeShare, [monthHistory, activeShare]);
+  const yearlyEnergyKwh = useMemo(() => sumDailyEnergy(yearHistory) * activeShare, [yearHistory, activeShare]);
   // CO₂ 저감 — 전체(hanil) + 발전소별(p_<id>) 시리즈
   const [visibleCo2PlantKeys, setVisibleCo2PlantKeys] = useState<Set<string>>(new Set());
+  // CO₂ 회사별 선은 처음부터 전부 켠다 (관리자: 전 회사, 그 외: 자사 계약 발전소)
+  const co2ChipsInitRef = useRef(false);
+  useEffect(() => {
+    if (co2ChipsInitRef.current || co2Plants.length === 0) return;
+    co2ChipsInitRef.current = true;
+    setVisibleCo2PlantKeys(new Set(co2Plants.map((p) => p.key)));
+  }, [co2Plants]);
 
   const toggleCo2PlantKey = (key: string) => {
     setVisibleCo2PlantKeys((prev) => {
@@ -368,10 +412,12 @@ export default function DashboardPage() {
     });
   };
   const co2ChartData = useMemo(() => {
-    const rows = buildCo2FromHistory(yearHistory, co2Unit, co2Factor) as Array<Record<string, string | number>>;
+    const rows: Array<Record<string, string | number>> = (
+      buildCo2FromHistory(yearHistory, co2Unit, co2Factor) as Array<Record<string, string | number>>
+    ).map((r) => ({ ...r, hanil: Math.round(Number(r.hanil ?? 0) * activeShare * 100) / 100 }));
     const perPlant = new Map<string, Record<string, number>>();
-    for (const pl of contractPlants) {
-      const hist = yearByPlant[pl.plantId];
+    for (const pl of co2Plants) {
+      const hist = yearByPlantCo2[pl.plantId];
       if (!hist || hist.length === 0) continue;
       for (const r of buildCo2FromHistory(hist, co2Unit, co2Factor) as Array<Record<string, string | number>>) {
         const x = String(r.x);
@@ -381,7 +427,9 @@ export default function DashboardPage() {
       }
     }
     return rows.map((r) => ({ ...r, ...(perPlant.get(String(r.x)) ?? {}) }));
-  }, [yearHistory, yearByPlant, contractPlants, co2Unit, co2Factor]);
+  }, [yearHistory, yearByPlantCo2, co2Plants, co2Unit, co2Factor, activeShare]);
+  // CO₂ 기본 계열 이름 — 관리자는 고른 회사, 그 외는 전체
+  const co2MainLabel = isAdmin && selectedCompany ? shortPlantName(selectedCompany.displayName) : '전체';
 
   const co2TodayTon = toTonWith(plant?.dailyEnergy ?? 0, co2Factor);
   const co2ThisMonthTon = toTonWith(monthlyEnergyKwh > 0 ? monthlyEnergyKwh : (plant?.dailyEnergy ?? 0), co2Factor);
@@ -394,7 +442,7 @@ export default function DashboardPage() {
     return { from: `${genCtl.month}-01`, to: `${genCtl.month}-${String(last).padStart(2, '0')}` };
   }, [genCtl.month]);
   const { merged: dailyHistory, byPlant: dailyByPlant } = usePlantsHistory(
-    genCtl.tu === 'day' ? scopedIds : EMPTY_IDS,
+    genCtl.tu === 'day' && !isAdmin ? scopedIds : EMPTY_IDS,
     dailyRange.from,
     dailyRange.to,
   );
@@ -408,13 +456,13 @@ export default function DashboardPage() {
     [genCtl.year],
   );
   const { merged: monthlyHistory, byPlant: monthlyByPlant } = usePlantsHistory(
-    genCtl.tu === 'month' ? scopedIds : EMPTY_IDS,
+    genCtl.tu === 'month' && !isAdmin ? scopedIds : EMPTY_IDS,
     yearlyRange.from,
     yearlyRange.to,
   );
 
   const { merged: historyData, byPlant: hourlyByPlant } = usePlantsHistory(
-    genCtl.tu === 'hour' ? scopedIds : EMPTY_IDS,
+    genCtl.tu === 'hour' && !isAdmin ? scopedIds : EMPTY_IDS,
     genCtl.date,
     genCtl.date,
   );
@@ -460,6 +508,45 @@ export default function DashboardPage() {
     monthlyByPlant,
     contractPlants,
   ]);
+
+  // 관리자: 발전량 비교 — 월 = 고른 해와 그 전 해의 월별, 년 = 고른 해까지 5년 연간. 요약은 둘 다 고른 해 vs 전 해
+  const [cmpUnit, setCmpUnit] = useState<CompareUnit>('month');
+  const [cmpYear, setCmpYear] = useState(todayYear);
+  const cmpBaseYear = cmpYear;
+  const cmpYears = useMemo(
+    () => (cmpUnit === 'month' ? [cmpYear - 1, cmpYear] : Array.from({ length: 5 }, (_, i) => cmpYear - 4 + i)),
+    [cmpUnit, cmpYear],
+  );
+  const { byYear: cmpByYear } = usePlantYearlyEnergy(isAdmin ? (selectedCompany?.plantId ?? 0) : 0, cmpYears, todayStr);
+  // 동기 비교 범위 — 올해면 1~이번 달, 지난 해면 연간
+  const cmpLastMonth = cmpBaseYear === todayYear ? Number(todayStr.slice(5, 7)) : 12;
+  const cmpChartData = useMemo(() => {
+    const scale = (v: number) => Math.round(v * activeShare);
+    if (cmpUnit === 'month') {
+      const prev = cmpByYear[cmpYear - 1]?.months ?? [];
+      const cur = cmpByYear[cmpYear]?.months ?? [];
+      return Array.from({ length: 12 }, (_, i) => ({
+        x: `${i + 1}월`,
+        prev: scale(prev[i] ?? 0),
+        // 아직 오지 않은 달은 올해 막대를 그리지 않는다
+        ...(i < cmpLastMonth ? { cur: scale(cur[i] ?? 0) } : {}),
+      }));
+    }
+    // 년: 비교 대상(전 해 · 고른 해)은 월 단위와 같은 색으로, 나머지 해는 회색
+    return cmpYears.map((y) => {
+      const total = scale(cmpByYear[y]?.total ?? 0);
+      return { x: `${y}년`, ...(y === cmpYear ? { cur: total } : y === cmpYear - 1 ? { prev: total } : { other: total }) };
+    });
+  }, [cmpUnit, cmpYear, cmpYears, cmpByYear, cmpLastMonth, activeShare]);
+  const cmpSummary = useMemo(() => {
+    const sumTo = (y: number) =>
+      (cmpByYear[y]?.months ?? []).slice(0, cmpLastMonth).reduce((s, v) => s + v, 0) * activeShare;
+    const prev = Math.round(sumTo(cmpBaseYear - 1));
+    const cur = Math.round(sumTo(cmpBaseYear));
+    const diffPct = prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : null;
+    return { prev, cur, diffPct };
+  }, [cmpByYear, cmpBaseYear, cmpLastMonth, activeShare]);
+  const cmpRangeLabel = cmpLastMonth === 12 ? '연간' : `1~${cmpLastMonth}월`;
 
   useEffect(() => {
     hydrate();
@@ -548,7 +635,23 @@ export default function DashboardPage() {
       {/* Header */}
       {hasPlants && (
         <>
-          <h1 className="text-xl font-bold text-white">대시보드</h1>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <h1 className="text-xl font-bold text-white">대시보드</h1>
+            {isAdmin && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400">회사</span>
+                <div className="w-52">
+                  <Select
+                    options={companyOptions}
+                    value={selectedCompany?.key ?? ''}
+                    placeholder="회사 선택"
+                    onChange={(e) => setSelectedCompanyKey(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Stats — QA #1 전일발전량 표시, #2 전일대비 삭제, #4 금액 계산식 */}
           <StatsGrid columns={4}>
@@ -573,7 +676,124 @@ export default function DashboardPage() {
             />
           </StatsGrid>
 
-          {/* 발전소 발전·공급 */}
+          {/* 관리자 — 작년·올해 발전량 비교 */}
+          {isAdmin && (
+            <div className="rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] overflow-hidden">
+              <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <h3 className="text-md font-semibold text-white">발전량 비교</h3>
+                  <p className="mt-0.5 text-xs text-slate-400">
+                    {cmpUnit === 'month'
+                      ? `${cmpYear - 1}년 · ${cmpYear}년 월별 발전량 (kWh)`
+                      : `${cmpYear - 4}년 ~ ${cmpYear}년 연간 발전량 (kWh)`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                {/* < 연도 > — 월·년 모두 고른 해 기준 */}
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCmpYear((y) => y - 1)}
+                    className="flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.04] text-slate-400 hover:text-white hover:bg-white/[0.08] ring-1 ring-white/[0.06]"
+                    aria-label="이전"
+                  >
+                    <ChevronLeft size={13} />
+                  </button>
+                  <span className="text-sm font-semibold text-white tabular-nums px-1 min-w-[56px] text-center">{cmpYear}년</span>
+                  <button
+                    type="button"
+                    disabled={cmpYear >= todayYear}
+                    onClick={() => setCmpYear((y) => Math.min(y + 1, todayYear))}
+                    className={cn(
+                      'flex h-7 w-7 items-center justify-center rounded-md ring-1 ring-white/[0.06]',
+                      cmpYear >= todayYear
+                        ? 'bg-white/[0.02] text-slate-600 cursor-not-allowed'
+                        : 'bg-white/[0.04] text-slate-400 hover:text-white hover:bg-white/[0.08]',
+                    )}
+                    aria-label="다음"
+                  >
+                    <ChevronRight size={13} />
+                  </button>
+                </div>
+                <div className="flex rounded-md bg-white/[0.04] p-0.5 ring-1 ring-white/[0.06]">
+                  {COMPARE_UNIT_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setCmpUnit(opt.value)}
+                      className={cn(
+                        'rounded px-2.5 h-7 text-xs transition-colors',
+                        cmpUnit === opt.value ? 'bg-primary text-white font-medium' : 'text-slate-400 hover:text-white',
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                </div>
+              </div>
+              <div className="px-5 py-4">
+                {/* 동기 비교 — 전 해 / 고른 해 / 증감 */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                  <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.06] p-3">
+                    <p className="text-sm text-slate-300">
+                      {cmpBaseYear - 1}년 {cmpRangeLabel} 발전량
+                    </p>
+                    <p className="text-xl font-semibold text-white tabular-nums mt-1">
+                      {cmpSummary.prev.toLocaleString()} <span className="text-white">kWh</span>
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-emerald-500/[0.06] ring-1 ring-emerald-500/30 p-3">
+                    <p className="text-sm text-emerald-300/90">
+                      {cmpBaseYear}년 {cmpRangeLabel} 발전량
+                    </p>
+                    <p className="text-xl font-semibold text-emerald-300 tabular-nums mt-1">
+                      {cmpSummary.cur.toLocaleString()} <span className="text-emerald-300">kWh</span>
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.06] p-3">
+                    <p className="text-sm text-slate-300">전년 동기 대비</p>
+                    <p
+                      className={cn(
+                        'text-xl font-semibold tabular-nums mt-1',
+                        cmpSummary.diffPct == null
+                          ? 'text-slate-500'
+                          : cmpSummary.diffPct >= 0
+                            ? 'text-emerald-300'
+                            : 'text-red-400',
+                      )}
+                    >
+                      {cmpSummary.diffPct == null
+                        ? '-'
+                        : `${cmpSummary.diffPct > 0 ? '+' : ''}${cmpSummary.diffPct}%`}
+                    </p>
+                  </div>
+                </div>
+
+                <RmsBarChart
+                  data={cmpChartData}
+                  xKey="x"
+                  bars={
+                    cmpUnit === 'month'
+                      ? [
+                          { key: 'prev', name: `${cmpYear - 1}년 (kWh)`, color: COMPARE_COLORS.prev },
+                          { key: 'cur', name: `${cmpYear}년 (kWh)`, color: COMPARE_COLORS.cur },
+                        ]
+                      : [
+                          { key: 'other', name: '연간 발전량 (kWh)', color: COMPARE_COLORS.other },
+                          { key: 'prev', name: `${cmpYear - 1}년 (kWh)`, color: COMPARE_COLORS.prev },
+                          { key: 'cur', name: `${cmpYear}년 (kWh)`, color: COMPARE_COLORS.cur },
+                        ]
+                  }
+                  height={280}
+                  stacked={cmpUnit !== 'month'} // 년: 해마다 계열 하나뿐이라 한 자리에 그린다(빈 칸 없이)
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 발전소 발전·공급 — 발전사업자·전기사용자 */}
+          {!isAdmin && (
           <div className="rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] overflow-hidden">
             <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between flex-wrap gap-2">
               <div>
@@ -777,8 +997,8 @@ export default function DashboardPage() {
                 height={280}
               />
             </div>
-
           </div>
+          )}
 
           <div className="rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] overflow-hidden">
             <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between flex-wrap gap-2">
@@ -831,7 +1051,8 @@ export default function DashboardPage() {
 
               {/* 시리즈 칩 — 전체 / 발전소별 토글 */}
               <div className="flex flex-wrap gap-1.5 mb-3">
-                {CO2_LINES.map((m) => {
+                {!isAdmin &&
+                  CO2_LINES.map((m) => {
                   const hidden = hiddenCo2Lines.has(m.id);
                   return (
                     <button
@@ -850,14 +1071,14 @@ export default function DashboardPage() {
                         className="h-2 w-2 rounded-full shrink-0 transition-opacity"
                         style={{ backgroundColor: m.color, opacity: hidden ? 0.3 : 1 }}
                       />
-                      {m.label}
+                      {co2MainLabel}
                       {hidden ? <Plus size={10} className="opacity-50" /> : <X size={10} className="opacity-70" />}
                     </button>
                   );
                 })}
-                {contractPlants.length > 1 && <span className="mx-1 h-4 w-px bg-white/10" />}
-                {contractPlants.length > 1 &&
-                  contractPlants.map((pl, i) => {
+                {!isAdmin && co2Plants.length > 1 && <span className="mx-1 h-4 w-px bg-white/10" />}
+                {(isAdmin || co2Plants.length > 1) &&
+                  co2Plants.map((pl, i) => {
                     const key = pl.key;
                     const on = visibleCo2PlantKeys.has(key);
                     const color = PLANT_COLORS[i % PLANT_COLORS.length];
@@ -888,12 +1109,12 @@ export default function DashboardPage() {
                 data={co2ChartData}
                 xKey="x"
                 lines={[
-                  ...CO2_LINES.filter((m) => !hiddenCo2Lines.has(m.id)).map((m) => ({
+                  ...(isAdmin ? [] : CO2_LINES.filter((m) => !hiddenCo2Lines.has(m.id))).map((m) => ({
                     key: m.id,
-                    name: `${m.label} (tCO₂)`,
+                    name: `${co2MainLabel} (tCO₂)`,
                     color: m.color,
                   })),
-                  ...contractPlants
+                  ...co2Plants
                     .map((pl, i) => ({ pl, i }))
                     .filter(({ pl }) => visibleCo2PlantKeys.has(pl.key))
                     .map(({ pl, i }) => ({
@@ -907,54 +1128,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] overflow-hidden">
-            <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between flex-wrap gap-2">
-              <div>
-                <h3 className="text-md font-semibold text-white">SMP 시장 정보</h3>
-                <p className="mt-0.5 text-xs text-slate-400">최근 30일 일평균 SMP (₩/kWh)</p>
-              </div>
-              <span className="text-[11px] text-red-400">상한가 {smpPriceCap} ₩/kWh</span>
-            </div>
-            <div className="px-5 py-4">
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {SMP_MARKETS.map((m) => {
-                  const hidden = hiddenSmpMarkets.has(m.id);
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => toggleSmpMarket(m.id)}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 transition-colors',
-                        hidden
-                          ? 'bg-transparent text-slate-600 ring-white/[0.06] hover:text-slate-400'
-                          : 'bg-white/[0.06] text-white ring-white/[0.12] hover:bg-white/[0.10]',
-                      )}
-                      aria-pressed={!hidden}
-                    >
-                      <span
-                        className="h-2 w-2 rounded-full shrink-0 transition-opacity"
-                        style={{ backgroundColor: m.color, opacity: hidden ? 0.3 : 1 }}
-                      />
-                      {m.label}
-                      {hidden ? <Plus size={10} className="opacity-50" /> : <X size={10} className="opacity-70" />}
-                    </button>
-                  );
-                })}
-              </div>
-              <RmsLineChart
-                data={smpChartData}
-                xKey="x"
-                lines={SMP_MARKETS.filter((m) => !hiddenSmpMarkets.has(m.id)).map((m) => ({
-                  key: m.id,
-                  name: m.id === 'cap' ? `${m.label} (₩/kWh)` : `${m.label} (₩/kWh)`,
-                  color: m.color,
-                  ...(m.id === 'cap' ? { strokeDasharray: '5 5' } : {}),
-                }))}
-                height={260}
-              />
-            </div>
-          </div>
         </>
       )}
     </div>

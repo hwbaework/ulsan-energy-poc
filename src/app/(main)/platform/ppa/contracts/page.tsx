@@ -1,8 +1,8 @@
 'use client';
 
-import { ContractWorkspace } from '@/components/features/contracts/ContractWorkspace';
+// RE100 › 내 계약 — 관리자(SPC) (전체 계약)
+import { MyContractsScreen } from '@/components/features/trading-poc/MyContractsScreen';
 
-// SPC 계약관리 — 공유 ContractWorkspace (페르소나 자동 판별)
-export default function PlatformPpaContractsPage() {
-  return <ContractWorkspace />;
+export default function Page() {
+  return <MyContractsScreen />;
 }

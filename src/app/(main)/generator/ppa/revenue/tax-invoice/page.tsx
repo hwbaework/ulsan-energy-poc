@@ -96,9 +96,11 @@ interface Plant {
 
 // PPA 유형 뱃지 — SPC 정산과 동일 색 체계
 const KIND_META: Record<string, { label: string; cls: string }> = {
-  offsite: { label: 'Offsite PPA', cls: 'bg-blue-500/[0.10] text-blue-300 ring-blue-500/30' },
-  onsite: { label: 'Onsite PPA', cls: 'bg-emerald-500/[0.10] text-emerald-300 ring-emerald-500/30' },
-  lease: { label: '직접 PPA', cls: 'bg-violet-500/[0.10] text-violet-300 ring-violet-500/30' },
+  // POC 계약 유형은 자가소비 · onsite 뿐 — 색 없이 글자만
+  self: { label: '자가소비', cls: 'bg-white/[0.04] text-slate-300 ring-white/[0.10]' },
+  onsite: { label: 'onsite', cls: 'bg-white/[0.04] text-slate-300 ring-white/[0.10]' },
+  offsite: { label: 'onsite', cls: 'bg-white/[0.04] text-slate-300 ring-white/[0.10]' },
+  lease: { label: '자가소비', cls: 'bg-white/[0.04] text-slate-300 ring-white/[0.10]' },
 };
 
 /** PPA 정산 → 통합 Invoice 변환 */
@@ -233,7 +235,7 @@ function invoiceToExport(inv: Invoice): TaxInvoiceExportData {
       {
         month: String(Number(mm)),
         day: lastDay ? String(Number(lastDay)) : '',
-        description: `전력량 대금 (${kindLabel})`,
+        description: inv.kind === 'self' ? '운영관리비 (자가소비)' : `전력량 대금 (${kindLabel})`,
         spec: 'kWh',
         quantity: `${inv.supply.toLocaleString()} MWh`,
         unitPrice: `₩${inv.unitPrice}`,
@@ -276,7 +278,7 @@ function ScopeTrigger({ label, value, disabled }: { label: string; value: string
 
 export default function GeneratorTaxInvoicePage() {
   const pathname = usePathname();
-  const isDirect = pathname.includes('/direct/');
+  const isDirect = pathname.includes('/direct/') || pathname.startsWith('/platform/'); // 관리자 경로도 같은 화면
 
   // API 호출 — PPA 정산 + Lease 세금계산서
   const { data: apiSettlements } = usePpaSettlements();
@@ -294,22 +296,13 @@ export default function GeneratorTaxInvoicePage() {
     const fromPpa = ppaList.map(settlementToInvoice);
     const fromLease = leaseList.map(leaseInvoiceToInvoice);
     let merged = [...fromPpa, ...fromLease].sort((a, b) => a.issueMonth.localeCompare(b.issueMonth));
-    if (isGeneratorView) {
-      merged = merged.map((i) => {
-        if (i.kind !== 'lease') {
-          const kindLabel = i.kind === 'offsite' ? 'Offsite PPA 계약' : 'Onsite PPA 계약';
-          return { ...i, buyer: kindLabel, plantName: kindLabel, plant: kindLabel };
-        }
-        return i;
-      });
-    }
     if (isDirect) {
       merged = merged.filter((i) => i.kind !== 'lease');
     } else {
       merged = merged.filter((i) => i.kind === 'lease');
     }
     return merged;
-  }, [apiSettlements, apiLeaseInvoices, isGeneratorView, user?.companyName, isDirect]);
+  }, [apiSettlements, apiLeaseInvoices, isDirect]);
 
   // 발전소 목록 (API 데이터에서 추출)
   const plants = useMemo<Plant[]>(() => {

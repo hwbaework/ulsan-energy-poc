@@ -24,7 +24,6 @@ import {
   FileText,
   ClipboardCheck,
   ClipboardList,
-  Activity,
   ChevronDown,
   LayoutDashboard,
   MessageSquare,
@@ -205,15 +204,13 @@ const GNB_ITEMS: GnbItem[] = [
         { to: '/ppa/contract-changes', icon: ClipboardList, label: '변경·해지', section: '전력거래' }, // 2.1.3
         { to: '/trading/history', icon: History, label: '거래 이력', section: '전력거래' }, // 2.1.4
         {
-          to: '/generator/ppa/direct/revenue/analytics',
+          to: '/generator/ppa/direct/revenue/tax-invoice',
           icon: Receipt,
           label: '수익·정산',
           section: '전력거래',
           subChildren: [
-            { to: '/generator/ppa/direct/revenue/analytics', icon: Receipt, label: '수익 분석', end: true },
             { to: '/generator/ppa/direct/revenue/tax-invoice', icon: FileText, label: '세금계산서' },
             { to: '/generator/ppa/direct/revenue/invoices', icon: CreditCard, label: '청구서' },
-            { to: '/generator/ppa/revenue/deviation', icon: Activity, label: '발전량 편차' },
           ],
         }, // 2.1.5
         { to: '/generator/ppa/dashboard', icon: BarChart3, label: '계약 현황', section: '전력거래' }, // 2.1.6
@@ -228,15 +225,13 @@ const GNB_ITEMS: GnbItem[] = [
         { to: '/ppa/contract-changes', icon: ClipboardList, label: '변경·해지', section: '전력거래' }, // 2.1.3
         { to: '/trading/history', icon: History, label: '거래 이력', section: '전력거래' }, // 2.1.4
         {
-          to: '/platform/ppa/billing/settlement',
+          to: '/platform/ppa/billing/tax-invoice',
           icon: Receipt,
           label: '수익·정산',
           section: '전력거래',
           subChildren: [
-            { to: '/platform/ppa/billing/settlement', icon: Calculator, label: '정산', end: true },
-            { to: '/platform/ppa/billing/settlement/payment', icon: CreditCard, label: '수금·지급' },
-            { to: '/platform/ppa/billing/settlement/history', icon: History, label: '이력·감사' },
             { to: '/platform/ppa/billing/tax-invoice', icon: FileText, label: '세금계산서' },
+            { to: '/platform/ppa/billing/invoices', icon: CreditCard, label: '청구서' },
           ],
         }, // 2.1.5
         { to: '/platform/ppa/dashboard', icon: BarChart3, label: '계약 현황', section: '전력거래' }, // 2.1.6
