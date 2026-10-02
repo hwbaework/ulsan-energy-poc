@@ -86,10 +86,10 @@ export function MyContractsScreen() {
       />
 
       <StatsGrid columns={4}>
-        <StatCard label="자가소비 계약" value={`${stats.self.length}건`} sub={`${fmtNum(stats.selfKw, 2)} kW`} />
-        <StatCard label="onsite 계약" value={`${stats.onsite.length}건`} sub={`${fmtNum(stats.onsiteKw, 2)} kW`} />
-        <StatCard label="이번 달 정산 예정" value={fmtKrw(stats.thisMonth)} sub={`${CURRENT_PERIOD.replace('-', '.')} 청구 예정 (부가세 포함)`} />
-        <StatCard label="서명 대기" value={`${stats.pendingSign}건`} sub={stats.expiring > 0 ? `만료 1년 이내 ${stats.expiring}건` : '만료 1년 이내 없음'} />
+        <StatCard label="자가소비 계약" value={`${stats.self.length}건 · ${fmtNum(stats.selfKw, 2)} kW`} />
+        <StatCard label="onsite 계약" value={`${stats.onsite.length}건 · ${fmtNum(stats.onsiteKw, 2)} kW`} />
+        <StatCard label="이번 달 정산 예정" value={fmtKrw(stats.thisMonth)} />
+        <StatCard label="서명 대기" value={`${stats.pendingSign}건`} />
       </StatsGrid>
 
       <SectionCard

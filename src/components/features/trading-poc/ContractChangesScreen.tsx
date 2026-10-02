@@ -7,7 +7,7 @@ import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { Tabs } from '@/components/ui/Tabs';
+import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToastStore } from '@/stores/useToastStore';
@@ -28,7 +28,7 @@ export function ContractChangesScreen() {
   const reject = useTradingPocStore((s) => s.rejectChange);
   const cancel = useTradingPocStore((s) => s.cancelChange);
 
-  const [tab, setTab] = useState<'pending' | 'all'>('pending');
+  const [status, setStatus] = useState('all');
   const [detail, setDetail] = useState<Row | null>(null);
   const [rejectTarget, setRejectTarget] = useState<Row | null>(null);
   const [note, setNote] = useState('');
@@ -67,7 +67,7 @@ export function ContractChangesScreen() {
     rejected: rows.filter((r) => r.status === 'REJECTED' && (r.decidedAt ?? '').startsWith(year)).length,
     terminated: role.contracts.filter((c) => c.status === 'TERMINATED').length,
   };
-  const visible = tab === 'pending' ? pending : rows;
+  const visible = status === 'all' ? rows : rows.filter((r) => r.status === status);
   const activeContracts = role.contracts.filter((c) => c.status === 'ACTIVE');
 
   const runApprove = (r: Row) => {
@@ -141,28 +141,35 @@ export function ContractChangesScreen() {
       />
 
       <StatsGrid columns={4}>
-        <StatCard label="처리 대기" value={`${stats.pending}건`} sub={role.isAdmin ? '승인·반려 필요' : 'SPC 처리 대기'} />
-        <StatCard label={`${year}년 승인`} value={`${stats.approved}건`} sub="계약에 반영 완료" />
-        <StatCard label={`${year}년 반려`} value={`${stats.rejected}건`} />
+        <StatCard label="처리 대기" value={`${stats.pending}건`} />
+        <StatCard label={`${year} 승인`} value={`${stats.approved}건`} />
+        <StatCard label={`${year} 반려`} value={`${stats.rejected}건`} />
         <StatCard label="해지 완료 계약" value={`${stats.terminated}건`} />
       </StatsGrid>
 
       <SectionCard
-        title={tab === 'pending' ? '처리 대기' : '전체 요청'}
+        title="변경·해지 요청"
         count={visible.length}
         actions={
-          <Tabs
-            tabs={[
-              { id: 'pending', label: '처리 대기' },
-              { id: 'all', label: '전체' },
-            ]}
-            activeId={tab}
-            onChange={(id) => setTab(id as 'pending' | 'all')}
-          />
+          <label className="flex items-center gap-2 text-sm text-slate-400">
+            상태
+            <Select
+              options={[
+                { value: 'all', label: '전체' },
+                { value: 'REQUESTED', label: '처리 대기' },
+                { value: 'APPROVED', label: '승인' },
+                { value: 'REJECTED', label: '반려' },
+                { value: 'CANCELLED', label: '취소' },
+              ]}
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="w-32"
+            />
+          </label>
         }
         noPadding
       >
-        <DataTable columns={columns} data={visible} rowKey={(r) => r.id} emptyMessage={tab === 'pending' ? '처리 대기 요청 없음' : '변경·해지 요청 없음'} onRowClick={(r) => setDetail(r)} />
+        <DataTable columns={columns} data={visible} rowKey={(r) => r.id} emptyMessage="변경·해지 요청 없음" onRowClick={(r) => setDetail(r)} />
       </SectionCard>
 
       {/* 상세 */}

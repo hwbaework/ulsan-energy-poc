@@ -1,214 +1,108 @@
-// @ts-nocheck
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, ChevronRight, Loader2, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import { SectionCard } from '@/components/features';
+import { SectionCard } from '@/components/features/SectionCard';
+import { DataTable, type Column } from '@/components/features/DataList';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { StatusPill, type StatusTone } from '@/components/ui/Design';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useConsultationsByCompany, useDeleteConsultation } from '@/hooks/consulting/useConsultations';
+import { useConsultationsByCompany } from '@/hooks/consulting/useConsultations';
+import type { Consultation } from '@/types/consultation';
+
+// 내 컨설팅 — 통합관제·전력거래와 같은 표 꼴(SectionCard + DataTable + 상태 셀렉트 + 검색). 새 컨설팅은 무료진단에서만 시작한다.
 
 const DOMAIN_LABEL: Record<string, string> = {
   RE100: 'RE100',
   CARBON_REDUCTION: '탄소감축',
   DISTRIBUTED_ENERGY: '분산에너지',
-  PPA: 'PPA',
-  ESG: 'ESG',
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  APPLIED: '신청됨',
-  ASSIGNED: '배정됨',
-  SURVEYING: '진행 중',
-  VISITING: '진행 중',
-  DRAFTING: '진행 중',
-  IN_PROGRESS: '진행 중',
-  REVIEW: '검수 중',
-  REVIEWING: '검토 중',
-  COMPLETED: '완료',
-  CANCELLED: '취소',
+const STATUS_META: Record<string, { label: string; tone: StatusTone }> = {
+  APPLIED: { label: '신청', tone: 'muted' },
+  ASSIGNED: { label: '접수', tone: 'warning' },
+  SURVEYING: { label: '진행 중', tone: 'warning' },
+  VISITING: { label: '진행 중', tone: 'warning' },
+  DRAFTING: { label: '진행 중', tone: 'warning' },
+  REVIEWING: { label: '검토 중', tone: 'warning' },
+  COMPLETED: { label: '완료', tone: 'normal' },
+  CANCELLED: { label: '취소', tone: 'muted' },
 };
+const STATUS_FILTER = [
+  { value: 'all', label: '전체' },
+  { value: 'APPLIED', label: '신청' },
+  { value: 'ASSIGNED', label: '접수' },
+  { value: 'IN_PROGRESS', label: '진행 중' },
+  { value: 'REVIEWING', label: '검토 중' },
+  { value: 'COMPLETED', label: '완료' },
+];
+const IN_PROGRESS = new Set(['SURVEYING', 'VISITING', 'DRAFTING']);
 
-const STATUS_VARIANT: Record<string, string> = {
-  APPLIED: 'info',
-  ASSIGNED: 'info',
-  SURVEYING: 'warning',
-  VISITING: 'warning',
-  DRAFTING: 'warning',
-  IN_PROGRESS: 'warning',
-  REVIEW: 'warning',
-  REVIEWING: 'warning',
-  COMPLETED: 'success',
-  CANCELLED: 'default',
-};
+type Row = Consultation & { title: string };
 
-const DOMAIN_BADGE: Record<string, string> = {
-  RE100: 'bg-blue-500/[0.10] text-blue-300 ring-blue-500/30',
-  CARBON_REDUCTION: 'bg-emerald-500/[0.10] text-emerald-300 ring-emerald-500/30',
-  DISTRIBUTED_ENERGY: 'bg-amber-500/[0.10] text-amber-300 ring-amber-500/30',
-  PPA: 'bg-violet-500/[0.10] text-violet-300 ring-violet-500/30',
-  ESG: 'bg-cyan-500/[0.10] text-cyan-300 ring-cyan-500/30',
-};
+const cell = (v: string, cls = 'text-slate-300') => <span className={`text-sm ${cls} whitespace-nowrap`}>{v}</span>;
 
 export default function ConsultingStatusListPage() {
   const router = useRouter();
-  const [keyword, setKeyword] = useState('');
   const user = useAuthStore((s) => s.user);
   const companyId = user?.companyId ?? 0;
-  const { data: rawData, isLoading } = useConsultationsByCompany(companyId);
-  const deleteMutation = useDeleteConsultation();
+  const { data, isLoading } = useConsultationsByCompany(companyId);
+  const [status, setStatus] = useState('all');
+  const [q, setQ] = useState('');
 
-  const items = useMemo(() => {
-    if (!Array.isArray(rawData)) return [];
-    // 취소(거절)건은 soft 삭제 — DB 레코드는 보존하되 목록에서 숨김 (재제안 시 중복 가비지 방지)
-    return (rawData as any[])
+  const rows = useMemo<Row[]>(() => {
+    const list = (Array.isArray(data) ? data : []) as Consultation[];
+    const s = q.trim().toLowerCase();
+    return list
       .filter((c) => c.status !== 'CANCELLED')
-      .map((c) => {
-        const domain = DOMAIN_LABEL[c.domain] || c.domain || '';
-        return {
-          id: c.id,
-          title: `${domain} 컨설팅`,
-          domain: c.domain,
-          domainLabel: domain,
-          consultant: c.consultantName || '미배정',
-          consultantInitial: c.consultantName ? c.consultantName[0] : '?',
-          client: c.clientCompanyName || '',
-          status: c.status,
-          statusLabel: STATUS_LABEL[c.status] || c.status,
-          startedAt: c.assignedAt ? new Date(c.assignedAt).toLocaleDateString('ko-KR') : '',
-          appliedAt: c.appliedAt ? new Date(c.appliedAt).toLocaleDateString('ko-KR') : '',
-        };
-      });
-  }, [rawData]);
+      .map((c) => ({ ...c, title: `${DOMAIN_LABEL[c.domain] ?? c.domain} 컨설팅` }))
+      .filter((c) => status === 'all' || (status === 'IN_PROGRESS' ? IN_PROGRESS.has(c.status) : c.status === status))
+      .filter((c) => !s || c.title.toLowerCase().includes(s))
+      .sort((a, b) => String(b.appliedAt ?? b.createdAt).localeCompare(String(a.appliedAt ?? a.createdAt)));
+  }, [data, status, q]);
 
-  const filtered = useMemo(() => {
-    if (!keyword) return items;
-    const q = keyword.toLowerCase();
-    return items.filter(
-      (c) =>
-        c.title.toLowerCase().includes(q) ||
-        c.consultant.toLowerCase().includes(q) ||
-        c.domainLabel.toLowerCase().includes(q) ||
-        c.client.toLowerCase().includes(q),
-    );
-  }, [items, keyword]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="animate-spin text-primary" size={28} />
-      </div>
-    );
-  }
+  const columns: Column<Row>[] = [
+    { key: 'title', header: '컨설팅', render: (c) => cell(c.title, 'font-medium text-white') },
+    { key: 'domain', header: '분야', width: '110px', render: (c) => cell(DOMAIN_LABEL[c.domain] ?? c.domain) },
+    { key: 'status', header: '상태', width: '100px', render: (c) => <StatusPill tone={STATUS_META[c.status]?.tone ?? 'muted'} label={STATUS_META[c.status]?.label ?? c.status} /> },
+    { key: 'appliedAt', header: '신청일', width: '120px', sortable: true, sortValue: (c) => c.appliedAt ?? '', render: (c) => cell((c.appliedAt ?? c.createdAt ?? '').slice(0, 10) || '-', 'text-slate-400 tabular-nums') },
+    { key: 'assignedAt', header: '접수일', width: '120px', render: (c) => cell(c.assignedAt ? c.assignedAt.slice(0, 10) : '-', 'text-slate-400 tabular-nums') },
+    { key: 'completedAt', header: '완료일', width: '120px', render: (c) => cell(c.completedAt ? c.completedAt.slice(0, 10) : '-', 'text-slate-400 tabular-nums') },
+    {
+      key: 'actions',
+      header: '',
+      width: '80px',
+      render: (c) => (
+        <Button size="sm" onClick={() => router.push(`/consulting/status/${c.id}`)}>
+          상세
+        </Button>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
       <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '내 컨설팅' }]} />
-
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-xl font-bold text-white">내 컨설팅</h1>
-        </div>
-        <Button size="sm" variant="secondary" onClick={() => router.push('/consulting/diagnosis')}>
-          새 컨설팅 시작 — 무료 진단
-          <ArrowRight size={14} className="ml-1" />
-        </Button>
-      </div>
+      <h1 className="text-2xl font-bold text-white">내 컨설팅</h1>
 
       <SectionCard
-        title={`컨설팅 ${filtered.length}건`}
+        title="컨설팅"
+        count={rows.length}
         actions={
-          <input
-            type="text"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder="컨설팅명 / 컨설턴트 / 분야 검색"
-            className="rounded-md bg-white/[0.04] ring-1 ring-white/[0.06] px-3.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-blue-500/50 w-56"
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-slate-400">
+              상태
+              <Select options={STATUS_FILTER} value={status} onChange={(e) => setStatus(e.target.value)} className="w-32" />
+            </label>
+            <Input placeholder="컨설팅 검색" value={q} onChange={(e) => setQ(e.target.value)} className="w-56" />
+          </div>
         }
+        noPadding
       >
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs text-slate-400 border-b border-white/[0.06]">
-              <tr>
-                <th className="px-4 py-3 font-medium">컨설팅</th>
-                <th className="px-4 py-3 font-medium">컨설턴트</th>
-                <th className="px-4 py-3 font-medium">분야</th>
-                <th className="px-4 py-3 font-medium">상태</th>
-                <th className="px-4 py-3 font-medium">신청일</th>
-                <th className="px-4 py-3 font-medium" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/[0.06]">
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8">
-                    <p className="text-sm text-slate-500 text-center">
-                      {keyword ? `'${keyword}' 검색 결과가 없습니다` : '진행 중인 컨설팅이 없습니다'}
-                    </p>
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((c) => (
-                  <tr
-                    key={c.id}
-                    onClick={() => router.push(`/consulting/status/${c.id}`)}
-                    className="hover:bg-white/[0.03] transition-colors cursor-pointer"
-                  >
-                    <td className="px-4 py-3">
-                      <p className="text-white font-medium">{c.title}</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">{c.client}</p>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-500/10 text-blue-400 text-xs font-bold shrink-0">
-                          {c.consultantInitial}
-                        </span>
-                        <p className="text-slate-200">{c.consultant}</p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span
-                        className={cn(
-                          'inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ring-1',
-                          DOMAIN_BADGE[c.domain] ?? 'bg-white/[0.05] text-slate-300 ring-white/[0.1]',
-                        )}
-                      >
-                        {c.domainLabel}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <Badge variant={STATUS_VARIANT[c.status] || 'default'}>{c.statusLabel}</Badge>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-400 tabular-nums">
-                      {c.appliedAt || c.startedAt || '-'}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm(`'${c.title}'을(를) 삭제하시겠습니까?`)) {
-                              deleteMutation.mutate(c.id);
-                            }
-                          }}
-                          className="p-1 rounded hover:bg-red-500/10 text-slate-500 hover:text-red-400 transition-colors"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                        <ChevronRight size={16} className="text-slate-600" />
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataTable columns={columns} data={rows} rowKey={(c) => c.id} loading={isLoading} emptyMessage="컨설팅 없음" onRowClick={(c) => router.push(`/consulting/status/${c.id}`)} />
       </SectionCard>
     </div>
   );

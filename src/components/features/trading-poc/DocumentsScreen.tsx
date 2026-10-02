@@ -21,7 +21,11 @@ const CATEGORIES = Object.keys(DOC_CATEGORY_LABEL) as DocCategory[];
 const fmtSize = (kb: number) => (kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`);
 
 /** 문서 관리 — 계약서·서명본·청구서·세금계산서·변경 합의서·운영 보고서. 관리자는 문서 등록도 한다. */
-export function DocumentsScreen() {
+/** 계약서 원문(양식) — 태양광 발전설비 및 부동산 교차 임대차 계약서. 계약서·서명본은 이 PDF 를 띄운다 */
+const CONTRACT_PDF = '/docs/lease-contract-template.pdf';
+const isContractDoc = (d: TradeDocument) => d.category === 'CONTRACT' || d.category === 'SIGNED';
+
+export function DocumentsScreen({ title = '문서 관리' }: { title?: string } = {}) {
   const role = useTradingRole();
   const addToast = useToastStore((s) => s.add);
   const addDocument = useTradingPocStore((s) => s.addDocument);
@@ -34,27 +38,38 @@ export function DocumentsScreen() {
   const [up, setUp] = useState<{ title: string; category: DocCategory; contractId: string; fileName: string }>({ title: '', category: 'CONTRACT', contractId: '', fileName: '' });
 
   const month = new Date().toISOString().slice(0, 7);
+  // 발전사업자·전기사용자는 내가 체결한 계약 문서만(서명본 · 변경·해지 합의서). 청구서·세금계산서는 수익·정산에서
+  const docs = useMemo(
+    () =>
+      role.isAdmin
+        ? role.documents
+        : role.documents.filter((d) => d.category === 'SIGNED' && role.contracts.some((c) => c.id === d.contractId && c.status === 'ACTIVE')),
+    [role.isAdmin, role.documents, role.contracts],
+  );
   const counts = useMemo(() => {
-    const by: Record<string, number> = { all: role.documents.length };
-    for (const c of CATEGORIES) by[c] = role.documents.filter((d) => d.category === c).length;
+    const by: Record<string, number> = { all: docs.length };
+    for (const c of CATEGORIES) by[c] = docs.filter((d) => d.category === c).length;
     return by;
-  }, [role.documents]);
+  }, [docs]);
   const stats = {
-    total: role.documents.length,
+    total: docs.length,
     contracts: (counts.CONTRACT ?? 0) + (counts.SIGNED ?? 0),
     billing: (counts.INVOICE ?? 0) + (counts.TAX ?? 0),
-    thisMonth: role.documents.filter((d) => d.issuedAt.startsWith(month)).length,
+    thisMonth: docs.filter((d) => d.issuedAt.startsWith(month)).length,
   };
 
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase();
-    return role.documents
+    return docs
       .filter((d) => category === 'all' || d.category === category)
       .filter((d) => contractId === 'all' || String(d.contractId) === contractId)
       .filter((d) => !s || [d.title, d.fileName, d.contractNo ?? '', d.plantName ?? ''].some((v) => v.toLowerCase().includes(s)));
-  }, [role.documents, category, contractId, q]);
+  }, [docs, category, contractId, q]);
 
-  const download = (d: TradeDocument) => addToast('info', `${d.fileName} 다운로드를 시작합니다`);
+  const download = (d: TradeDocument) => {
+    if (isContractDoc(d)) window.open(CONTRACT_PDF, '_blank');
+    else addToast('info', `${d.fileName} 다운로드를 시작합니다`);
+  };
 
   const columns: Column<TradeDocument>[] = [
     {
@@ -114,7 +129,7 @@ export function DocumentsScreen() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="문서 관리"
+        title={title}
         actions={
           role.isAdmin && (
             <Button onClick={() => setUploadOpen(true)}>
@@ -124,14 +139,17 @@ export function DocumentsScreen() {
         }
       />
 
+      {role.isAdmin && (
       <StatsGrid columns={4}>
         <StatCard label="전체 문서" value={`${stats.total}건`} />
-        <StatCard label="계약서" value={`${stats.contracts}건`} sub="초안 · 서명본" />
+        <StatCard label="계약서" value={`${stats.contracts}건`} />
         <StatCard label="청구서 · 세금계산서" value={`${stats.billing}건`} />
         <StatCard label="이번 달 발행" value={`${stats.thisMonth}건`} />
       </StatsGrid>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
+      <div className={cn('grid grid-cols-1 gap-6', role.isAdmin && 'lg:grid-cols-[220px_1fr]')}>
+        {role.isAdmin && (
         <SectionCard title="분류" noPadding>
           <ul className="py-2">
             {(['all', ...CATEGORIES] as const).map((c) => (
@@ -151,9 +169,10 @@ export function DocumentsScreen() {
             ))}
           </ul>
         </SectionCard>
+        )}
 
         <SectionCard
-          title={category === 'all' ? '전체 문서' : DOC_CATEGORY_LABEL[category]}
+          title={!role.isAdmin ? '계약 문서' : category === 'all' ? '전체 문서' : DOC_CATEGORY_LABEL[category]}
           count={rows.length}
           actions={
             <div className="flex flex-wrap items-center gap-3">
@@ -179,6 +198,21 @@ export function DocumentsScreen() {
       <Modal open={!!preview} onClose={() => setPreview(null)} title="문서 미리보기" size="lg">
         {preview && (
           <div className="space-y-5">
+            {isContractDoc(preview) && previewContract ? (
+              <div className="space-y-4">
+                {/* 계약 요약 — 임대인(설비 소유·발전사업자) ↔ 임차인(수용가), 월 임대료 = 단가 × 지급대상 전력량 */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Info label="임대인(설비)" value={previewContract.generatorCompanyName} />
+                  <Info label="임차인(부동산)" value={previewContract.consumerCompanyName} />
+                  <Info label="본건 설비" value={`${previewContract.plantName} · ${fmtKw(previewContract.capacityKw)}`} />
+                  <Info label="임대차 기간" value={`${previewContract.startDate} ~ ${previewContract.endDate}`} />
+                  <Info label="월 임대료 산식" value="단가(A) × 지급대상 전력량(B)" className="col-span-2" />
+                  <Info label="임대료 단가" value={fmtPrice(previewContract.unitPrice)} />
+                  <Info label="지급일" value="매월 25일 고지 · 고지 후 영업일 내 납부" />
+                </div>
+                <iframe title={preview.title} src={`${CONTRACT_PDF}#toolbar=0`} className="h-[70vh] w-full rounded-lg bg-white" />
+              </div>
+            ) : (
             <div className="rounded-lg bg-white text-slate-900 px-10 py-10 shadow-inner">
               <p className="text-xs tracking-widest text-slate-500">울산 에너지 자급자족 플랫폼</p>
               <h2 className="mt-3 text-2xl font-bold">{preview.title}</h2>
@@ -205,6 +239,7 @@ export function DocumentsScreen() {
               )}
               <p className="mt-10 text-xs text-slate-400">{preview.fileName} · {preview.fileType} · {fmtSize(preview.sizeKb)}</p>
             </div>
+            )}
             <div className="grid grid-cols-3 gap-4">
               <Info label="분류" value={DOC_CATEGORY_LABEL[preview.category]} />
               <Info label="계약번호" value={preview.contractNo} />

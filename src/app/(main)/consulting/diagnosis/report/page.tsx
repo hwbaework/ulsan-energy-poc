@@ -1,8 +1,8 @@
 'use client';
 
-import { Suspense, useMemo } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Zap, TrendingUp, AlertTriangle, ArrowRight, Star, CheckCircle2, UserCheck } from 'lucide-react';
+import { Zap, TrendingUp, AlertTriangle, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
@@ -15,7 +15,8 @@ import {
   type MaturityGrade,
 } from '@/lib/maturity';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { useProfiles, useDiagnosis } from '@/hooks/consulting/useConsultations';
+import { useCreateConsultation, useDiagnosis } from '@/hooks/consulting/useConsultations';
+import { useToastStore } from '@/stores/useToastStore';
 import { Download } from 'lucide-react';
 import { exportDiagnosisReport } from '@/lib/utils/exportDiagnosisReport';
 
@@ -151,26 +152,11 @@ function DiagnosisReportContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const diagnosisId = Number(searchParams.get('id')) || 0;
-  const referralCode = searchParams.get('referral');
-  const alreadyMatched = searchParams.get('matched') === 'true';
   const { data: diagnosis, isLoading } = useDiagnosis(diagnosisId);
-  const { data: profileData } = useProfiles();
-
-  const RECOMMENDED_CONSULTANTS = useMemo(() => {
-    const profiles = (profileData?.content ?? []) as any[];
-    return profiles
-      .filter((p: any) => p.userName)
-      .sort((a: any, b: any) => (b.rating ?? 4.5) - (a.rating ?? 4.5))
-      .slice(0, 2)
-      .map((p: any) => ({
-        id: p.id as number,
-        name: p.userName as string,
-        rating: (p.rating ?? 4.5) as number,
-        matchScore: (p.matchScore || 80) as number,
-        initial: (p.userName as string).charAt(0),
-        type: 'independent' as const,
-      }));
-  }, [profileData]);
+  // 컨설턴트 선택 단계는 없다 — 진단 결과에서 바로 컨설팅을 신청하면 내 컨설팅에 쌓인다
+  const createConsultation = useCreateConsultation();
+  const toast = useToastStore((s) => s.add);
+  const [applying, setApplying] = useState(false);
 
   const result = useMemo(() => {
     if (!diagnosis) return null;
@@ -179,19 +165,16 @@ function DiagnosisReportContent() {
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center">
-        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-        <div className="relative z-10 text-white text-sm">진단 결과를 불러오는 중...</div>
-      </div>
+      <div className="py-20 text-center text-sm text-slate-400">진단 결과를 불러오는 중...</div>
     );
   }
 
   if (!diagnosis || !result) {
     return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center">
-        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-        <div className="relative z-10 w-full max-w-md mx-4 rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.08] p-8 text-center">
-          <p className="text-sm text-slate-400">진단 결과를 찾을 수 없습니다</p>
+      <div className="space-y-6">
+        <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '무료진단', path: '/consulting/diagnosis' }, { label: '진단 결과' }]} />
+        <div className="rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.06] p-8 text-center">
+          <p className="text-sm text-slate-400">진단 결과 없음</p>
           <Button size="sm" className="mt-4" onClick={() => router.push('/consulting/diagnosis')}>
             진단 다시 시작하기
           </Button>
@@ -204,7 +187,24 @@ function DiagnosisReportContent() {
   const maturityGrade = (result.maturityGrade as MaturityGrade) ?? getMaturityGrade(result.currentRE);
   const gradeConfig = MATURITY_GRADE_CONFIG[maturityGrade];
   const gradeDescription = getDomainGradeDescription(result.domain, maturityGrade);
-  const referralConsultant = RECOMMENDED_CONSULTANTS[0];
+  const handleApply = async () => {
+    setApplying(true);
+    try {
+      await createConsultation.mutateAsync({
+        clientCompanyId: diagnosis.companyId,
+        clientCompanyName: diagnosis.companyName,
+        origin: 'MARKETPLACE',
+        domain: diagnosis.domain,
+        diagnosisId: diagnosis.id,
+      });
+      toast('success', '컨설팅을 신청했습니다');
+      router.push('/consulting/status');
+    } catch {
+      toast('error', '컨설팅 신청에 실패했습니다');
+    } finally {
+      setApplying(false);
+    }
+  };
 
   const handleDownloadPdf = () => {
     exportDiagnosisReport({
@@ -222,44 +222,20 @@ function DiagnosisReportContent() {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-      <div className="relative z-10 flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.08] shadow-2xl overflow-hidden">
-        <div className="shrink-0 px-8 pt-5">
-          <Breadcrumb
-            items={[
-              { label: '통합에너지 컨설팅', path: '/consulting' },
-              { label: '무료 진단', path: '/consulting/diagnosis' },
-              { label: '진단 결과' },
-            ]}
-          />
+    <div className="space-y-6">
+      <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '무료진단', path: '/consulting/diagnosis' }, { label: '진단 결과' }]} />
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold text-white">진단 결과</h1>
+        <div className="flex items-center gap-2">
+          <Badge variant="success">진단 완료</Badge>
+          <Button size="sm" variant="secondary" onClick={handleDownloadPdf}>
+            <Download size={13} className="mr-1.5" /> PDF 다운로드
+          </Button>
         </div>
-
-        <div className="shrink-0 flex items-center justify-between border-b border-white/[0.06] px-8 py-5">
-          <div>
-            <Badge variant="success" className="mb-1">
-              진단 완료
-            </Badge>
-            <h1 className="text-lg font-bold text-white">진단 결과 리포트</h1>
-            <p className="mt-0.5 text-xs text-slate-400">AI 분석 결과를 바탕으로 맞춤형 전략을 제안합니다</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="secondary" onClick={handleDownloadPdf}>
-              <Download size={13} className="mr-1.5" /> PDF 다운로드
-            </Button>
-            <button
-              onClick={() => router.push('/consulting')}
-              className="rounded-lg p-2 text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors"
-              aria-label="닫기"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-8 space-y-6">
+      </div>
+      {/* 팝업이 아니라 페이지 */}
+      <div className="max-w-4xl rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.06] overflow-hidden">
+        <div className="p-8 space-y-6">
           <div className="rounded-xl bg-gradient-to-br from-primary/10 to-[#0d1520] ring-1 ring-white/[0.06] p-6">
             <div className="flex items-start justify-between">
               <div>
@@ -277,7 +253,7 @@ function DiagnosisReportContent() {
                 >
                   <span className={`text-lg font-bold ${gradeConfig.color}`}>{maturityGrade}</span>
                 </div>
-                <span className={`text-[10px] mt-1 block ${gradeConfig.color}`}>{gradeConfig.label}</span>
+                <span className={`text-xs mt-1 block ${gradeConfig.color}`}>{gradeConfig.label}</span>
               </div>
             </div>
 
@@ -307,7 +283,7 @@ function DiagnosisReportContent() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {result.summaryMetrics.map((item: { label: string; value: string; isInput: boolean }, i: number) => (
                 <div key={i} className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3 text-center">
-                  <p className="text-[10px] text-slate-500">{item.label}</p>
+                  <p className="text-xs text-slate-500">{item.label}</p>
                   <p className="mt-1 text-sm font-semibold text-white">{item.value}</p>
                   <p className="text-[9px] mt-0.5">
                     {item.isInput ? (
@@ -345,120 +321,22 @@ function DiagnosisReportContent() {
             </SectionCard>
           </div>
 
-          {alreadyMatched ? (
-            <div className="rounded-xl bg-gradient-to-r from-emerald-500/10 to-blue-500/10 ring-1 ring-emerald-500/20 p-6">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle2 size={20} className="text-emerald-400" />
-                <p className="text-sm font-semibold text-emerald-400">컨설턴트 매칭 제안이 전송되었습니다</p>
-              </div>
-              <p className="text-xs text-slate-400">
-                마켓플레이스에서 선택한 컨설턴트에게 진단 결과와 함께 매칭 제안이 자동 전송되었습니다. 제안서가 도착하면
-                알림으로 안내드립니다.
-              </p>
-              <div className="flex gap-3 mt-4">
-                <Button size="sm" onClick={() => router.push('/consulting')}>
-                  컨설팅 홈으로
-                </Button>
-                <Button size="sm" variant="secondary" onClick={() => router.push('/consulting/status')}>
-                  내 컨설팅 확인
-                </Button>
-              </div>
+          {/* 컨설팅 신청 */}
+          <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/[0.06] p-6 flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-base font-semibold text-white">이 진단 결과로 컨설팅 신청</p>
+              <p className="text-sm text-slate-400 mt-1">신청하면 내 컨설팅에서 진행 단계를 확인</p>
             </div>
-          ) : referralCode && referralConsultant ? (
-            <div className="rounded-xl bg-gradient-to-r from-emerald-500/10 to-blue-500/10 ring-1 ring-emerald-500/20 p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <CheckCircle2 size={20} className="text-emerald-400" />
-                <p className="text-sm font-semibold text-emerald-400">컨설턴트 자동 매칭 완료</p>
-              </div>
-
-              <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/[0.06] p-5">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
-                    {referralConsultant.initial}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-base font-semibold text-white">{referralConsultant.name} 컨설턴트</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{result.domainLabel} 전문</p>
-                    <div className="flex items-center gap-3 mt-2">
-                      <div className="flex items-center gap-1">
-                        <Star size={12} className="text-amber-400 fill-amber-400" />
-                        <span className="text-xs text-slate-300">{referralConsultant.rating}</span>
-                      </div>
-                      <Badge variant="primary" className="text-[10px]">
-                        매칭 {referralConsultant.matchScore}%
-                      </Badge>
-                    </div>
-                  </div>
-                  <UserCheck size={24} className="text-emerald-400/60" />
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] px-4 py-3">
-                <p className="text-xs text-slate-400">
-                  초대 링크를 통해 진단이 완료되어{' '}
-                  <span className="text-emerald-400 font-medium">{referralConsultant.name}</span> 컨설턴트와 자동으로
-                  매칭되었습니다. 바로 프로젝트 범위와 일정을 확인하세요.
-                </p>
-              </div>
-
-              <Button
-                className="mt-4 w-full"
-                onClick={() =>
-                  router.push(`/consulting/quote/request/${referralConsultant.id}?referral=${referralCode}`)
-                }
-              >
-                견적 요청 및 계약 진행
+            <div className="flex gap-3">
+              <Button variant="secondary" onClick={() => router.push('/consulting/status')}>
+                내 컨설팅
+              </Button>
+              <Button disabled={applying} onClick={handleApply}>
+                {applying ? '신청 중...' : '컨설팅 신청'}
                 <ArrowRight size={14} className="ml-1" />
               </Button>
             </div>
-          ) : RECOMMENDED_CONSULTANTS.length > 0 ? (
-            <SectionCard title="추천 독립 컨설턴트" description="AI 매칭 점수 기반 마켓플레이스 추천">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {RECOMMENDED_CONSULTANTS.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => router.push(`/consulting/quote/request/${c.id}`)}
-                    className="rounded-xl bg-white/[0.02] ring-1 ring-white/[0.06] p-4 text-center hover:ring-primary/30 transition-all"
-                  >
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
-                      {c.initial}
-                    </div>
-                    <p className="mt-2 text-sm font-medium text-white">{c.name}</p>
-                    <div className="mt-1 flex items-center justify-center gap-1">
-                      <Star size={12} className="text-amber-400 fill-amber-400" />
-                      <span className="text-xs text-slate-400">{c.rating}</span>
-                    </div>
-                    <Badge variant="primary" className="mt-2 text-[10px]">
-                      매칭 {c.matchScore}%
-                    </Badge>
-                  </button>
-                ))}
-              </div>
-              <div className="mt-4 px-6 pb-2">
-                <Button variant="secondary" className="w-full" onClick={() => router.push('/consulting/marketplace')}>
-                  마켓플레이스에서 더 찾아보기
-                  <ArrowRight size={14} className="ml-1" />
-                </Button>
-              </div>
-            </SectionCard>
-          ) : (
-            <SectionCard title="추천 컨설턴트">
-              <div className="py-8 text-center">
-                <p className="text-sm text-slate-500">등록된 컨설턴트가 아직 없습니다</p>
-              </div>
-            </SectionCard>
-          )}
-
-          {!referralCode && !alreadyMatched && (
-            <>
-              <div className="flex justify-center">
-                <Button size="lg" onClick={() => router.push('/consulting/marketplace')}>
-                  컨설턴트 상세 비교하기
-                  <ArrowRight size={16} className="ml-1" />
-                </Button>
-              </div>
-            </>
-          )}
+          </div>
         </div>
       </div>
     </div>

@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "next dev -p 3030",
+    "dev": "node scripts/dev.cjs",
     "build": "next build",
     "start": "node scripts/serve-out.cjs .next-build 3030",
     "lint": "next lint",

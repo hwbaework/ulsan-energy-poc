@@ -75,8 +75,8 @@ export function ContractDashboardScreen() {
     ...(role.isAdmin ? [{ key: 'gen', header: '발전사업자', width: '140px', render: (c: Row) => cell(c.generatorCompanyName) }] : []),
     { key: 'capacity', header: '용량', width: '110px', sortable: true, sortValue: (c) => c.capacityKw, render: (c) => cellNum(fmtKw(c.capacityKw)) },
     { key: 'price', header: '단가', width: '110px', render: (c) => cellNum(fmtPrice(c.unitPrice)) },
-    { key: 'yearKwh', header: `${YEAR}년 발전·공급량`, width: '150px', sortable: true, sortValue: (c) => c.yearKwh, render: (c) => cellNum(fmtKwh(c.yearKwh)) },
-    { key: 'yearAmount', header: `${YEAR}년 정산액`, width: '130px', sortable: true, sortValue: (c) => c.yearAmount, render: (c) => cellNum(fmtKrw(c.yearAmount)) },
+    { key: 'yearKwh', header: `${YEAR} 발전·공급량`, width: '150px', sortable: true, sortValue: (c) => c.yearKwh, render: (c) => cellNum(fmtKwh(c.yearKwh)) },
+    { key: 'yearAmount', header: `${YEAR} 정산액`, width: '130px', sortable: true, sortValue: (c) => c.yearAmount, render: (c) => cellNum(fmtKrw(c.yearAmount)) },
     {
       key: 'end',
       header: '종료일',
@@ -112,17 +112,17 @@ export function ContractDashboardScreen() {
 
       {/* KPI 2줄 (3+3) */}
       <StatsGrid columns={3}>
-        <StatCard label="운영 중 계약" value={`${stats.active}건`} sub={`${fmtNum(stats.activeKw, 2)} kW`} />
-        <StatCard label="자가소비" value={`${stats.self}건`} sub={`${fmtNum(stats.selfKw, 2)} kW`} />
-        <StatCard label="onsite" value={`${stats.onsite}건`} sub={`${fmtNum(stats.onsiteKw, 2)} kW`} />
+        <StatCard label="운영 중 계약" value={`${stats.active}건 · ${fmtNum(stats.activeKw, 2)} kW`} />
+        <StatCard label="자가소비" value={`${stats.self}건 · ${fmtNum(stats.selfKw, 2)} kW`} />
+        <StatCard label="onsite" value={`${stats.onsite}건 · ${fmtNum(stats.onsiteKw, 2)} kW`} />
       </StatsGrid>
       <StatsGrid columns={3}>
-        <StatCard label={`${YEAR}년 정산 누계`} value={fmtKrw(stats.yearAmount)} sub={`${fmtKwh(stats.yearKwh)} · 부가세 포함`} />
-        <StatCard label="이번 달 정산 예정" value={fmtKrw(stats.thisMonth)} sub={`${CURRENT_PERIOD.replace('-', '.')} 청구 예정`} />
-        <StatCard label="진행 중 신청" value={`${stats.inProgress}건`} sub={stats.expiring > 0 ? `만료 1년 이내 ${stats.expiring}건` : '만료 1년 이내 없음'} />
+        <StatCard label={`${YEAR} 정산 누계`} value={fmtKrw(stats.yearAmount)} />
+        <StatCard label="이번 달 정산 예정" value={fmtKrw(stats.thisMonth)} />
+        <StatCard label="진행 중 신청" value={`${stats.inProgress}건`} />
       </StatsGrid>
 
-      <SectionCard title={`${YEAR}년 월별 정산 금액 (부가세 제외)`}>
+      <SectionCard title={`${YEAR} 월별 정산 금액 (부가세 제외)`}>
         <RmsBarChart data={chart} xKey="month" bars={[{ key: '자가소비', name: '자가소비' }, { key: 'onsite', name: 'onsite' }]} stacked height={260} />
       </SectionCard>
 

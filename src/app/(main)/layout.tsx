@@ -26,13 +26,15 @@ import {
   ClipboardList,
   ChevronDown,
   LayoutDashboard,
-  MessageSquare,
   Monitor,
   ArrowRightLeft,
   Settings,
   Factory,
   History,
+  Award,
+  BookOpen,
   Calculator,
+  GraduationCap,
   Cpu,
   Database,
   Globe,
@@ -95,9 +97,24 @@ const RE100_CONSULTING_CHILDREN: GnbChild[] = [
   { to: '/consulting', icon: Zap, label: '컨설팅 홈', section: '컨설팅', end: true }, // 2.2.1
   { to: '/consulting/status', icon: ClipboardList, label: '내 컨설팅', section: '컨설팅' }, // 2.2.2
   { to: '/consulting/diagnosis', icon: ClipboardCheck, label: '무료진단', section: '컨설팅', end: true }, // 2.2.3
-  { to: '/ppa/documents/report', icon: FileText, label: '문서관리', section: '컨설팅' }, // 2.2.4 (컨설팅 완료 보고서)
-  { to: '/re100/education', icon: MessageSquare, label: 'RE100 교육', section: '컨설팅' }, // 2.2.5
+  { to: '/consulting/documents', icon: FileText, label: '문서관리', section: '컨설팅' }, // 2.2.4 (내 계약 문서 보관함)
 ];
+// 2.2.5 RE100 교육 — 관리자: 교육 자료(수집·작성) · 문항 관리 · 수료증 관리(수료 현황 표)
+//                    발전사업자·전기사용자: 한 메뉴 — 자료 열람 · 쪽지시험 · 수료증 발급까지 한 화면
+const RE100_EDU = (admin: boolean): GnbChild =>
+  admin
+    ? {
+        to: '/re100/education',
+        icon: GraduationCap,
+        label: 'RE100 교육',
+        section: '컨설팅',
+        subChildren: [
+          { to: '/re100/education', icon: BookOpen, label: '교육 자료', end: true },
+          { to: '/re100/education/questions', icon: ClipboardList, label: '문항 관리' },
+          { to: '/re100/education/certificates', icon: Award, label: '수료증 관리' },
+        ],
+      }
+    : { to: '/re100/education', icon: GraduationCap, label: 'RE100 교육', section: '컨설팅' };
 
 // WBS 3.x E-데이터마켓 — 3개 페르소나 공통
 const EDATA_CHILDREN: GnbChild[] = [
@@ -196,7 +213,7 @@ const GNB_ITEMS: GnbItem[] = [
     toByPersona: { consumer: '/consulting', generator: '/generator/trading', admin: '/platform/trading' },
     childrenByPersona: {
       // 전기사용자: 2.2 컨설팅만
-      consumer: RE100_CONSULTING_CHILDREN,
+      consumer: [...RE100_CONSULTING_CHILDREN, RE100_EDU(false)],
       generator: [
         // 2.1 전력거래
         { to: '/generator/trading', icon: ArrowRightLeft, label: '거래 신청', section: '전력거래' }, // 2.1.1
@@ -217,6 +234,7 @@ const GNB_ITEMS: GnbItem[] = [
         { to: '/platform/trading/approvals', icon: ShieldCheck, label: '거래 승인', section: '전력거래' }, // 2.1.7
         { to: '/generator/ppa/documents', icon: FileText, label: '문서 관리', section: '전력거래' }, // 2.1.8
         ...RE100_CONSULTING_CHILDREN,
+        RE100_EDU(false),
       ],
       admin: [
         // 2.1 전력거래
@@ -238,6 +256,7 @@ const GNB_ITEMS: GnbItem[] = [
         { to: '/platform/trading/approvals', icon: ShieldCheck, label: '거래 승인', section: '전력거래' }, // 2.1.7
         { to: '/platform/ppa/documents', icon: FileText, label: '문서 관리', section: '전력거래' }, // 2.1.8
         ...RE100_CONSULTING_CHILDREN,
+        RE100_EDU(true),
       ],
     },
   },

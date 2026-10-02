@@ -12,7 +12,8 @@ import { PHASE_DEVELOPMENT_SERVER } from 'next/constants';
 export default function config(phase: string): NextConfig {
   return {
     output: 'export',
-    distDir: phase === PHASE_DEVELOPMENT_SERVER ? '.next' : '.next-build',
+    // dev 두 번째 서버(3031 등)는 scripts/dev.cjs 가 NEXT_DEV_DIST 로 따로 준 폴더를 쓴다
+    distDir: phase === PHASE_DEVELOPMENT_SERVER ? (process.env.NEXT_DEV_DIST ?? '.next') : '.next-build',
     trailingSlash: false,
     images: { unoptimized: true },
     eslint: { ignoreDuringBuilds: true },

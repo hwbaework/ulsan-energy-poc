@@ -7,7 +7,7 @@ import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { Tabs } from '@/components/ui/Tabs';
+import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToastStore } from '@/stores/useToastStore';
@@ -17,11 +17,14 @@ import { useTradingRole } from './useTradingRole';
 import { PARTY_LABEL, fmtDate, fmtDateTime, fmtKw, fmtPrice, kindLabel, priceLabel } from './meta';
 import { Info, ModalFooter, PageHeader, RequestStatusPill, cell, cellMuted, cellNum, cellStrong } from './Bits';
 
-type TabId = 'queue' | 'signing' | 'done';
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'queue', label: '승인 대기' },
-  { id: 'signing', label: '서명 진행' },
-  { id: 'done', label: '처리 완료' },
+const STATUS_FILTER = [
+  { value: 'all', label: '전체' },
+  { value: 'SUBMITTED', label: '접수' },
+  { value: 'REVIEW', label: '검토 중' },
+  { value: 'APPROVED', label: '서명 대기' },
+  { value: 'SIGNED', label: '체결' },
+  { value: 'REJECTED', label: '반려' },
+  { value: 'CANCELLED', label: '취소' },
 ];
 
 /**
@@ -37,20 +40,19 @@ export function TradeApprovalsScreen() {
   const reject = useTradingPocStore((s) => s.rejectRequest);
   const confirmConsumer = useTradingPocStore((s) => s.confirmConsumerSign);
 
-  const [tab, setTab] = useState<TabId>('queue');
+  const [status, setStatus] = useState('all');
   const [detail, setDetail] = useState<TradeRequest | null>(null);
   const [rejectTarget, setRejectTarget] = useState<TradeRequest | null>(null);
   const [reason, setReason] = useState('');
   const [confirm, setConfirm] = useState<{ r: TradeRequest; action: 'approve' | 'consumer' } | null>(null);
 
-  const byTab = useMemo(() => {
-    const sorted = [...role.requests].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-    return {
-      queue: sorted.filter((r) => r.status === 'SUBMITTED' || r.status === 'REVIEW'),
-      signing: sorted.filter((r) => r.status === 'APPROVED'),
-      done: sorted.filter((r) => r.status === 'SIGNED' || r.status === 'REJECTED' || r.status === 'CANCELLED'),
-    };
-  }, [role.requests]);
+  const sorted = useMemo(() => [...role.requests].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), [role.requests]);
+  const rows = useMemo(() => sorted.filter((r) => status === 'all' || r.status === status), [sorted, status]);
+  const byTab = {
+    queue: sorted.filter((r) => r.status === 'SUBMITTED' || r.status === 'REVIEW'),
+    signing: sorted.filter((r) => r.status === 'APPROVED'),
+    done: sorted.filter((r) => r.status === 'SIGNED' || r.status === 'REJECTED' || r.status === 'CANCELLED'),
+  };
   const month = new Date().toISOString().slice(0, 7);
   const stats = {
     submitted: byTab.queue.filter((r) => r.status === 'SUBMITTED').length,
@@ -109,16 +111,8 @@ export function TradeApprovalsScreen() {
       );
     return null;
   };
-  const generatorActions = (r: TradeRequest, size: 'sm' | 'md' = 'sm') => {
-    const c = contractOf(r);
-    if (r.status === 'APPROVED' && c && !c.signedByGenerator && r.generatorCompanyId === role.companyId)
-      return (
-        <Button size={size} onClick={() => router.push(`/trading/deal/${r.id}`)}>
-          전자서명
-        </Button>
-      );
-    return null;
-  };
+  // 발전사업자는 보기 전용 — 신청 진행·완료 상세만 본다(서명은 거래 상세에서)
+  const generatorActions = (_r: TradeRequest, _size: 'sm' | 'md' = 'sm') => null;
   const actionsOf = role.isAdmin ? adminActions : generatorActions;
 
   const columns: Column<TradeRequest>[] = [
@@ -130,7 +124,6 @@ export function TradeApprovalsScreen() {
     { key: 'capacity', header: '용량', width: '110px', render: (r) => cellNum(fmtKw(r.capacityKw)) },
     { key: 'price', header: '단가', width: '110px', render: (r) => cellNum(fmtPrice(r.unitPrice)) },
     { key: 'submittedAt', header: '신청일', width: '110px', sortable: true, sortValue: (r) => r.submittedAt, render: (r) => cellMuted(fmtDate(r.submittedAt)) },
-    { key: 'stage', header: '승인 단계', width: '220px', render: (r) => cell(stageText(r)) },
     { key: 'status', header: '상태', width: '90px', render: (r) => <RequestStatusPill status={r.status} /> },
     {
       key: 'actions',
@@ -152,18 +145,28 @@ export function TradeApprovalsScreen() {
       <PageHeader title="거래 승인" />
 
       <StatsGrid columns={4}>
-        <StatCard label="접수" value={`${stats.submitted}건`} sub={role.isAdmin ? '검토 시작 필요' : 'SPC 검토 대기'} />
-        <StatCard label="검토 중" value={`${stats.review}건`} sub={role.isAdmin ? '승인·반려 필요' : 'SPC 검토 중'} />
-        <StatCard label="서명 진행" value={`${stats.signing}건`} sub="승인 완료 · 전자서명 단계" />
-        <StatCard label="이달 처리" value={`${stats.doneThisMonth}건`} sub="체결 · 반려 · 취소" />
+        <StatCard label="접수" value={`${stats.submitted}건`} />
+        <StatCard label="검토 중" value={`${stats.review}건`} />
+        <StatCard label="서명 진행" value={`${stats.signing}건`} />
+        <StatCard label="이달 처리" value={`${stats.doneThisMonth}건`} />
       </StatsGrid>
 
-      <SectionCard title={TABS.find((t) => t.id === tab)!.label} count={byTab[tab].length} actions={<Tabs tabs={TABS} activeId={tab} onChange={(id) => setTab(id as TabId)} />} noPadding>
+      <SectionCard
+        title="거래 신청"
+        count={rows.length}
+        actions={
+          <label className="flex items-center gap-2 text-sm text-slate-400">
+            상태
+            <Select options={STATUS_FILTER} value={status} onChange={(e) => setStatus(e.target.value)} className="w-32" />
+          </label>
+        }
+        noPadding
+      >
         <DataTable
           columns={columns}
-          data={byTab[tab]}
+          data={rows}
           rowKey={(r) => r.id}
-          emptyMessage={tab === 'queue' ? '승인 대기 신청 없음' : tab === 'signing' ? '서명 진행 중 신청 없음' : '처리 완료 신청 없음'}
+          emptyMessage="거래 신청 없음"
           onRowClick={(r) => setDetail(r)}
         />
       </SectionCard>

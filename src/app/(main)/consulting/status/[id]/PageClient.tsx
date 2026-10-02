@@ -152,7 +152,7 @@ function ScheduleBooking({
             </div>
             <div>
               <h2 className="text-sm font-bold text-white">현장 방문 일정 잡기</h2>
-              <p className="text-[10px] text-slate-400">방문 희망 날짜와 시간을 선택하세요</p>
+              <p className="text-xs text-slate-400">방문 희망 날짜와 시간을 선택하세요</p>
             </div>
           </div>
           <button
@@ -865,11 +865,11 @@ export default function ConsultingDetailPage() {
           <p className="text-xs font-semibold text-slate-300 mb-3">컨설팅 정보</p>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
             <div>
-              <p className="text-[11px] text-slate-500">도메인</p>
+              <p className="text-xs text-slate-500">도메인</p>
               <p className="text-white mt-0.5">{c.domain}</p>
             </div>
             <div>
-              <p className="text-[11px] text-slate-500">상태</p>
+              <p className="text-xs text-slate-500">상태</p>
               <p className="text-amber-300 mt-0.5">{STATUS_LABEL[c.status] || c.status}</p>
             </div>
           </div>
@@ -942,7 +942,7 @@ export default function ConsultingDetailPage() {
           <div className="px-6 py-3 border-b border-white/[0.06] flex items-center justify-between">
             <div>
               <h3 className="text-md font-semibold text-white">진행 단계</h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 {!c.hasMilestones
                   ? '컨설턴트가 프로세스를 시작하면 단계가 표시됩니다'
                   : doneCount === c.steps.length
@@ -994,7 +994,7 @@ export default function ConsultingDetailPage() {
                         </span>
                         <span
                           className={cn(
-                            'text-[11px] font-medium text-center max-w-[80px] leading-tight',
+                            'text-xs font-medium text-center max-w-[80px] leading-tight',
                             s.state === 'done' && 'text-emerald-300',
                             isActive && 'text-primary',
                             s.state === 'upcoming' && 'text-slate-500',
@@ -1033,7 +1033,7 @@ export default function ConsultingDetailPage() {
             {current && (
               <span
                 className={cn(
-                  'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ring-1',
+                  'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1',
                   ACTOR_META[current.actor],
                 )}
               >
@@ -1106,7 +1106,7 @@ export default function ConsultingDetailPage() {
                           {activeDate} {activeTime}
                         </p>
                         {active.rejectionReason && (
-                          <p className="text-[11px] text-slate-400">사유: {active.rejectionReason}</p>
+                          <p className="text-xs text-slate-400">사유: {active.rejectionReason}</p>
                         )}
                         <div className="flex gap-2 pt-1">
                           <Button
@@ -1319,7 +1319,7 @@ export default function ConsultingDetailPage() {
                                 <p className="text-xs font-medium text-white">
                                   {diag.companyName} — {consultationDomain} 진단
                                 </p>
-                                <p className="text-[11px] text-slate-500">
+                                <p className="text-xs text-slate-500">
                                   에너지 {diag.annualEnergyUsage?.toLocaleString() ?? '-'} MWh · 배출{' '}
                                   {diag.annualGhgEmission?.toLocaleString() ?? '-'} tCO₂eq
                                 </p>
@@ -1371,7 +1371,7 @@ export default function ConsultingDetailPage() {
                             <p className="text-xs font-medium text-white">
                               {diag.companyName} — {consultationDomain} 진단
                             </p>
-                            <p className="text-[11px] text-slate-500">
+                            <p className="text-xs text-slate-500">
                               에너지 {diag.annualEnergyUsage?.toLocaleString() ?? '-'} MWh
                             </p>
                           </div>
@@ -1395,7 +1395,7 @@ export default function ConsultingDetailPage() {
                   <div className="w-full space-y-3">
                     {consumerSites.length > 0 && (
                       <div className="space-y-1.5">
-                        <p className="text-[11px] text-slate-400 font-medium">기존 등록 사업장</p>
+                        <p className="text-xs text-slate-400 font-medium">기존 등록 사업장</p>
                         {consumerSites.map((cs: any) => {
                           const isLinked = linkedSites.some((s: any) => s.name === cs.name && s.address === cs.address);
                           return (
@@ -1412,7 +1412,7 @@ export default function ConsultingDetailPage() {
                                 <MapPin size={12} className={isLinked ? 'text-emerald-400' : 'text-slate-400'} />
                                 <div>
                                   <span className="text-xs text-white">{cs.name}</span>
-                                  <p className="text-[10px] text-slate-500">{cs.address || '주소 미등록'}</p>
+                                  <p className="text-xs text-slate-500">{cs.address || '주소 미등록'}</p>
                                 </div>
                               </div>
                               {isLinked ? (
@@ -1449,7 +1449,7 @@ export default function ConsultingDetailPage() {
                     {linkedSites.filter((s: any) => !consumerSites.some((cs: any) => cs.name === s.name)).length >
                       0 && (
                       <div className="space-y-1.5">
-                        <p className="text-[11px] text-slate-400 font-medium">컨설팅 등록 사업장</p>
+                        <p className="text-xs text-slate-400 font-medium">컨설팅 등록 사업장</p>
                         {linkedSites
                           .filter((s: any) => !consumerSites.some((cs: any) => cs.name === s.name))
                           .map((s: any) => (
@@ -1558,7 +1558,7 @@ export default function ConsultingDetailPage() {
                         <FileText size={13} className="mr-1.5" /> 보고서 보기
                       </Button>
                     )}
-                    <div className="flex items-center gap-2 text-[11px]">
+                    <div className="flex items-center gap-2 text-xs">
                       {approvedCount > 0 && <span className="text-emerald-400">승인 {approvedCount}</span>}
                       {reviewCount > 0 && <span className="text-amber-400">검토대기 {reviewCount}</span>}
                       {rejectedCount > 0 && <span className="text-red-400">반려 {rejectedCount}</span>}
@@ -1642,7 +1642,7 @@ export default function ConsultingDetailPage() {
             )}
           </div>
           {c.action.branchNote && (
-            <p className="mt-3 text-[11px] text-slate-500 flex items-center gap-1.5">
+            <p className="mt-3 text-xs text-slate-500 flex items-center gap-1.5">
               <AlertCircle size={11} className="text-amber-300" />
               {c.action.branchNote}
             </p>
@@ -1657,7 +1657,7 @@ export default function ConsultingDetailPage() {
               <button
                 type="button"
                 onClick={() => setProposalView(true)}
-                className="text-[11px] text-primary hover:text-primary/80 inline-flex items-center gap-0.5"
+                className="text-xs text-primary hover:text-primary/80 inline-flex items-center gap-0.5"
               >
                 1차 제안 원문 <ArrowUpRight size={10} />
               </button>
@@ -1665,24 +1665,24 @@ export default function ConsultingDetailPage() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3 text-sm">
             <div>
-              <p className="text-[11px] text-slate-500">도메인</p>
+              <p className="text-xs text-slate-500">도메인</p>
               <p className="text-white mt-0.5">{c.domain}</p>
             </div>
             <div>
-              <p className="text-[11px] text-slate-500">계약 금액</p>
+              <p className="text-xs text-slate-500">계약 금액</p>
               <p className="text-white tabular-nums mt-0.5">₩{c.contractAmount.toLocaleString()}</p>
             </div>
             <div>
-              <p className="text-[11px] text-slate-500">계약 체결일</p>
+              <p className="text-xs text-slate-500">계약 체결일</p>
               <p className="text-white tabular-nums mt-0.5">{c.startedAt}</p>
             </div>
             <div>
-              <p className="text-[11px] text-slate-500">예상 완료</p>
+              <p className="text-xs text-slate-500">예상 완료</p>
               <p className="text-white tabular-nums mt-0.5">{c.expectedEnd}</p>
             </div>
           </div>
           {c.firstProposal && (
-            <p className="mt-3 pt-3 border-t border-white/[0.06] text-[11px] text-slate-500">
+            <p className="mt-3 pt-3 border-t border-white/[0.06] text-xs text-slate-500">
               1차 제안 · {c.firstProposal.source} · {c.firstProposal.receivedAt} 수신 → {c.firstProposal.acceptedAt}{' '}
               수락
             </p>
@@ -1700,7 +1700,7 @@ export default function ConsultingDetailPage() {
             </div>
             <div>
               <p className="text-sm font-semibold text-white">{c.consultant} 컨설턴트</p>
-              <p className="text-[10px] text-emerald-400">● 연결됨 — 조건·보고서 조율 채널</p>
+              <p className="text-xs text-emerald-400">● 연결됨 — 조건·보고서 조율 채널</p>
             </div>
           </div>
         </div>
@@ -1718,7 +1718,7 @@ export default function ConsultingDetailPage() {
                 >
                   {m.text}
                 </div>
-                <p className="mt-1 text-[10px] text-slate-600 tabular-nums">{m.time}</p>
+                <p className="mt-1 text-xs text-slate-600 tabular-nums">{m.time}</p>
               </div>
             </div>
           ))}
@@ -1778,7 +1778,7 @@ export default function ConsultingDetailPage() {
             <div className="flex items-center gap-2 flex-wrap">
               <span
                 className={cn(
-                  'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ring-1',
+                  'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1',
                   stepView.state === 'done' && 'bg-emerald-500/[0.12] text-emerald-300 ring-emerald-500/30',
                   stepView.state === 'action' && 'bg-primary/[0.12] text-primary ring-primary/30',
                   stepView.state === 'upcoming' && 'bg-white/[0.05] text-slate-400 ring-white/[0.1]',
@@ -1788,7 +1788,7 @@ export default function ConsultingDetailPage() {
               </span>
               <span
                 className={cn(
-                  'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ring-1',
+                  'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1',
                   ACTOR_META[stepView.actor],
                 )}
               >
@@ -1801,7 +1801,7 @@ export default function ConsultingDetailPage() {
             {/* 단계별 상세 정보 */}
             {stepView.actionType === 'DOCUMENTS' ? (
               <div className="space-y-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">보고서 현황</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500">보고서 현황</p>
                 {reports.length === 0 ? (
                   <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.06] px-4 py-6 text-center">
                     <FileText size={20} className="mx-auto text-slate-600 mb-2" />
@@ -1829,7 +1829,7 @@ export default function ConsultingDetailPage() {
                                       : 'bg-white/[0.02] ring-white/[0.06]',
                             )}
                           >
-                            <p className="text-[10px] text-slate-400">{stage.label}</p>
+                            <p className="text-xs text-slate-400">{stage.label}</p>
                             {st ? (
                               <span
                                 className={cn(
@@ -1870,7 +1870,7 @@ export default function ConsultingDetailPage() {
                             <div className="min-w-0">
                               <p className="text-sm text-white truncate">{doc.name}</p>
                               <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-[10px] text-slate-500">
+                                <span className="text-xs text-slate-500">
                                   {DOC_TYPE_LABELS[doc.type] || doc.type}
                                 </span>
                                 {st && (
@@ -1879,7 +1879,7 @@ export default function ConsultingDetailPage() {
                                   </span>
                                 )}
                                 {doc.uploadedAt && (
-                                  <span className="text-[10px] text-slate-600">
+                                  <span className="text-xs text-slate-600">
                                     {new Date(doc.uploadedAt).toLocaleDateString('ko-KR')}
                                   </span>
                                 )}
@@ -1911,7 +1911,7 @@ export default function ConsultingDetailPage() {
                                     });
                                   }}
                                   disabled={approveReportMut.isPending}
-                                  className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-primary/10 text-primary ring-1 ring-primary/20 hover:bg-primary/20 transition-colors"
+                                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-primary/10 text-primary ring-1 ring-primary/20 hover:bg-primary/20 transition-colors"
                                 >
                                   <CheckCircle2 size={11} className="inline mr-0.5" /> 승인
                                 </button>
@@ -1922,7 +1922,7 @@ export default function ConsultingDetailPage() {
                                     setReportRejectTarget(doc);
                                     setReportRejectReason('');
                                   }}
-                                  className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-red-500/10 text-red-300 ring-1 ring-red-500/30 hover:bg-red-500/20 transition-colors"
+                                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-300 ring-1 ring-red-500/30 hover:bg-red-500/20 transition-colors"
                                 >
                                   <AlertCircle size={11} className="inline mr-0.5" /> 반려
                                 </button>
@@ -1937,7 +1937,7 @@ export default function ConsultingDetailPage() {
               </div>
             ) : stepView.actionType === 'SURVEY' ? (
               <div className="space-y-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">무료진단 설문 결과</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500">무료진단 설문 결과</p>
                 {(() => {
                   // 제출된 설문 원본(apiSurvey/surveys 테이블)을 우선 반영, 없으면 consultation 요약값 유지
                   const sv = {
@@ -2001,12 +2001,12 @@ export default function ConsultingDetailPage() {
                       )}
                       {drivers.length > 0 && (
                         <div>
-                          <p className="text-[10px] text-slate-500 mb-1.5">컨설팅 요청 배경</p>
+                          <p className="text-xs text-slate-500 mb-1.5">컨설팅 요청 배경</p>
                           <div className="flex flex-wrap gap-1.5">
                             {drivers.map((d: string, i: number) => (
                               <span
                                 key={i}
-                                className="px-2 py-0.5 text-[10px] rounded-full bg-primary/10 text-primary ring-1 ring-primary/20"
+                                className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary ring-1 ring-primary/20"
                               >
                                 {d}
                               </span>
@@ -2016,12 +2016,12 @@ export default function ConsultingDetailPage() {
                       )}
                       {reMethods.length > 0 && (
                         <div>
-                          <p className="text-[10px] text-slate-500 mb-1.5">현재 RE 조달 방식</p>
+                          <p className="text-xs text-slate-500 mb-1.5">현재 RE 조달 방식</p>
                           <div className="flex flex-wrap gap-1.5">
                             {reMethods.map((m: string, i: number) => (
                               <span
                                 key={i}
-                                className="px-2 py-0.5 text-[10px] rounded-full bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/20"
+                                className="px-2 py-0.5 text-xs rounded-full bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/20"
                               >
                                 {m}
                               </span>
@@ -2029,14 +2029,14 @@ export default function ConsultingDetailPage() {
                           </div>
                         </div>
                       )}
-                      {sv.diagnosisId && <p className="text-[10px] text-slate-600">무료진단 #{sv.diagnosisId} 기반</p>}
+                      {sv.diagnosisId && <p className="text-xs text-slate-600">무료진단 #{sv.diagnosisId} 기반</p>}
                     </div>
                   );
                 })()}
               </div>
             ) : stepView.actionType === 'PROSPECT' ? (
               <div className="space-y-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                <p className="text-xs uppercase tracking-wide text-slate-500">
                   등록된 사업장 ({(apiSites as any[])?.length || 0})
                 </p>
                 {!apiSites || (apiSites as any[]).length === 0 ? (
@@ -2089,7 +2089,7 @@ export default function ConsultingDetailPage() {
               </div>
             ) : stepView.actionType === 'SCHEDULE' ? (
               <div className="space-y-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">일정 조율 이력</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500">일정 조율 이력</p>
                 {(() => {
                   const schedules = Array.isArray(apiSchedules) ? (apiSchedules as any[]) : [];
                   if (schedules.length === 0)
@@ -2124,18 +2124,18 @@ export default function ConsultingDetailPage() {
                         </div>
                         {sch.memo && <p className="text-xs text-slate-400 mt-1">{sch.memo}</p>}
                         {(sch.proposedDate || sch.proposed_date) && (
-                          <p className="text-[10px] text-slate-500 mt-1">
+                          <p className="text-xs text-slate-500 mt-1">
                             대안 제안: {sch.proposedDate || sch.proposed_date}{' '}
                             {sch.proposedTime || sch.proposed_time || ''}
                           </p>
                         )}
                         {(sch.rejectionReason || sch.rejection_reason) && (
-                          <p className="text-[10px] text-red-400 mt-1">
+                          <p className="text-xs text-red-400 mt-1">
                             거절 사유: {sch.rejectionReason || sch.rejection_reason}
                           </p>
                         )}
                         {(sch.confirmedAt || sch.confirmed_at) && (
-                          <p className="text-[10px] text-emerald-400 mt-1">
+                          <p className="text-xs text-emerald-400 mt-1">
                             확정일: {new Date(sch.confirmedAt || sch.confirmed_at).toLocaleDateString('ko-KR')}
                           </p>
                         )}
@@ -2146,7 +2146,7 @@ export default function ConsultingDetailPage() {
               </div>
             ) : stepView.actionType === 'NAVIGATE' ? (
               <div className="space-y-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">방문 일정</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500">방문 일정</p>
                 {(() => {
                   const schedules = Array.isArray(apiSchedules) ? (apiSchedules as any[]) : [];
                   const sites = Array.isArray(apiSites) ? (apiSites as any[]) : [];
@@ -2181,7 +2181,7 @@ export default function ConsultingDetailPage() {
                               {sch.memo && <p className="text-xs text-slate-400">{sch.memo}</p>}
                               {sch.visitNotes && (
                                 <div className="mt-2 rounded bg-blue-500/5 ring-1 ring-blue-500/10 px-3 py-2">
-                                  <p className="text-[10px] text-blue-400 mb-1">컨설턴트 방문 기록</p>
+                                  <p className="text-xs text-blue-400 mb-1">컨설턴트 방문 기록</p>
                                   <p className="text-xs text-slate-300 whitespace-pre-wrap">{sch.visitNotes}</p>
                                 </div>
                               )}
@@ -2198,7 +2198,7 @@ export default function ConsultingDetailPage() {
                         if (visitDocs.length === 0) return null;
                         return (
                           <div>
-                            <p className="text-[11px] uppercase tracking-wide text-slate-500 mt-2 mb-2">실사 자료</p>
+                            <p className="text-xs uppercase tracking-wide text-slate-500 mt-2 mb-2">실사 자료</p>
                             {visitDocs.map((doc: any) => (
                               <button
                                 key={doc.id}
@@ -2210,7 +2210,7 @@ export default function ConsultingDetailPage() {
                                   <FileText size={12} className="text-blue-400 shrink-0" />
                                   <span className="text-xs text-white truncate">{doc.name}</span>
                                 </span>
-                                <span className="text-[10px] text-sky-400 shrink-0">보기</span>
+                                <span className="text-xs text-sky-400 shrink-0">보기</span>
                               </button>
                             ))}
                           </div>
@@ -2218,7 +2218,7 @@ export default function ConsultingDetailPage() {
                       })()}
                       {sites.length > 0 && (
                         <div>
-                          <p className="text-[11px] uppercase tracking-wide text-slate-500 mt-2 mb-2">
+                          <p className="text-xs uppercase tracking-wide text-slate-500 mt-2 mb-2">
                             방문 대상 사업장
                           </p>
                           {sites.map((site: any) => (
@@ -2229,14 +2229,14 @@ export default function ConsultingDetailPage() {
                               <div className="flex items-center gap-2">
                                 <Building2 size={12} className="text-blue-400" />
                                 <span className="text-xs text-white">{site.name || site.siteName}</span>
-                                {site.address && <span className="text-[10px] text-slate-500">{site.address}</span>}
+                                {site.address && <span className="text-xs text-slate-500">{site.address}</span>}
                               </div>
                             </div>
                           ))}
                         </div>
                       )}
                       {stepView.state === 'done' && stepView.date && (
-                        <p className="text-[10px] text-emerald-400 mt-2">실사 완료: {stepView.date}</p>
+                        <p className="text-xs text-emerald-400 mt-2">실사 완료: {stepView.date}</p>
                       )}
                     </div>
                   );
@@ -2244,7 +2244,7 @@ export default function ConsultingDetailPage() {
               </div>
             ) : stepView.actionType === 'CONTRACT' ? (
               <div className="space-y-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">계약 정보</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500">계약 정보</p>
                 {(() => {
                   const proposals = Array.isArray(apiProposals) ? (apiProposals as any[]) : [];
                   const accepted = proposals.find((p: any) => p.status === 'ACCEPTED');
@@ -2300,12 +2300,12 @@ export default function ConsultingDetailPage() {
                       </div>
                       {Array.isArray(scope) && scope.length > 0 && (
                         <div>
-                          <p className="text-[10px] text-slate-500 mb-1.5">제안 범위</p>
+                          <p className="text-xs text-slate-500 mb-1.5">제안 범위</p>
                           <div className="flex flex-wrap gap-1.5">
                             {scope.map((s: string, i: number) => (
                               <span
                                 key={i}
-                                className="px-2 py-0.5 text-[10px] rounded-full bg-primary/10 text-primary ring-1 ring-primary/20"
+                                className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary ring-1 ring-primary/20"
                               >
                                 {s}
                               </span>
@@ -2315,7 +2315,7 @@ export default function ConsultingDetailPage() {
                       )}
                       {(prop?.coverLetter ?? prop?.cover_letter) && (
                         <div>
-                          <p className="text-[10px] text-slate-500 mb-1.5">커버레터</p>
+                          <p className="text-xs text-slate-500 mb-1.5">커버레터</p>
                           <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] px-4 py-3">
                             <p className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">
                               {prop.coverLetter ?? prop.cover_letter}
@@ -2328,7 +2328,7 @@ export default function ConsultingDetailPage() {
                 })()}
                 {contractDocs.length > 0 && (
                   <>
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500 mt-4">계약서 문서</p>
+                    <p className="text-xs uppercase tracking-wide text-slate-500 mt-4">계약서 문서</p>
                     <div className="space-y-2">
                       {contractDocs.map((doc) => {
                         const st = doc.status ? DOC_STATUS_META[doc.status] : null;
@@ -2359,7 +2359,7 @@ export default function ConsultingDetailPage() {
                                     </span>
                                   )}
                                   {doc.uploadedAt && (
-                                    <span className="text-[10px] text-slate-600">
+                                    <span className="text-xs text-slate-600">
                                       {new Date(doc.uploadedAt).toLocaleDateString('ko-KR')}
                                     </span>
                                   )}
@@ -2391,7 +2391,7 @@ export default function ConsultingDetailPage() {
                                       });
                                     }}
                                     disabled={approveReportMut.isPending}
-                                    className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-primary/10 text-primary ring-1 ring-primary/20 hover:bg-primary/20 transition-colors"
+                                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-primary/10 text-primary ring-1 ring-primary/20 hover:bg-primary/20 transition-colors"
                                   >
                                     <CheckCircle2 size={11} className="inline mr-0.5" /> 승인
                                   </button>
@@ -2402,14 +2402,14 @@ export default function ConsultingDetailPage() {
                                       setReportRejectTarget(doc);
                                       setReportRejectReason('');
                                     }}
-                                    className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-red-500/10 text-red-300 ring-1 ring-red-500/30 hover:bg-red-500/20 transition-colors"
+                                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-300 ring-1 ring-red-500/30 hover:bg-red-500/20 transition-colors"
                                   >
                                     <AlertCircle size={11} className="inline mr-0.5" /> 반려
                                   </button>
                                 </>
                               )}
                               {doc.status === 'APPROVED' && (
-                                <span className="text-[11px] text-emerald-400 font-medium">
+                                <span className="text-xs text-emerald-400 font-medium">
                                   <CheckCircle2 size={12} className="inline mr-0.5" /> 승인 완료
                                 </span>
                               )}
@@ -2423,7 +2423,7 @@ export default function ConsultingDetailPage() {
               </div>
             ) : stepView.actionType === 'REVIEW' ? (
               <div className="space-y-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">최종 검수</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500">최종 검수</p>
                 {(() => {
                   const allApproved = reports.length > 0 && reports.every((r) => r.status === 'APPROVED');
                   const revisions = Array.isArray(apiRevisions) ? (apiRevisions as any[]) : [];
@@ -2431,7 +2431,7 @@ export default function ConsultingDetailPage() {
                   return (
                     <div className="space-y-3">
                       <div className="space-y-1.5">
-                        <p className="text-[10px] text-slate-500">보고서 승인 현황</p>
+                        <p className="text-xs text-slate-500">보고서 승인 현황</p>
                         {REPORT_STAGES.map((stage) => {
                           const r = reports.find((rr) => rr.type === stage.value);
                           const st = r?.status ? DOC_STATUS_META[r.status] : null;
@@ -2453,14 +2453,14 @@ export default function ConsultingDetailPage() {
                                         setStepView(null);
                                         openReportsModal(r);
                                       }}
-                                      className="text-[10px] text-blue-400 hover:underline"
+                                      className="text-xs text-blue-400 hover:underline"
                                     >
                                       열람
                                     </button>
                                   )}
                                 </div>
                               ) : (
-                                <span className="text-[10px] text-slate-600">미등록</span>
+                                <span className="text-xs text-slate-600">미등록</span>
                               )}
                             </div>
                           );
@@ -2471,7 +2471,7 @@ export default function ConsultingDetailPage() {
                           <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
                           <div>
                             <p className="text-sm text-emerald-300">모든 보고서 승인 완료</p>
-                            <p className="text-[10px] text-slate-400">검수가 완료되어 컨설팅이 마무리됩니다</p>
+                            <p className="text-xs text-slate-400">검수가 완료되어 컨설팅이 마무리됩니다</p>
                           </div>
                         </div>
                       ) : (
@@ -2484,11 +2484,11 @@ export default function ConsultingDetailPage() {
                       )}
                       {latestRev && (
                         <div>
-                          <p className="text-[10px] text-slate-500 mb-1.5">최종 보고서 요약</p>
+                          <p className="text-xs text-slate-500 mb-1.5">최종 보고서 요약</p>
                           <div className="rounded-lg ring-1 ring-white/[0.06] bg-white/[0.02] divide-y divide-white/[0.04]">
                             {(latestRev.recommendationSummary ?? latestRev.recommendation_summary) && (
                               <div className="px-4 py-2.5">
-                                <p className="text-[10px] text-slate-500 mb-1">권고사항</p>
+                                <p className="text-xs text-slate-500 mb-1">권고사항</p>
                                 <p className="text-xs text-slate-300">
                                   {latestRev.recommendationSummary ?? latestRev.recommendation_summary}
                                 </p>
@@ -2496,7 +2496,7 @@ export default function ConsultingDetailPage() {
                             )}
                             {(latestRev.actionPlan ?? latestRev.action_plan) && (
                               <div className="px-4 py-2.5">
-                                <p className="text-[10px] text-slate-500 mb-1">실행 계획</p>
+                                <p className="text-xs text-slate-500 mb-1">실행 계획</p>
                                 <p className="text-xs text-slate-300">
                                   {latestRev.actionPlan ?? latestRev.action_plan}
                                 </p>
@@ -2586,7 +2586,7 @@ export default function ConsultingDetailPage() {
             </div>
             <div className="flex flex-wrap gap-1.5">
               {(c.firstProposal.scope ?? []).map((s) => (
-                <span key={s} className="text-[11px] bg-white/[0.05] text-slate-300 rounded-md px-2 py-1">
+                <span key={s} className="text-xs bg-white/[0.05] text-slate-300 rounded-md px-2 py-1">
                   {s}
                 </span>
               ))}
@@ -2775,7 +2775,7 @@ export default function ConsultingDetailPage() {
               <p className="text-xs font-medium text-white flex items-center gap-1.5">
                 <CheckCircle2 size={13} className="text-emerald-400" /> 무료 진단 자료 (자동 연계)
               </p>
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-xs text-slate-400 mt-1">
                 현재 RE {c.diagnosis.currentRE}% · 성숙도 {c.diagnosis.grade}등급
               </p>
             </div>
@@ -2808,7 +2808,7 @@ export default function ConsultingDetailPage() {
               >
                 <Upload size={22} className="mx-auto text-slate-500" />
                 <p className="text-xs text-slate-400 mt-2">한전 고지서 · 도면 등을 끌어다 놓거나 클릭해 업로드</p>
-                <p className="text-[10px] text-slate-600 mt-1">PDF · XLSX · 이미지</p>
+                <p className="text-xs text-slate-600 mt-1">PDF · XLSX · 이미지</p>
               </div>
               {surveyFiles.length > 0 && (
                 <div className="mt-2 space-y-1">
@@ -2897,7 +2897,7 @@ export default function ConsultingDetailPage() {
               onChange={(e) => setSiteName(e.target.value)}
             />
             <div>
-              <label className="text-[11px] text-slate-400 mb-1.5 block">사업장 유형 *</label>
+              <label className="text-xs text-slate-400 mb-1.5 block">사업장 유형 *</label>
               <div className="grid grid-cols-3 gap-1.5">
                 {SITE_TYPES.map((t) => (
                   <button
@@ -2945,7 +2945,7 @@ export default function ConsultingDetailPage() {
               />
             </div>
             <div>
-              <label className="text-[11px] text-slate-400 mb-1.5 block">메모 (선택)</label>
+              <label className="text-xs text-slate-400 mb-1.5 block">메모 (선택)</label>
               <textarea
                 value={siteMemo}
                 onChange={(e) => setSiteMemo(e.target.value)}
@@ -2992,7 +2992,7 @@ export default function ConsultingDetailPage() {
             </p>
 
             <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">제출 문서 {reports.length}건</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500 mb-2">제출 문서 {reports.length}건</p>
               {reports.length === 0 ? (
                 <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.06] px-4 py-3">
                   <p className="text-xs text-slate-400">
@@ -3010,7 +3010,7 @@ export default function ConsultingDetailPage() {
                         <FileText size={16} className="text-blue-400 shrink-0" />
                         <div className="min-w-0">
                           <p className="text-sm text-white truncate">{doc.name}</p>
-                          <p className="text-[11px] text-slate-500 truncate">
+                          <p className="text-xs text-slate-500 truncate">
                             {DOC_TYPE_LABELS[doc.type] || doc.type}
                             {doc.authorName ? ` · ${doc.authorName}` : ''}
                           </p>
@@ -3039,7 +3039,7 @@ export default function ConsultingDetailPage() {
 
             {/* 검수 항목 체크리스트 */}
             <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">검수 항목</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500 mb-2">검수 항목</p>
               <div className="rounded-lg ring-1 ring-white/[0.06] bg-white/[0.02] divide-y divide-white/[0.04]">
                 {REVIEW_ITEMS.map((item, i) => (
                   <button
@@ -3061,7 +3061,7 @@ export default function ConsultingDetailPage() {
                 ))}
               </div>
             </div>
-            <p className="text-[11px] text-slate-500">※ 검수는 성공보수 지급의 기준입니다.</p>
+            <p className="text-xs text-slate-500">※ 검수는 성공보수 지급의 기준입니다.</p>
           </div>
         </Modal>
       )}
@@ -3105,7 +3105,7 @@ export default function ConsultingDetailPage() {
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
             />
-            <p className="text-[11px] text-slate-500 flex items-center gap-1.5">
+            <p className="text-xs text-slate-500 flex items-center gap-1.5">
               <AlertCircle size={11} className="text-amber-300" />
               반려 시 중간보수 지급은 보류되고, 재작성 후 다시 동의 요청이 도착합니다.
             </p>
@@ -3143,12 +3143,12 @@ export default function ConsultingDetailPage() {
                 <FileText size={16} className="text-blue-400" />
                 <div>
                   <p className="text-sm font-bold text-white">{docPreview.title}</p>
-                  <p className="text-[10px] text-slate-500">
+                  <p className="text-xs text-slate-500">
                     {docPreview.file} · 작성: {docPreview.author}
                   </p>
                 </div>
               </div>
-              <p className="mt-3 text-[11px] text-slate-400">{docPreview.desc}</p>
+              <p className="mt-3 text-xs text-slate-400">{docPreview.desc}</p>
               <div className="mt-2 space-y-1.5">
                 {docPreview.preview.map((line: string) => (
                   <div key={line} className="flex items-start gap-2 text-xs text-slate-300">
@@ -3157,7 +3157,7 @@ export default function ConsultingDetailPage() {
                   </div>
                 ))}
               </div>
-              <p className="mt-4 text-[10px] text-slate-600">— 미리보기 (요약) · 전체 내용은 다운로드 —</p>
+              <p className="mt-4 text-xs text-slate-600">— 미리보기 (요약) · 전체 내용은 다운로드 —</p>
             </div>
           </div>
         </Modal>
@@ -3190,7 +3190,7 @@ export default function ConsultingDetailPage() {
             <div className="flex items-center justify-between">
               <span
                 className={cn(
-                  'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ring-1',
+                  'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1',
                   c.contractAmount > 0
                     ? 'bg-emerald-500/[0.12] text-emerald-300 ring-emerald-500/30'
                     : 'bg-amber-500/[0.12] text-amber-300 ring-amber-500/30',
@@ -3198,7 +3198,7 @@ export default function ConsultingDetailPage() {
               >
                 {c.contractAmount > 0 ? '발행 완료' : '미발행'}
               </span>
-              <span className="text-[11px] text-slate-500">정산(보수 지급)과 별개로 발행되는 세금계산서입니다</span>
+              <span className="text-xs text-slate-500">정산(보수 지급)과 별개로 발행되는 세금계산서입니다</span>
             </div>
             {c.contractAmount === 0 && (
               <div className="rounded-lg bg-amber-500/10 ring-1 ring-amber-500/20 px-3 py-2">
@@ -3243,7 +3243,7 @@ export default function ConsultingDetailPage() {
                 <span className="text-slate-300 tabular-nums">{c.expectedEnd || '미정'}</span>
               </div>
             </div>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-xs text-slate-500">
               ※ 전자세금계산서는 홈택스로 발행·전송됩니다. 정산(보수 지급 일정)은 정산 메뉴에서 별도 확인하세요.
             </p>
           </div>
@@ -3371,7 +3371,7 @@ export default function ConsultingDetailPage() {
                           <p className="text-xs text-slate-500">
                             {docsMode === 'contracts' ? '계약서가 없습니다' : '문서가 없습니다'}
                           </p>
-                          <p className="text-[10px] text-slate-600 mt-1">컨설턴트가 업로드하면 표시됩니다</p>
+                          <p className="text-xs text-slate-600 mt-1">컨설턴트가 업로드하면 표시됩니다</p>
                         </div>
                       ) : (
                         docList.map((doc) => (
@@ -3408,7 +3408,7 @@ export default function ConsultingDetailPage() {
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs text-white truncate">{doc.name}</p>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-[10px] text-slate-500">
+                                  <span className="text-xs text-slate-500">
                                     {DOC_TYPE_LABELS[doc.type] || doc.type}
                                   </span>
                                   {(() => {
@@ -3422,15 +3422,15 @@ export default function ConsultingDetailPage() {
                                 </div>
                                 <div className="flex items-center gap-2 mt-0.5">
                                   {doc.authorName && (
-                                    <span className="text-[10px] text-slate-600">{doc.authorName}</span>
+                                    <span className="text-xs text-slate-600">{doc.authorName}</span>
                                   )}
                                   {doc.uploadedAt && (
-                                    <span className="text-[10px] text-slate-600">
+                                    <span className="text-xs text-slate-600">
                                       {new Date(doc.uploadedAt).toLocaleDateString('ko-KR')}
                                     </span>
                                   )}
                                   {doc.version > 1 && (
-                                    <span className="text-[10px] text-slate-600">v{doc.version}</span>
+                                    <span className="text-xs text-slate-600">v{doc.version}</span>
                                   )}
                                 </div>
                                 {!(docsMode === 'contracts' ? isContractStepDone : isDocsStepDone) &&
@@ -3447,7 +3447,7 @@ export default function ConsultingDetailPage() {
                                           });
                                         }}
                                         disabled={approveReportMut.isPending}
-                                        className="px-2 py-1 rounded text-[10px] font-medium bg-primary/10 text-primary ring-1 ring-primary/20 hover:bg-primary/20 transition-colors"
+                                        className="px-2 py-1 rounded text-xs font-medium bg-primary/10 text-primary ring-1 ring-primary/20 hover:bg-primary/20 transition-colors"
                                       >
                                         <CheckCircle2 size={10} className="inline mr-0.5" /> 승인
                                       </button>
@@ -3458,7 +3458,7 @@ export default function ConsultingDetailPage() {
                                           setReportRejectTarget(doc);
                                           setReportRejectReason('');
                                         }}
-                                        className="px-2 py-1 rounded text-[10px] font-medium bg-red-500/10 text-red-300 ring-1 ring-red-500/30 hover:bg-red-500/20 transition-colors"
+                                        className="px-2 py-1 rounded text-xs font-medium bg-red-500/10 text-red-300 ring-1 ring-red-500/30 hover:bg-red-500/20 transition-colors"
                                       >
                                         <AlertCircle size={10} className="inline mr-0.5" /> 반려
                                       </button>
@@ -3484,7 +3484,7 @@ export default function ConsultingDetailPage() {
                                 const st = selectedDoc.status ? DOC_STATUS_META[selectedDoc.status] : null;
                                 return st ? (
                                   <span
-                                    className={cn('text-[10px] px-2 py-0.5 rounded-full ring-1 shrink-0', st.color)}
+                                    className={cn('text-xs px-2 py-0.5 rounded-full ring-1 shrink-0', st.color)}
                                   >
                                     {st.label}
                                   </span>
@@ -3643,7 +3643,7 @@ export default function ConsultingDetailPage() {
                   <div>
                     <p className="text-white font-semibold">{site.name || site.siteName}</p>
                     {site.siteType && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/[0.05] ring-1 ring-white/[0.1] text-slate-400">
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-white/[0.05] ring-1 ring-white/[0.1] text-slate-400">
                         {ST_LABELS[site.siteType] || site.siteType}
                       </span>
                     )}

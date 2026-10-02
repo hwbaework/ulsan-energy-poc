@@ -15,3 +15,4 @@ export type { OnboardingStep as OnboardingStepperStep } from './OnboardingSteppe
 export * from './AssetRegistrationBanner';
 export * from './dashboard';
 export * from './billing';
+export * from './CollapsibleSectionCard';

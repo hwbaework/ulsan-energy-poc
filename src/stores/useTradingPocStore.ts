@@ -22,7 +22,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 3;
+export const SEED_VERSION = 6;
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC · 2 전기사용자 · 3 발전사업자) ───────── */
 export const CO = {
@@ -72,9 +72,11 @@ function seedContracts(): Contract[] {
     base({ id: 5, no: 'CT-2024-0005', requestId: 11, kind: 'SELF_CONSUMPTION', plantId: 17512, plantName: '태성산업', generatorCompanyId: 10, generatorCompanyName: CO.SENERGY.name, consumerCompanyId: 6, consumerCompanyName: CO.TAESUNG.name, siteName: '태성산업 본사', address: '울산 울주군 온산읍 산업로 12', capacityKw: 46.08, unitPrice: 26, termYears: 10, startDate: '2024-11-01', status: 'ACTIVE', signedByGenerator: true, signedByConsumer: true, signedAt: iso('2024-10-25', '15:40:00') }),
     base({ id: 6, no: 'CT-2024-0006', requestId: 12, kind: 'SELF_CONSUMPTION', plantId: 17513, plantName: '건호이엔씨', generatorCompanyId: 10, generatorCompanyName: CO.SENERGY.name, consumerCompanyId: 7, consumerCompanyName: CO.GUNHO.name, siteName: '건호이엔씨 공장', address: '울산 북구 효문동 1180', capacityKw: 33.92, unitPrice: 26, termYears: 10, startDate: '2024-12-01', status: 'ACTIVE', signedByGenerator: true, signedByConsumer: true, signedAt: iso('2024-11-20', '09:30:00') }),
     // 승인은 났고 서명을 기다리는 계약 — 발전사업자 로그인에서 [전자서명] 데모
-    base({ id: 7, no: 'CT-2026-0007', requestId: 4, kind: 'ONSITE', plantName: '미포 정밀화학 제1공장', generatorCompanyId: 3, generatorCompanyName: CO.GENERATOR_LOGIN.name, consumerCompanyId: 8, consumerCompanyName: CO.MIPO.name, siteName: '미포 정밀화학 제1공장', address: '울산 남구 장생포로 55', capacityKw: 250, unitPrice: 138, termYears: 20, startDate: '2026-11-01', status: 'PENDING_SIGN', signedByGenerator: false, signedByConsumer: false }),
+    base({ id: 7, no: 'CT-2026-0007', requestId: 4, kind: 'ONSITE', plantName: '본사공장', generatorCompanyId: 3, generatorCompanyName: CO.GENERATOR_LOGIN.name, consumerCompanyId: 2, consumerCompanyName: CO.CONSUMER_LOGIN.name, siteName: '본사공장', address: '울산 남구 처용로 100', capacityKw: 250, unitPrice: 138, termYears: 20, startDate: '2026-11-01', status: 'PENDING_SIGN', signedByGenerator: false, signedByConsumer: false }),
     // 해지 완료 — 변경·해지 승인 이력과 짝
     { ...base({ id: 8, no: 'CT-2023-0008', requestId: 13, kind: 'ONSITE', plantName: '온산 스틸 제2공장', generatorCompanyId: 10, generatorCompanyName: CO.SENERGY.name, consumerCompanyId: 9, consumerCompanyName: CO.ONSAN.name, siteName: '온산 스틸 제2공장', address: '울산 울주군 온산읍 산업로 12', capacityKw: 120, unitPrice: 132, termYears: 20, startDate: '2023-07-01', status: 'TERMINATED', signedByGenerator: true, signedByConsumer: true, signedAt: iso('2023-06-15', '13:00:00') }), terminatedAt: '2026-06-30' },
+    // 해지 완료 — 발전사업자 샘플 (제2공장 가동 축소로 해지, 이후 같은 부지에 재신청 TR-2026-0006)
+    { ...base({ id: 9, no: 'CT-2021-0009', requestId: 14, kind: 'ONSITE', plantName: '제2공장', generatorCompanyId: 3, generatorCompanyName: CO.GENERATOR_LOGIN.name, consumerCompanyId: 2, consumerCompanyName: CO.CONSUMER_LOGIN.name, siteName: '제2공장', address: '울산 남구 용잠로 210', capacityKw: 120, unitPrice: 134, termYears: 20, startDate: '2021-04-01', status: 'TERMINATED', signedByGenerator: true, signedByConsumer: true, signedAt: iso('2021-03-18', '10:00:00') }), terminatedAt: '2026-03-31' },
   ];
 }
 
@@ -102,19 +104,20 @@ function seedRequests(): TradeRequest[] {
     mk({ id: 2, ...gen, kind: 'SELF_CONSUMPTION', plantId: 17514, plantName: '한일튜브(자가소비)', consumerCompanyId: 4, consumerCompanyName: CO.HANIL.name, siteName: '한일튜브 울산공장', address: '울산 남구 부곡동 273-6', capacityKw: 129.44, unitPrice: 28, termYears: 10, status: 'SIGNED', contractId: 2, submittedAt: iso('2025-01-10', '09:20:00'), updatedAt: iso('2025-02-20', '14:35:00'), events: signedEvents(iso('2025-01-10', '09:20:00'), iso('2025-01-13'), iso('2025-01-27'), iso('2025-02-20', '14:35:00')), note: '한일튜브 자가소비 설비 129.44kW 설치·운영 관리' }),
     mk({ id: 3, applicant: 'consumer', applicantCompanyId: 2, applicantCompanyName: CO.CONSUMER_LOGIN.name, generatorCompanyId: 1, generatorCompanyName: CO.SPC.name, kind: 'SELF_CONSUMPTION', plantId: 17515, plantName: '한길', consumerCompanyId: 2, consumerCompanyName: CO.CONSUMER_LOGIN.name, siteName: '본사공장', address: '울산 남구 처용로 100', capacityKw: 90.88, unitPrice: 28, termYears: 10, status: 'SIGNED', contractId: 3, submittedAt: iso('2025-03-15'), updatedAt: iso('2025-04-18', '11:00:00'), events: [ev(iso('2025-03-15'), 'consumer', '신청 접수'), ev(iso('2025-03-17'), 'spc', '검토 시작'), ev(iso('2025-03-28'), 'spc', '승인', '계약서 초안 생성'), ev(iso('2025-04-18', '10:40:00'), 'generator', '전자서명'), ev(iso('2025-04-18', '11:00:00'), 'consumer', '전자서명'), ev(iso('2025-04-18', '11:00:00'), 'spc', '체결')] }),
     // 진행 중 — 발전사업자(울산 발전) 3건
-    mk({ id: 4, ...gen, kind: 'ONSITE', plantName: '미포 정밀화학 제1공장', consumerCompanyId: 8, consumerCompanyName: CO.MIPO.name, siteName: '미포 정밀화학 제1공장', address: '울산 남구 장생포로 55', capacityKw: 250, unitPrice: 138, termYears: 20, status: 'APPROVED', contractId: 7, submittedAt: iso('2026-09-02'), updatedAt: iso('2026-09-15', '16:00:00'), events: [ev(iso('2026-09-02'), 'generator', '신청 접수'), ev(iso('2026-09-04'), 'spc', '검토 시작'), ev(iso('2026-09-15', '16:00:00'), 'spc', '승인', '계약서 초안 생성 — 양측 전자서명 대기')], note: '제1공장 지붕 250kW, 2026년 11월 상업운전 목표' }),
-    mk({ id: 5, ...gen, kind: 'SELF_CONSUMPTION', plantName: '온산 스틸 제1공장', consumerCompanyId: 9, consumerCompanyName: CO.ONSAN.name, siteName: '온산 스틸 제1공장', address: '울산 울주군 온산읍 산업로 12', capacityKw: 180, unitPrice: 28, termYears: 10, status: 'REVIEW', submittedAt: iso('2026-09-20'), updatedAt: iso('2026-09-23', '10:30:00'), events: [ev(iso('2026-09-20'), 'generator', '신청 접수'), ev(iso('2026-09-23', '10:30:00'), 'spc', '검토 시작', '설비 사양·운영 범위 확인 중')], note: '수용가 소유 설비 180kW 운영관리 위탁' }),
-    mk({ id: 6, ...gen, kind: 'ONSITE', plantName: '울산 수용가 제2공장', consumerCompanyId: 2, consumerCompanyName: CO.CONSUMER_LOGIN.name, siteName: '제2공장', address: '울산 남구 용잠로 210', capacityKw: 150, unitPrice: 140, termYears: 20, status: 'SUBMITTED', submittedAt: iso('2026-09-29', '15:10:00'), note: '제2공장 유휴 부지 150kW' }),
+    mk({ id: 4, ...gen, kind: 'ONSITE', plantName: '본사공장', consumerCompanyId: 2, consumerCompanyName: CO.CONSUMER_LOGIN.name, siteName: '본사공장', address: '울산 남구 처용로 100', capacityKw: 250, unitPrice: 138, termYears: 20, status: 'APPROVED', contractId: 7, submittedAt: iso('2026-09-02'), updatedAt: iso('2026-09-15', '16:00:00'), events: [ev(iso('2026-09-02'), 'generator', '신청 접수'), ev(iso('2026-09-04'), 'spc', '검토 시작'), ev(iso('2026-09-15', '16:00:00'), 'spc', '승인', '계약서 초안 생성 — 양측 전자서명 대기')], note: '본사공장 신관 지붕 250kW, 2026-11 상업운전 목표' }),
+    mk({ id: 5, ...gen, kind: 'ONSITE', plantName: '한일튜브 울산공장', consumerCompanyId: 4, consumerCompanyName: CO.HANIL.name, siteName: '한일튜브 울산공장', address: '울산 남구 부곡동 273-6', capacityKw: 180, unitPrice: 136, termYears: 20, status: 'REVIEW', submittedAt: iso('2026-09-20'), updatedAt: iso('2026-09-23', '10:30:00'), events: [ev(iso('2026-09-20'), 'generator', '신청 접수'), ev(iso('2026-09-23', '10:30:00'), 'spc', '검토 시작', '설비 사양·운영 범위 확인 중')], note: '창고동 지붕 증설 180kW onsite 공급' }),
+    mk({ id: 6, ...gen, kind: 'ONSITE', plantName: '제2공장', consumerCompanyId: 2, consumerCompanyName: CO.CONSUMER_LOGIN.name, siteName: '제2공장', address: '울산 남구 용잠로 210', capacityKw: 150, unitPrice: 140, termYears: 20, status: 'SUBMITTED', submittedAt: iso('2026-09-29', '15:10:00'), note: '제2공장 유휴 부지 150kW' }),
     // 진행 중 — 다른 발전사업자(관리자만 보임)
-    mk({ id: 7, ...sen, kind: 'SELF_CONSUMPTION', plantName: '덕양산업 본사', consumerCompanyId: 11, consumerCompanyName: CO.DEOKYANG.name, siteName: '덕양산업 본사', address: '울산 북구 매곡동 1026', capacityKw: 80, unitPrice: 27, termYears: 10, status: 'SUBMITTED', submittedAt: iso('2026-09-30', '11:00:00') }),
+    mk({ id: 7, ...sen, kind: 'ONSITE', plantName: '덕양산업 본사', consumerCompanyId: 11, consumerCompanyName: CO.DEOKYANG.name, siteName: '덕양산업 본사', address: '울산 북구 매곡동 1026', capacityKw: 80, unitPrice: 135, termYears: 20, status: 'SUBMITTED', submittedAt: iso('2026-09-30', '11:00:00') }),
     // 반려·취소
-    mk({ id: 8, ...gen, kind: 'ONSITE', plantName: '온산 스틸 제1공장', consumerCompanyId: 9, consumerCompanyName: CO.ONSAN.name, siteName: '온산 스틸 제1공장', address: '울산 울주군 온산읍 산업로 12', capacityKw: 400, unitPrice: 128, termYears: 20, status: 'REJECTED', rejectReason: '계약 단가가 기준 단가(₩135/kWh) 미만 — 단가 조정 후 재신청', submittedAt: iso('2026-08-03'), updatedAt: iso('2026-08-12', '17:20:00'), events: [ev(iso('2026-08-03'), 'generator', '신청 접수'), ev(iso('2026-08-05'), 'spc', '검토 시작'), ev(iso('2026-08-12', '17:20:00'), 'spc', '반려', '계약 단가가 기준 단가(₩135/kWh) 미만 — 단가 조정 후 재신청')] }),
-    mk({ id: 9, ...sen, kind: 'ONSITE', plantName: '미포 정밀화학 제2공장', consumerCompanyId: 8, consumerCompanyName: CO.MIPO.name, siteName: '미포 정밀화학 제2공장', address: '울산 남구 장생포로 55', capacityKw: 200, unitPrice: 136, termYears: 20, status: 'CANCELLED', submittedAt: iso('2026-07-08'), updatedAt: iso('2026-07-21', '09:00:00'), events: [ev(iso('2026-07-08'), 'generator', '신청 접수'), ev(iso('2026-07-21', '09:00:00'), 'generator', '신청 취소', '수용가 사정으로 설치 일정 보류')] }),
+    mk({ id: 8, ...gen, kind: 'ONSITE', plantName: '한일튜브 울산공장', consumerCompanyId: 4, consumerCompanyName: CO.HANIL.name, siteName: '한일튜브 울산공장', address: '울산 남구 부곡동 273-6', capacityKw: 400, unitPrice: 128, termYears: 20, status: 'REJECTED', rejectReason: '계약 단가가 기준 단가(₩135/kWh) 미만 — 단가 조정 후 재신청', submittedAt: iso('2026-08-03'), updatedAt: iso('2026-08-12', '17:20:00'), events: [ev(iso('2026-08-03'), 'generator', '신청 접수'), ev(iso('2026-08-05'), 'spc', '검토 시작'), ev(iso('2026-08-12', '17:20:00'), 'spc', '반려', '계약 단가가 기준 단가(₩135/kWh) 미만 — 단가 조정 후 재신청')] }),
+    mk({ id: 9, ...gen, kind: 'ONSITE', plantName: '한일튜브 울산공장', consumerCompanyId: 4, consumerCompanyName: CO.HANIL.name, siteName: '한일튜브 울산공장', address: '울산 남구 부곡동 273-6', capacityKw: 200, unitPrice: 136, termYears: 20, status: 'CANCELLED', submittedAt: iso('2026-07-08'), updatedAt: iso('2026-07-21', '09:00:00'), events: [ev(iso('2026-07-08'), 'generator', '신청 접수'), ev(iso('2026-07-21', '09:00:00'), 'generator', '신청 취소', '수용가 사정으로 설치 일정 보류')] }),
     // 에스에너지 체결 3건 + 온산 스틸 해지 계약
     mk({ id: 10, ...sen, kind: 'SELF_CONSUMPTION', plantId: 17511, plantName: '용인금속', consumerCompanyId: 5, consumerCompanyName: CO.YONGIN.name, siteName: '용인금속 울산공장', address: '울산 남구 여천동 887-18', capacityKw: 152.32, unitPrice: 26, termYears: 10, status: 'SIGNED', contractId: 4, submittedAt: iso('2024-07-15'), updatedAt: iso('2024-08-22', '10:10:00'), events: signedEvents(iso('2024-07-15'), iso('2024-07-17'), iso('2024-08-01'), iso('2024-08-22', '10:10:00')) }),
     mk({ id: 11, ...sen, kind: 'SELF_CONSUMPTION', plantId: 17512, plantName: '태성산업', consumerCompanyId: 6, consumerCompanyName: CO.TAESUNG.name, siteName: '태성산업 본사', address: '울산 울주군 온산읍 산업로 12', capacityKw: 46.08, unitPrice: 26, termYears: 10, status: 'SIGNED', contractId: 5, submittedAt: iso('2024-09-20'), updatedAt: iso('2024-10-25', '15:40:00'), events: signedEvents(iso('2024-09-20'), iso('2024-09-23'), iso('2024-10-07'), iso('2024-10-25', '15:40:00')) }),
     mk({ id: 12, ...sen, kind: 'SELF_CONSUMPTION', plantId: 17513, plantName: '건호이엔씨', consumerCompanyId: 7, consumerCompanyName: CO.GUNHO.name, siteName: '건호이엔씨 공장', address: '울산 북구 효문동 1180', capacityKw: 33.92, unitPrice: 26, termYears: 10, status: 'SIGNED', contractId: 6, submittedAt: iso('2024-10-20'), updatedAt: iso('2024-11-20', '09:30:00'), events: signedEvents(iso('2024-10-20'), iso('2024-10-22'), iso('2024-11-05'), iso('2024-11-20', '09:30:00')) }),
     mk({ id: 13, ...sen, kind: 'ONSITE', plantName: '온산 스틸 제2공장', consumerCompanyId: 9, consumerCompanyName: CO.ONSAN.name, siteName: '온산 스틸 제2공장', address: '울산 울주군 온산읍 산업로 12', capacityKw: 120, unitPrice: 132, termYears: 20, status: 'SIGNED', contractId: 8, submittedAt: iso('2023-05-10'), updatedAt: iso('2023-06-15', '13:00:00'), events: signedEvents(iso('2023-05-10'), iso('2023-05-12'), iso('2023-05-30'), iso('2023-06-15', '13:00:00')) }),
+    mk({ id: 14, ...gen, kind: 'ONSITE', plantName: '제2공장', consumerCompanyId: 2, consumerCompanyName: CO.CONSUMER_LOGIN.name, siteName: '제2공장', address: '울산 남구 용잠로 210', capacityKw: 120, unitPrice: 134, termYears: 20, status: 'SIGNED', contractId: 9, submittedAt: iso('2021-02-01'), updatedAt: iso('2021-03-18', '10:00:00'), events: signedEvents(iso('2021-02-01'), iso('2021-02-03'), iso('2021-02-22'), iso('2021-03-18', '10:00:00')) }),
   ];
 }
 
@@ -124,6 +127,9 @@ function seedChanges(): ContractChange[] {
     { id: 2, no: 'CH-2026-0002', contractId: 8, type: 'TERMINATE', requestedBy: 'consumer', requestedByName: CO.ONSAN.name, requestedAt: iso('2026-05-20'), reason: '제2공장 가동 중단에 따른 계약 해지', effectiveDate: '2026-06-30', status: 'APPROVED', decidedAt: iso('2026-06-20', '11:00:00'), decisionNote: '해지 수수료 면제 — 수용가 귀책 아님' },
     { id: 3, no: 'CH-2026-0003', contractId: 2, type: 'TERM', requestedBy: 'generator', requestedByName: CO.GENERATOR_LOGIN.name, requestedAt: iso('2026-07-01'), reason: '운영관리 기간 5년 연장', before: '2035-02-28', after: '2040-02-28', status: 'REJECTED', decidedAt: iso('2026-07-10', '16:30:00'), decisionNote: '기간 연장은 만료 1년 전부터 신청 가능' },
     { id: 4, no: 'CH-2026-0004', contractId: 5, type: 'CAPACITY', requestedBy: 'consumer', requestedByName: CO.TAESUNG.name, requestedAt: iso('2026-09-25', '10:00:00'), reason: '창고동 지붕 증설 20kW 운영관리 포함', before: '46.08', after: '66.08', status: 'REQUESTED' },
+    { id: 5, no: 'CH-2026-0005', contractId: 9, type: 'TERMINATE', requestedBy: 'consumer', requestedByName: CO.CONSUMER_LOGIN.name, requestedAt: iso('2026-02-10'), reason: '제2공장 가동 축소에 따른 계약 해지', effectiveDate: '2026-03-31', status: 'APPROVED', decidedAt: iso('2026-03-05', '11:00:00'), decisionNote: '설비 철거 비용은 수용가 부담으로 합의' },
+    { id: 6, no: 'CH-2026-0006', contractId: 2, type: 'PRICE', requestedBy: 'generator', requestedByName: CO.GENERATOR_LOGIN.name, requestedAt: iso('2026-01-12'), reason: '인버터 교체에 따른 임대료 단가 조정', before: '26', after: '28', status: 'APPROVED', decidedAt: iso('2026-01-28', '15:00:00'), decisionNote: '2026-02 정산분부터 적용' },
+    { id: 7, no: 'CH-2026-0007', contractId: 1, type: 'CAPACITY', requestedBy: 'generator', requestedByName: CO.GENERATOR_LOGIN.name, requestedAt: iso('2026-06-02'), reason: '창고동 지붕 추가 설치 검토', before: '300', after: '420', status: 'CANCELLED', decidedAt: iso('2026-06-20', '09:00:00') },
   ];
 }
 
@@ -187,9 +193,9 @@ function seedDocuments(contracts: Contract[], changes: ContractChange[]): TradeD
   const push = (d: Omit<TradeDocument, 'id'>) => docs.push({ id: id++, ...d });
   const parties = (c: Contract) => [c.generatorCompanyId, c.consumerCompanyId];
   for (const c of contracts) {
-    push({ category: 'CONTRACT', title: `${c.kind === 'ONSITE' ? 'onsite 전력공급계약서' : '자가소비 설비 운영관리계약서'} (초안)`, fileName: `${c.no}_계약서_초안.pdf`, contractId: c.id, contractNo: c.no, plantName: c.plantName, partyCompanyIds: parties(c), issuedAt: (c.signedAt ?? c.createdAt).slice(0, 10), fileType: 'PDF', sizeKb: 1840 });
+    push({ category: 'CONTRACT', title: `${c.kind === 'ONSITE' ? 'onsite 전력공급계약서' : '태양광 발전설비 및 부동산 교차 임대차 계약서'} (초안)`, fileName: `${c.no}_계약서_초안.pdf`, contractId: c.id, contractNo: c.no, plantName: c.plantName, partyCompanyIds: parties(c), issuedAt: (c.signedAt ?? c.createdAt).slice(0, 10), fileType: 'PDF', sizeKb: 1840 });
     if (c.signedAt) {
-      push({ category: 'SIGNED', title: `${c.kind === 'ONSITE' ? 'onsite 전력공급계약서' : '자가소비 설비 운영관리계약서'} (서명본)`, fileName: `${c.no}_계약서_서명본.pdf`, contractId: c.id, contractNo: c.no, plantName: c.plantName, partyCompanyIds: parties(c), issuedAt: c.signedAt.slice(0, 10), fileType: 'PDF', sizeKb: 2260 });
+      push({ category: 'SIGNED', title: `${c.kind === 'ONSITE' ? 'onsite 전력공급계약서' : '태양광 발전설비 및 부동산 교차 임대차 계약서'} (서명본)`, fileName: `${c.no}_계약서_서명본.pdf`, contractId: c.id, contractNo: c.no, plantName: c.plantName, partyCompanyIds: parties(c), issuedAt: c.signedAt.slice(0, 10), fileType: 'PDF', sizeKb: 2260 });
     }
   }
   // 최근 확정 3개월 청구서·세금계산서 (관리자 세금계산서·청구서 화면과 같은 월)
@@ -341,7 +347,7 @@ export const useTradingPocStore = create<TradingPocState>()(
         const doc: TradeDocument = {
           id: nextId(get().documents),
           category: 'CONTRACT',
-          title: `${r.kind === 'ONSITE' ? 'onsite 전력공급계약서' : '자가소비 설비 운영관리계약서'} (초안)`,
+          title: `${r.kind === 'ONSITE' ? 'onsite 전력공급계약서' : '태양광 발전설비 및 부동산 교차 임대차 계약서'} (초안)`,
           fileName: `${contract.no}_계약서_초안.pdf`,
           contractId: contract.id,
           contractNo: contract.no,
@@ -480,7 +486,7 @@ function sign(set: Set, get: Get, contractId: number, party: 'generator' | 'cons
     ? [{
         id: nextId(get().documents),
         category: 'SIGNED',
-        title: `${next.kind === 'ONSITE' ? 'onsite 전력공급계약서' : '자가소비 설비 운영관리계약서'} (서명본)`,
+        title: `${next.kind === 'ONSITE' ? 'onsite 전력공급계약서' : '태양광 발전설비 및 부동산 교차 임대차 계약서'} (서명본)`,
         fileName: `${next.no}_계약서_서명본.pdf`,
         contractId: next.id,
         contractNo: next.no,

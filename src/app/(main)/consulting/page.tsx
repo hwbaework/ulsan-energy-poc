@@ -9,7 +9,6 @@ import { SectionCard } from '@/components/features';
 import { cn } from '@/lib/utils';
 import { getPersona, usePersonaOverride } from '@/lib/persona';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { getUpcomingRegulations, getDaysUntilDeadline, getRegulationUrgency } from '@/lib/regulations';
 import {
   useConsultationsByCompany,
   useConsultationsByConsultant,
@@ -23,7 +22,6 @@ import type { Diagnosis } from '@/types/consultation';
 // 컨설팅 표준 진행 단계 (수용가 관점) — 신청 → 정산. 홈·내 컨설팅 공통 기준, 한 단계도 빠지지 않게
 const CONSULTING_PIPELINE = [
   '신청',
-  '컨설턴트 선택',
   '설문조사',
   '현장 방문',
   '사업장 등록',
@@ -34,14 +32,15 @@ const CONSULTING_PIPELINE = [
   '정산',
 ];
 // 백엔드 ConsultationStatus → 파이프라인 인덱스 (enum에 없는 사업장 등록·동의는 인접 매핑)
+const DOMAIN_LABEL: Record<string, string> = { RE100: 'RE100', CARBON_REDUCTION: '탄소감축', DISTRIBUTED_ENERGY: '분산에너지' };
 const STATUS_TO_STEP: Record<string, number> = {
   APPLIED: 0,
-  ASSIGNED: 1,
-  SURVEYING: 2,
-  VISITING: 3,
-  DRAFTING: 5,
-  REVIEWING: 7,
-  COMPLETED: 9,
+  ASSIGNED: 0,
+  SURVEYING: 1,
+  VISITING: 2,
+  DRAFTING: 4,
+  REVIEWING: 6,
+  COMPLETED: 8,
 };
 
 export default function ConsultingPage() {
@@ -58,13 +57,6 @@ export default function ConsultingPage() {
   const myConsultations = consultations
     .filter((c: any) => c.status !== 'CANCELLED')
     .sort((a: any, b: any) => (STATUS_TO_STEP[a.status] ?? 0) - (STATUS_TO_STEP[b.status] ?? 0));
-  // 해야 할 일 — 이미 해당 도메인으로 컨설팅이 진행 중이면 to-do에서 제외
-  const activeDomains = new Set(
-    consultations.filter((c: any) => !['CANCELLED'].includes(c.status)).map((c: any) => c.domain),
-  );
-  const todos = getUpcomingRegulations()
-    .filter((r) => r.relatedDomain === 'RE100')
-    .filter((r) => !activeDomains.has(r.relatedDomain));
 
   // 관리자도 같은 컨설팅 홈을 본다 — 전에는 프로젝트 목록으로 튕겨서 메뉴 "컨설팅 홈"과 화면이 어긋났다
 
@@ -83,18 +75,16 @@ export default function ConsultingPage() {
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-[#0d1520] to-[#0d1520] ring-1 ring-white/[0.06] p-8 lg:p-12">
           <div className="absolute -top-20 -right-20 h-60 w-60 rounded-full bg-primary/5 blur-3xl" />
           <div className="relative max-w-2xl">
-            <Badge variant="primary" className="mb-4">
+            <Badge variant="primary" className="mb-4 px-3 py-1 text-sm">
               에너지 컨설팅 플랫폼
             </Badge>
             <h2 className="text-2xl lg:text-3xl font-bold text-white leading-tight">
               RE100 달성을 위한
               <br />
-              컨설턴트 매칭 서비스
+              에너지 컨설팅 서비스
             </h2>
             <p className="mt-4 text-sm lg:text-base text-slate-400 leading-relaxed">
-              AI 기반 진단으로 우리 기업에 맞는 에너지 컨설턴트를 찾아드립니다.
-              <br />
-              무료진단부터 시작하세요.
+              AI 기반 진단으로 우리 기업에 맞는 RE100 이행 방안을 찾아드립니다. 무료진단부터 시작하세요.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Button size="lg" onClick={() => router.push('/consulting/diagnosis')}>
@@ -116,7 +106,7 @@ export default function ConsultingPage() {
           </div>
           {myConsultations.length === 0 ? (
             <div className="px-6 py-6 flex items-center justify-between gap-4 flex-wrap">
-              <p className="text-sm text-slate-500">진행 중인 컨설팅 없음 — 무료진단을 받으면 컨설턴트 매칭이 시작됩니다</p>
+              <p className="text-sm text-slate-500">진행 중인 컨설팅 없음 — 무료진단 결과에서 컨설팅을 신청할 수 있습니다</p>
               <Button size="sm" onClick={() => router.push('/consulting/diagnosis')}>
                 무료진단 시작하기
                 <ArrowRight size={13} className="ml-1" />
@@ -137,8 +127,8 @@ export default function ConsultingPage() {
                     <span className={cn('h-2 w-2 rounded-full shrink-0', done ? 'bg-emerald-400' : 'bg-primary')} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium text-white">{c.title ?? c.domain ?? 'RE100 컨설팅'}</p>
-                        <span className="text-[11px] text-slate-500">{c.consultantName ? `컨설턴트 ${c.consultantName}` : '컨설턴트 선택 전'}</span>
+                        <p className="text-sm font-medium text-white">{`${DOMAIN_LABEL[c.domain as string] ?? c.domain ?? 'RE100'} 컨설팅`}</p>
+                        <span className="text-xs text-slate-500 tabular-nums">신청 {String(c.appliedAt ?? c.createdAt ?? '').slice(0, 10)}</span>
                       </div>
                       <div className="mt-1.5 flex items-center gap-1">
                         {CONSULTING_PIPELINE.map((_, i) => (
@@ -148,7 +138,7 @@ export default function ConsultingPage() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className={cn('text-sm font-medium', done ? 'text-emerald-300' : 'text-primary')}>{done ? '완료' : CONSULTING_PIPELINE[idx]}</p>
-                      <p className="text-[11px] text-slate-500 tabular-nums">{idx + 1}/{CONSULTING_PIPELINE.length} 단계</p>
+                      <p className="text-xs text-slate-500 tabular-nums">{idx + 1}/{CONSULTING_PIPELINE.length} 단계</p>
                     </div>
                     <ChevronRight size={14} className="text-slate-600 shrink-0" />
                   </button>
@@ -191,25 +181,25 @@ export default function ConsultingPage() {
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 divide-x divide-white/[0.04] text-center">
                 <div className="px-4 py-4">
-                  <p className="text-[11px] text-slate-500">성숙도 등급</p>
+                  <p className="text-xs text-slate-500">성숙도 등급</p>
                   <p className={cn('mt-1 text-2xl font-bold', gc?.color ?? 'text-white')}>{grade}</p>
-                  <p className="text-[10px] text-slate-600">{gc?.label ?? ''}</p>
+                  <p className="text-xs text-slate-600">{gc?.label ?? ''}</p>
                 </div>
                 <div className="px-4 py-4">
-                  <p className="text-[11px] text-slate-500">현재 RE 비율</p>
+                  <p className="text-xs text-slate-500">현재 RE 비율</p>
                   <p className="mt-1 text-2xl font-bold text-white tabular-nums">
                     {rePercent}
                     <span className="text-sm font-normal text-slate-400">%</span>
                   </p>
-                  <p className="text-[10px] text-slate-600">목표 100%까지 {100 - rePercent}%p</p>
+                  <p className="text-xs text-slate-600">목표 100%까지 {100 - rePercent}%p</p>
                 </div>
                 <div className="px-4 py-4">
-                  <p className="text-[11px] text-slate-500">연간 전력 사용</p>
+                  <p className="text-xs text-slate-500">연간 전력 사용</p>
                   <p className="mt-1 text-2xl font-bold text-white tabular-nums">
                     {(latestDiagnosis.annualEnergyUsage ?? 0).toLocaleString()}
                     <span className="text-sm font-normal text-slate-400"> MWh</span>
                   </p>
-                  <p className="text-[10px] text-slate-600">진단 입력값</p>
+                  <p className="text-xs text-slate-600">진단 입력값</p>
                 </div>
               </div>
             </div>
@@ -249,7 +239,7 @@ export default function ConsultingPage() {
                         <span className="text-sm font-medium text-white">
                           {d.domain === 'RE100' ? 'RE100' : d.domain === 'CARBON_REDUCTION' ? '탄소감축' : '분산에너지'}
                         </span>
-                        <span className="text-[10px] text-slate-500">{d.createdAt?.split('T')[0]}</span>
+                        <span className="text-xs text-slate-500">{d.createdAt?.split('T')[0]}</span>
                       </div>
                       <p className="text-xs text-slate-400 mt-0.5">
                         {d.industry ?? '업종 미입력'} · {d.annualEnergyUsage?.toLocaleString() ?? '-'} MWh · RE{' '}
@@ -264,51 +254,6 @@ export default function ConsultingPage() {
           </div>
         )}
 
-        {/* 해야 할 일 — RE100 이행을 위해 챙겨야 할 액션(규제 마감 등). 받은 제안은 알림+LNB 뱃지로 분리 */}
-        <div className="rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] overflow-hidden">
-          <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-white">해야 할 일</h2>
-              <p className="text-xs text-slate-500 mt-0.5">RE100 이행을 위해 기한 내 처리할 항목</p>
-            </div>
-            <span className="text-sm font-bold text-amber-300 tabular-nums">{todos.length}건</span>
-          </div>
-          <div className="divide-y divide-white/[0.04]">
-            {todos.length === 0 && <p className="px-6 py-6 text-sm text-slate-500">지금 처리할 마감 항목이 없습니다</p>}
-            {todos.map((t) => {
-              const daysLeft = getDaysUntilDeadline(t.deadline);
-              const urgency = getRegulationUrgency(daysLeft);
-              const dot =
-                urgency === 'critical' ? 'bg-rose-400' : urgency === 'warning' ? 'bg-amber-400' : 'bg-blue-400';
-              const dColor =
-                urgency === 'critical' ? 'text-rose-400' : urgency === 'warning' ? 'text-amber-300' : 'text-blue-300';
-              return (
-                <div key={t.id} className="px-6 py-4 flex items-center gap-4">
-                  <span className={cn('h-2 w-2 rounded-full shrink-0', dot)} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium text-white">{t.name}</p>
-                      <span className={cn('text-[11px] font-bold tabular-nums', dColor)}>
-                        D-{daysLeft > 0 ? daysLeft : 0}
-                      </span>
-                      <span className="text-[10px] text-slate-500 tabular-nums">마감 {t.deadline}</span>
-                    </div>
-                    <p className="text-xs text-slate-400 mt-0.5">{t.description}</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="shrink-0"
-                    onClick={() => router.push('/consulting/diagnosis?domain=RE100')}
-                  >
-                    대응 컨설팅
-                    <ArrowRight size={13} className="ml-1" />
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -400,7 +345,7 @@ function ConsultantWorkView({ router }: { router: ReturnType<typeof useRouter> }
               <div className="flex items-center gap-2 shrink-0">
                 <Badge variant={PHASE_VARIANT[project.phase]}>{PHASE_LABEL[project.phase]}</Badge>
                 {project.unreadMessages > 0 && (
-                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-sky-500 px-1 text-[10px] font-bold text-white">
+                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-sky-500 px-1 text-xs font-bold text-white">
                     {project.unreadMessages}
                   </span>
                 )}
@@ -427,7 +372,7 @@ function ConsultantWorkView({ router }: { router: ReturnType<typeof useRouter> }
                   <span
                     key={i}
                     className={cn(
-                      'text-[10px] flex-1 text-center',
+                      'text-xs flex-1 text-center',
                       m.done ? 'text-emerald-400' : m.current ? 'text-primary' : 'text-slate-600',
                     )}
                   >
@@ -441,9 +386,9 @@ function ConsultantWorkView({ router }: { router: ReturnType<typeof useRouter> }
             <div className="flex items-center gap-2 px-5 py-3 border-t border-white/[0.06] bg-white/[0.01]">
               <Clock size={12} className="text-amber-400 shrink-0" />
               <span className="text-xs text-slate-300 truncate">{project.nextAction}</span>
-              <span className="text-[10px] text-slate-500 shrink-0 ml-auto tabular-nums">{project.nextDate}</span>
+              <span className="text-xs text-slate-500 shrink-0 ml-auto tabular-nums">{project.nextDate}</span>
               {project.pendingDocuments > 0 && (
-                <Badge variant="warning" className="text-[10px] shrink-0">
+                <Badge variant="warning" className="text-xs shrink-0">
                   문서 {project.pendingDocuments}
                 </Badge>
               )}

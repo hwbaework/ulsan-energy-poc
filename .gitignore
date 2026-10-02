@@ -3,6 +3,7 @@ dist
 dist-ssr
 .next
 .next-build
+.next-30*
 *.local
 
 .env.*

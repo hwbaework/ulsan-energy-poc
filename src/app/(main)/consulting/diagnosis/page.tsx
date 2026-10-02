@@ -8,7 +8,6 @@ import {
   Sun,
   ArrowLeft,
   ArrowRight,
-  UserCheck,
   HelpCircle,
   CheckCircle,
   Building2,
@@ -470,53 +469,68 @@ function DiagnosisContent() {
   };
 
   const STEP_TITLES = ['분야 선택', '기업 현황', 'RE 현황', '연락처', '확인'];
+  // 단계마다 '지금 할 일' 한 줄
+  const STEP_GUIDE = [
+    '진단받을 컨설팅 분야를 고르세요',
+    '기업 규모 · 업종 · 연간 에너지 사용량을 입력하세요',
+    '지금 쓰는 재생에너지 수단과 목표 시점을 고르세요',
+    '진단 결과를 받을 담당자 정보를 입력하세요',
+    '입력한 내용을 확인하고 진단 결과를 받으세요',
+  ];
+  // 오른쪽 입력 요약 — 지금까지 고른 값
+  const summary: { label: string; value: string }[] = [
+    { label: '분야', value: DOMAINS.find((d) => d.id === form.domain)?.title ?? '' },
+    { label: '기업 규모', value: form.companySize },
+    { label: '업종', value: form.industry },
+    { label: '연간 에너지 사용량', value: form.annualEnergyUsage ? `${form.annualEnergyUsage.toLocaleString()} MWh` : '' },
+    { label: '재생에너지 수단', value: (form.currentREMethods ?? []).join(', ') },
+    { label: '목표 시점', value: form.targetTimeline },
+    { label: '회사', value: form.companyName },
+    { label: '담당자', value: [form.contactName, form.contactEmail].filter(Boolean).join(' · ') },
+  ];
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+    <div className="space-y-6">
+      <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '무료진단' }]} />
+      <h1 className="text-2xl font-bold text-white">무료진단</h1>
 
-      <div className="relative z-10 w-full max-w-2xl mx-4 rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.08] shadow-2xl overflow-hidden">
-        <div className="px-8 pt-5">
-          <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '무료진단' }]} />
+      {/* 진행 단계 — 거래 상세와 같은 스텝퍼: 완료 ✓ · 지금 · 남은 단계 */}
+      {!hasRecentData && (
+        <div className="rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.06] px-6 py-5">
+          <div className="flex items-center justify-between gap-4 mb-5">
+            <p className="text-base font-semibold text-white">{DOMAINS.find((d) => d.id === form.domain)?.title ?? '무료진단'}</p>
+            <span className="rounded-lg bg-primary/10 ring-1 ring-primary/30 px-3 py-1.5 text-sm font-semibold text-primary">
+              지금: {step + 1}/{STEP_TITLES.length} 단계
+            </span>
+          </div>
+          <ol className="flex items-start">
+            {STEP_TITLES.map((title, i) => (
+              <li key={title} className="flex flex-1 items-start last:flex-none">
+                <div className="flex flex-col items-center gap-2 min-w-[72px]">
+                  <span
+                    className={cn(
+                      'flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ring-2',
+                      i < step && 'bg-primary text-white ring-primary',
+                      i === step && 'bg-primary/15 text-primary ring-primary',
+                      i > step && 'bg-white/[0.03] text-slate-500 ring-white/[0.10]',
+                    )}
+                  >
+                    {i < step ? <CheckCircle size={16} /> : i + 1}
+                  </span>
+                  <span className={cn('text-sm whitespace-nowrap', i === step ? 'font-semibold text-white' : i < step ? 'text-slate-300' : 'text-slate-500')}>
+                    {title}
+                  </span>
+                </div>
+                {i < STEP_TITLES.length - 1 && <span className={cn('mt-[18px] h-px flex-1 mx-2', i < step ? 'bg-primary/60' : 'bg-white/[0.08]')} />}
+              </li>
+            ))}
+          </ol>
+          <p className="mt-4 text-sm text-slate-300">{STEP_GUIDE[step]}</p>
         </div>
+      )}
 
-        <div className="flex items-center justify-between border-b border-white/[0.06] px-8 py-5">
-          <div>
-            <h1 className="text-xl font-bold text-white">무료진단</h1>
-          </div>
-          <button
-            onClick={() => router.push('/consulting')}
-            className="rounded-lg p-2 text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors"
-            aria-label="닫기"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-
-        {consultantId && (
-          <div className="mx-8 mt-4 rounded-xl bg-emerald-500/10 ring-1 ring-emerald-500/20 p-4 flex items-center gap-3">
-            <UserCheck size={20} className="text-emerald-400 shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-emerald-400">마켓플레이스에서 컨설턴트를 선택했습니다</p>
-              <p className="text-xs text-slate-400 mt-0.5">
-                진단 완료 후 해당 컨설턴트에게 자동으로 매칭 제안이 전송됩니다
-              </p>
-            </div>
-          </div>
-        )}
-
-        {referralCode && !consultantId && (
-          <div className="mx-8 mt-4 rounded-xl bg-blue-500/10 ring-1 ring-blue-500/20 p-4 flex items-center gap-3">
-            <UserCheck size={20} className="text-blue-400 shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-blue-400">컨설턴트 초대를 통해 진단을 시작합니다</p>
-              <p className="text-xs text-slate-400 mt-0.5">진단 완료 후 해당 컨설턴트와 자동으로 매칭됩니다</p>
-            </div>
-          </div>
-        )}
-
+      <div className={cn('grid grid-cols-1 gap-6', !hasRecentData && 'lg:grid-cols-[1fr_320px]')}>
+      <div className="rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.06] overflow-hidden">
         {/* Recent energy data selection */}
         {hasRecentData && (
           <div className="px-8 py-6 space-y-4">
@@ -667,39 +681,10 @@ function DiagnosisContent() {
           </div>
         )}
 
-        {/* Step indicator */}
-        {!hasRecentData && (
-          <div className="flex items-center gap-0 border-b border-white/[0.06]">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className={cn(
-                  'flex-1 flex items-center justify-center gap-2 py-3 text-xs font-medium transition-colors border-b-2',
-                  i === step && 'border-primary text-primary bg-primary/[0.04]',
-                  i < step && 'border-emerald-500/50 text-emerald-400',
-                  i > step && 'border-transparent text-slate-500',
-                )}
-              >
-                <div
-                  className={cn(
-                    'flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold',
-                    i === step && 'bg-primary/20 text-primary',
-                    i < step && 'bg-emerald-500/20 text-emerald-400',
-                    i > step && 'bg-white/[0.04] text-slate-500',
-                  )}
-                >
-                  {i < step ? '✓' : i + 1}
-                </div>
-                {STEP_TITLES[i]}
-              </div>
-            ))}
-          </div>
-        )}
-
         {/* Content (wizard steps) */}
         {!hasRecentData && (
           <>
-            <div className="px-8 py-6 max-h-[60vh] overflow-y-auto">
+            <div className="px-8 py-6">
               {/* Step 0: Domain */}
               {step === 0 && (
                 <div className="space-y-4">
@@ -845,7 +830,7 @@ function DiagnosisContent() {
                           />
                           <div className="group absolute right-3 top-1/2 -translate-y-1/2">
                             <HelpCircle size={14} className="text-slate-500 cursor-help" />
-                            <div className="invisible group-hover:visible absolute bottom-full right-0 mb-2 w-52 rounded-lg bg-[#0d1520] ring-1 ring-white/[0.1] p-3 text-[11px] text-slate-400 shadow-xl z-10">
+                            <div className="invisible group-hover:visible absolute bottom-full right-0 mb-2 w-52 rounded-lg bg-[#0d1520] ring-1 ring-white/[0.1] p-3 text-xs text-slate-400 shadow-xl z-10">
                               한전 전기요금 고지서의 &apos;사용량(kWh)&apos; × 12개월로 산출할 수 있습니다.
                             </div>
                           </div>
@@ -874,7 +859,7 @@ function DiagnosisContent() {
                           />
                           <div className="group absolute right-3 top-1/2 -translate-y-1/2">
                             <HelpCircle size={14} className="text-slate-500 cursor-help" />
-                            <div className="invisible group-hover:visible absolute bottom-full right-0 mb-2 w-52 rounded-lg bg-[#0d1520] ring-1 ring-white/[0.1] p-3 text-[11px] text-slate-400 shadow-xl z-10">
+                            <div className="invisible group-hover:visible absolute bottom-full right-0 mb-2 w-52 rounded-lg bg-[#0d1520] ring-1 ring-white/[0.1] p-3 text-xs text-slate-400 shadow-xl z-10">
                               고지서의 &apos;청구금액 ÷ 사용량&apos;으로 산출합니다. 모르면 비워두세요.
                             </div>
                           </div>
@@ -949,7 +934,7 @@ function DiagnosisContent() {
                         onChange={(e) => setForm({ ...form, currentREPercent: Number(e.target.value) })}
                         className="w-full accent-primary"
                       />
-                      <div className="flex justify-between text-[10px] text-slate-500">
+                      <div className="flex justify-between text-xs text-slate-500">
                         <span>0%</span>
                         <span>25%</span>
                         <span>50%</span>
@@ -1147,7 +1132,7 @@ function DiagnosisContent() {
                           onChange={(e) => setForm({ ...form, carbonTargetPercent: Number(e.target.value) })}
                           className="w-full accent-primary"
                         />
-                        <div className="flex justify-between text-[10px] text-slate-500">
+                        <div className="flex justify-between text-xs text-slate-500">
                           <span>0%</span>
                           <span>50%</span>
                           <span>100%</span>
@@ -1436,43 +1421,43 @@ function DiagnosisContent() {
                   </div>
 
                   <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/[0.06] p-4 space-y-1">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">컨설팅 분야</p>
+                    <p className="text-xs uppercase tracking-wide text-slate-500">컨설팅 분야</p>
                     <p className="text-sm font-medium text-white">
                       {DOMAINS.find((d) => d.id === form.domain)?.title ?? '-'}
                     </p>
                   </div>
 
                   <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/[0.06] p-4 space-y-3">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">기업 현황</p>
+                    <p className="text-xs uppercase tracking-wide text-slate-500">기업 현황</p>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
-                        <p className="text-[11px] text-slate-500">기업 규모</p>
+                        <p className="text-xs text-slate-500">기업 규모</p>
                         <p className="text-white">{form.companySize || '-'}</p>
                       </div>
                       <div>
-                        <p className="text-[11px] text-slate-500">업종</p>
+                        <p className="text-xs text-slate-500">업종</p>
                         <p className="text-white">{form.industry || '-'}</p>
                       </div>
                       <div>
-                        <p className="text-[11px] text-slate-500">연간 전력 사용량</p>
+                        <p className="text-xs text-slate-500">연간 전력 사용량</p>
                         <p className="text-white">
                           {form.annualEnergyUsage ? `${form.annualEnergyUsage.toLocaleString()} MWh` : '-'}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[11px] text-slate-500">전기요금 단가</p>
+                        <p className="text-xs text-slate-500">전기요금 단가</p>
                         <p className="text-white">
                           {form.currentElecCost ? `${form.currentElecCost} 원/kWh` : '산업용 평균 적용'}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[11px] text-slate-500">온실가스 배출량</p>
+                        <p className="text-xs text-slate-500">온실가스 배출량</p>
                         <p className="text-white">
                           {form.annualGhgEmission ? `${form.annualGhgEmission.toLocaleString()} tCO2eq` : '자동 추정'}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[11px] text-slate-500">사업장</p>
+                        <p className="text-xs text-slate-500">사업장</p>
                         <p className="text-white">
                           {form.siteCount ? `${form.siteCount}개` : '-'}{' '}
                           {form.siteRegions ? `(${form.siteRegions})` : ''}
@@ -1482,54 +1467,54 @@ function DiagnosisContent() {
                   </div>
 
                   <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/[0.06] p-4 space-y-3">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">RE 현황 및 목표</p>
+                    <p className="text-xs uppercase tracking-wide text-slate-500">RE 현황 및 목표</p>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
-                        <p className="text-[11px] text-slate-500">현재 RE 비율</p>
+                        <p className="text-xs text-slate-500">현재 RE 비율</p>
                         <p className="text-white">{form.currentREPercent}%</p>
                       </div>
                       <div>
-                        <p className="text-[11px] text-slate-500">목표 기간</p>
+                        <p className="text-xs text-slate-500">목표 기간</p>
                         <p className="text-white">{form.targetTimeline || '-'}</p>
                       </div>
                       <div>
-                        <p className="text-[11px] text-slate-500">현재 RE 조달</p>
+                        <p className="text-xs text-slate-500">현재 RE 조달</p>
                         <p className="text-white">
                           {form.currentREMethods?.filter((m) => m !== '해당 없음').join(', ') || '없음'}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[11px] text-slate-500">요청 배경</p>
+                        <p className="text-xs text-slate-500">요청 배경</p>
                         <p className="text-white">{form.consultingDrivers?.join(', ') || '-'}</p>
                       </div>
                       <div>
-                        <p className="text-[11px] text-slate-500">수출 대상국</p>
+                        <p className="text-xs text-slate-500">수출 대상국</p>
                         <p className="text-white">{form.exportCountries || '-'}</p>
                       </div>
                       <div>
-                        <p className="text-[11px] text-slate-500">예산 범위</p>
+                        <p className="text-xs text-slate-500">예산 범위</p>
                         <p className="text-white">{form.budgetRange || '-'}</p>
                       </div>
                     </div>
                   </div>
 
                   <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/[0.06] p-4 space-y-3">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">연락처</p>
+                    <p className="text-xs uppercase tracking-wide text-slate-500">연락처</p>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
-                        <p className="text-[11px] text-slate-500">담당자</p>
+                        <p className="text-xs text-slate-500">담당자</p>
                         <p className="text-white">{form.contactName || '-'}</p>
                       </div>
                       <div>
-                        <p className="text-[11px] text-slate-500">회사명</p>
+                        <p className="text-xs text-slate-500">회사명</p>
                         <p className="text-white">{form.companyName || '-'}</p>
                       </div>
                       <div>
-                        <p className="text-[11px] text-slate-500">이메일</p>
+                        <p className="text-xs text-slate-500">이메일</p>
                         <p className="text-white">{form.contactEmail || '-'}</p>
                       </div>
                       <div>
-                        <p className="text-[11px] text-slate-500">연락처</p>
+                        <p className="text-xs text-slate-500">연락처</p>
                         <p className="text-white">{form.contactPhone || '-'}</p>
                       </div>
                     </div>
@@ -1569,6 +1554,22 @@ function DiagnosisContent() {
             </div>
           </>
         )}
+      </div>
+
+      {/* 입력 요약 — 지금까지 입력한 값 */}
+      {!hasRecentData && (
+        <div className="rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.06] p-5 h-fit lg:sticky lg:top-4">
+          <p className="text-base font-semibold text-white mb-4">입력 요약</p>
+          <dl className="space-y-3">
+            {summary.map((it) => (
+              <div key={it.label}>
+                <dt className="text-sm text-slate-400">{it.label}</dt>
+                <dd className={cn('text-sm mt-0.5', it.value ? 'text-white' : 'text-slate-600')}>{it.value || '입력 전'}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
       </div>
     </div>
   );
