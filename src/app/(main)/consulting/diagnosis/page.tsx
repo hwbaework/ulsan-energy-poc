@@ -5,8 +5,9 @@ import { ArrowLeft, PencilLine } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Button } from '@/components/ui/Button';
 import { POC_USERS, useAuthStore } from '@/stores/useAuthStore';
-import { useTradingPocStore } from '@/stores/useTradingPocStore';
-import { kindLabel } from '@/components/features/trading-poc/meta';
+import { useQuery } from '@tanstack/react-query';
+import { getPowerStationsByCompany } from '@/api/common/power-stations';
+import { powerStationKeys } from '@/api/queryKeys';
 import { useToastStore } from '@/stores/useToastStore';
 import { useCreateDiagnosis, useDiagnosesByCompany } from '@/hooks/consulting/useConsultations';
 import { useConsumerSites } from '@/hooks/consumer/useConsumer';
@@ -56,20 +57,25 @@ export default function DiagnosisPage() {
     if (f.site !== site.name) setF((p) => ({ ...p, site: site.name, address: site.address }));
   }, [site, f.site]);
 
-  // 기존 태양광 설비 — 전력거래에서 이 회사가 수용가로 맺은 체결 계약(설비 규모 합). 연간 발전량은 일평균 발전시간 기준 추정
-  const contracts = useTradingPocStore((s) => s.contracts);
-  const mine = useMemo(() => contracts.filter((c) => c.consumerCompanyId === companyId && c.status === 'ACTIVE'), [contracts, companyId]);
-  const facilitySource = mine.length
-    ? `전력거래 계약 데이터에서 불러옴 — ${mine.map((c) => `${c.plantName} ${c.no} (${kindLabel(c.kind)} ${c.capacityKw} kW)`).join(', ')} · 연간 발전량은 일평균 발전시간 기준 추정`
-    : undefined;
+  // 기존 태양광 설비 — 이 회사에 연결된 발전소(대시보드와 같은 power-stations/by-company). 설비 규모만 채우고
+  // 연간 발전량·사용량은 아직 모르니 비워 둔다. 관리자처럼 연결된 발전소가 없으면 직접 입력
+  const { data: stationData } = useQuery({
+    queryKey: powerStationKeys.list({ ownerCompanyId: companyId }),
+    queryFn: () => getPowerStationsByCompany(companyId),
+    enabled: companyId > 0,
+    staleTime: 60_000,
+  });
+  const stations = useMemo(() => (Array.isArray(stationData) ? stationData : []), [stationData]);
+  const facilitySource = stations.length
+    ? `발전소 데이터에서 불러옴 — ${stations.map((s) => `${s.name} ${s.capacityKw} kW${s.address ? ` (${s.address})` : ''}`).join(', ')}`
+    : '연결된 발전소 없음 — 필요하면 직접 입력';
   const filled = useRef(false);
   useEffect(() => {
-    if (filled.current || !mine.length) return;
+    if (filled.current || !stations.length) return;
     filled.current = true;
-    const kw = Math.round(mine.reduce((a, c) => a + c.capacityKw, 0) * 100) / 100;
-    const gen = Math.round(kw * f.avgH * 365);
-    setF((p) => (p.facilities.length ? p : { ...p, facilities: [{ source: '태양광', kw, genKwh: gen, useKwh: gen }] }));
-  }, [mine, f.avgH]);
+    const kw = Math.round(stations.reduce((acc, s) => acc + s.capacityKw, 0) * 100) / 100;
+    setF((p) => (p.facilities.length ? p : { ...p, facilities: [{ source: '태양광', kw, genKwh: 0, useKwh: 0 }] }));
+  }, [stations]);
 
   // 검토서 화면 → 브라우저 뒤로가기로 입력 화면
   useEffect(() => {

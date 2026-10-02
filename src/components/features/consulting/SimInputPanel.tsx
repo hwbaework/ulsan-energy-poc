@@ -7,15 +7,15 @@ import { F, PLAN_LABEL, VER_LABEL, avgSaveUnit, segLabel, ppaSegs, type Plan, ty
 /**
  * 무료진단 입력 화면 — 울산미포산단 태양광 사업성 시뮬레이터 v1.1 입력값. 한 장의 페이지 안에서
  * 짧은 항목은 두 개씩 나란히(1·2, 3·4), 칸은 '이름 위 · 값 아래' 로 빈 공간 없이.
- * 업체·사업장·주소는 가입 정보로 고정(입력 없음). 기존 태양광 설비는 전력거래 계약 데이터에서 불러와 채운다(고칠 수 있음).
+ * 업체·사업장·주소는 가입 정보로 고정(입력 없음). 기존 태양광 설비 규모는 연결된 발전소 데이터에서 불러와 채운다(고칠 수 있음).
  */
 
 const FIELD = 'h-9 w-full rounded-md bg-white/[0.04] ring-1 ring-white/[0.08] px-2.5 text-sm text-white tabular-nums focus:outline-none focus:ring-primary/60';
 
 /** 천 단위 콤마 숫자 입력 — 입력 중에는 친 그대로, 벗어나면 정리. 단위는 칸 안 오른쪽 */
-function Num({ value, onChange, dec = 0, unit }: { value: number; onChange?: (v: number) => void; dec?: number; unit?: string }) {
+function Num({ value, onChange, dec = 0, unit, blankZero }: { value: number; onChange?: (v: number) => void; dec?: number; unit?: string; blankZero?: boolean }) {
   const [draft, setDraft] = useState<string | null>(null);
-  const shown = draft ?? (dec ? value.toLocaleString('ko-KR', { maximumFractionDigits: dec }) : Math.round(value).toLocaleString('ko-KR'));
+  const shown = draft ?? (blankZero && !value ? '' : dec ? value.toLocaleString('ko-KR', { maximumFractionDigits: dec }) : Math.round(value).toLocaleString('ko-KR'));
   return (
     <div className="relative">
       <input
@@ -182,16 +182,16 @@ export function SimInputPanel({ value: f, onChange, companyName, facilitySource 
           <Sec n={++n} title="기존 태양광 설비">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Field label="설비 규모">
-                <Num value={fac.kw} dec={2} onChange={(v) => setFac({ kw: v })} unit="kW" />
+                <Num value={fac.kw} dec={2} onChange={(v) => setFac({ kw: v })} unit="kW" blankZero />
               </Field>
               <Field label="연간 발전량">
-                <Num value={fac.genKwh} onChange={(v) => setFac({ genKwh: v })} unit="kWh" />
+                <Num value={fac.genKwh} onChange={(v) => setFac({ genKwh: v })} unit="kWh" blankZero />
               </Field>
               <Field label="연간 사용량">
-                <Num value={fac.useKwh} onChange={(v) => setFac({ useKwh: v })} unit="kWh" />
+                <Num value={fac.useKwh} onChange={(v) => setFac({ useKwh: v })} unit="kWh" blankZero />
               </Field>
             </div>
-            <Hint>{facilitySource ?? '계약된 태양광 설비 없음'}</Hint>
+            {facilitySource && <Hint>{facilitySource}</Hint>}
           </Sec>
         </Line>
 

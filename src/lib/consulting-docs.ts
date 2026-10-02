@@ -11,6 +11,7 @@ export interface ConsultingDoc {
   category: '결과보고서';
   contracts: { no: string; plant: string }[];
   issuedAt: string; // 2025-11 (일자 모르면 비움)
+  plantIds: number[]; // 보고서가 다루는 발전소(관제 ID) — 그 발전소에 연결된 계정도 본다
   pages: number;
   pdf: string; // public 경로
 }
@@ -27,6 +28,7 @@ export const CONSULTING_DOCS: ConsultingDoc[] = [
       { no: 'CT-2025-0002', plant: '한일튜브(자가소비)' },
     ],
     issuedAt: '2025-11',
+    plantIds: [17514], // 한일튜브
     pages: 53,
     pdf: '/docs/hanil-re100-report-v2.0.pdf',
   },

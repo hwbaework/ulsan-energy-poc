@@ -5,23 +5,19 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Button } from '@/components/ui/Button';
-import { useAuthStore } from '@/stores/useAuthStore';
-import { getPersona, usePersonaOverride } from '@/lib/persona';
-import { CONSULTING_DOCS } from '@/lib/consulting-docs';
+import { useConsultingDocs } from '@/hooks/consulting/useConsultingDocs';
 
 /** 컨설팅 › 문서관리 › 결과보고서 보기 — ?id=문서번호. 실제 보고서 PDF 를 페이지 안에서 그대로 */
 export default function ConsultingDocumentViewPage() {
   const router = useRouter();
-  const user = useAuthStore((s) => s.user);
-  const override = usePersonaOverride((s) => s.override);
-  const isAdmin = (override ?? getPersona(user)) === 'admin';
+  const { docs, isLoading } = useConsultingDocs();
   const [id, setId] = useState<number | null>(null);
 
   useEffect(() => {
     setId(Number(new URLSearchParams(window.location.search).get('id')));
   }, []);
 
-  const doc = id !== null ? CONSULTING_DOCS.find((d) => d.id === id && (isAdmin || d.companyId === user?.companyId)) : undefined;
+  const doc = id !== null ? docs.find((d) => d.id === id) : undefined;
 
   return (
     <div className="space-y-6">
@@ -48,7 +44,7 @@ export default function ConsultingDocumentViewPage() {
           )}
         </div>
       </div>
-      {id !== null && !doc ? (
+      {id !== null && !isLoading && !doc ? (
         <div className="rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.06] p-10 text-center text-sm text-slate-400">문서를 찾을 수 없습니다</div>
       ) : doc ? (
         <iframe title={doc.title} src={doc.pdf} className="h-[calc(100vh-240px)] min-h-[600px] w-full rounded-xl bg-white" />

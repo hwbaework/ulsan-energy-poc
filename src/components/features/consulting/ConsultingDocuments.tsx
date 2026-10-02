@@ -8,26 +8,21 @@ import { DataTable, type Column } from '@/components/features/DataList';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { useAuthStore } from '@/stores/useAuthStore';
-import { getPersona, usePersonaOverride } from '@/lib/persona';
-import { CONSULTING_DOCS, type ConsultingDoc } from '@/lib/consulting-docs';
+import { useConsultingDocs } from '@/hooks/consulting/useConsultingDocs';
+import type { ConsultingDoc } from '@/lib/consulting-docs';
 import { cell, cellMuted, cellNum } from '@/components/features/trading-poc/Bits';
 
 /**
- * 컨설팅 › 문서관리 — 컨설팅 결과보고서만. 전기사용자는 우리 회사, 관리자는 모든 회사(업체 셀렉트).
+ * 컨설팅 › 문서관리 — 컨설팅 결과보고서만. 내 회사·내 발전소 보고서, 관리자는 모든 회사(업체 셀렉트).
  * 보고서는 기업당 하나(onsite · 자가소비 계약을 함께) — 계약번호·발전소 칸에 둘 다. 행을 누르면 보고서 페이지(/consulting/documents/view?id=)에서 PDF 를 본다. [다운]은 PDF 파일 저장.
  */
 export function ConsultingDocuments() {
   const router = useRouter();
-  const user = useAuthStore((s) => s.user);
-  const override = usePersonaOverride((s) => s.override);
-  const isAdmin = (override ?? getPersona(user)) === 'admin';
-  const companyId = user?.companyId ?? 0;
+  const { docs, isAdmin } = useConsultingDocs();
 
   const [company, setCompany] = useState('all');
   const [q, setQ] = useState('');
 
-  const docs = useMemo(() => (isAdmin ? CONSULTING_DOCS : CONSULTING_DOCS.filter((d) => d.companyId === companyId)), [isAdmin, companyId]);
   const companies = useMemo(() => [...new Set(docs.map((d) => d.companyName))], [docs]);
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase();
