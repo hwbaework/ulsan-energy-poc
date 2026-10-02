@@ -11,7 +11,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { getMonthlyQuiz } from '@/lib/mock-education';
-import { useEducationStore } from '@/stores/useEducationStore';
+import { useEducationStore, useHydrateEducation } from '@/stores/useEducationStore';
 import { useEducationContentStore } from '@/stores/useEducationContentStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -19,6 +19,7 @@ import { getPersona } from '@/lib/persona';
 import { BASIC_GROUP, formatMonthKo, isPublished, isQuizOpen, isMonthClosed } from '@/types/education';
 
 function EducationReportInner() {
+  useHydrateEducation();
   // 정적 export 라 동적 세그먼트 대신 ?id= 로 받는다
   const id = useSearchParams().get('id') ?? '';
   const router = useRouter();

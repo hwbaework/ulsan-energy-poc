@@ -9,9 +9,11 @@ import {
   LogOut,
   User,
   AlertTriangle,
+  Activity,
   BarChart3,
   Building2,
   Handshake,
+  CreditCard,
   Receipt,
   Leaf,
   Users,
@@ -62,6 +64,8 @@ interface GnbChild {
   icon: LucideIcon;
   label: string;
   end?: boolean;
+  /** 하위 경로 중 이 메뉴로 치지 않을 경로 — 형제 메뉴가 가진 경로 */
+  exclude?: string[];
   subChildren?: GnbChild[];
   section?: string;
   badge?: number;
@@ -107,7 +111,7 @@ const RE100_EDU = (admin: boolean): GnbChild =>
         label: 'RE100 교육',
         section: '컨설팅',
         subChildren: [
-          { to: '/re100/education', icon: BookOpen, label: '교육 자료', end: true },
+          { to: '/re100/education', icon: BookOpen, label: '교육 자료', exclude: ['/re100/education/participants'] }, // 자료 상세·작성·쪽지시험도 교육 자료
           { to: '/re100/education/participants', icon: Users, label: '참여 현황' },
         ],
       }
@@ -212,24 +216,48 @@ const GNB_ITEMS: GnbItem[] = [
       // 전기사용자: 2.2 컨설팅만
       consumer: [...RE100_CONSULTING_CHILDREN, RE100_EDU(false)],
       generator: [
-        // 2.1 전력거래 — 신청 → 현황 → 승인(전자서명) → 내 계약(변경·해지) → 수익·정산 → 문서
+        // 2.1 전력거래 — WBS 2.1 항목 전부. 순서: 신청 → 현황 → 승인 → 내 계약 → 변경·해지 → 계약 현황 → 거래 이력 → 수익·정산 → 문서
         { to: '/generator/trading', icon: ArrowRightLeft, label: '거래 신청', section: '전력거래', end: true }, // 2.1.1
-        { to: '/generator/trading/status', icon: History, label: '거래 현황', section: '전력거래' }, // 2.1.2
-        { to: '/generator/trading/approvals', icon: ShieldCheck, label: '거래 승인', section: '전력거래' }, // 2.1.3
-        { to: '/generator/ppa/contracts', icon: Handshake, label: '내 계약', section: '전력거래' }, // 2.1.4 (변경·해지 포함)
-        { to: '/generator/trading/settlement', icon: Receipt, label: '수익·정산', section: '전력거래' }, // 2.1.5
-        { to: '/generator/ppa/documents', icon: FileText, label: '문서 관리', section: '전력거래' }, // 2.1.6
+        { to: '/generator/trading/status', icon: Activity, label: '거래 현황', section: '전력거래' },
+        { to: '/generator/trading/approvals', icon: ShieldCheck, label: '거래 승인', section: '전력거래' }, // 2.1.7
+        { to: '/generator/ppa/contracts', icon: Handshake, label: '내 계약', section: '전력거래' }, // 2.1.2
+        { to: '/generator/trading/changes', icon: ClipboardList, label: '변경·해지', section: '전력거래' }, // 2.1.3
+        { to: '/generator/ppa/dashboard', icon: BarChart3, label: '계약 현황', section: '전력거래' }, // 2.1.6
+        { to: '/generator/trading/history', icon: History, label: '거래 이력', section: '전력거래' }, // 2.1.4
+        {
+          to: '/generator/ppa/direct/revenue/tax-invoice',
+          icon: Receipt,
+          label: '수익·정산',
+          section: '전력거래',
+          subChildren: [
+            { to: '/generator/ppa/direct/revenue/tax-invoice', icon: FileText, label: '세금계산서' },
+            { to: '/generator/ppa/direct/revenue/invoices', icon: CreditCard, label: '청구서' },
+          ],
+        }, // 2.1.5
+        { to: '/generator/ppa/documents', icon: FileText, label: '문서 관리', section: '전력거래' }, // 2.1.8
         ...RE100_CONSULTING_CHILDREN,
         RE100_EDU(false),
       ],
       admin: [
-        // 2.1 전력거래 — 신청 → 현황 → 승인(전자서명) → 내 계약(변경·해지) → 수익·정산 → 문서
+        // 2.1 전력거래 — WBS 2.1 항목 전부. 순서: 신청 → 현황 → 승인 → 내 계약 → 변경·해지 → 계약 현황 → 거래 이력 → 수익·정산 → 문서
         { to: '/platform/trading', icon: ArrowRightLeft, label: '거래 신청', section: '전력거래', end: true }, // 2.1.1
-        { to: '/platform/trading/status', icon: History, label: '거래 현황', section: '전력거래' }, // 2.1.2
-        { to: '/platform/trading/approvals', icon: ShieldCheck, label: '거래 승인', section: '전력거래' }, // 2.1.3
-        { to: '/platform/ppa/contracts', icon: Handshake, label: '내 계약', section: '전력거래' }, // 2.1.4 (변경·해지 포함)
-        { to: '/platform/trading/settlement', icon: Receipt, label: '수익·정산', section: '전력거래' }, // 2.1.5
-        { to: '/platform/ppa/documents', icon: FileText, label: '문서 관리', section: '전력거래' }, // 2.1.6
+        { to: '/platform/trading/status', icon: Activity, label: '거래 현황', section: '전력거래' },
+        { to: '/platform/trading/approvals', icon: ShieldCheck, label: '거래 승인', section: '전력거래' }, // 2.1.7
+        { to: '/platform/ppa/contracts', icon: Handshake, label: '내 계약', section: '전력거래' }, // 2.1.2
+        { to: '/platform/trading/changes', icon: ClipboardList, label: '변경·해지', section: '전력거래' }, // 2.1.3
+        { to: '/platform/ppa/dashboard', icon: BarChart3, label: '계약 현황', section: '전력거래' }, // 2.1.6
+        { to: '/platform/trading/history', icon: History, label: '거래 이력', section: '전력거래' }, // 2.1.4
+        {
+          to: '/platform/ppa/billing/tax-invoice',
+          icon: Receipt,
+          label: '수익·정산',
+          section: '전력거래',
+          subChildren: [
+            { to: '/platform/ppa/billing/tax-invoice', icon: FileText, label: '세금계산서' },
+            { to: '/platform/ppa/billing/invoices', icon: CreditCard, label: '청구서' },
+          ],
+        }, // 2.1.5
+        { to: '/platform/ppa/documents', icon: FileText, label: '문서 관리', section: '전력거래' }, // 2.1.8
         ...RE100_CONSULTING_CHILDREN,
         RE100_EDU(true),
       ],
@@ -272,6 +300,7 @@ const GNB_ITEMS: GnbItem[] = [
         { to: '/platform/users', icon: Users, label: '회원 관리', section: '회원' }, // 4.2.2
         { to: '/platform/roles', icon: ShieldCheck, label: '역할·권한', section: '회원' }, // 4.2.3
         { to: '/platform/approvals', icon: ClipboardCheck, label: '승인 관리', section: '운영' }, // 4.3.1
+        { to: '/platform/trading-approvals', icon: ShieldCheck, label: '거래 승인', section: '운영' }, // 4.3.2
         { to: '/platform/notification-settings', icon: Bell, label: '알림 설정', section: '시스템' }, // 4.4.1
     ],
   },
@@ -503,7 +532,9 @@ function GnbBar({
 
 function SidebarLink({ item, indent = false }: { item: GnbChild; indent?: boolean }) {
   const pathname = usePathname();
-  const isActive = item.end ? pathname === item.to : pathname === item.to || pathname.startsWith(item.to + '/');
+  const isActive =
+    (item.end ? pathname === item.to : pathname === item.to || pathname.startsWith(item.to + '/')) &&
+    !item.exclude?.some((p) => pathname === p || pathname.startsWith(p + '/'));
   if (item.external) {
     return (
       <a
@@ -896,8 +927,8 @@ function getNotifLink(n: { type: string; link?: string }, persona: Persona): str
   const tradeList = isSpcLike ? '/platform/trading/approvals' : isGen ? '/generator/trading/status' : '/ppa/trading';
   const dealOrTrading = (_id: string) => tradeList;
   const myContracts = isSpcLike ? '/platform/ppa/contracts' : isGen ? '/generator/ppa/contracts' : '/ppa/contracts';
-  const changes = isSpcLike ? '/platform/trading/approvals' : myContracts;
-  const settlement = isSpcLike ? '/platform/trading/settlement' : isGen ? '/generator/trading/settlement' : '/ppa/billing/settlement';
+  const changes = isSpcLike ? '/platform/trading/changes' : isGen ? '/generator/trading/changes' : myContracts;
+  const settlement = isSpcLike ? '/platform/ppa/billing/tax-invoice' : isGen ? '/generator/ppa/direct/revenue/tax-invoice' : '/ppa/billing/settlement';
 
   if (n.link) {
     const m = n.link.match(/^\/([a-z-]+)\/(\d+)$/);

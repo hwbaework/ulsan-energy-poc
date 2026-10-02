@@ -8,25 +8,22 @@ import { DataTable, type Column } from '@/components/features/DataList';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { settlementsOf } from '@/stores/useTradingPocStore';
-import type { ChangeType, Contract, ContractChange } from '@/types/trading-poc';
+import type { ChangeType, Contract } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
-import { CHANGE_TYPE, KIND_OPTIONS, fmtDate, fmtKrw, fmtKw, fmtNum, fmtPrice, kindLabel } from './meta';
-import { ChangeStatusPill, PageHeader, cell, cellMuted, cellNum, cellStrong } from './Bits';
+import { KIND_OPTIONS, fmtKrw, fmtKw, fmtNum, fmtPrice, kindLabel } from './meta';
+import { PageHeader, cell, cellMuted, cellNum, cellStrong } from './Bits';
 import { ContractDetailModal } from './ContractDetailModal';
 import { ChangeRequestModal } from './ChangeRequestModal';
-import { ChangeDetailModal, changeText } from './ChangeDetailModal';
 
 const CURRENT_PERIOD = '2026-09';
 const arrow = { key: 'go', header: '', width: '40px', render: () => <ChevronRight size={15} className="text-slate-600" /> };
 
-/** 내 계약 — 체결되어 지금 운영 중인 계약만. 변경·해지는 이 계약에서 신청한다. 관리자는 전체 계약 */
+/** 내 계약 — 체결되어 지금 운영 중인 계약만. 계약 상세에서 변경·해지 신청(요청 목록은 변경·해지 메뉴). 관리자는 전체 계약 */
 export function MyContractsScreen() {
   const role = useTradingRole();
   const [kind, setKind] = useState('all');
-  const [chFilter, setChFilter] = useState('all');
   const [detail, setDetail] = useState<Contract | null>(null);
   const [change, setChange] = useState<{ open: boolean; contractId?: number; type?: ChangeType }>({ open: false });
-  const [changeDetail, setChangeDetail] = useState<ContractChange | null>(null);
 
   const active = useMemo(() => role.contracts.filter((c) => c.status === 'ACTIVE'), [role.contracts]);
   const settlements = useMemo(() => settlementsOf(active), [active]);
@@ -46,11 +43,6 @@ export function MyContractsScreen() {
     () => active.filter((c) => kind === 'all' || c.kind === kind).sort((a, b) => b.startDate.localeCompare(a.startDate)),
     [active, kind],
   );
-  const changes = useMemo(
-    () => [...role.changes].sort((a, b) => b.requestedAt.localeCompare(a.requestedAt)).filter((c) => chFilter === 'all' || c.status === chFilter),
-    [role.changes, chFilter],
-  );
-  const contractOf = (id?: number) => role.contracts.find((c) => c.id === id);
 
   const columns: Column<Contract>[] = [
     { key: 'no', header: '계약번호', width: '130px', sortable: true, sortValue: (c) => c.no, render: (c) => cellStrong(c.no) },
@@ -62,15 +54,6 @@ export function MyContractsScreen() {
     { key: 'price', header: '단가', width: '110px', render: (c) => cellNum(fmtPrice(c.unitPrice)) },
     { key: 'start', header: '시작일', width: '110px', sortable: true, sortValue: (c) => c.startDate, render: (c) => cellMuted(c.startDate) },
     { key: 'end', header: '종료일', width: '110px', render: (c) => cellMuted(c.endDate) },
-    arrow,
-  ];
-  const chColumns: Column<ContractChange>[] = [
-    { key: 'no', header: '요청번호', width: '140px', render: (c) => cellStrong(c.no) },
-    { key: 'contract', header: '계약 · 발전소', render: (c) => cell(`${contractOf(c.contractId)?.no ?? ''} · ${contractOf(c.contractId)?.plantName ?? ''}`, 'text-white') },
-    { key: 'type', header: '변경 유형', width: '100px', render: (c) => cell(CHANGE_TYPE[c.type]) },
-    { key: 'detail', header: '내용', width: '220px', render: (c) => cell(changeText(c)) },
-    { key: 'at', header: '요청일', width: '110px', sortable: true, sortValue: (c) => c.requestedAt, render: (c) => cellMuted(fmtDate(c.requestedAt)) },
-    { key: 'status', header: '상태', width: '100px', render: (c) => <ChangeStatusPill status={c.status} /> },
     arrow,
   ];
 
@@ -107,30 +90,6 @@ export function MyContractsScreen() {
         <DataTable columns={columns} data={rows} rowKey={(c) => c.id} emptyMessage="운영 중 계약 없음" onRowClick={(c) => setDetail(c)} />
       </SectionCard>
 
-      <SectionCard
-        title="변경 · 해지"
-        actions={
-          <label className="flex items-center gap-2 text-sm text-slate-400">
-            상태
-            <Select
-              options={[
-                { value: 'all', label: '전체' },
-                { value: 'REQUESTED', label: '처리 대기' },
-                { value: 'APPROVED', label: '승인' },
-                { value: 'REJECTED', label: '반려' },
-                { value: 'CANCELLED', label: '취소' },
-              ]}
-              value={chFilter}
-              onChange={(e) => setChFilter(e.target.value)}
-              className="w-32"
-            />
-          </label>
-        }
-        noPadding
-      >
-        <DataTable columns={chColumns} data={changes} rowKey={(c) => c.id} emptyMessage="변경 · 해지 요청 없음" onRowClick={(c) => setChangeDetail(c)} />
-      </SectionCard>
-
       <ContractDetailModal
         contract={detail}
         onClose={() => setDetail(null)}
@@ -151,7 +110,6 @@ export function MyContractsScreen() {
         requestedBy={role.party}
         requestedByName={role.companyName}
       />
-      <ChangeDetailModal change={changeDetail} contract={contractOf(changeDetail?.contractId)} onClose={() => setChangeDetail(null)} />
     </div>
   );
 }

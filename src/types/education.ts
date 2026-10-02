@@ -1,4 +1,4 @@
-/* RE100 교육 — 동향 레포트 피드(월별) / 월간 쪽지시험(전 문항 정복형) */
+/* RE100 교육 — 동향 레포트 피드(월별) / 월간 쪽지시험(전 문항 정복형) / 수료증 */
 
 export interface EduReportSection {
   heading: string;
@@ -63,10 +63,26 @@ export interface EduQuizProgress {
   completedAt?: string; // 전 문항 정답 달성 시각 (ISO)
 }
 
+/** 수료증 — 쪽지시험 전 문항을 맞히면 자동 발급(관리자 대리 발급 없음). 사업계획서 p.142 */
+export interface EduCertificate {
+  id: string;
+  certificateNo: string; // RE100-EDU-YYYY-NNNN
+  month: string; // YYYY-MM · 기본 정보는 BASIC_GROUP
+  courseTitle: string; // 예: 2026-07 RE100 교육
+  userName: string;
+  companyName?: string;
+  issuedAt: string; // YYYY-MM-DD
+}
+
 /** 월 라벨 — 날짜 양식은 하이픈(2026-07), 기본 그룹은 '기본 정보' */
 export function formatMonthKo(month: string): string {
   if (month === BASIC_GROUP) return '기본 정보';
   return month;
+}
+
+export function monthCourseTitle(month: string): string {
+  if (month === BASIC_GROUP) return 'RE100 기본 교육';
+  return `${formatMonthKo(month)} RE100 교육`;
 }
 
 /**

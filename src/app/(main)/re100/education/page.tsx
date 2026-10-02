@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BadgeCheck, CheckCircle2, ChevronRight, Lock, PenLine, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Award, BadgeCheck, CheckCircle2, ChevronRight, Download, Lock, PenLine, Pencil, Plus, Trash2 } from 'lucide-react';
 import { SectionCard } from '@/components/features';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -11,7 +11,8 @@ import { StatusPill } from '@/components/ui/Design';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { getBasicReports, getEduMonths, getMonthlyQuiz, getReportsByMonth } from '@/lib/mock-education';
-import { useEducationStore } from '@/stores/useEducationStore';
+import { useEducationStore, useHydrateEducation } from '@/stores/useEducationStore';
+import { exportCertificatePdf } from '@/lib/utils';
 import { useEducationContentStore } from '@/stores/useEducationContentStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { DataSourcePanel } from './DataSourcePanel';
@@ -20,7 +21,9 @@ import { getPersona } from '@/lib/persona';
 import { BASIC_GROUP, formatMonthKo, isPublished, isQuizOpen, isMonthClosed } from '@/types/education';
 
 function EducationInner() {
+  useHydrateEducation();
   const router = useRouter();
+  const certificates = useEducationStore((s) => s.certificates);
   const readReportIds = useEducationStore((s) => s.readReportIds);
   const progressByMonth = useEducationStore((s) => s.progressByMonth);
   const reports = useEducationContentStore((s) => s.reports);
@@ -28,7 +31,7 @@ function EducationInner() {
   const setStatus = useEducationContentStore((s) => s.setStatus);
   const toast = useToastStore((s) => s.add);
 
-  // 관리자(SPC)만 작성·발행·삭제. 전기사용자·발전사업자는 열람·시험
+  // 관리자(SPC)만 작성·발행·삭제. 전기사용자·발전사업자는 열람·시험·수료증
   const user = useAuthStore((s) => s.user);
   const isAdmin = ['admin', 'spc'].includes(getPersona(user));
 
@@ -62,6 +65,28 @@ function EducationInner() {
       {/* 자료 수집 — 관리자만. 소스(API·크롤링)에서 모은 글을 건별로 [초안 만들기] / [발행 안 함] */}
       {isAdmin && <DataSourcePanel />}
 
+      {/* 내 수료증 — 쪽지시험 전 문항을 맞히면 자동 발급(사업계획서 p.142 수료증 발급/관리) */}
+      {!isAdmin && certificates.length > 0 && (
+        <SectionCard title="내 수료증" noPadding>
+          <div className="divide-y divide-white/[0.05]">
+            {certificates.map((cert) => (
+              <div key={cert.id} className="flex items-center gap-4 px-5 py-3">
+                <Award size={16} className="shrink-0 text-violet-400" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white">{cert.courseTitle}</p>
+                  <p className="text-xs text-slate-500 tabular-nums">
+                    {cert.certificateNo} · 발급일 {cert.issuedAt}
+                  </p>
+                </div>
+                <Button size="sm" onClick={() => exportCertificatePdf(cert)}>
+                  <Download size={14} className="mr-1" /> 수료증 PDF
+                </Button>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      )}
+
       {groups.map((month) => {
         const isBasic = month === BASIC_GROUP;
         const monthReports = getReportsByMonth(visible, month);
@@ -79,7 +104,14 @@ function EducationInner() {
             actions={
               quiz.length > 0 &&
               (completed ? (
-                <StatusPill tone="normal" label="이수 완료" />
+                <span className="flex items-center gap-2">
+                  <StatusPill tone="normal" label="이수 완료" />
+                  {!isAdmin && (
+                    <Button size="sm" onClick={() => router.push(`/re100/education/quiz?month=${month}`)}>
+                      <Award size={14} className="mr-1" /> 수료증
+                    </Button>
+                  )}
+                </span>
               ) : !isQuizOpen(month) ? (
                 <span className="flex items-center gap-2 rounded-lg bg-white/[0.04] px-3 py-1.5 ring-1 ring-white/[0.06] text-sm text-slate-500">
                   <Lock size={13} />

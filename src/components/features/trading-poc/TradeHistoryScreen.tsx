@@ -18,15 +18,16 @@ const CURRENT_PERIOD = '2026-09';
 type Row = ReturnType<typeof settlementsOf>[number];
 
 /**
- * 수익·정산 — 체결된 계약의 월 정산. 금액 = 발전·공급량 × 계약 단가(+부가세 10%).
- * 계약이 바뀌면(체결·변경·해지) 정산도 따라간다. 전월까지 확정, 이번 달은 정산 예정
+ * 거래 이력 — 거래했던 돈 내역 전부(WBS 2.1.4, 예: 한일튜브와 계약한 모든 금액). 계약별 월 정산
+ * 금액 = 발전·공급량 × 계약 단가(+부가세 10%). 전월까지 확정, 이번 달은 정산 예정. 해지 계약도 해지일까지 남는다
  */
-export function SettlementScreen() {
+export function TradeHistoryScreen() {
   const role = useTradingRole();
   const all = useMemo(() => settlementsOf(role.contracts).filter((s) => s.period.startsWith(YEAR)), [role.contracts]);
   const periods = useMemo(() => [...new Set(all.map((s) => s.period))].sort().reverse(), [all]);
-  const [period, setPeriod] = useState(CURRENT_PERIOD);
+  const [period, setPeriod] = useState('all');
   const [contractId, setContractId] = useState('all');
+  const [party, setParty] = useState('all');
 
   const stats = useMemo(() => {
     const confirmed = all.filter((s) => s.status === 'CONFIRMED');
@@ -48,6 +49,7 @@ export function SettlementScreen() {
     [all],
   );
 
+  const parties = useMemo(() => [...new Set(all.map((s) => s.consumerCompanyName))], [all]);
   const contracts = useMemo(() => {
     const ids = new Set(all.map((s) => s.contractId));
     return role.contracts.filter((c) => ids.has(c.id));
@@ -57,8 +59,9 @@ export function SettlementScreen() {
       all
         .filter((s) => period === 'all' || s.period === period)
         .filter((s) => contractId === 'all' || String(s.contractId) === contractId)
+        .filter((s) => party === 'all' || s.consumerCompanyName === party)
         .sort((a, b) => b.period.localeCompare(a.period) || b.total - a.total),
-    [all, period, contractId],
+    [all, period, contractId, party],
   );
 
   const columns: Column<Row>[] = [
@@ -83,7 +86,7 @@ export function SettlementScreen() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="수익·정산" />
+      <PageHeader title="거래 이력" />
 
       <StatsGrid columns={3}>
         <StatCard label={`${CURRENT_PERIOD} 정산 예정`} value={stats.month} />
@@ -96,9 +99,13 @@ export function SettlementScreen() {
       </SectionCard>
 
       <SectionCard
-        title="월 정산"
+        title="거래 내역"
         actions={
           <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-slate-400">
+              거래 상대
+              <Select options={[{ value: 'all', label: '전체' }, ...parties.map((p) => ({ value: p, label: p }))]} value={party} onChange={(e) => setParty(e.target.value)} className="w-40" />
+            </label>
             <label className="flex items-center gap-2 text-sm text-slate-400">
               정산월
               <Select options={[{ value: 'all', label: '전체' }, ...periods.map((p) => ({ value: p, label: p }))]} value={period} onChange={(e) => setPeriod(e.target.value)} className="w-32" />
@@ -116,7 +123,7 @@ export function SettlementScreen() {
         }
         noPadding
       >
-        <DataTable columns={columns} data={rows} rowKey={(s) => s.id} emptyMessage="정산 없음" />
+        <DataTable columns={columns} data={rows} rowKey={(s) => s.id} emptyMessage="거래 내역 없음" />
       </SectionCard>
     </div>
   );
