@@ -39,7 +39,7 @@ export function Info({ label, value, className }: { label: string; value?: React
   return (
     <div className={className}>
       <p className="text-sm text-slate-400 mb-1">{label}</p>
-      <p className="text-base text-white break-words">{value === undefined || value === null || value === '' ? '-' : value}</p>
+      <p className="text-base text-white break-words">{value === undefined || value === null || value === '' ? '\u00A0' : value}</p>
     </div>
   );
 }

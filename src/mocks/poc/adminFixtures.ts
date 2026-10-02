@@ -115,16 +115,10 @@ addMenu('보고서', 'CONTROL_REPORT', '/monitoring/reports', M_CONTROL, 1);
 // RE100
 const M_RE100 = addMenu('RE100', 'RE100', '/platform/trading', null, 0);
 addMenu('거래 신청', 'RE100_TRADING', '/platform/trading', M_RE100, 1);
-addMenu('내 계약', 'RE100_CONTRACTS', '/platform/ppa/contracts', M_RE100, 1);
-addMenu('변경·해지', 'RE100_CONTRACT_CHANGES', '/ppa/contract-changes', M_RE100, 1);
-addMenu('거래 이력', 'RE100_HISTORY', '/trading/history', M_RE100, 1);
-const M_BILLING = addMenu('수익·정산', 'RE100_BILLING', null, M_RE100, 1);
-addMenu('정산', 'RE100_BILLING_SETTLEMENT', '/platform/ppa/billing/settlement', M_BILLING, 2);
-addMenu('수금·지급', 'RE100_BILLING_PAYMENT', '/platform/ppa/billing/settlement/payment', M_BILLING, 2);
-addMenu('이력·감사', 'RE100_BILLING_HISTORY', '/platform/ppa/billing/settlement/history', M_BILLING, 2);
-addMenu('세금계산서', 'RE100_BILLING_TAX', '/platform/ppa/billing/tax-invoice', M_BILLING, 2);
-addMenu('계약 현황', 'RE100_DASHBOARD', '/platform/ppa/dashboard', M_RE100, 1);
+addMenu('거래 현황', 'RE100_STATUS', '/platform/trading/status', M_RE100, 1);
 addMenu('거래 승인', 'RE100_APPROVALS', '/platform/trading/approvals', M_RE100, 1);
+addMenu('내 계약', 'RE100_CONTRACTS', '/platform/ppa/contracts', M_RE100, 1);
+addMenu('수익·정산', 'RE100_BILLING', '/platform/trading/settlement', M_RE100, 1);
 addMenu('문서 관리', 'RE100_DOCUMENTS', '/platform/ppa/documents', M_RE100, 1);
 // E-데이터마켓
 const M_EDATA = addMenu('E-데이터마켓', 'EDATA', '/e-data/inventory', null, 0);
@@ -156,7 +150,6 @@ addMenu('기업 관리', 'ADMIN_COMPANIES', '/platform/companies', M_ADMIN, 1);
 addMenu('회원 관리', 'ADMIN_USERS', '/platform/users', M_ADMIN, 1);
 addMenu('역할·권한', 'ADMIN_ROLES', '/platform/roles', M_ADMIN, 1);
 addMenu('승인 관리', 'ADMIN_APPROVALS', '/platform/approvals', M_ADMIN, 1);
-addMenu('거래 승인', 'ADMIN_TRADING_APPROVALS', '/platform/trading/approvals', M_ADMIN, 1);
 addMenu('알림 설정', 'ADMIN_NOTIFICATIONS', '/platform/notification-settings', M_ADMIN, 1);
 
 function isUnder(menu: MockMenu, rootId: number): boolean {

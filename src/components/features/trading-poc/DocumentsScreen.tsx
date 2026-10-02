@@ -1,75 +1,51 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Download, Eye, FileText, Upload } from 'lucide-react';
-import { StatCard, StatsGrid } from '@/components/features/StatCard';
+import { useRouter } from 'next/navigation';
+import { Download, FileText, Upload } from 'lucide-react';
 import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
-import { cn } from '@/lib/utils';
 import { useToastStore } from '@/stores/useToastStore';
 import { DOC_CATEGORY_LABEL, useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { DocCategory, TradeDocument } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
-import { fmtKw, fmtPrice, kindLabel } from './meta';
-import { Info, ModalFooter, PageHeader, cell, cellMuted, cellNum } from './Bits';
+import { ModalFooter, PageHeader, cell, cellMuted, cellNum } from './Bits';
 
 const CATEGORIES = Object.keys(DOC_CATEGORY_LABEL) as DocCategory[];
-const fmtSize = (kb: number) => (kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`);
+/** 계약서 원문(양식) — 계약서·서명본은 이 PDF */
+export const CONTRACT_PDF = '/docs/lease-contract-template.pdf';
+export const isContractDoc = (d: TradeDocument) => d.category === 'CONTRACT' || d.category === 'SIGNED';
 
-/** 문서 관리 — 계약서·서명본·청구서·세금계산서·변경 합의서·운영 보고서. 관리자는 문서 등록도 한다. */
-/** 계약서 원문(양식) — 태양광 발전설비 및 부동산 교차 임대차 계약서. 계약서·서명본은 이 PDF 를 띄운다 */
-const CONTRACT_PDF = '/docs/lease-contract-template.pdf';
-const isContractDoc = (d: TradeDocument) => d.category === 'CONTRACT' || d.category === 'SIGNED';
-
-export function DocumentsScreen({ title = '문서 관리' }: { title?: string } = {}) {
+/**
+ * 문서 관리 — 내 계약에서 나온 문서를 모아 조회(계약서 · 서명본 · 청구서 · 세금계산서 · 변경·해지 합의서 · 운영 보고서).
+ * 행을 누르면 문서 페이지(view?id=), [다운]은 PDF. 관리자는 전체 문서와 문서 등록
+ */
+export function DocumentsScreen() {
+  const router = useRouter();
   const role = useTradingRole();
   const addToast = useToastStore((s) => s.add);
   const addDocument = useTradingPocStore((s) => s.addDocument);
 
-  const [category, setCategory] = useState<'all' | DocCategory>('all');
+  const [category, setCategory] = useState('all');
   const [contractId, setContractId] = useState('all');
   const [q, setQ] = useState('');
-  const [preview, setPreview] = useState<TradeDocument | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [up, setUp] = useState<{ title: string; category: DocCategory; contractId: string; fileName: string }>({ title: '', category: 'CONTRACT', contractId: '', fileName: '' });
 
-  const month = new Date().toISOString().slice(0, 7);
-  // 발전사업자·전기사용자는 내가 체결한 계약 문서만(서명본 · 변경·해지 합의서). 청구서·세금계산서는 수익·정산에서
-  const docs = useMemo(
-    () =>
-      role.isAdmin
-        ? role.documents
-        : role.documents.filter((d) => d.category === 'SIGNED' && role.contracts.some((c) => c.id === d.contractId && c.status === 'ACTIVE')),
-    [role.isAdmin, role.documents, role.contracts],
-  );
-  const counts = useMemo(() => {
-    const by: Record<string, number> = { all: docs.length };
-    for (const c of CATEGORIES) by[c] = docs.filter((d) => d.category === c).length;
-    return by;
-  }, [docs]);
-  const stats = {
-    total: docs.length,
-    contracts: (counts.CONTRACT ?? 0) + (counts.SIGNED ?? 0),
-    billing: (counts.INVOICE ?? 0) + (counts.TAX ?? 0),
-    thisMonth: docs.filter((d) => d.issuedAt.startsWith(month)).length,
-  };
-
+  const base = role.isAdmin ? '/platform/ppa/documents' : '/generator/ppa/documents';
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase();
-    return docs
+    return role.documents
       .filter((d) => category === 'all' || d.category === category)
       .filter((d) => contractId === 'all' || String(d.contractId) === contractId)
-      .filter((d) => !s || [d.title, d.fileName, d.contractNo ?? '', d.plantName ?? ''].some((v) => v.toLowerCase().includes(s)));
-  }, [docs, category, contractId, q]);
+      .filter((d) => !s || [d.title, d.contractNo ?? '', d.plantName ?? ''].some((v) => v.toLowerCase().includes(s)));
+  }, [role.documents, category, contractId, q]);
 
-  const download = (d: TradeDocument) => {
-    if (isContractDoc(d)) window.open(CONTRACT_PDF, '_blank');
-    else addToast('info', `${d.fileName} 다운로드를 시작합니다`);
-  };
+  const view = (d: TradeDocument, pdf = false) => router.push(`${base}/view?id=${d.id}${pdf ? '&pdf=1' : ''}`);
 
   const columns: Column<TradeDocument>[] = [
     {
@@ -77,35 +53,45 @@ export function DocumentsScreen({ title = '문서 관리' }: { title?: string } 
       header: '문서명',
       render: (d) => (
         <span className="flex items-center gap-2 text-sm text-white">
-          <FileText size={15} className="text-slate-500 shrink-0" />
+          <FileText size={15} className="shrink-0 text-slate-500" />
           {d.title}
         </span>
       ),
     },
-    { key: 'category', header: '분류', width: '130px', render: (d) => cell(DOC_CATEGORY_LABEL[d.category]) },
-    { key: 'contract', header: '계약번호', width: '130px', render: (d) => cellNum(d.contractNo ?? '-') },
-    { key: 'plant', header: '발전소', width: '160px', render: (d) => cell(d.plantName ?? '-') },
-    { key: 'issuedAt', header: '발행일', width: '110px', sortable: true, sortValue: (d) => d.issuedAt, render: (d) => cellMuted(d.issuedAt) },
-    { key: 'type', header: '형식', width: '70px', render: (d) => cellMuted(d.fileType) },
-    { key: 'size', header: '크기', width: '90px', render: (d) => cellMuted(fmtSize(d.sizeKb)) },
+    { key: 'category', header: '분류', width: '140px', render: (d) => cell(DOC_CATEGORY_LABEL[d.category]) },
+    { key: 'contract', header: '계약번호', width: '130px', render: (d) => cellNum(d.contractNo ?? '') },
+    { key: 'plant', header: '발전소', width: '170px', render: (d) => cell(d.plantName ?? '') },
+    { key: 'issuedAt', header: '발행일', width: '120px', sortable: true, sortValue: (d) => d.issuedAt, render: (d) => cellMuted(d.issuedAt) },
     {
-      key: 'actions',
-      header: '',
-      width: '170px',
-      render: (d) => (
-        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-          <Button size="sm" variant="secondary" onClick={() => setPreview(d)}>
-            <Eye size={14} className="mr-1" /> 미리보기
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => download(d)}>
-            <Download size={14} />
-          </Button>
-        </div>
-      ),
+      key: 'down',
+      header: '다운',
+      width: '70px',
+      render: (d) =>
+        isContractDoc(d) ? (
+          <a
+            href={CONTRACT_PDF}
+            download={`${d.title}.pdf`}
+            aria-label={`${d.title} 다운로드`}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-white"
+          >
+            <Download size={15} />
+          </a>
+        ) : (
+          <button
+            type="button"
+            aria-label={`${d.title} 다운로드`}
+            onClick={(e) => {
+              e.stopPropagation();
+              view(d, true);
+            }}
+            className="inline-flex rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-white"
+          >
+            <Download size={15} />
+          </button>
+        ),
     },
   ];
-
-  const previewContract = preview ? role.contracts.find((c) => c.id === preview.contractId) : undefined;
 
   const submitUpload = () => {
     const c = role.contracts.find((x) => String(x.id) === up.contractId);
@@ -121,7 +107,7 @@ export function DocumentsScreen({ title = '문서 관리' }: { title?: string } 
       sizeKb: 420 + Math.floor(Math.random() * 900),
       uploadedBy: role.companyName,
     });
-    addToast('success', `${up.title.trim()} 문서를 등록했습니다`);
+    addToast('success', `${up.title.trim()} 등록`);
     setUploadOpen(false);
     setUp({ title: '', category: 'CONTRACT', contractId: '', fileName: '' });
   };
@@ -129,7 +115,7 @@ export function DocumentsScreen({ title = '문서 관리' }: { title?: string } 
   return (
     <div className="space-y-6">
       <PageHeader
-        title={title}
+        title="문서 관리"
         actions={
           role.isAdmin && (
             <Button onClick={() => setUploadOpen(true)}>
@@ -139,122 +125,30 @@ export function DocumentsScreen({ title = '문서 관리' }: { title?: string } 
         }
       />
 
-      {role.isAdmin && (
-      <StatsGrid columns={4}>
-        <StatCard label="전체 문서" value={`${stats.total}건`} />
-        <StatCard label="계약서" value={`${stats.contracts}건`} />
-        <StatCard label="청구서 · 세금계산서" value={`${stats.billing}건`} />
-        <StatCard label="이번 달 발행" value={`${stats.thisMonth}건`} />
-      </StatsGrid>
-      )}
-
-      <div className={cn('grid grid-cols-1 gap-6', role.isAdmin && 'lg:grid-cols-[220px_1fr]')}>
-        {role.isAdmin && (
-        <SectionCard title="분류" noPadding>
-          <ul className="py-2">
-            {(['all', ...CATEGORIES] as const).map((c) => (
-              <li key={c}>
-                <button
-                  type="button"
-                  onClick={() => setCategory(c)}
-                  className={cn(
-                    'flex w-full items-center justify-between px-5 py-2 text-sm transition-colors',
-                    category === c ? 'bg-primary/[0.10] text-primary' : 'text-slate-300 hover:bg-white/[0.04] hover:text-white',
-                  )}
-                >
-                  <span>{c === 'all' ? '전체' : DOC_CATEGORY_LABEL[c]}</span>
-                  <span className="text-xs tabular-nums text-slate-500">{counts[c] ?? 0}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </SectionCard>
-        )}
-
-        <SectionCard
-          title={!role.isAdmin ? '계약 문서' : category === 'all' ? '전체 문서' : DOC_CATEGORY_LABEL[category]}
-          actions={
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="flex items-center gap-2 text-sm text-slate-400">
-                계약
-                <Select
-                  options={[{ value: 'all', label: '전체' }, ...role.contracts.map((c) => ({ value: String(c.id), label: `${c.no} · ${c.plantName}` }))]}
-                  value={contractId}
-                  onChange={(e) => setContractId(e.target.value)}
-                  className="w-56"
-                />
-              </label>
-              <Input placeholder="문서명 · 파일명 검색" value={q} onChange={(e) => setQ(e.target.value)} className="w-52" />
-            </div>
-          }
-          noPadding
-        >
-          <DataTable columns={columns} data={rows} rowKey={(d) => d.id} emptyMessage="문서 없음" onRowClick={(d) => setPreview(d)} />
-        </SectionCard>
-      </div>
-
-      {/* 미리보기 — 문서 표지 */}
-      <Modal open={!!preview} onClose={() => setPreview(null)} title="문서 미리보기" size="lg">
-        {preview && (
-          <div className="space-y-5">
-            {isContractDoc(preview) && previewContract ? (
-              <div className="space-y-4">
-                {/* 계약 요약 — 임대인(설비 소유·발전사업자) ↔ 임차인(수용가), 월 임대료 = 단가 × 지급대상 전력량 */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Info label="임대인(설비)" value={previewContract.generatorCompanyName} />
-                  <Info label="임차인(부동산)" value={previewContract.consumerCompanyName} />
-                  <Info label="본건 설비" value={`${previewContract.plantName} · ${fmtKw(previewContract.capacityKw)}`} />
-                  <Info label="임대차 기간" value={`${previewContract.startDate} ~ ${previewContract.endDate}`} />
-                  <Info label="월 임대료 산식" value="단가(A) × 지급대상 전력량(B)" className="col-span-2" />
-                  <Info label="임대료 단가" value={fmtPrice(previewContract.unitPrice)} />
-                  <Info label="지급일" value="매월 25일 고지 · 고지 후 영업일 내 납부" />
-                </div>
-                <iframe title={preview.title} src={`${CONTRACT_PDF}#toolbar=0`} className="h-[70vh] w-full rounded-lg bg-white" />
-              </div>
-            ) : (
-            <div className="rounded-lg bg-white text-slate-900 px-10 py-10 shadow-inner">
-              <p className="text-xs tracking-widest text-slate-500">울산 에너지 자급자족 플랫폼</p>
-              <h2 className="mt-3 text-2xl font-bold">{preview.title}</h2>
-              <p className="mt-1 text-sm text-slate-600">{DOC_CATEGORY_LABEL[preview.category]} · 발행일 {preview.issuedAt}</p>
-              {previewContract && (
-                <dl className="mt-8 grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
-                  {[
-                    ['계약번호', previewContract.no],
-                    ['계약 유형', kindLabel(previewContract.kind)],
-                    ['발전사업자', previewContract.generatorCompanyName],
-                    ['수용가', previewContract.consumerCompanyName],
-                    ['사업장', previewContract.siteName],
-                    ['발전소', previewContract.plantName],
-                    ['설비 용량', fmtKw(previewContract.capacityKw)],
-                    ['단가', fmtPrice(previewContract.unitPrice)],
-                    ['계약 기간', `${previewContract.startDate} ~ ${previewContract.endDate}`],
-                  ].map(([k, v]) => (
-                    <div key={k} className="flex justify-between border-b border-slate-200 pb-1.5">
-                      <dt className="text-slate-500">{k}</dt>
-                      <dd className="font-medium">{v}</dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
-              <p className="mt-10 text-xs text-slate-400">{preview.fileName} · {preview.fileType} · {fmtSize(preview.sizeKb)}</p>
-            </div>
-            )}
-            <div className="grid grid-cols-3 gap-4">
-              <Info label="분류" value={DOC_CATEGORY_LABEL[preview.category]} />
-              <Info label="계약번호" value={preview.contractNo} />
-              <Info label="등록" value={preview.uploadedBy ?? '시스템 자동 생성'} />
-            </div>
-            <ModalFooter>
-              <Button variant="secondary" onClick={() => setPreview(null)}>
-                닫기
-              </Button>
-              <Button onClick={() => download(preview)}>
-                <Download size={14} className="mr-1" /> 다운로드
-              </Button>
-            </ModalFooter>
+      <SectionCard
+        title="문서"
+        actions={
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-slate-400">
+              분류
+              <Select options={[{ value: 'all', label: '전체' }, ...CATEGORIES.map((c) => ({ value: c, label: DOC_CATEGORY_LABEL[c] }))]} value={category} onChange={(e) => setCategory(e.target.value)} className="w-40" />
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-400">
+              계약
+              <Select
+                options={[{ value: 'all', label: '전체' }, ...role.contracts.filter((c) => c.status !== 'PENDING_SIGN').map((c) => ({ value: String(c.id), label: `${c.no} · ${c.plantName}` }))]}
+                value={contractId}
+                onChange={(e) => setContractId(e.target.value)}
+                className="w-56"
+              />
+            </label>
+            <Input placeholder="문서명 · 계약번호 · 발전소 검색" value={q} onChange={(e) => setQ(e.target.value)} className="w-56" />
           </div>
-        )}
-      </Modal>
+        }
+        noPadding
+      >
+        <DataTable columns={columns} data={rows} rowKey={(d) => d.id} emptyMessage="문서 없음" onRowClick={(d) => view(d)} />
+      </SectionCard>
 
       {/* 문서 등록 (관리자) */}
       <Modal open={uploadOpen} onClose={() => setUploadOpen(false)} title="문서 등록" size="md">
@@ -271,7 +165,7 @@ export function DocumentsScreen({ title = '문서 관리' }: { title?: string } 
               onChange={(e) => setUp({ ...up, contractId: e.target.value })}
             />
             <div className="col-span-2">
-              <Input label="파일명" placeholder="예: 운영보고서_2026-09.pdf" value={up.fileName} onChange={(e) => setUp({ ...up, fileName: e.target.value })} />
+              <Input label="파일명" placeholder="운영보고서_2026-09.pdf" value={up.fileName} onChange={(e) => setUp({ ...up, fileName: e.target.value })} />
             </div>
           </div>
           <ModalFooter>

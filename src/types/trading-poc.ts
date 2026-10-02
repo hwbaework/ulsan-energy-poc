@@ -49,6 +49,8 @@ export interface TradeRequest {
   unitPrice: number;
   termYears: number;
   note?: string;
+  /** 컨설팅 › 무료진단 검토번호(SR-YYYY-NNNN) — 진단 결과를 불러와 신청했을 때 */
+  reviewNo?: string;
   status: TradeRequestStatus;
   submittedAt: string;
   updatedAt: string;

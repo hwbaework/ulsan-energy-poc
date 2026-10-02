@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { CheckCircle2, Circle } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -144,11 +143,6 @@ export function ContractDetailModal({ contract: c, onClose, changes, documents, 
           </div>
 
           <ModalFooter>
-            {c.requestId && (
-              <Link href={`/trading/deal/${c.requestId}`} className="mr-auto">
-                <Button variant="ghost">거래 진행 보기</Button>
-              </Link>
-            )}
             <Button variant="secondary" onClick={onClose}>
               닫기
             </Button>

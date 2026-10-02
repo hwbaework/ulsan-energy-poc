@@ -1,0 +1,7 @@
+{
+  "tool_name": "mcp__Claude_Browser__computer",
+  "tool_input_preview": "{\"action\":\"left_click\",\"tabId\":\"seed\",\"ref\":\"ref_23\",\"action_summary\":\"Logs in with the admin demo button\"}",
+  "error": "left_click failed: Could not get the tab ready for input (it is not on screen and has not drawn yet): Screenshot timed out after 5s: the page did not finish rendering in time. Retry; the pane does not need to be displayed. Claude's window is minimized or hidden, which can stop the page from drawing; if this repeats, continue with `get_page_text` or `find`, or ask the user to bring it forward.",
+  "timestamp": "2026-10-02T07:44:30.083Z",
+  "retry_count": 1
+}
