@@ -5,6 +5,7 @@
  */
 import { registerMock } from './registry';
 import type { Consultation, Diagnosis } from '@/types/consultation';
+import { calc, defaultSimInput, type SimInput } from '@/lib/solar-sim';
 
 const CONSUMER_COMPANY_ID = 2;
 const CONSUMER_COMPANY_NAME = '울산 수용가(주)';
@@ -37,7 +38,7 @@ const CONSULTATIONS: Consultation[] = [
     id: 2,
     status: 'APPLIED',
     origin: 'marketplace',
-    domain: 'CARBON_REDUCTION',
+    domain: 'RE100',
     clientCompanyId: CONSUMER_COMPANY_ID,
     clientCompanyName: CONSUMER_COMPANY_NAME,
     industry: '제조업',
@@ -77,7 +78,7 @@ CONSULTATIONS.push(
     id: 4,
     status: 'ASSIGNED',
     origin: 'marketplace',
-    domain: 'DISTRIBUTED_ENERGY',
+    domain: 'RE100',
     clientCompanyId: CONSUMER_COMPANY_ID,
     clientCompanyName: CONSUMER_COMPANY_NAME,
     industry: '제조업',
@@ -110,35 +111,63 @@ CONSULTATIONS.push(
   } as Consultation,
 );
 
-const DIAGNOSES: Diagnosis[] = [
-  {
-    id: 1,
-    companyId: CONSUMER_COMPANY_ID,
-    companyName: CONSUMER_COMPANY_NAME,
-    domain: 'RE100',
-    industry: '제조업',
-    companySize: '중견기업',
-    currentRePercent: 18.4,
-    targetTimeline: '2030',
-    maturityGrade: 'C',
-    annualEnergyUsage: 2208, // MWh
-    currentElecCost: 152, // 원/kWh
-    annualGhgEmission: 1240,
-    currentReMethods: '자가소비 태양광',
-    consultingDrivers: '고객사 RE100 요구',
-    siteCount: 2,
-    siteRegions: '울산 남구',
-    annualRevenue: 42000000000,
-    employeeCount: 58,
-    contactName: '이수용',
-    contactEmail: 'consumer@test.com',
-    contactPhone: '010-3000-0003',
-    createdAt: '2026-08-18T15:20:00',
-  },
-];
+/* 무료진단 — 태양광 사업성 검토 입력값(solar-sim). 자가소비 · OnSite PPA · 설비 있음/없음이 다 보이게 3건 */
+const contact = { contactName: '이수용', contactEmail: 'consumer@test.com', contactPhone: '010-3000-0003' };
+const SIM_HQ_PPA: SimInput = (() => {
+  const x = defaultSimInput('본사공장', '울산 남구 처용로 100');
+  x.mode = 'ppa';
+  x.roof = 9000;
+  x.facilities = [{ source: '태양광', kw: 90.88, genKwh: 121_400, useKwh: 121_400 }];
+  x.ppa = { ...x.ppa, cap: 820, b1: 3, b2: 20, segs: [{ linked: true, price: 150 }, { linked: false, price: 148 }, { linked: false, price: 150 }] };
+  return x;
+})();
+const SIM_SITE2_SELF: SimInput = (() => {
+  const x = defaultSimInput('제2공장', '울산 남구 용잠로 210');
+  x.mode = 'self';
+  x.self = { ...x.self, cap: 250, ctr: 800, usage: 71_800 };
+  return x;
+})();
+const SIM_HQ_SELF_OLD: SimInput = (() => {
+  const x = defaultSimInput('본사공장', '울산 남구 처용로 100');
+  x.mode = 'self';
+  x.facilities = [{ source: '태양광', kw: 90.88, genKwh: 121_400, useKwh: 121_400 }];
+  x.self = { ...x.self, cap: 400, ctr: 1200, usage: 184_000 };
+  return x;
+})();
+const diag = (id: number, sim: SimInput, createdAt: string): Diagnosis => {
+  const R = calc(sim);
+  return {
+    id, companyId: CONSUMER_COMPANY_ID, companyName: CONSUMER_COMPANY_NAME, domain: 'RE100',
+    annualEnergyUsage: Math.round(R.annualGen1 / 1000), ...contact, sim, createdAt,
+  };
+};
+
+const DIAGNOSES: Diagnosis[] = [diag(1, SIM_HQ_PPA, '2026-08-18T15:20:00'), diag(2, SIM_SITE2_SELF, '2026-06-11T10:40:00'), diag(3, SIM_HQ_SELF_OLD, '2026-02-05T14:00:00')];
+
+/* 새로고침해도 신청·진단이 남게 — 브라우저에 저장 (POC) */
+const STORE_KEY = 'ulsan-consulting-poc-v5';
+if (typeof window !== 'undefined') {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(STORE_KEY) ?? 'null');
+    if (saved && Array.isArray(saved.c) && Array.isArray(saved.d)) {
+      CONSULTATIONS.splice(0, CONSULTATIONS.length, ...saved.c);
+      DIAGNOSES.splice(0, DIAGNOSES.length, ...saved.d);
+    }
+  } catch {
+    /* 저장본이 깨졌으면 시드로 시작 */
+  }
+}
+function persist() {
+  try {
+    window.localStorage.setItem(STORE_KEY, JSON.stringify({ c: CONSULTATIONS, d: DIAGNOSES }));
+  } catch {
+    /* 저장 실패는 무시 — 메모리에는 남는다 */
+  }
+}
 
 const nextId = (xs: { id: number }[]) => xs.reduce((m, x) => Math.max(m, x.id), 0) + 1;
-const nowIso = () => new Date().toISOString().slice(0, 19);
+// 로컬 시각(한국) 기준 — toISOString 은 UTC 라 9시간 어긋난다
+const nowIso = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 19); };
 
 /* 내 컨설팅 — 회사별 목록 · 상세 */
 registerMock(/^\/consultations\/by-company\/(\d+)$/, ({ match, query }) => {
@@ -165,6 +194,7 @@ registerMock(
       updatedAt: nowIso(),
     } as Consultation;
     CONSULTATIONS.unshift(c);
+    persist();
     return c;
   },
   'POST',
@@ -179,7 +209,18 @@ registerMock(/^\/consultations\/diagnoses\/by-company\/(\d+)$/, ({ match, query 
   );
 });
 registerMock(/^\/consultations\/diagnoses\/recent\/(\d+)$/, ({ match }) => DIAGNOSES.filter((d) => d.companyId === Number(match[1])));
-registerMock(/^\/consultations\/diagnoses\/(\d+)$/, ({ match }) => DIAGNOSES.find((d) => d.id === Number(match[1])) ?? null);
+registerMock(/^\/consultations\/diagnoses\/(\d+)$/, ({ match }) => DIAGNOSES.find((d) => d.id === Number(match[1])) ?? null, 'GET');
+/* 내 컨설팅 › 검토 기록 삭제 (수정은 없다) */
+registerMock(
+  /^\/consultations\/diagnoses\/(\d+)$/,
+  ({ match }) => {
+    const k = DIAGNOSES.findIndex((d) => d.id === Number(match[1]));
+    if (k >= 0) DIAGNOSES.splice(k, 1);
+    persist();
+    return null;
+  },
+  'DELETE',
+);
 registerMock(
   /^\/consultations\/diagnoses$/,
   ({ body }) => {
@@ -193,6 +234,7 @@ registerMock(
       createdAt: nowIso(),
     };
     DIAGNOSES.unshift(d);
+    persist();
     return d;
   },
   'POST',

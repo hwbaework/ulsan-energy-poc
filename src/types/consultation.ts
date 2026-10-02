@@ -86,6 +86,7 @@ export interface Diagnosis {
   contactName?: string;
   contactEmail?: string;
   contactPhone?: string;
+  sim?: import('@/lib/solar-sim').SimInput; // 무료진단 — 태양광 사업성 검토 입력값
   createdAt: string;
 }
 

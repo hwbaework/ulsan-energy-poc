@@ -1,8 +1,8 @@
 'use client';
 
-// RE100 › 문서관리 — 전기사용자. 내가 당사자인 계약(한길 자가소비 — 태양광 발전설비 및 부동산 교차 임대차 계약) 문서 보관함
-import { DocumentsScreen } from '@/components/features/trading-poc/DocumentsScreen';
+// RE100 › 문서관리 — 컨설팅 결과문서(결과보고서 · 사업성 검토서). 계약서·청구서는 전력거래 › 문서관리
+import { ConsultingDocuments } from '@/components/features/consulting/ConsultingDocuments';
 
 export default function Page() {
-  return <DocumentsScreen title="문서관리" />;
+  return <ConsultingDocuments />;
 }

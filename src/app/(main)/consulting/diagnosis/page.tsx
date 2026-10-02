@@ -1,1576 +1,193 @@
 'use client';
 
-import { Suspense, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  Zap,
-  Leaf,
-  Sun,
-  ArrowLeft,
-  ArrowRight,
-  HelpCircle,
-  CheckCircle,
-  Building2,
-  Globe,
-  Target,
-  Wallet,
-  Clock,
-  Trash2,
-  Loader2,
-} from 'lucide-react';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { cn } from '@/lib/utils';
-import type { ConsultationDomain, DiagnosisForm } from '@/types/consultation';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, PencilLine } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import {
-  useCreateDiagnosis,
-  useDeleteDiagnosis,
-  useCreateConsultation,
-  useCreateProposal,
-  useRecentEnergyData,
-} from '@/hooks/consulting/useConsultations';
-import type { SurveyItem } from '@/api/consulting/consultations';
-import { useAuthStore } from '@/stores/useAuthStore';
+import { Button } from '@/components/ui/Button';
+import { POC_USERS, useAuthStore } from '@/stores/useAuthStore';
+import { useTradingPocStore } from '@/stores/useTradingPocStore';
+import { kindLabel } from '@/components/features/trading-poc/meta';
 import { useToastStore } from '@/stores/useToastStore';
-import { getMaturityGrade, MATURITY_GRADE_CONFIG } from '@/lib/maturity';
+import { useCreateDiagnosis, useDiagnosesByCompany } from '@/hooks/consulting/useConsultations';
+import { useConsumerSites } from '@/hooks/consumer/useConsumer';
+import { SimInputPanel } from '@/components/features/consulting/SimInputPanel';
+import { recordOf } from '@/components/features/consulting/SimDiagnosisView';
+import { SimReport, type ReviewRecord } from '@/components/features/consulting/SimReport';
+import { ReviewHistoryList } from '@/components/features/consulting/ReviewHistoryList';
+import { calc, defaultSimInput, type SimInput } from '@/lib/solar-sim';
+import { cn } from '@/lib/utils';
 import type { Diagnosis } from '@/types/consultation';
 
-const DOMAINS: { id: ConsultationDomain; icon: typeof Zap; title: string; description: string }[] = [
-  { id: 'RE100', icon: Zap, title: 'RE100 이행 전략', description: '재생에너지 100% 전환 로드맵 수립' },
-  { id: 'CARBON_REDUCTION', icon: Leaf, title: '탄소감축', description: '탄소 배출량 분석 및 감축 전략' },
-  { id: 'DISTRIBUTED_ENERGY', icon: Sun, title: '분산에너지', description: '태양광, ESS 등 분산자원 도입' },
-];
+/**
+ * 무료진단 — 울산미포산단 태양광 사업성 시뮬레이터 기반.
+ *  ① 입력 화면(값 입력 + 옆에 지난 검토 기록) → [사업 검토] → ② 단계별 진행 → ③ 검토서(A4 문서)
+ *  검토할 때마다 새 사업 검토서로 기록되고, 기록을 누르면 다시 계산하지 않고 그 검토서를 바로 연다.
+ */
+const REVIEW_STEPS = ['입력값 확인', '월별 발전량 산정 (울산관측소 일조시간)', '한전 요금 시간대 매칭', '20년 운영 시뮬레이션', '요금 시나리오 · 민감도 분석', '검토서 작성'];
+const STEP_MS = 450;
 
-const COMPANY_SIZES = ['소기업 (50인 미만)', '중기업 (50~300인)', '대기업 (300인 이상)'];
-const INDUSTRIES = [
-  '제조업',
-  '전자/반도체',
-  '화학/소재',
-  '건설/건축',
-  '물류/유통',
-  'IT/서비스',
-  '식품/음료',
-  '섬유/의류',
-  '기타',
-];
-const TIMELINES = ['1년 이내', '1~3년', '3~5년', '5년 이상'];
-const RE_METHODS = [
-  '자가발전 (태양광 등)',
-  'PPA (전력구매계약)',
-  'REC (신재생에너지 인증서)',
-  '녹색프리미엄',
-  '해당 없음',
-];
-const CONSULTING_DRIVERS = [
-  'RE100 가입/이행 의무',
-  '수출 규제 대응 (CBAM)',
-  '고객사 요구',
-  'ESG 경영/평가',
-  '비용 절감',
-  '자발적 전환',
-];
-const BUDGET_RANGES = ['1,000만원 미만', '1,000~3,000만원', '3,000~5,000만원', '5,000만원~1억원', '1억원 이상', '미정'];
-const CARBON_METHODS = [
-  '고효율 설비 교체',
-  '공정 개선',
-  '연료 전환',
-  '폐열 회수',
-  '재생에너지 전환',
-  'CCS/CCU',
-  '해당 없음',
-];
-const EXISTING_DER = ['태양광 (PV)', 'ESS (배터리)', '풍력', '연료전지', 'EV 충전기', '해당 없음'];
-const GRID_TYPES = ['고압 수전 (22.9kV)', '특고압 수전 (154kV)', '저압 수전', '자가발전 병행', '모름'];
-
-const INITIAL_FORM: DiagnosisForm = {
-  domain: null,
-  companySize: '',
-  industry: '',
-  currentREPercent: 0,
-  targetTimeline: '',
-  contactName: '',
-  contactEmail: '',
-  contactPhone: '',
-  companyName: '',
-  currentREMethods: [],
-  consultingDrivers: [],
-};
+type View = { kind: 'input' } | { kind: 'loading'; step: number } | { kind: 'result'; input: SimInput; record?: ReviewRecord };
 
 export default function DiagnosisPage() {
-  return (
-    <Suspense>
-      <DiagnosisContent />
-    </Suspense>
-  );
-}
-
-function DiagnosisContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const referralCode = searchParams.get('referral');
-  const consultantId = searchParams.get('consultantId');
-  const preselectedDomain = (searchParams.get('domain') as DiagnosisForm['domain']) ?? null;
   const user = useAuthStore((s) => s.user);
   const toast = useToastStore((s) => s.add);
   const createDiagnosis = useCreateDiagnosis();
-  const deleteDiagnosis = useDeleteDiagnosis();
-  const createConsultation = useCreateConsultation();
-  const createProposal = useCreateProposal();
   const companyId = user?.companyId ?? 0;
-  const { data: recentEnergyData } = useRecentEnergyData(companyId);
+  const companyName = user?.companyName ?? '';
 
-  type EnergyDataItem = { type: 'diagnosis'; data: Diagnosis } | { type: 'survey'; data: SurveyItem };
+  // 사업장 — 가입 회사의 등록 사업장(대표 사업장). 입력받지 않는다
+  const { data: siteData } = useConsumerSites({ companyId });
+  const site = useMemo(() => {
+    const raw = (Array.isArray(siteData) ? siteData : ((siteData as { content?: unknown[] } | undefined)?.content ?? [])) as { companyId?: number; name: string; address: string }[];
+    // 등록 사업장이 없으면 가입 회사 주소(저장된 로그인 정보에 주소가 없으면 데모 계정 정보에서)
+    const address = user?.companyAddress || Object.values(POC_USERS).find((u) => u.companyId === companyId)?.companyAddress || '';
+    return raw.find((s) => s.companyId === companyId) ?? { name: '본사', address };
+  }, [siteData, companyId, user?.companyAddress]);
 
-  const recentItems: EnergyDataItem[] = (() => {
-    const items: EnergyDataItem[] = [];
-    (recentEnergyData?.diagnoses ?? []).forEach((d) => items.push({ type: 'diagnosis', data: d }));
-    (recentEnergyData?.surveys ?? []).forEach((s) => items.push({ type: 'survey', data: s }));
-    items.sort((a, b) => {
-      const dateA = a.type === 'diagnosis' ? (a.data as Diagnosis).createdAt : (a.data as SurveyItem).createdAt;
-      const dateB = b.type === 'diagnosis' ? (b.data as Diagnosis).createdAt : (b.data as SurveyItem).createdAt;
-      return new Date(dateB ?? 0).getTime() - new Date(dateA ?? 0).getTime();
-    });
-    return items;
-  })();
+  // 지난 검토 기록
+  const { data: diagData } = useDiagnosesByCompany(companyId);
+  const history = useMemo(() => ((diagData ?? []) as Diagnosis[]).filter((d) => d.sim), [diagData]);
 
-  const isStale = (dateStr?: string) => {
-    if (!dateStr) return false;
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-    return new Date(dateStr) < threeMonthsAgo;
+  const [f, setF] = useState<SimInput>(() => defaultSimInput());
+  const [view, setView] = useState<View>({ kind: 'input' });
+  const [save, setSave] = useState(true); // 검토 기록에 저장할지 — 끄면 결과만 보고 기록은 남기지 않는다
+
+  useEffect(() => {
+    if (f.site !== site.name) setF((p) => ({ ...p, site: site.name, address: site.address }));
+  }, [site, f.site]);
+
+  // 기존 태양광 설비 — 전력거래에서 이 회사가 수용가로 맺은 체결 계약(설비 규모 합). 연간 발전량은 일평균 발전시간 기준 추정
+  const contracts = useTradingPocStore((s) => s.contracts);
+  const mine = useMemo(() => contracts.filter((c) => c.consumerCompanyId === companyId && c.status === 'ACTIVE'), [contracts, companyId]);
+  const facilitySource = mine.length
+    ? `전력거래 계약 데이터에서 불러옴 — ${mine.map((c) => `${c.plantName} ${c.no} (${kindLabel(c.kind)} ${c.capacityKw} kW)`).join(', ')} · 연간 발전량은 일평균 발전시간 기준 추정`
+    : undefined;
+  const filled = useRef(false);
+  useEffect(() => {
+    if (filled.current || !mine.length) return;
+    filled.current = true;
+    const kw = Math.round(mine.reduce((a, c) => a + c.capacityKw, 0) * 100) / 100;
+    const gen = Math.round(kw * f.avgH * 365);
+    setF((p) => (p.facilities.length ? p : { ...p, facilities: [{ source: '태양광', kw, genKwh: gen, useKwh: gen }] }));
+  }, [mine, f.avgH]);
+
+  // 검토서 화면 → 브라우저 뒤로가기로 입력 화면
+  useEffect(() => {
+    const onPop = () => setView({ kind: 'input' });
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+  const showResult = (input: SimInput, record?: ReviewRecord) => {
+    if (view.kind !== 'result') window.history.pushState({ review: true }, '');
+    setView({ kind: 'result', input, record });
+    window.scrollTo({ top: 0 });
+  };
+  const backToInput = () => {
+    if (window.history.state?.review) window.history.back();
+    else setView({ kind: 'input' });
   };
 
-  const handleDeleteDiagnosis = (diagnosis: Diagnosis) => {
-    if (!window.confirm('이 무료진단을 삭제하시겠습니까?')) return;
-    deleteDiagnosis.mutate(diagnosis.id, {
-      onSuccess: () => {
-        setSelectedItem((prev) =>
-          prev?.type === 'diagnosis' && (prev.data as Diagnosis).id === diagnosis.id ? null : prev,
-        );
-        toast('success', '무료진단이 삭제되었습니다.');
-      },
-      onError: () => toast('error', '삭제에 실패했습니다.'),
-    });
-  };
-
-  const [reuseDiagnosisChoice, setReuseDiagnosisChoice] = useState<'pending' | 'new' | 'reuse'>('pending');
-  const [selectedItem, setSelectedItem] = useState<EnergyDataItem | null>(null);
-  const [step, setStep] = useState(preselectedDomain ? 1 : 0);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState('');
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [form, setForm] = useState<DiagnosisForm>({
-    ...INITIAL_FORM,
-    domain: preselectedDomain,
-    referralCode: referralCode ?? undefined,
-  });
-
-  const hasRecentData = recentItems.length > 0 && reuseDiagnosisChoice === 'pending';
-
-  const validateStep = (s: number): Record<string, string> => {
-    const e: Record<string, string> = {};
-    if (s === 0) {
-      if (!form.domain) e.domain = '컨설팅 분야를 선택하세요';
-    }
-    if (s === 1) {
-      if (!form.companySize) e.companySize = '기업 규모를 선택하세요';
-      if (!form.industry) e.industry = '업종을 선택하세요';
-      if (!form.annualEnergyUsage || form.annualEnergyUsage <= 0) e.annualEnergyUsage = '연간 전력 사용량을 입력하세요';
-      if (form.annualEnergyUsage && form.annualEnergyUsage > 10_000_000)
-        e.annualEnergyUsage = '사용량이 너무 큽니다 (최대 10,000,000 MWh)';
-      if (form.currentElecCost && (form.currentElecCost < 50 || form.currentElecCost > 500))
-        e.currentElecCost = '전기요금 단가는 50~500 원/kWh 범위로 입력하세요';
-      if (form.employeeCount && form.employeeCount < 0) e.employeeCount = '직원 수는 0 이상이어야 합니다';
-    }
-    if (s === 2) {
-      if (!form.currentREMethods || form.currentREMethods.length === 0)
-        e.currentREMethods = 'RE 조달 방식을 최소 1개 선택하세요';
-      if (!form.targetTimeline) e.targetTimeline = '목표 달성 기간을 선택하세요';
-    }
-    if (s === 3) {
-      if (!form.contactName?.trim()) e.contactName = '담당자 이름을 입력하세요';
-      else if (form.contactName.trim().length < 2) e.contactName = '이름은 2자 이상 입력하세요';
-      else if (/^\d+$/.test(form.contactName.trim())) e.contactName = '이름에 숫자만 입력할 수 없습니다';
-      if (!form.contactEmail?.trim()) e.contactEmail = '이메일을 입력하세요';
-      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail)) e.contactEmail = '올바른 이메일 형식이 아닙니다';
-      if (!form.companyName?.trim()) e.companyName = '회사명을 입력하세요';
-      else if (form.companyName.trim().length < 2) e.companyName = '회사명은 2자 이상 입력하세요';
-      else if (/^\d+$/.test(form.companyName.trim())) e.companyName = '회사명에 숫자만 입력할 수 없습니다';
-      if (form.contactPhone) {
-        const digits = form.contactPhone.replace(/\D/g, '');
-        if (!/^0\d{9,10}$/.test(digits)) e.contactPhone = '올바른 연락처를 입력하세요 (예: 010-1234-5678)';
+  const review = async () => {
+    const snap = structuredClone(f);
+    setView({ kind: 'loading', step: 0 });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const steps = (async () => {
+      for (let k = 1; k <= REVIEW_STEPS.length; k++) {
+        await new Promise((r) => setTimeout(r, STEP_MS));
+        setView({ kind: 'loading', step: k });
       }
+    })();
+    let record: ReviewRecord | undefined;
+    if (save) try {
+      const R = calc(snap);
+      // 검토할 때마다 새 기록 (덮어쓰지 않는다)
+      const d = (await createDiagnosis.mutateAsync({
+        companyId,
+        companyName,
+        domain: 'RE100',
+        annualEnergyUsage: Math.round(R.annualGen1 / 1000),
+        contactName: user?.name,
+        contactEmail: user?.email,
+        contactPhone: user?.phone,
+        sim: snap,
+      })) as { id: number; createdAt: string };
+      record = recordOf(d);
+    } catch {
+      toast('error', '검토서 저장에 실패했습니다');
     }
-    return e;
+    await steps;
+    showResult(snap, record);
+    if (record) toast('success', `${record.no} 사업 검토서로 기록했습니다`);
   };
-
-  const handleNext = () => {
-    const stepErrors = validateStep(step);
-    setErrors(stepErrors);
-    if (Object.keys(stepErrors).length > 0) return;
-    setStep(step + 1);
-  };
-
-  const canNext =
-    (step === 0 && form.domain !== null) ||
-    (step === 1 && form.companySize && form.industry && form.annualEnergyUsage) ||
-    (step === 2 && form.currentREMethods && form.currentREMethods.length > 0 && form.targetTimeline) ||
-    (step === 3 && form.contactName && form.contactEmail && form.companyName) ||
-    step === 4;
-
-  const handleReuseData = async (item: EnergyDataItem) => {
-    if (!user?.companyId) return;
-    setSubmitting(true);
-    setSubmitError('');
-    try {
-      if (item.type === 'diagnosis') {
-        const diagnosis = item.data as Diagnosis;
-        if (consultantId) {
-          const result = await createConsultation.mutateAsync({
-            clientCompanyId: user.companyId,
-            origin: 'MARKETPLACE',
-            domain: diagnosis.domain,
-            diagnosisId: diagnosis.id,
-            includePpaSupport: false,
-          });
-          try {
-            await createProposal.mutateAsync({
-              profileId: Number(consultantId),
-              domain: diagnosis.domain,
-              proposedScope: JSON.stringify(['diagnosis', 'strategy']),
-              estimatedCost: 0,
-              coverLetter: `기존 진단(#${diagnosis.id}) 기반 매칭 요청`,
-            });
-            toast('success', '기존 데이터로 컨설턴트에게 매칭 제안이 전송되었습니다');
-          } catch {
-            toast('warning', '컨설팅은 생성되었으나 매칭 제안 전송에 실패했습니다');
-          }
-          router.push(`/consulting/diagnosis/report?id=${(result as any).diagnosisId ?? diagnosis.id}&matched=true`);
-        } else {
-          router.push(`/consulting/diagnosis/report?id=${diagnosis.id}`);
-        }
-      } else {
-        const survey = item.data as SurveyItem;
-        const parseJsonField = (val: string | null): string | null => {
-          if (!val) return null;
-          try {
-            const arr = JSON.parse(val);
-            return Array.isArray(arr) ? arr.join(',') : val;
-          } catch {
-            return val;
-          }
-        };
-        const maturityGrade = getMaturityGrade(0);
-        const diagnosisResult = await createDiagnosis.mutateAsync({
-          companyId: user.companyId,
-          domain: survey.domain,
-          industry: survey.industry || null,
-          companySize: survey.companySize || null,
-          currentRePercent: 0,
-          targetTimeline: null,
-          annualEnergyUsage: survey.annualEnergyUsage ?? null,
-          currentElecCost: survey.currentElecCost ?? null,
-          annualGhgEmission: survey.annualGhgEmission ?? null,
-          budgetRange: survey.budgetRange ?? null,
-          contactName: user.name || null,
-          contactEmail: user.email || null,
-          contactPhone: null,
-          currentReMethods: parseJsonField(survey.currentREMethods),
-          consultingDrivers: parseJsonField(survey.consultingDrivers),
-          exportCountries: survey.exportCountries ?? null,
-          siteCount: survey.siteCount ?? null,
-          siteRegions: survey.siteRegions ?? null,
-          annualRevenue: survey.annualRevenue ?? null,
-          employeeCount: survey.employeeCount ?? null,
-          maturityGrade,
-        });
-        toast('success', '컨설팅 설문 데이터로 진단이 생성되었습니다');
-        if (consultantId) {
-          await createConsultation.mutateAsync({
-            clientCompanyId: user.companyId,
-            origin: referralCode ? 'REFERRAL' : 'MARKETPLACE',
-            domain: survey.domain,
-            diagnosisId: (diagnosisResult as any).id,
-            includePpaSupport: false,
-          });
-          try {
-            await createProposal.mutateAsync({
-              profileId: Number(consultantId),
-              domain: survey.domain,
-              proposedScope: JSON.stringify(['diagnosis', 'strategy']),
-              estimatedCost: 0,
-              coverLetter: `설문 데이터 기반 자동 매칭 요청 (진단 ID: ${(diagnosisResult as any).id})`,
-            });
-          } catch {
-            /* ignore */
-          }
-          router.push(`/consulting/diagnosis/report?id=${(diagnosisResult as any).id}&matched=true`);
-        } else {
-          router.push(`/consulting/diagnosis/report?id=${(diagnosisResult as any).id}`);
-        }
-      }
-    } catch (err: any) {
-      setSubmitting(false);
-      setSubmitError(err?.message || '처리에 실패했습니다.');
-    }
-  };
-
-  const handleUpdateAndDiagnose = (item: EnergyDataItem) => {
-    if (item.type === 'diagnosis') {
-      const d = item.data as Diagnosis;
-      setForm({
-        ...INITIAL_FORM,
-        domain: d.domain as ConsultationDomain,
-        companySize: d.companySize || '',
-        industry: d.industry || '',
-        currentREPercent: Number(d.currentRePercent) || 0,
-        targetTimeline: d.targetTimeline || '',
-        annualEnergyUsage: d.annualEnergyUsage ?? undefined,
-        currentElecCost: d.currentElecCost ?? undefined,
-        annualGhgEmission: d.annualGhgEmission ?? undefined,
-        budgetRange: d.budgetRange ?? undefined,
-        currentREMethods: d.currentReMethods ? d.currentReMethods.split(',') : [],
-        consultingDrivers: d.consultingDrivers ? d.consultingDrivers.split(',') : [],
-        exportCountries: d.exportCountries ?? undefined,
-        siteCount: d.siteCount ?? undefined,
-        siteRegions: d.siteRegions ?? undefined,
-        annualRevenue: d.annualRevenue ?? undefined,
-        employeeCount: d.employeeCount ?? undefined,
-        contactName: d.contactName || '',
-        contactEmail: d.contactEmail || '',
-        contactPhone: d.contactPhone || '',
-        referralCode: referralCode ?? undefined,
-      });
-      setStep(1);
-    } else {
-      const s = item.data as SurveyItem;
-      const parseJsonArray = (val: string | null): string[] => {
-        if (!val) return [];
-        try {
-          const arr = JSON.parse(val);
-          return Array.isArray(arr) ? arr : val.split(',');
-        } catch {
-          return val.split(',');
-        }
-      };
-      setForm({
-        ...INITIAL_FORM,
-        domain: s.domain as ConsultationDomain,
-        companySize: s.companySize || '',
-        industry: s.industry || '',
-        currentREPercent: 0,
-        targetTimeline: '',
-        annualEnergyUsage: s.annualEnergyUsage ?? undefined,
-        currentElecCost: s.currentElecCost != null ? Number(s.currentElecCost) : undefined,
-        annualGhgEmission: s.annualGhgEmission != null ? Number(s.annualGhgEmission) : undefined,
-        budgetRange: s.budgetRange ?? undefined,
-        currentREMethods: parseJsonArray(s.currentREMethods),
-        consultingDrivers: parseJsonArray(s.consultingDrivers),
-        exportCountries: s.exportCountries ?? undefined,
-        siteCount: s.siteCount ?? undefined,
-        siteRegions: s.siteRegions ?? undefined,
-        annualRevenue: s.annualRevenue ?? undefined,
-        employeeCount: s.employeeCount ?? undefined,
-        contactName: user?.name || '',
-        contactEmail: user?.email || '',
-        contactPhone: '',
-        referralCode: referralCode ?? undefined,
-        scope1Emission: s.scope1Emission ?? undefined,
-        scope2Emission: s.scope2Emission ?? undefined,
-        scope3Emission: s.scope3Emission ?? undefined,
-        carbonTargetPercent: s.carbonTargetPercent ?? undefined,
-        carbonMethods: parseJsonArray(s.carbonMethods),
-        etsParticipant: s.etsParticipant ?? undefined,
-        cdpParticipant: s.cdpParticipant ?? undefined,
-        sbtiCommitted: s.sbtiCommitted ?? undefined,
-        rooftopArea: s.rooftopArea ?? undefined,
-        peakDemand: s.peakDemand ?? undefined,
-        monthlyPeakCost: s.monthlyPeakCost ?? undefined,
-        existingDER: parseJsonArray(s.existingDER),
-        gridType: s.gridType ?? undefined,
-        essInterest: s.essInterest ?? undefined,
-        evChargerInterest: s.evChargerInterest ?? undefined,
-      });
-      setStep(1);
-    }
-    setReuseDiagnosisChoice('new');
-  };
-
-  const handleSubmit = async () => {
-    if (!form.domain) return;
-    if (!user?.companyId) {
-      setSubmitError('로그인 정보에 회사가 연결되어 있지 않습니다. 관리자에게 문의하세요.');
-      return;
-    }
-    setSubmitting(true);
-    setSubmitError('');
-    try {
-      const maturityGrade = getMaturityGrade(form.currentREPercent);
-      const diagnosisResult = await createDiagnosis.mutateAsync({
-        companyId: user.companyId,
-        domain: form.domain,
-        industry: form.industry || null,
-        companySize: form.companySize || null,
-        currentRePercent: form.currentREPercent,
-        targetTimeline: form.targetTimeline || null,
-        annualEnergyUsage: form.annualEnergyUsage ?? null,
-        currentElecCost: form.currentElecCost ?? null,
-        annualGhgEmission: form.annualGhgEmission ?? null,
-        budgetRange: form.budgetRange ?? null,
-        contactName: form.contactName || null,
-        contactEmail: form.contactEmail || null,
-        contactPhone: form.contactPhone || null,
-        currentReMethods: form.currentREMethods?.join(',') ?? null,
-        consultingDrivers: form.consultingDrivers?.join(',') ?? null,
-        exportCountries: form.exportCountries ?? null,
-        siteCount: form.siteCount ?? null,
-        siteRegions: form.siteRegions ?? null,
-        annualRevenue: form.annualRevenue ?? null,
-        employeeCount: form.employeeCount ?? null,
-        maturityGrade,
-      });
-
-      if (consultantId) {
-        await createConsultation.mutateAsync({
-          clientCompanyId: user.companyId,
-          origin: referralCode ? 'REFERRAL' : 'MARKETPLACE',
-          domain: form.domain,
-          diagnosisId: (diagnosisResult as any).id,
-          includePpaSupport: false,
-        });
-        try {
-          await createProposal.mutateAsync({
-            profileId: Number(consultantId),
-            domain: form.domain,
-            proposedScope: JSON.stringify(['diagnosis', 'strategy']),
-            estimatedCost: 0,
-            coverLetter: `무료진단 완료 후 자동 매칭 요청 (진단 ID: ${(diagnosisResult as any).id})`,
-          });
-          toast('success', '진단이 완료되고 컨설턴트에게 매칭 제안이 전송되었습니다');
-        } catch {
-          toast('warning', '진단은 완료되었으나 매칭 제안 전송에 실패했습니다');
-        }
-        router.push(`/consulting/diagnosis/report?id=${(diagnosisResult as any).id}&matched=true`);
-      } else {
-        router.push(`/consulting/diagnosis/report?id=${(diagnosisResult as any).id}`);
-      }
-    } catch (err: any) {
-      setSubmitting(false);
-      setSubmitError(err?.message || '진단 신청에 실패했습니다. 잠시 후 다시 시도해 주세요.');
-    }
-  };
-
-  const toggleArrayItem = (key: 'currentREMethods' | 'consultingDrivers', value: string) => {
-    setForm((prev) => {
-      const arr = prev[key] ?? [];
-      return { ...prev, [key]: arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value] };
-    });
-  };
-
-  const STEP_TITLES = ['분야 선택', '기업 현황', 'RE 현황', '연락처', '확인'];
-  // 단계마다 '지금 할 일' 한 줄
-  const STEP_GUIDE = [
-    '진단받을 컨설팅 분야를 고르세요',
-    '기업 규모 · 업종 · 연간 에너지 사용량을 입력하세요',
-    '지금 쓰는 재생에너지 수단과 목표 시점을 고르세요',
-    '진단 결과를 받을 담당자 정보를 입력하세요',
-    '입력한 내용을 확인하고 진단 결과를 받으세요',
-  ];
-  // 오른쪽 입력 요약 — 지금까지 고른 값
-  const summary: { label: string; value: string }[] = [
-    { label: '분야', value: DOMAINS.find((d) => d.id === form.domain)?.title ?? '' },
-    { label: '기업 규모', value: form.companySize },
-    { label: '업종', value: form.industry },
-    { label: '연간 에너지 사용량', value: form.annualEnergyUsage ? `${form.annualEnergyUsage.toLocaleString()} MWh` : '' },
-    { label: '재생에너지 수단', value: (form.currentREMethods ?? []).join(', ') },
-    { label: '목표 시점', value: form.targetTimeline },
-    { label: '회사', value: form.companyName },
-    { label: '담당자', value: [form.contactName, form.contactEmail].filter(Boolean).join(' · ') },
-  ];
 
   return (
     <div className="space-y-6">
       <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '무료진단' }]} />
-      <h1 className="text-2xl font-bold text-white">무료진단</h1>
 
-      {/* 진행 단계 — 거래 상세와 같은 스텝퍼: 완료 ✓ · 지금 · 남은 단계 */}
-      {!hasRecentData && (
-        <div className="rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.06] px-6 py-5">
-          <div className="flex items-center justify-between gap-4 mb-5">
-            <p className="text-base font-semibold text-white">{DOMAINS.find((d) => d.id === form.domain)?.title ?? '무료진단'}</p>
-            <span className="rounded-lg bg-primary/10 ring-1 ring-primary/30 px-3 py-1.5 text-sm font-semibold text-primary">
-              지금: {step + 1}/{STEP_TITLES.length} 단계
-            </span>
+      {view.kind === 'result' ? (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-2xl font-bold text-white">무료진단</h1>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" onClick={backToInput}>
+                <ArrowLeft size={14} className="mr-1.5" /> 입력으로
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setF({ ...structuredClone(view.input), site: site.name, address: site.address });
+                  backToInput();
+                }}
+              >
+                <PencilLine size={14} className="mr-1.5" /> 이 값으로 다시 입력
+              </Button>
+            </div>
           </div>
-          <ol className="flex items-start">
-            {STEP_TITLES.map((title, i) => (
-              <li key={title} className="flex flex-1 items-start last:flex-none">
-                <div className="flex flex-col items-center gap-2 min-w-[72px]">
-                  <span
-                    className={cn(
-                      'flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ring-2',
-                      i < step && 'bg-primary text-white ring-primary',
-                      i === step && 'bg-primary/15 text-primary ring-primary',
-                      i > step && 'bg-white/[0.03] text-slate-500 ring-white/[0.10]',
-                    )}
-                  >
-                    {i < step ? <CheckCircle size={16} /> : i + 1}
-                  </span>
-                  <span className={cn('text-sm whitespace-nowrap', i === step ? 'font-semibold text-white' : i < step ? 'text-slate-300' : 'text-slate-500')}>
-                    {title}
-                  </span>
+          <SimReport key={view.record?.no ?? 'new'} input={view.input} companyName={companyName} record={view.record} />
+        </>
+      ) : (
+        <>
+          <h1 className="text-2xl font-bold text-white">무료진단</h1>
+          {view.kind === 'loading' ? (
+            <div className="flex min-h-[460px] flex-col items-center justify-center rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.06] p-10">
+              <div className="w-full max-w-md">
+                <p className="text-base font-semibold text-white">사업 검토 중</p>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                  <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${(view.step / REVIEW_STEPS.length) * 100}%` }} />
                 </div>
-                {i < STEP_TITLES.length - 1 && <span className={cn('mt-[18px] h-px flex-1 mx-2', i < step ? 'bg-primary/60' : 'bg-white/[0.08]')} />}
-              </li>
-            ))}
-          </ol>
-          <p className="mt-4 text-sm text-slate-300">{STEP_GUIDE[step]}</p>
-        </div>
-      )}
-
-      <div className={cn('grid grid-cols-1 gap-6', !hasRecentData && 'lg:grid-cols-[1fr_320px]')}>
-      <div className="rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.06] overflow-hidden">
-        {/* Recent energy data selection */}
-        {hasRecentData && (
-          <div className="px-8 py-6 space-y-4">
-            <div className="rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20 p-4 flex items-center gap-3">
-              <Clock size={20} className="text-amber-400 shrink-0" />
+                <ol className="mt-5 space-y-2.5">
+                  {REVIEW_STEPS.map((t, k) => (
+                    <li key={t} className={cn('flex items-center gap-3 text-sm', k < view.step ? 'text-slate-300' : k === view.step ? 'text-white' : 'text-slate-600')}>
+                      <span className={cn('h-2 w-2 shrink-0 rounded-full', k < view.step ? 'bg-emerald-400' : k === view.step ? 'animate-pulse bg-primary' : 'bg-white/[0.12]')} />
+                      {t}
+                      {k < view.step && <span className="ml-auto text-xs text-emerald-400">완료</span>}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[1fr_340px]">
+              {/* 값 입력 */}
               <div>
-                <p className="text-sm font-medium text-amber-400">기존 에너지 데이터가 있습니다</p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  최근 3개월 이내에 입력한 데이터가 {recentItems.length}건 있습니다. 기존 데이터를 활용하면 다시 입력할
-                  필요가 없습니다.
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {recentItems.map((item) => {
-                const isDiag = item.type === 'diagnosis';
-                const d = isDiag ? (item.data as Diagnosis) : null;
-                const s = !isDiag ? (item.data as SurveyItem) : null;
-                const itemDomain = isDiag ? d!.domain : s!.domain;
-                const itemDate = isDiag ? d!.createdAt : s!.createdAt;
-                const itemIndustry = isDiag ? d!.industry : s!.industry;
-                const itemEnergy = isDiag ? d!.annualEnergyUsage : s!.annualEnergyUsage;
-                const stale = isStale(itemDate);
-                const rePercent = isDiag ? (d!.currentRePercent ?? 0) : 0;
-                const grade = isDiag ? d!.maturityGrade || getMaturityGrade(Number(rePercent)) : null;
-                const gc = grade ? MATURITY_GRADE_CONFIG[grade as keyof typeof MATURITY_GRADE_CONFIG] : null;
-                const itemKey = isDiag ? `d-${d!.id}` : `s-${s!.surveyId}`;
-                const isSelected =
-                  selectedItem &&
-                  ((selectedItem.type === 'diagnosis' && isDiag && (selectedItem.data as Diagnosis).id === d!.id) ||
-                    (selectedItem.type === 'survey' &&
-                      !isDiag &&
-                      (selectedItem.data as SurveyItem).surveyId === s!.surveyId));
-
-                return (
-                  <button
-                    key={itemKey}
-                    onClick={() => setSelectedItem(item)}
-                    className={cn(
-                      'w-full text-left rounded-xl p-4 ring-1 transition-all',
-                      isSelected
-                        ? 'bg-primary/10 ring-primary/40'
-                        : 'bg-white/[0.02] ring-white/[0.06] hover:ring-white/[0.12]',
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={cn(
-                              'text-[9px] font-bold px-1.5 py-0.5 rounded',
-                              isDiag ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400',
-                            )}
-                          >
-                            {isDiag ? '무료진단' : '컨설팅 설문'}
-                          </span>
-                          <span className="text-sm font-medium text-white">
-                            {itemDomain === 'RE100'
-                              ? 'RE100 이행 전략'
-                              : itemDomain === 'CARBON_REDUCTION'
-                                ? '탄소감축'
-                                : '분산에너지'}
-                          </span>
-                          {gc && <span className={cn('text-xs font-bold', gc.color)}>등급 {grade}</span>}
-                          {stale && (
-                            <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400">
-                              갱신 권장
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-400 mt-1">
-                          {itemDate?.split('T')[0]} · {itemIndustry ?? '업종 미입력'} ·{' '}
-                          {itemEnergy != null ? `${Number(itemEnergy).toLocaleString()} MWh` : '-'}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {isDiag && (
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            aria-label="무료진단 삭제"
-                            title="삭제"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (deleteDiagnosis.isPending) return;
-                              handleDeleteDiagnosis(d!);
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleDeleteDiagnosis(d!);
-                              }
-                            }}
-                            className="flex h-6 w-6 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-rose-500/10 hover:text-rose-400"
-                          >
-                            {deleteDiagnosis.isPending ? (
-                              <Loader2 size={13} className="animate-spin" />
-                            ) : (
-                              <Trash2 size={13} />
-                            )}
-                          </span>
-                        )}
-                        <div
-                          className={cn(
-                            'flex h-5 w-5 items-center justify-center rounded-full ring-1',
-                            isSelected ? 'bg-primary ring-primary text-white' : 'ring-white/[0.12]',
-                          )}
-                        >
-                          {isSelected && <CheckCircle size={12} />}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="flex justify-between pt-2">
-              <Button variant="secondary" onClick={() => router.push('/consulting')}>
-                <ArrowLeft size={14} className="mr-1" /> 취소
-              </Button>
-              <div className="flex gap-3">
-                <Button variant="secondary" onClick={() => setReuseDiagnosisChoice('new')}>
-                  처음부터 새로 진단
-                </Button>
-                {selectedItem && (
-                  <Button variant="secondary" onClick={() => handleUpdateAndDiagnose(selectedItem)}>
-                    데이터 갱신 후 진단
+                <SimInputPanel value={f} onChange={setF} companyName={companyName} facilitySource={facilitySource} />
+                <div className="sticky bottom-0 z-10 mt-4 flex items-center justify-end gap-5 rounded-xl border-t border-white/[0.06] bg-[#0b1220]/95 px-1 py-4 backdrop-blur">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
+                    <input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} className="h-4 w-4 accent-[#3b82f6]" />
+                    검토 기록에 저장
+                  </label>
+                  <Button size="lg" onClick={review}>
+                    사업 검토
                   </Button>
-                )}
-                <Button
-                  disabled={!selectedItem || submitting}
-                  onClick={() => selectedItem && handleReuseData(selectedItem)}
-                >
-                  {submitting ? '처리 중...' : '바로 진단 결과 보기'}
-                  <ArrowRight size={14} className="ml-1" />
-                </Button>
+                </div>
               </div>
+
+              {/* 지난 검토 기록 — 누르면 그 검토서를 바로 연다 */}
+              <ReviewHistoryList history={history} onPick={(d) => showResult(d.sim!, recordOf(d))} />
             </div>
-
-            {submitError && (
-              <div className="rounded-lg bg-rose-500/10 ring-1 ring-rose-500/30 px-4 py-3">
-                <p className="text-xs text-rose-400">{submitError}</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Content (wizard steps) */}
-        {!hasRecentData && (
-          <>
-            <div className="px-8 py-6">
-              {/* Step 0: Domain */}
-              {step === 0 && (
-                <div className="space-y-4">
-                  <h2 className="text-base font-semibold text-white">컨설팅 분야를 선택하세요</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {DOMAINS.map((d) => (
-                      <button
-                        key={d.id}
-                        onClick={() => setForm({ ...form, domain: d.id })}
-                        className={cn(
-                          'rounded-xl p-5 text-left ring-1 transition-all',
-                          form.domain === d.id
-                            ? 'bg-primary/10 ring-primary/40'
-                            : 'bg-white/[0.02] ring-white/[0.06] hover:ring-white/[0.12]',
-                        )}
-                      >
-                        <d.icon size={20} className={form.domain === d.id ? 'text-primary' : 'text-slate-400'} />
-                        <p className="mt-3 text-sm font-medium text-white">{d.title}</p>
-                        <p className="mt-1 text-xs text-slate-500">{d.description}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Step 1: Company Profile */}
-              {step === 1 && (
-                <div className="space-y-6">
-                  <h2 className="text-base font-semibold text-white">기업 현황을 알려주세요</h2>
-
-                  {/* Basic info */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                      <Building2 size={12} /> 기본 정보
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block text-sm font-medium text-slate-400">
-                        기업 규모 <span className="text-primary">*</span>
-                      </label>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        {COMPANY_SIZES.map((size) => (
-                          <button
-                            key={size}
-                            onClick={() => {
-                              setForm({ ...form, companySize: size });
-                              setErrors((e) => {
-                                const { companySize: _, ...rest } = e;
-                                return rest;
-                              });
-                            }}
-                            className={cn(
-                              'rounded-lg px-3 py-2.5 text-xs ring-1 transition-colors',
-                              form.companySize === size
-                                ? 'bg-primary/10 ring-primary/40 text-primary'
-                                : 'bg-white/[0.02] ring-white/[0.06] text-slate-400 hover:ring-white/[0.12]',
-                            )}
-                          >
-                            {size}
-                          </button>
-                        ))}
-                      </div>
-                      {errors.companySize && <p className="text-xs text-rose-400">{errors.companySize}</p>}
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block text-sm font-medium text-slate-400">
-                        업종 <span className="text-primary">*</span>
-                      </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {INDUSTRIES.map((ind) => (
-                          <button
-                            key={ind}
-                            onClick={() => {
-                              setForm({ ...form, industry: ind });
-                              setErrors((e) => {
-                                const { industry: _, ...rest } = e;
-                                return rest;
-                              });
-                            }}
-                            className={cn(
-                              'rounded-lg px-3 py-2.5 text-xs ring-1 transition-colors',
-                              form.industry === ind
-                                ? 'bg-primary/10 ring-primary/40 text-primary'
-                                : 'bg-white/[0.02] ring-white/[0.06] text-slate-400 hover:ring-white/[0.12]',
-                            )}
-                          >
-                            {ind}
-                          </button>
-                        ))}
-                      </div>
-                      {errors.industry && <p className="text-xs text-rose-400">{errors.industry}</p>}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input
-                        label="직원 수"
-                        type="number"
-                        placeholder="예: 250"
-                        value={form.employeeCount ?? ''}
-                        onChange={(e) =>
-                          setForm({ ...form, employeeCount: e.target.value ? Number(e.target.value) : undefined })
-                        }
-                      />
-                      <Input
-                        label="연매출 (억원)"
-                        type="number"
-                        placeholder="예: 500"
-                        value={form.annualRevenue ?? ''}
-                        onChange={(e) =>
-                          setForm({ ...form, annualRevenue: e.target.value ? Number(e.target.value) : undefined })
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  {/* Energy usage */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                      <Zap size={12} /> 에너지 사용 현황
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="block text-sm font-medium text-slate-400">
-                          연간 전력 사용량 (MWh) <span className="text-primary">*</span>
-                        </label>
-                        <div className="relative">
-                          <Input
-                            type="number"
-                            placeholder="예: 15000"
-                            value={form.annualEnergyUsage ?? ''}
-                            onChange={(e) => {
-                              setForm({
-                                ...form,
-                                annualEnergyUsage: e.target.value ? Number(e.target.value) : undefined,
-                              });
-                              setErrors((prev) => {
-                                const { annualEnergyUsage: _, ...rest } = prev;
-                                return rest;
-                              });
-                            }}
-                          />
-                          <div className="group absolute right-3 top-1/2 -translate-y-1/2">
-                            <HelpCircle size={14} className="text-slate-500 cursor-help" />
-                            <div className="invisible group-hover:visible absolute bottom-full right-0 mb-2 w-52 rounded-lg bg-[#0d1520] ring-1 ring-white/[0.1] p-3 text-xs text-slate-400 shadow-xl z-10">
-                              한전 전기요금 고지서의 &apos;사용량(kWh)&apos; × 12개월로 산출할 수 있습니다.
-                            </div>
-                          </div>
-                        </div>
-                        {errors.annualEnergyUsage && (
-                          <p className="text-xs text-rose-400">{errors.annualEnergyUsage}</p>
-                        )}
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="block text-sm font-medium text-slate-400">현재 전기요금 단가 (원/kWh)</label>
-                        <div className="relative">
-                          <Input
-                            type="number"
-                            placeholder="예: 154"
-                            value={form.currentElecCost ?? ''}
-                            onChange={(e) => {
-                              setForm({
-                                ...form,
-                                currentElecCost: e.target.value ? Number(e.target.value) : undefined,
-                              });
-                              setErrors((prev) => {
-                                const { currentElecCost: _, ...rest } = prev;
-                                return rest;
-                              });
-                            }}
-                          />
-                          <div className="group absolute right-3 top-1/2 -translate-y-1/2">
-                            <HelpCircle size={14} className="text-slate-500 cursor-help" />
-                            <div className="invisible group-hover:visible absolute bottom-full right-0 mb-2 w-52 rounded-lg bg-[#0d1520] ring-1 ring-white/[0.1] p-3 text-xs text-slate-400 shadow-xl z-10">
-                              고지서의 &apos;청구금액 ÷ 사용량&apos;으로 산출합니다. 모르면 비워두세요.
-                            </div>
-                          </div>
-                        </div>
-                        {errors.currentElecCost && <p className="text-xs text-rose-400">{errors.currentElecCost}</p>}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input
-                        label="연간 가스 사용량 (TJ)"
-                        type="number"
-                        placeholder="예: 3.5"
-                        value={form.annualGasUsage ?? ''}
-                        onChange={(e) =>
-                          setForm({ ...form, annualGasUsage: e.target.value ? Number(e.target.value) : undefined })
-                        }
-                      />
-                      <Input
-                        label="온실가스 배출량 (tCO2eq)"
-                        type="number"
-                        placeholder="Scope 1+2 기준"
-                        hint="모르면 비워두세요. 전력 사용량으로 추정합니다."
-                        value={form.annualGhgEmission ?? ''}
-                        onChange={(e) =>
-                          setForm({ ...form, annualGhgEmission: e.target.value ? Number(e.target.value) : undefined })
-                        }
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input
-                        label="사업장 수"
-                        type="number"
-                        placeholder="예: 3"
-                        value={form.siteCount ?? ''}
-                        onChange={(e) =>
-                          setForm({ ...form, siteCount: e.target.value ? Number(e.target.value) : undefined })
-                        }
-                      />
-                      <Input
-                        label="사업장 지역"
-                        placeholder="예: 울산, 사천, 마산"
-                        value={form.siteRegions ?? ''}
-                        onChange={(e) => setForm({ ...form, siteRegions: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 2: RE Status & Goals */}
-              {step === 2 && (
-                <div className="space-y-6">
-                  <h2 className="text-base font-semibold text-white">재생에너지 현황 및 목표</h2>
-
-                  {/* Current RE */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                      <Zap size={12} /> 현재 재생에너지 조달
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block text-sm font-medium text-slate-400">
-                        현재 재생에너지 비율: <span className="text-primary font-bold">{form.currentREPercent}%</span>
-                      </label>
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        value={form.currentREPercent}
-                        onChange={(e) => setForm({ ...form, currentREPercent: Number(e.target.value) })}
-                        className="w-full accent-primary"
-                      />
-                      <div className="flex justify-between text-xs text-slate-500">
-                        <span>0%</span>
-                        <span>25%</span>
-                        <span>50%</span>
-                        <span>75%</span>
-                        <span>100%</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block text-sm font-medium text-slate-400">
-                        현재 RE 조달 방식 (복수 선택) <span className="text-primary">*</span>
-                      </label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {RE_METHODS.map((method) => {
-                          const selected = form.currentREMethods?.includes(method);
-                          return (
-                            <button
-                              key={method}
-                              onClick={() => toggleArrayItem('currentREMethods', method)}
-                              className={cn(
-                                'flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs ring-1 transition-colors text-left',
-                                selected
-                                  ? 'bg-primary/10 ring-primary/40 text-primary'
-                                  : 'bg-white/[0.02] ring-white/[0.06] text-slate-400 hover:ring-white/[0.12]',
-                              )}
-                            >
-                              <div
-                                className={cn(
-                                  'flex h-4 w-4 items-center justify-center rounded shrink-0',
-                                  selected ? 'bg-primary text-white' : 'bg-white/[0.06]',
-                                )}
-                              >
-                                {selected && <CheckCircle size={10} />}
-                              </div>
-                              {method}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {errors.currentREMethods && <p className="text-xs text-rose-400">{errors.currentREMethods}</p>}
-                    </div>
-                  </div>
-
-                  {/* Goals */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                      <Target size={12} /> 목표 및 동기
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block text-sm font-medium text-slate-400">
-                        목표 달성 기간 <span className="text-primary">*</span>
-                      </label>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {TIMELINES.map((t) => (
-                          <button
-                            key={t}
-                            onClick={() => {
-                              setForm({ ...form, targetTimeline: t });
-                              setErrors((e) => {
-                                const { targetTimeline: _, ...rest } = e;
-                                return rest;
-                              });
-                            }}
-                            className={cn(
-                              'rounded-lg px-3 py-2.5 text-xs ring-1 transition-colors',
-                              form.targetTimeline === t
-                                ? 'bg-primary/10 ring-primary/40 text-primary'
-                                : 'bg-white/[0.02] ring-white/[0.06] text-slate-400 hover:ring-white/[0.12]',
-                            )}
-                          >
-                            {t}
-                          </button>
-                        ))}
-                      </div>
-                      {errors.targetTimeline && <p className="text-xs text-rose-400">{errors.targetTimeline}</p>}
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block text-sm font-medium text-slate-400">컨설팅 요청 배경 (복수 선택)</label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {CONSULTING_DRIVERS.map((driver) => {
-                          const selected = form.consultingDrivers?.includes(driver);
-                          return (
-                            <button
-                              key={driver}
-                              onClick={() => toggleArrayItem('consultingDrivers', driver)}
-                              className={cn(
-                                'flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs ring-1 transition-colors text-left',
-                                selected
-                                  ? 'bg-primary/10 ring-primary/40 text-primary'
-                                  : 'bg-white/[0.02] ring-white/[0.06] text-slate-400 hover:ring-white/[0.12]',
-                              )}
-                            >
-                              <div
-                                className={cn(
-                                  'flex h-4 w-4 items-center justify-center rounded shrink-0',
-                                  selected ? 'bg-primary text-white' : 'bg-white/[0.06]',
-                                )}
-                              >
-                                {selected && <CheckCircle size={10} />}
-                              </div>
-                              {driver}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Domain-specific: RE100 */}
-                  {form.domain === 'RE100' && (
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                        <Globe size={12} /> RE100 관련 추가 정보
-                      </div>
-                      <Input
-                        label="수출 대상국"
-                        placeholder="예: EU, US, JP (쉼표 구분)"
-                        hint="CBAM/RE100 관련 수출국이 있으면 입력하세요"
-                        value={form.exportCountries ?? ''}
-                        onChange={(e) => setForm({ ...form, exportCountries: e.target.value })}
-                      />
-                      <div className="grid grid-cols-3 gap-3">
-                        {[
-                          { label: 'CDP 참여', key: 'cdpParticipant' as const, val: form.cdpParticipant },
-                          { label: 'SBTi 가입', key: 'sbtiCommitted' as const, val: form.sbtiCommitted },
-                          { label: '배출권거래제', key: 'etsParticipant' as const, val: form.etsParticipant },
-                        ].map((item) => (
-                          <button
-                            key={item.key}
-                            onClick={() => setForm({ ...form, [item.key]: !item.val })}
-                            className={cn(
-                              'rounded-lg px-3 py-2.5 text-xs ring-1 transition-colors text-center',
-                              item.val
-                                ? 'bg-primary/10 ring-primary/40 text-primary'
-                                : 'bg-white/[0.02] ring-white/[0.06] text-slate-400',
-                            )}
-                          >
-                            {item.val ? '✓ ' : ''}
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Domain-specific: CARBON_REDUCTION */}
-                  {form.domain === 'CARBON_REDUCTION' && (
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                        <Leaf size={12} /> 탄소 배출 상세
-                      </div>
-                      <div className="grid grid-cols-3 gap-4">
-                        <Input
-                          label="Scope 1 (직접배출)"
-                          type="number"
-                          placeholder="tCO2eq"
-                          hint="연료 연소, 공정 배출"
-                          value={form.scope1Emission ?? ''}
-                          onChange={(e) =>
-                            setForm({ ...form, scope1Emission: e.target.value ? Number(e.target.value) : undefined })
-                          }
-                        />
-                        <Input
-                          label="Scope 2 (간접배출)"
-                          type="number"
-                          placeholder="tCO2eq"
-                          hint="구매 전력, 열"
-                          value={form.scope2Emission ?? ''}
-                          onChange={(e) =>
-                            setForm({ ...form, scope2Emission: e.target.value ? Number(e.target.value) : undefined })
-                          }
-                        />
-                        <Input
-                          label="Scope 3 (기타간접)"
-                          type="number"
-                          placeholder="tCO2eq"
-                          hint="공급망, 출장 등"
-                          value={form.scope3Emission ?? ''}
-                          onChange={(e) =>
-                            setForm({ ...form, scope3Emission: e.target.value ? Number(e.target.value) : undefined })
-                          }
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="block text-sm font-medium text-slate-400">
-                          감축 목표: <span className="text-primary font-bold">{form.carbonTargetPercent ?? 0}%</span>
-                        </label>
-                        <input
-                          type="range"
-                          min={0}
-                          max={100}
-                          value={form.carbonTargetPercent ?? 0}
-                          onChange={(e) => setForm({ ...form, carbonTargetPercent: Number(e.target.value) })}
-                          className="w-full accent-primary"
-                        />
-                        <div className="flex justify-between text-xs text-slate-500">
-                          <span>0%</span>
-                          <span>50%</span>
-                          <span>100%</span>
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="block text-sm font-medium text-slate-400">현재 감축 수단 (복수 선택)</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {CARBON_METHODS.map((m) => {
-                            const sel = form.carbonMethods?.includes(m);
-                            return (
-                              <button
-                                key={m}
-                                onClick={() => {
-                                  const arr = form.carbonMethods ?? [];
-                                  setForm({ ...form, carbonMethods: sel ? arr.filter((v) => v !== m) : [...arr, m] });
-                                }}
-                                className={cn(
-                                  'flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs ring-1 transition-colors text-left',
-                                  sel
-                                    ? 'bg-primary/10 ring-primary/40 text-primary'
-                                    : 'bg-white/[0.02] ring-white/[0.06] text-slate-400',
-                                )}
-                              >
-                                <div
-                                  className={cn(
-                                    'flex h-4 w-4 items-center justify-center rounded shrink-0',
-                                    sel ? 'bg-primary text-white' : 'bg-white/[0.06]',
-                                  )}
-                                >
-                                  {sel && <CheckCircle size={10} />}
-                                </div>
-                                {m}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        {[
-                          { label: '배출권거래제 참여', key: 'etsParticipant' as const, val: form.etsParticipant },
-                          { label: 'CDP 참여', key: 'cdpParticipant' as const, val: form.cdpParticipant },
-                          { label: 'SBTi 가입', key: 'sbtiCommitted' as const, val: form.sbtiCommitted },
-                        ].map((item) => (
-                          <button
-                            key={item.key}
-                            onClick={() => setForm({ ...form, [item.key]: !item.val })}
-                            className={cn(
-                              'rounded-lg px-3 py-2.5 text-xs ring-1 transition-colors text-center',
-                              item.val
-                                ? 'bg-primary/10 ring-primary/40 text-primary'
-                                : 'bg-white/[0.02] ring-white/[0.06] text-slate-400',
-                            )}
-                          >
-                            {item.val ? '✓ ' : ''}
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
-                      <Input
-                        label="수출 대상국"
-                        placeholder="예: EU, US, JP"
-                        hint="CBAM 대상국이 있으면 입력하세요"
-                        value={form.exportCountries ?? ''}
-                        onChange={(e) => setForm({ ...form, exportCountries: e.target.value })}
-                      />
-                    </div>
-                  )}
-
-                  {/* Domain-specific: DISTRIBUTED_ENERGY */}
-                  {form.domain === 'DISTRIBUTED_ENERGY' && (
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                        <Sun size={12} /> 분산에너지 설비 현황
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <Input
-                          label="옥상/부지 가용면적 (m²)"
-                          type="number"
-                          placeholder="예: 5000"
-                          value={form.rooftopArea ?? ''}
-                          onChange={(e) =>
-                            setForm({ ...form, rooftopArea: e.target.value ? Number(e.target.value) : undefined })
-                          }
-                        />
-                        <Input
-                          label="최대 수요 (kW)"
-                          type="number"
-                          placeholder="예: 2000"
-                          hint="계약전력 또는 피크수요"
-                          value={form.peakDemand ?? ''}
-                          onChange={(e) =>
-                            setForm({ ...form, peakDemand: e.target.value ? Number(e.target.value) : undefined })
-                          }
-                        />
-                      </div>
-                      <Input
-                        label="월 피크요금 (원)"
-                        type="number"
-                        placeholder="예: 5000000"
-                        hint="전기요금 중 기본요금/피크 부분"
-                        value={form.monthlyPeakCost ?? ''}
-                        onChange={(e) =>
-                          setForm({ ...form, monthlyPeakCost: e.target.value ? Number(e.target.value) : undefined })
-                        }
-                      />
-                      <div className="space-y-1.5">
-                        <label className="block text-sm font-medium text-slate-400">수전 형태</label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {GRID_TYPES.map((g) => (
-                            <button
-                              key={g}
-                              onClick={() => setForm({ ...form, gridType: g })}
-                              className={cn(
-                                'rounded-lg px-3 py-2.5 text-xs ring-1 transition-colors',
-                                form.gridType === g
-                                  ? 'bg-primary/10 ring-primary/40 text-primary'
-                                  : 'bg-white/[0.02] ring-white/[0.06] text-slate-400',
-                              )}
-                            >
-                              {g}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="block text-sm font-medium text-slate-400">기존 분산자원 (복수 선택)</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {EXISTING_DER.map((d) => {
-                            const sel = form.existingDER?.includes(d);
-                            return (
-                              <button
-                                key={d}
-                                onClick={() => {
-                                  const arr = form.existingDER ?? [];
-                                  setForm({ ...form, existingDER: sel ? arr.filter((v) => v !== d) : [...arr, d] });
-                                }}
-                                className={cn(
-                                  'flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs ring-1 transition-colors text-left',
-                                  sel
-                                    ? 'bg-primary/10 ring-primary/40 text-primary'
-                                    : 'bg-white/[0.02] ring-white/[0.06] text-slate-400',
-                                )}
-                              >
-                                <div
-                                  className={cn(
-                                    'flex h-4 w-4 items-center justify-center rounded shrink-0',
-                                    sel ? 'bg-primary text-white' : 'bg-white/[0.06]',
-                                  )}
-                                >
-                                  {sel && <CheckCircle size={10} />}
-                                </div>
-                                {d}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          onClick={() => setForm({ ...form, essInterest: !form.essInterest })}
-                          className={cn(
-                            'rounded-lg px-3 py-2.5 text-xs ring-1 transition-colors text-center',
-                            form.essInterest
-                              ? 'bg-primary/10 ring-primary/40 text-primary'
-                              : 'bg-white/[0.02] ring-white/[0.06] text-slate-400',
-                          )}
-                        >
-                          {form.essInterest ? '✓ ' : ''}ESS 도입 관심
-                        </button>
-                        <button
-                          onClick={() => setForm({ ...form, evChargerInterest: !form.evChargerInterest })}
-                          className={cn(
-                            'rounded-lg px-3 py-2.5 text-xs ring-1 transition-colors text-center',
-                            form.evChargerInterest
-                              ? 'bg-primary/10 ring-primary/40 text-primary'
-                              : 'bg-white/[0.02] ring-white/[0.06] text-slate-400',
-                          )}
-                        >
-                          {form.evChargerInterest ? '✓ ' : ''}EV 충전 인프라 관심
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Budget (all domains) */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                      <Wallet size={12} /> 예산
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="block text-sm font-medium text-slate-400">컨설팅 예산 범위</label>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {BUDGET_RANGES.map((b) => (
-                          <button
-                            key={b}
-                            onClick={() => setForm({ ...form, budgetRange: b })}
-                            className={cn(
-                              'rounded-lg px-3 py-2.5 text-xs ring-1 transition-colors',
-                              form.budgetRange === b
-                                ? 'bg-primary/10 ring-primary/40 text-primary'
-                                : 'bg-white/[0.02] ring-white/[0.06] text-slate-400 hover:ring-white/[0.12]',
-                            )}
-                          >
-                            {b}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 3: Contact */}
-              {step === 3 && (
-                <div className="space-y-5">
-                  <h2 className="text-base font-semibold text-white">연락처 정보</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Input
-                      label="담당자 이름"
-                      required
-                      placeholder="홍길동"
-                      value={form.contactName}
-                      error={errors.contactName}
-                      onChange={(e) => {
-                        setForm({ ...form, contactName: e.target.value });
-                        setErrors((prev) => {
-                          const { contactName: _, ...rest } = prev;
-                          return rest;
-                        });
-                      }}
-                    />
-                    <Input
-                      label="회사명"
-                      required
-                      placeholder="주식회사 그린에너지"
-                      value={form.companyName}
-                      error={errors.companyName}
-                      onChange={(e) => {
-                        setForm({ ...form, companyName: e.target.value });
-                        setErrors((prev) => {
-                          const { companyName: _, ...rest } = prev;
-                          return rest;
-                        });
-                      }}
-                    />
-                  </div>
-                  <Input
-                    label="이메일"
-                    required
-                    type="email"
-                    placeholder="hong@company.com"
-                    value={form.contactEmail}
-                    error={errors.contactEmail}
-                    onChange={(e) => {
-                      setForm({ ...form, contactEmail: e.target.value });
-                      setErrors((prev) => {
-                        const { contactEmail: _, ...rest } = prev;
-                        return rest;
-                      });
-                    }}
-                  />
-                  <Input
-                    label="연락처"
-                    type="tel"
-                    placeholder="010-1234-5678"
-                    value={form.contactPhone}
-                    error={errors.contactPhone}
-                    onChange={(e) => {
-                      setForm({ ...form, contactPhone: e.target.value });
-                      setErrors((prev) => {
-                        const { contactPhone: _, ...rest } = prev;
-                        return rest;
-                      });
-                    }}
-                  />
-                </div>
-              )}
-
-              {/* Step 4: Confirm */}
-              {step === 4 && (
-                <div className="space-y-5">
-                  <div>
-                    <h2 className="text-base font-semibold text-white">입력 내용을 확인하세요</h2>
-                    <p className="text-xs text-slate-500 mt-1">아래 정보로 진단을 진행합니다</p>
-                  </div>
-
-                  <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/[0.06] p-4 space-y-1">
-                    <p className="text-xs uppercase tracking-wide text-slate-500">컨설팅 분야</p>
-                    <p className="text-sm font-medium text-white">
-                      {DOMAINS.find((d) => d.id === form.domain)?.title ?? '-'}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/[0.06] p-4 space-y-3">
-                    <p className="text-xs uppercase tracking-wide text-slate-500">기업 현황</p>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <p className="text-xs text-slate-500">기업 규모</p>
-                        <p className="text-white">{form.companySize || '-'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">업종</p>
-                        <p className="text-white">{form.industry || '-'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">연간 전력 사용량</p>
-                        <p className="text-white">
-                          {form.annualEnergyUsage ? `${form.annualEnergyUsage.toLocaleString()} MWh` : '-'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">전기요금 단가</p>
-                        <p className="text-white">
-                          {form.currentElecCost ? `${form.currentElecCost} 원/kWh` : '산업용 평균 적용'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">온실가스 배출량</p>
-                        <p className="text-white">
-                          {form.annualGhgEmission ? `${form.annualGhgEmission.toLocaleString()} tCO2eq` : '자동 추정'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">사업장</p>
-                        <p className="text-white">
-                          {form.siteCount ? `${form.siteCount}개` : '-'}{' '}
-                          {form.siteRegions ? `(${form.siteRegions})` : ''}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/[0.06] p-4 space-y-3">
-                    <p className="text-xs uppercase tracking-wide text-slate-500">RE 현황 및 목표</p>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <p className="text-xs text-slate-500">현재 RE 비율</p>
-                        <p className="text-white">{form.currentREPercent}%</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">목표 기간</p>
-                        <p className="text-white">{form.targetTimeline || '-'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">현재 RE 조달</p>
-                        <p className="text-white">
-                          {form.currentREMethods?.filter((m) => m !== '해당 없음').join(', ') || '없음'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">요청 배경</p>
-                        <p className="text-white">{form.consultingDrivers?.join(', ') || '-'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">수출 대상국</p>
-                        <p className="text-white">{form.exportCountries || '-'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">예산 범위</p>
-                        <p className="text-white">{form.budgetRange || '-'}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/[0.06] p-4 space-y-3">
-                    <p className="text-xs uppercase tracking-wide text-slate-500">연락처</p>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <p className="text-xs text-slate-500">담당자</p>
-                        <p className="text-white">{form.contactName || '-'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">회사명</p>
-                        <p className="text-white">{form.companyName || '-'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">이메일</p>
-                        <p className="text-white">{form.contactEmail || '-'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">연락처</p>
-                        <p className="text-white">{form.contactPhone || '-'}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => setStep(0)}
-                    className="text-xs text-primary hover:text-primary/80 transition-colors"
-                  >
-                    처음부터 수정하기
-                  </button>
-
-                  {submitError && (
-                    <div className="rounded-lg bg-rose-500/10 ring-1 ring-rose-500/30 px-4 py-3">
-                      <p className="text-xs text-rose-400">{submitError}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between border-t border-white/[0.06] px-8 py-4">
-              <Button variant="secondary" onClick={() => (step === 0 ? router.push('/consulting') : setStep(step - 1))}>
-                <ArrowLeft size={14} className="mr-1" />
-                {step === 0 ? '취소' : '이전'}
-              </Button>
-              {step < 4 ? (
-                <Button onClick={handleNext} disabled={!canNext}>
-                  다음 <ArrowRight size={14} className="ml-1" />
-                </Button>
-              ) : (
-                <Button onClick={handleSubmit} disabled={!canNext || submitting}>
-                  <CheckCircle size={14} className="mr-1" /> {submitting ? '제출 중...' : '진단 결과 보기'}
-                </Button>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* 입력 요약 — 지금까지 입력한 값 */}
-      {!hasRecentData && (
-        <div className="rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.06] p-5 h-fit lg:sticky lg:top-4">
-          <p className="text-base font-semibold text-white mb-4">입력 요약</p>
-          <dl className="space-y-3">
-            {summary.map((it) => (
-              <div key={it.label}>
-                <dt className="text-sm text-slate-400">{it.label}</dt>
-                <dd className={cn('text-sm mt-0.5', it.value ? 'text-white' : 'text-slate-600')}>{it.value || '입력 전'}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
+          )}
+        </>
       )}
-      </div>
     </div>
   );
 }

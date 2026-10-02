@@ -24,7 +24,8 @@
       "name": "dev-alt",
       "runtimeExecutable": "node",
       "runtimeArgs": [
-        "scripts/dev.cjs"
+        "scripts/dev.cjs",
+        "3031"
       ],
       "port": 3031
     }

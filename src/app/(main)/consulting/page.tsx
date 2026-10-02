@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { simHeadline } from '@/components/features/consulting/SimReport';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { ArrowRight, Clock, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -10,38 +11,13 @@ import { cn } from '@/lib/utils';
 import { getPersona, usePersonaOverride } from '@/lib/persona';
 import { useAuthStore } from '@/stores/useAuthStore';
 import {
-  useConsultationsByCompany,
   useConsultationsByConsultant,
   useDiagnosesByCompany,
 } from '@/hooks/consulting/useConsultations';
-import { getMaturityGrade, MATURITY_GRADE_CONFIG } from '@/lib/maturity';
+import { EOK, F1 } from '@/lib/solar-sim';
 import type { Diagnosis } from '@/types/consultation';
 
 // 현 단계 showcase = RE100 단일 도메인 (탄소감축·분산에너지는 추후)
-
-// 컨설팅 표준 진행 단계 (수용가 관점) — 신청 → 정산. 홈·내 컨설팅 공통 기준, 한 단계도 빠지지 않게
-const CONSULTING_PIPELINE = [
-  '신청',
-  '설문조사',
-  '현장 방문',
-  '사업장 등록',
-  '보고서 작성',
-  '동의',
-  '검수 대기',
-  '최종 보고',
-  '정산',
-];
-// 백엔드 ConsultationStatus → 파이프라인 인덱스 (enum에 없는 사업장 등록·동의는 인접 매핑)
-const DOMAIN_LABEL: Record<string, string> = { RE100: 'RE100', CARBON_REDUCTION: '탄소감축', DISTRIBUTED_ENERGY: '분산에너지' };
-const STATUS_TO_STEP: Record<string, number> = {
-  APPLIED: 0,
-  ASSIGNED: 0,
-  SURVEYING: 1,
-  VISITING: 2,
-  DRAFTING: 4,
-  REVIEWING: 6,
-  COMPLETED: 8,
-};
 
 export default function ConsultingPage() {
   const router = useRouter();
@@ -49,14 +25,10 @@ export default function ConsultingPage() {
   const override = usePersonaOverride((s) => s.override);
   const persona = override ?? getPersona(user);
   const companyId = user?.companyId ?? 0;
-  const { data: apiConsultations } = useConsultationsByCompany(companyId);
-  const consultations = (apiConsultations ?? []) as any[];
   const { data: diagnoses } = useDiagnosesByCompany(companyId);
   const diagnosisList = (diagnoses ?? []) as Diagnosis[];
-  // 내 컨설팅 — 취소 빼고 전부(진행 중이 먼저)
-  const myConsultations = consultations
-    .filter((c: any) => c.status !== 'CANCELLED')
-    .sort((a: any, b: any) => (STATUS_TO_STEP[a.status] ?? 0) - (STATUS_TO_STEP[b.status] ?? 0));
+  // 진단 결과 — 행을 누르면 내 컨설팅에서 그 검토서를 연다
+  const openReview = (id: number) => router.push(`/consulting/status?review=${id}`);
 
   // 관리자도 같은 컨설팅 홈을 본다 — 전에는 프로젝트 목록으로 튕겨서 메뉴 "컨설팅 홈"과 화면이 어긋났다
 
@@ -95,165 +67,52 @@ export default function ConsultingPage() {
           </div>
         </div>
 
-        {/* 내 컨설팅 — 메뉴 '내 컨설팅'의 요약. 없음 / 진행 중 / 완료 전부 여기서 보인다 */}
+        {/* 진단 결과 — 무료진단으로 남긴 검토서 목록. 행을 누르면 내 컨설팅에서 그 검토서를 연다 */}
         <div className="rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] overflow-hidden">
-          <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white">내 컨설팅</h2>
-            <Button size="sm" variant="secondary" onClick={() => router.push('/consulting/status')}>
-              전체 보기
-              <ChevronRight size={13} className="ml-1" />
-            </Button>
+          <div className="px-6 py-4 border-b border-white/[0.06] flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-white">진단 결과</h2>
+            <Badge variant="primary">{diagnosisList.length}건</Badge>
           </div>
-          {myConsultations.length === 0 ? (
-            <div className="px-6 py-6 flex items-center justify-between gap-4 flex-wrap">
-              <p className="text-sm text-slate-500">진행 중인 컨설팅 없음 — 무료진단 결과에서 컨설팅을 신청할 수 있습니다</p>
-              <Button size="sm" onClick={() => router.push('/consulting/diagnosis')}>
-                무료진단 시작하기
-                <ArrowRight size={13} className="ml-1" />
-              </Button>
-            </div>
+          {diagnosisList.length === 0 ? (
+            <p className="px-6 py-6 text-sm text-slate-500">진단 결과 없음 — 무료진단을 받으면 여기에 쌓입니다</p>
           ) : (
-            <div className="divide-y divide-white/[0.04]">
-              {myConsultations.map((c: any) => {
-                const idx = STATUS_TO_STEP[c.status] ?? 0;
-                const done = c.status === 'COMPLETED';
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => router.push(`/consulting/status/${c.id}`)}
-                    className="w-full px-6 py-4 flex items-center gap-4 text-left hover:bg-white/[0.02] transition-colors"
-                  >
-                    <span className={cn('h-2 w-2 rounded-full shrink-0', done ? 'bg-emerald-400' : 'bg-primary')} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium text-white">{`${DOMAIN_LABEL[c.domain as string] ?? c.domain ?? 'RE100'} 컨설팅`}</p>
-                        <span className="text-xs text-slate-500 tabular-nums">신청 {String(c.appliedAt ?? c.createdAt ?? '').slice(0, 10)}</span>
-                      </div>
-                      <div className="mt-1.5 flex items-center gap-1">
-                        {CONSULTING_PIPELINE.map((_, i) => (
-                          <span key={i} className={cn('h-1 flex-1 rounded-full', i <= idx ? (done ? 'bg-emerald-400' : 'bg-primary') : 'bg-white/[0.08]')} />
-                        ))}
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className={cn('text-sm font-medium', done ? 'text-emerald-300' : 'text-primary')}>{done ? '완료' : CONSULTING_PIPELINE[idx]}</p>
-                      <p className="text-xs text-slate-500 tabular-nums">{idx + 1}/{CONSULTING_PIPELINE.length} 단계</p>
-                    </div>
-                    <ChevronRight size={14} className="text-slate-600 shrink-0" />
-                  </button>
-                );
-              })}
-            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/[0.06] text-left text-slate-400">
+                  <th className="px-6 py-3 font-medium">진단일</th>
+                  <th className="px-4 py-3 font-medium">사업장</th>
+                  <th className="px-4 py-3 font-medium">방식</th>
+                  <th className="px-4 py-3 font-medium">설치용량</th>
+                  <th className="px-4 py-3 font-medium">연간 발전량 (1차년)</th>
+                  <th className="px-4 py-3 font-medium">20년 누적 절감</th>
+                  <th className="px-6 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.04]">
+                {diagnosisList.map((d) => {
+                  const h = d.sim ? simHeadline(d.sim) : null;
+                  return (
+                    <tr
+                      key={d.id}
+                      onClick={() => openReview(d.id)}
+                      className="cursor-pointer transition-colors hover:bg-white/[0.03]"
+                    >
+                      <td className="px-6 py-3.5 text-slate-300 tabular-nums">{d.createdAt?.slice(0, 10)}</td>
+                      <td className="px-4 py-3.5 font-medium text-white">{d.sim?.site ?? ''}</td>
+                      <td className="px-4 py-3.5 text-slate-200">{h?.mode ?? ''}</td>
+                      <td className="px-4 py-3.5 text-slate-200 tabular-nums">{h ? `${h.cap.toLocaleString()} kW` : ''}</td>
+                      <td className="px-4 py-3.5 text-slate-200 tabular-nums">{h ? `${F1(h.gen1 / 1000)} MWh` : ''}</td>
+                      <td className="px-4 py-3.5 text-lg font-bold text-white tabular-nums">{h ? `${EOK(h.save20)} 억원` : ''}</td>
+                      <td className="px-6 py-3.5 text-right">
+                        <span className="inline-flex items-center gap-0.5 text-sm text-slate-500">내 컨설팅에서 보기 <ChevronRight size={13} /></span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           )}
         </div>
-
-        {/* 최근 진단 결과 — Diagnosis API 기반 */}
-        {(() => {
-          const latestDiagnosis = diagnosisList[0];
-          if (!latestDiagnosis) return null;
-          const rePercent = latestDiagnosis.currentRePercent ?? 0;
-          const grade = latestDiagnosis.maturityGrade || getMaturityGrade(rePercent);
-          const gc = MATURITY_GRADE_CONFIG[grade as keyof typeof MATURITY_GRADE_CONFIG];
-          return (
-            <div className="rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] overflow-hidden">
-              <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-white">최근 진단 결과</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {latestDiagnosis.createdAt?.split('T')[0]} 진행 ·{' '}
-                    {latestDiagnosis.domain === 'RE100'
-                      ? 'RE100 이행 전략'
-                      : latestDiagnosis.domain === 'CARBON_REDUCTION'
-                        ? '탄소감축 전략'
-                        : '분산에너지 전환'}{' '}
-                    진단
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => router.push(`/consulting/diagnosis/report?id=${latestDiagnosis.id}`)}
-                >
-                  리포트 다시 보기
-                  <ArrowRight size={14} className="ml-1" />
-                </Button>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 divide-x divide-white/[0.04] text-center">
-                <div className="px-4 py-4">
-                  <p className="text-xs text-slate-500">성숙도 등급</p>
-                  <p className={cn('mt-1 text-2xl font-bold', gc?.color ?? 'text-white')}>{grade}</p>
-                  <p className="text-xs text-slate-600">{gc?.label ?? ''}</p>
-                </div>
-                <div className="px-4 py-4">
-                  <p className="text-xs text-slate-500">현재 RE 비율</p>
-                  <p className="mt-1 text-2xl font-bold text-white tabular-nums">
-                    {rePercent}
-                    <span className="text-sm font-normal text-slate-400">%</span>
-                  </p>
-                  <p className="text-xs text-slate-600">목표 100%까지 {100 - rePercent}%p</p>
-                </div>
-                <div className="px-4 py-4">
-                  <p className="text-xs text-slate-500">연간 전력 사용</p>
-                  <p className="mt-1 text-2xl font-bold text-white tabular-nums">
-                    {(latestDiagnosis.annualEnergyUsage ?? 0).toLocaleString()}
-                    <span className="text-sm font-normal text-slate-400"> MWh</span>
-                  </p>
-                  <p className="text-xs text-slate-600">진단 입력값</p>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* 진단 이력 목록 */}
-        {diagnosisList.length > 1 && (
-          <div className="rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] overflow-hidden">
-            <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-white">진단 이력</h2>
-                <p className="text-xs text-slate-500 mt-0.5">총 {diagnosisList.length}건의 진단을 수행했습니다</p>
-              </div>
-            </div>
-            <div className="divide-y divide-white/[0.04]">
-              {diagnosisList.slice(1).map((d) => {
-                const grade = d.maturityGrade || getMaturityGrade(d.currentRePercent ?? 0);
-                const gc = MATURITY_GRADE_CONFIG[grade as keyof typeof MATURITY_GRADE_CONFIG];
-                return (
-                  <button
-                    key={d.id}
-                    onClick={() => router.push(`/consulting/diagnosis/report?id=${d.id}`)}
-                    className="w-full px-6 py-4 flex items-center gap-4 hover:bg-white/[0.02] transition-colors text-left"
-                  >
-                    <div
-                      className={cn(
-                        'flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold shrink-0',
-                        gc?.color ?? 'text-white',
-                      )}
-                      style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}
-                    >
-                      {grade}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-white">
-                          {d.domain === 'RE100' ? 'RE100' : d.domain === 'CARBON_REDUCTION' ? '탄소감축' : '분산에너지'}
-                        </span>
-                        <span className="text-xs text-slate-500">{d.createdAt?.split('T')[0]}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {d.industry ?? '업종 미입력'} · {d.annualEnergyUsage?.toLocaleString() ?? '-'} MWh · RE{' '}
-                        {d.currentRePercent ?? 0}%
-                      </p>
-                    </div>
-                    <ChevronRight size={14} className="text-slate-600 shrink-0" />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
       </div>
     </div>
   );

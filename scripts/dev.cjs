@@ -1,11 +1,13 @@
 /**
  * npm run dev — 3030 이 비어 있으면 3030, 이미 쓰고 있으면 3031, 3032 … 순서로 빈 포트에서 개발 서버를 연다.
+ * node scripts/dev.cjs 3031 처럼 포트를 주면 그 포트만 쓴다(3030 은 다른 저장소 서버용으로 비워 둘 때).
  * 두 번째 서버부터는 빌드 폴더를 따로(.next-3031 등) 쓴다 — 같은 .next 를 두 서버가 함께 쓰면 서로 청크를 덮어써 500 이 난다.
  */
 const net = require('net');
 const { spawn } = require('child_process');
 
-const PORTS = [3030, 3031, 3032, 3033];
+const FORCED = Number(process.argv[2]) || 0;
+const PORTS = FORCED ? [FORCED] : [3030, 3031, 3032, 3033];
 
 function isFree(port) {
   return new Promise((resolve) => {
@@ -29,9 +31,9 @@ function isFree(port) {
     process.exit(1);
   }
   const env = { ...process.env };
-  if (port !== PORTS[0]) {
+  if (port !== 3030) {
     env.NEXT_DEV_DIST = `.next-${port}`;
-    console.log(`[dev] 3030 사용 중 → ${port} 포트로 엽니다 (빌드 폴더 ${env.NEXT_DEV_DIST})`);
+    console.log(`[dev] ${port} 포트로 엽니다 (빌드 폴더 ${env.NEXT_DEV_DIST})`);
   }
   const nextBin = require.resolve('next/dist/bin/next');
   const child = spawn(process.execPath, [nextBin, 'dev', '-p', String(port)], { stdio: 'inherit', env });

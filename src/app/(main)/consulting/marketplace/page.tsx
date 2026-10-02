@@ -426,7 +426,7 @@ function MarketplaceContent() {
                 className="flex-1"
                 onClick={() => {
                   setMatchResult(null);
-                  router.push(`/consulting/diagnosis/report?id=${matchResult.diagnosisId}`);
+                  router.push('/consulting');
                 }}
               >
                 진단 리포트 보기

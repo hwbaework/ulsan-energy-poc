@@ -95,7 +95,8 @@ export const useCreateConsultation = () => {
   return useMutation({
     mutationFn: (data: object) => consultationApi.createConsultation(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: consultationKeys.lists() });
+      // 목록(list)뿐 아니라 회사별(company) 조회까지 — 컨설팅 홈의 내 컨설팅이 바로 갱신되게
+      queryClient.invalidateQueries({ queryKey: consultationKeys.all });
     },
   });
 };

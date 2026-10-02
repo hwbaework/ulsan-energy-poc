@@ -1,109 +1,83 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { SectionCard } from '@/components/features/SectionCard';
-import { DataTable, type Column } from '@/components/features/DataList';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
-import { StatusPill, type StatusTone } from '@/components/ui/Design';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useConsultationsByCompany } from '@/hooks/consulting/useConsultations';
-import type { Consultation } from '@/types/consultation';
+import { useDeleteDiagnosis, useDiagnosesByCompany } from '@/hooks/consulting/useConsultations';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { useToastStore } from '@/stores/useToastStore';
+import { SimDiagnosisById, recordOf } from '@/components/features/consulting/SimDiagnosisView';
+import { ReviewHistoryList } from '@/components/features/consulting/ReviewHistoryList';
+import type { Diagnosis } from '@/types/consultation';
 
-// 내 컨설팅 — 통합관제·전력거래와 같은 표 꼴(SectionCard + DataTable + 상태 셀렉트 + 검색). 새 컨설팅은 무료진단에서만 시작한다.
-
-const DOMAIN_LABEL: Record<string, string> = {
-  RE100: 'RE100',
-  CARBON_REDUCTION: '탄소감축',
-  DISTRIBUTED_ENERGY: '분산에너지',
-};
-
-const STATUS_META: Record<string, { label: string; tone: StatusTone }> = {
-  APPLIED: { label: '신청', tone: 'muted' },
-  ASSIGNED: { label: '접수', tone: 'warning' },
-  SURVEYING: { label: '진행 중', tone: 'warning' },
-  VISITING: { label: '진행 중', tone: 'warning' },
-  DRAFTING: { label: '진행 중', tone: 'warning' },
-  REVIEWING: { label: '검토 중', tone: 'warning' },
-  COMPLETED: { label: '완료', tone: 'normal' },
-  CANCELLED: { label: '취소', tone: 'muted' },
-};
-const STATUS_FILTER = [
-  { value: 'all', label: '전체' },
-  { value: 'APPLIED', label: '신청' },
-  { value: 'ASSIGNED', label: '접수' },
-  { value: 'IN_PROGRESS', label: '진행 중' },
-  { value: 'REVIEWING', label: '검토 중' },
-  { value: 'COMPLETED', label: '완료' },
-];
-const IN_PROGRESS = new Set(['SURVEYING', 'VISITING', 'DRAFTING']);
-
-type Row = Consultation & { title: string };
-
-const cell = (v: string, cls = 'text-slate-300') => <span className={`text-sm ${cls} whitespace-nowrap`}>{v}</span>;
-
-export default function ConsultingStatusListPage() {
+/**
+ * 내 컨설팅 — 내가 무료진단으로 남긴 사업 검토서. 왼쪽에 고른 검토서(A4), 오른쪽에 검토 기록.
+ * 컨설팅 홈 '진단 결과'에서 행을 누르면 ?review=ID 로 들어와 그 검토서를 연다.
+ */
+export default function MyConsultingPage() {
   const router = useRouter();
-  const user = useAuthStore((s) => s.user);
-  const companyId = user?.companyId ?? 0;
-  const { data, isLoading } = useConsultationsByCompany(companyId);
-  const [status, setStatus] = useState('all');
-  const [q, setQ] = useState('');
+  const companyId = useAuthStore((s) => s.user?.companyId ?? 0);
+  const { data, isLoading } = useDiagnosesByCompany(companyId);
+  const history = useMemo(() => ((data ?? []) as Diagnosis[]).filter((d) => d.sim), [data]);
+  const [picked, setPicked] = useState<number | null>(null);
+  // 삭제 — 확인 받고 지운다(수정은 없다)
+  const del = useDeleteDiagnosis();
+  const toast = useToastStore((s) => s.add);
+  const [deleting, setDeleting] = useState<Diagnosis | null>(null);
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    const no = recordOf(deleting).no;
+    await del.mutateAsync(deleting.id);
+    if (picked === deleting.id) {
+      setPicked(null);
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+    setDeleting(null);
+    toast('success', `${no} 검토서를 삭제했습니다`);
+  };
 
-  const rows = useMemo<Row[]>(() => {
-    const list = (Array.isArray(data) ? data : []) as Consultation[];
-    const s = q.trim().toLowerCase();
-    return list
-      .filter((c) => c.status !== 'CANCELLED')
-      .map((c) => ({ ...c, title: `${DOMAIN_LABEL[c.domain] ?? c.domain} 컨설팅` }))
-      .filter((c) => status === 'all' || (status === 'IN_PROGRESS' ? IN_PROGRESS.has(c.status) : c.status === status))
-      .filter((c) => !s || c.title.toLowerCase().includes(s))
-      .sort((a, b) => String(b.appliedAt ?? b.createdAt).localeCompare(String(a.appliedAt ?? a.createdAt)));
-  }, [data, status, q]);
+  // ?review=ID — 컨설팅 홈에서 고른 검토서
+  useEffect(() => {
+    const id = Number(new URLSearchParams(window.location.search).get('review'));
+    if (id) setPicked(id);
+  }, []);
+  const current = history.find((d) => d.id === picked) ?? history[0];
 
-  const columns: Column<Row>[] = [
-    { key: 'title', header: '컨설팅', render: (c) => cell(c.title, 'font-medium text-white') },
-    { key: 'domain', header: '분야', width: '110px', render: (c) => cell(DOMAIN_LABEL[c.domain] ?? c.domain) },
-    { key: 'status', header: '상태', width: '100px', render: (c) => <StatusPill tone={STATUS_META[c.status]?.tone ?? 'muted'} label={STATUS_META[c.status]?.label ?? c.status} /> },
-    { key: 'appliedAt', header: '신청일', width: '120px', sortable: true, sortValue: (c) => c.appliedAt ?? '', render: (c) => cell((c.appliedAt ?? c.createdAt ?? '').slice(0, 10) || '-', 'text-slate-400 tabular-nums') },
-    { key: 'assignedAt', header: '접수일', width: '120px', render: (c) => cell(c.assignedAt ? c.assignedAt.slice(0, 10) : '-', 'text-slate-400 tabular-nums') },
-    { key: 'completedAt', header: '완료일', width: '120px', render: (c) => cell(c.completedAt ? c.completedAt.slice(0, 10) : '-', 'text-slate-400 tabular-nums') },
-    {
-      key: 'actions',
-      header: '',
-      width: '80px',
-      render: (c) => (
-        <Button size="sm" onClick={() => router.push(`/consulting/status/${c.id}`)}>
-          상세
-        </Button>
-      ),
-    },
-  ];
+  const pick = (d: Diagnosis) => {
+    setPicked(d.id);
+    window.history.replaceState(null, '', `?review=${d.id}`);
+    window.scrollTo({ top: 0 });
+  };
 
   return (
     <div className="space-y-6">
       <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '내 컨설팅' }]} />
       <h1 className="text-2xl font-bold text-white">내 컨설팅</h1>
 
-      <SectionCard
-        title="컨설팅"
-        count={rows.length}
-        actions={
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-slate-400">
-              상태
-              <Select options={STATUS_FILTER} value={status} onChange={(e) => setStatus(e.target.value)} className="w-32" />
-            </label>
-            <Input placeholder="컨설팅 검색" value={q} onChange={(e) => setQ(e.target.value)} className="w-56" />
-          </div>
-        }
-        noPadding
-      >
-        <DataTable columns={columns} data={rows} rowKey={(c) => c.id} loading={isLoading} emptyMessage="컨설팅 없음" onRowClick={(c) => router.push(`/consulting/status/${c.id}`)} />
-      </SectionCard>
+      {!isLoading && history.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.06] p-12 text-center">
+          <p className="text-base font-semibold text-white">무료진단 기록 없음</p>
+          <Button onClick={() => router.push('/consulting/diagnosis')}>무료진단 시작하기</Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[1fr_340px]">
+          <div className="min-w-0">{current && <SimDiagnosisById key={current.id} diagnosisId={current.id} />}</div>
+          <ReviewHistoryList history={history} selectedId={current?.id} onPick={pick} onDelete={setDeleting} />
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={!!deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={confirmDelete}
+        title="검토서 삭제"
+        message={deleting ? `${recordOf(deleting).no} (${recordOf(deleting).at.slice(0, 10)}) 검토서를 삭제합니다. 삭제하면 되돌릴 수 없습니다.` : ''}
+        confirmLabel="삭제"
+        variant="danger"
+        loading={del.isPending}
+      />
     </div>
   );
 }
