@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
-import { ChevronRight, ChevronLeft, Check } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Check } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 interface OnboardingFeature {
@@ -100,7 +100,7 @@ function OnboardingModal({
       <h2 className="mt-6 text-xl font-bold text-white">{welcomeTitle}</h2>
       <p className="mt-3 text-sm text-slate-400 leading-relaxed max-w-md">{welcomeDescription}</p>
       <Button variant="primary" size="lg" onClick={handleNext} className="mt-8">
-        시작하기 <ChevronRight size={16} />
+        시작하기 <ArrowRight size={16} />
       </Button>
       <button onClick={onComplete} className="mt-4 text-sm text-slate-500 hover:text-slate-300 transition-colors">
         건너뛰기
@@ -145,10 +145,10 @@ function OnboardingModal({
 
         <div className="flex items-center gap-3 mt-8">
           <Button variant="secondary" size="md" onClick={handlePrev}>
-            <ChevronLeft size={16} /> 이전
+            <ArrowLeft size={16} /> 이전
           </Button>
           <Button variant="primary" size="md" onClick={handleNext}>
-            다음 <ChevronRight size={16} />
+            다음 <ArrowRight size={16} />
           </Button>
         </div>
         <button onClick={onComplete} className="mt-4 text-sm text-slate-500 hover:text-slate-300 transition-colors">

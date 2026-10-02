@@ -1,5 +1,6 @@
 'use client';
 
+import { BackButton } from '@/components/layout/PageTitle';
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -39,20 +40,7 @@ function contractRowsOf(plant: MonitoringPlant): ContractRow[] {
 import { cn } from '@/lib/utils';
 import type { MonitoringPlant, EnergySource, PlantStatus } from '@/types/monitoring';
 import { SOURCE, SOURCE_ORDER } from '@/lib/design';
-import {
-  Zap,
-  ChevronRight,
-  ChevronLeft,
-  Wifi,
-  WifiOff,
-  Radio,
-  Thermometer,
-  Wind,
-  Sunrise,
-  Sunset,
-  Eye,
-  EyeOff,
-} from 'lucide-react';
+import { Zap, ChevronRight, Wifi, WifiOff, Radio, Thermometer, Wind, Sunrise, Sunset, Eye, EyeOff } from 'lucide-react';
 import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
 import { useMyPlantMatcher, useMyPlantIds, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
 import Link from 'next/link';
@@ -298,14 +286,7 @@ function SidePanel({
         {/* Header */}
         <div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onBack}
-              aria-label="목록으로"
-              className="-ml-1.5 shrink-0 rounded-md p-1 text-slate-300 hover:text-white hover:bg-white/[0.06] transition-colors"
-            >
-              <ChevronLeft size={18} />
-            </button>
+            <BackButton onClick={onBack} label="목록으로" />
             <h3 className="text-base font-bold text-white truncate">{picked?.displayName ?? plant.name}</h3>
             {/* 계약 사업장 목록과 같은 발전원 칩 */}
             <span className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-xs font-semibold text-white">

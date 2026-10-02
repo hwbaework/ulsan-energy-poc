@@ -67,7 +67,7 @@ export function TradeRequestsScreen() {
         <StatCard label={`${year} 체결`} value={`${stats.signedThisYear}건`} />
       </StatsGrid>
 
-      <SectionCard title="진행 중인 신청" count={inProgress.length} noPadding>
+      <SectionCard title="진행 중인 신청" noPadding>
         <DataTable columns={columns} data={inProgress} rowKey={(r) => r.id} emptyMessage="진행 중인 신청 없음 — 아래에서 신규 계약을 신청" onRowClick={(r) => router.push(`/trading/deal/${r.id}`)} />
       </SectionCard>
 

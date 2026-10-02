@@ -71,7 +71,6 @@ export default function ConsultingPage() {
         <div className="rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] overflow-hidden">
           <div className="px-6 py-4 border-b border-white/[0.06] flex items-center gap-2">
             <h2 className="text-lg font-semibold text-white">진단 결과</h2>
-            <Badge variant="primary">{diagnosisList.length}건</Badge>
           </div>
           {diagnosisList.length === 0 ? (
             <p className="px-6 py-6 text-sm text-slate-500">진단 결과 없음 — 무료진단을 받으면 여기에 쌓입니다</p>
@@ -104,7 +103,7 @@ export default function ConsultingPage() {
                       <td className="px-4 py-3.5 text-slate-200 tabular-nums">{h ? `${F1(h.gen1 / 1000)} MWh` : ''}</td>
                       <td className="px-4 py-3.5 text-lg font-bold text-white tabular-nums">{h ? `${EOK(h.save20)} 억원` : ''}</td>
                       <td className="px-6 py-3.5 text-right">
-                        <span className="inline-flex items-center gap-0.5 text-sm text-slate-500">내 컨설팅에서 보기 <ChevronRight size={13} /></span>
+                        <ChevronRight size={16} className="ml-auto text-slate-500" />
                       </td>
                     </tr>
                   );

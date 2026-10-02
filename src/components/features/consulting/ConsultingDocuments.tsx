@@ -79,7 +79,7 @@ export function ConsultingDocuments() {
         }
         noPadding
       >
-        <DataTable columns={columns} data={rows} rowKey={(d) => d.id} emptyMessage="결과보고서 없음 — 컨설팅이 끝나면 여기에 올라옵니다" onRowClick={(d) => view(d)} className="rounded-none border-0" />
+        <DataTable columns={columns} data={rows} rowKey={(d) => d.id} emptyMessage="결과보고서 없음 — 컨설팅이 끝나면 여기에 올라옵니다" onRowClick={(d) => view(d)} />
       </SectionCard>
     </div>
   );

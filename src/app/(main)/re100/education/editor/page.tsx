@@ -1,8 +1,9 @@
 'use client';
 
+import { BackButton } from '@/components/layout/PageTitle';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Download, ImagePlus, Paperclip, Plus, Sparkles, Trash2, X } from 'lucide-react';
+import { Download, ImagePlus, Paperclip, Plus, Save, Sparkles, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
@@ -281,15 +282,20 @@ function EducationEditor() {
         />
       </div>
 
-      <div className="flex items-start justify-between gap-4">
-        <h1 className="text-2xl font-bold text-white">{editing ? '교육 자료 수정' : '새 교육 자료 작성'}</h1>
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="flex shrink-0 items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors"
-        >
-          <ArrowLeft size={14} /> 돌아가기
-        </button>
+      {/* 제목 · 오른쪽에 취소 · 저장 — 스크롤해도 상단(헤더 100px 아래)에 따라다닌다 */}
+      <div className="sticky top-[100px] z-20 flex flex-wrap items-center justify-between gap-3 py-3 backdrop-blur">
+        <div className="flex items-center gap-2">
+          <BackButton label="돌아가기" />
+          <h1 className="text-2xl font-bold text-white">{editing ? '교육 자료 수정' : '새 교육 자료 작성'}</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="cancel" onClick={() => router.back()}>
+            취소
+          </Button>
+          <Button onClick={() => handleSave('published')}>
+            <Save size={14} className="mr-1" /> 저장
+          </Button>
+        </div>
       </div>
 
       {/* 기본 정보 */}
@@ -333,22 +339,13 @@ function EducationEditor() {
           </div>
         </div>
         {sections.map((section, i) => (
-          <div key={i} className="relative rounded-lg bg-white/[0.02] p-4 ring-1 ring-white/[0.06] space-y-3">
-            {sections.length > 1 && (
-              <button
-                type="button"
-                title="블록 삭제"
-                onClick={() => setSections((prev) => prev.filter((_, idx) => idx !== i))}
-                className="absolute right-2 top-2 z-10 rounded-md p-1.5 text-slate-500 hover:bg-red-500/15 hover:text-red-400 transition-colors"
-              >
-                <Trash2 size={15} />
-              </button>
-            )}
+          <div key={i} className="rounded-lg bg-white/[0.02] p-4 ring-1 ring-white/[0.06] space-y-3">
             <Textarea
               value={section.body}
               onChange={(e) => updateSection(i, { body: e.target.value })}
-              placeholder="내용을 입력하세요. 빈 줄로 문단을 구분합니다."
+              placeholder="내용을 입력하세요"
               rows={12}
+              className="resize-none"
             />
 
             {/* 이 블록의 사진 (본문 = 글 + 사진) */}
@@ -356,16 +353,8 @@ function EducationEditor() {
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {section.images.map((img, ii) => (
                   <div key={ii} className="space-y-1.5">
-                    <div className="relative rounded-lg bg-white p-2 ring-1 ring-white/[0.06]">
+                    <div className="rounded-lg bg-white p-2 ring-1 ring-white/[0.06]">
                       <img src={img.url} alt="" className="mx-auto max-h-32 w-auto" />
-                      <button
-                        type="button"
-                        title="사진 삭제"
-                        onClick={() => removeImage(i, ii)}
-                        className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white hover:bg-red-500 transition-colors"
-                      >
-                        <X size={12} />
-                      </button>
                     </div>
                     <input
                       type="text"
@@ -378,13 +367,17 @@ function EducationEditor() {
                       placeholder="사진 설명 (선택)"
                       className="w-full rounded border border-white/[0.08] bg-white/[0.04] px-2 py-1 text-xs text-white placeholder:text-slate-500 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
                     />
+                    <Button variant="danger" size="sm" className="w-full" onClick={() => removeImage(i, ii)}>
+                      <Trash2 size={14} className="mr-1" /> 사진 삭제
+                    </Button>
                   </div>
                 ))}
               </div>
             )}
 
-            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs text-slate-300 ring-1 ring-white/[0.08] hover:bg-white/[0.1] transition-colors">
-              <ImagePlus size={13} /> 사진 추가
+            <div className="flex items-center gap-2">
+            <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-gradient-to-b from-slate-500 to-slate-600 px-3 text-[13px] font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.3)] transition-colors hover:from-slate-400 hover:to-slate-500">
+              <ImagePlus size={14} /> 사진 추가
               <input
                 type="file"
                 accept="image/*"
@@ -396,6 +389,13 @@ function EducationEditor() {
                 }}
               />
             </label>
+            {/* 원본(첫) 본문은 지울 수 없다 — 추가한 블록만 삭제 */}
+            {i > 0 && (
+              <Button variant="danger" size="sm" onClick={() => setSections((prev) => prev.filter((_, idx) => idx !== i))}>
+                <Trash2 size={14} className="mr-1" /> 블록 삭제
+              </Button>
+            )}
+            </div>
           </div>
         ))}
       </div>
@@ -428,14 +428,9 @@ function EducationEditor() {
                 placeholder="URL (선택)"
               />
             </div>
-            <button
-              type="button"
-              title="출처 삭제"
-              onClick={() => setSources((prev) => prev.filter((_, idx) => idx !== i))}
-              className="rounded-md p-2 text-slate-500 hover:bg-red-500/15 hover:text-red-400 transition-colors"
-            >
-              <Trash2 size={15} />
-            </button>
+            <Button variant="danger" size="sm" onClick={() => setSources((prev) => prev.filter((_, idx) => idx !== i))}>
+              <Trash2 size={14} className="mr-1" /> 삭제
+            </Button>
           </div>
         ))}
         {sources.length === 0 && <p className="text-sm text-slate-500 text-center py-2">등록된 출처가 없습니다.</p>}
@@ -464,14 +459,9 @@ function EducationEditor() {
                   ) : (
                     att.name
                   )}
-                  <button
-                    type="button"
-                    title="제거"
-                    onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}
-                    className="text-slate-500 hover:text-red-400 transition-colors"
-                  >
-                    <X size={12} />
-                  </button>
+                  <Button variant="danger" size="sm" className="ml-1 h-6 px-2 text-xs" onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}>
+                    <Trash2 size={12} className="mr-0.5" /> 삭제
+                  </Button>
                 </span>
               ))}
             </div>
@@ -507,14 +497,9 @@ function EducationEditor() {
                   placeholder="질문을 입력하세요"
                 />
               </div>
-              <button
-                type="button"
-                title="문항 삭제"
-                onClick={() => setQuestions((prev) => prev.filter((_, idx) => idx !== qi))}
-                className="rounded-md p-2 text-slate-500 hover:bg-red-500/15 hover:text-red-400 transition-colors"
-              >
-                <Trash2 size={15} />
-              </button>
+              <Button variant="danger" size="sm" onClick={() => setQuestions((prev) => prev.filter((_, idx) => idx !== qi))}>
+                <Trash2 size={14} className="mr-1" /> 문항 삭제
+              </Button>
             </div>
             <div className="space-y-2">
               {q.options.map((option, oi) => (
@@ -552,26 +537,6 @@ function EducationEditor() {
         )}
       </div>
 
-      <div className="flex justify-end gap-2">
-        <Button variant="cancel" onClick={() => router.back()}>
-          취소
-        </Button>
-        {editing && editing.status !== 'draft' ? (
-          // 발행된 자료 수정 — 발행 상태 유지
-          <Button size="lg" onClick={() => handleSave('published')}>
-            수정 저장
-          </Button>
-        ) : (
-          <>
-            <Button variant="secondary" size="lg" onClick={() => handleSave('draft')}>
-              초안 저장
-            </Button>
-            <Button size="lg" onClick={() => handleSave('published')}>
-              저장 후 발행
-            </Button>
-          </>
-        )}
-      </div>
     </div>
   );
 }

@@ -66,7 +66,7 @@ function EducationInner() {
 
       {/* 내 수료증 — 쪽지시험 전 문항을 맞히면 여기 바로 쌓이고 PDF 로 받는다 */}
       {!isAdmin && certificates.length > 0 && (
-        <SectionCard title="내 수료증" count={certificates.length} noPadding>
+        <SectionCard title="내 수료증" noPadding>
           <div className="divide-y divide-white/[0.05]">
             {certificates.map((cert) => (
               <div key={cert.id} className="flex items-center gap-4 px-5 py-3">
@@ -89,7 +89,7 @@ function EducationInner() {
       {groups.map((month) => {
         const isBasic = month === BASIC_GROUP;
         const monthReports = getReportsByMonth(reports, month);
-        const quiz = getMonthlyQuiz(reports, month);
+        const quiz = isBasic ? [] : getMonthlyQuiz(reports, month); // 기본 정보는 시험 없이 읽기만
         const progress = progressByMonth[month];
         const quizIds = new Set(quiz.map((q) => q.id));
         const solvedCount = (progress?.correctQuestionIds ?? []).filter((id) => quizIds.has(id)).length;
@@ -99,7 +99,6 @@ function EducationInner() {
           <SectionCard
             key={month}
             title={formatMonthKo(month)}
-            count={monthReports.length}
             noPadding
             actions={
               quiz.length > 0 &&
@@ -109,27 +108,22 @@ function EducationInner() {
                   <span>쪽지시험은 {formatMonthKo(month)} 종료 후 오픈</span>
                 </span>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setOpenQuiz(openQuiz === month ? null : month)}
-                  className="flex items-center gap-2 rounded-lg bg-white/[0.06] px-3 py-1.5 ring-1 ring-white/[0.08] text-sm text-slate-300 hover:bg-white/[0.1] transition-colors"
-                >
+                <Button size="sm" onClick={() => setOpenQuiz(openQuiz === month ? null : month)}>
                   {completed ? (
                     <>
-                      <Award size={14} className="text-violet-400" />
+                      <Award size={14} />
                       <span>이수 완료</span>
-                      <Badge variant="success">수료</Badge>
                     </>
                   ) : (
                     <>
-                      <PenLine size={14} className="text-emerald-400" />
-                      <span>{isBasic ? '기본 쪽지시험' : '월간 쪽지시험'}</span>
-                      <span className="text-xs text-slate-500">
+                      <PenLine size={14} />
+                      <span>월간 쪽지시험</span>
+                      <span className="text-xs text-white/80">
                         {solvedCount}/{quiz.length} 문항
                       </span>
                     </>
                   )}
-                </button>
+                </Button>
               ))
             }
           >
@@ -137,7 +131,7 @@ function EducationInner() {
             {openQuiz === month && (
               <div className="border-b border-white/[0.06] bg-white/[0.02] px-5 py-5">
                 <div className="mb-3 flex items-center justify-between">
-                  <p className="text-sm font-semibold text-white">{isBasic ? '기본 쪽지시험' : `${formatMonthKo(month)} 쪽지시험`}</p>
+                  <p className="text-sm font-semibold text-white">{`${formatMonthKo(month)} 쪽지시험`}</p>
                   <button type="button" onClick={() => setOpenQuiz(null)} className="rounded-md p-1.5 text-slate-500 hover:bg-white/[0.08] hover:text-white" aria-label="닫기">
                     <X size={15} />
                   </button>

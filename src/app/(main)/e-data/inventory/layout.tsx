@@ -7,7 +7,7 @@
 
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { Check, Lock, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
+import { Check, Lock, ArrowLeft, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useGhgSources, useGhgActivities, useGhgCalculation, useGhgStatements } from '@/hooks/edm/useGhg';
@@ -180,7 +180,7 @@ export default function InventoryLayout({ children }: { children: React.ReactNod
               onClick={() => go(prevStep)}
               className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-slate-400 transition-colors hover:text-white hover:bg-white/[0.04]"
             >
-              <ChevronLeft size={15} /> 이전: {prevStep.label}
+              <ArrowLeft size={15} /> 이전: {prevStep.label}
             </button>
           )}
         </div>
@@ -199,7 +199,6 @@ export default function InventoryLayout({ children }: { children: React.ReactNod
               )}
             >
               {nextLocked ? <Lock size={14} /> : <ArrowRight size={15} />} 다음: {nextStep.label}
-              {!nextLocked && <ChevronRight size={15} />}
             </button>
           )}
         </div>

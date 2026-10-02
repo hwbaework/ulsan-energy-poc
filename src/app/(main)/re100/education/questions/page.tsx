@@ -6,7 +6,7 @@ import { CheckCircle2, ChevronDown, ChevronRight, ListChecks, Pencil } from 'luc
 import { CollapsibleSectionCard } from '@/components/features';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { getBasicReports, getEduMonths, getReportsByMonth } from '@/lib/mock-education';
+import { getEduMonths, getReportsByMonth } from '@/lib/mock-education';
 import { useEducationContentStore } from '@/stores/useEducationContentStore';
 import type { EduQuizQuestion, EduReport } from '@/types/education';
 import { isPublished, isQuizOpen } from '@/types/education';
@@ -59,7 +59,6 @@ export default function EducationQuestionsPage() {
   const months = getEduMonths(reports).filter((month) =>
     getReportsByMonth(reports, month).some((r) => r.questions.length > 0),
   );
-  const basicRows = toRows(getBasicReports(reports));
   const years = [...new Set(months.map((m) => m.slice(0, 4)))].sort((a, b) => b.localeCompare(a));
   const latestYear = years[0];
   const latestMonth = months[0];
@@ -75,7 +74,7 @@ export default function EducationQuestionsPage() {
         <h1 className="text-2xl font-bold text-white">문항 관리</h1>
       </div>
 
-      {months.length === 0 && basicRows.length === 0 && (
+      {months.length === 0 && (
         <EmptyState
           icon={<ListChecks size={48} />}
           title="등록된 문항이 없습니다"
@@ -83,17 +82,6 @@ export default function EducationQuestionsPage() {
         />
       )}
 
-      {basicRows.length > 0 && (
-        <CollapsibleSectionCard
-          title="기본 문항"
-          count={basicRows.length}
-          countUnit="문항"
-          description="상시 응시"
-          defaultOpen
-        >
-          <QuestionList rows={basicRows} />
-        </CollapsibleSectionCard>
-      )}
 
       {years.map((year) => {
         const yearMonths = months.filter((m) => m.startsWith(year));
@@ -125,8 +113,6 @@ export default function EducationQuestionsPage() {
                   <CollapsibleSectionCard
                     key={month}
                     title={`${Number(month.slice(5))}월 문항`}
-                    count={rows.length}
-                    countUnit="문항"
                     description={isQuizOpen(month) ? '시험 오픈됨' : '월 종료 후 시험 오픈'}
                     defaultOpen={month === latestMonth}
                   >

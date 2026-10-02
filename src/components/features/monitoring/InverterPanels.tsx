@@ -59,7 +59,8 @@ export function ConnectionBanner({ status }: { status: PlantConnectionStatus }) 
 
 /* ── Inverter Detail Table ── */
 
-export function InverterDetailSection({ inverters }: { inverters: InverterStatus[] }) {
+/** flush: 카드 본문 여백 없이(noPadding) 쓸 때 — 요약 칸만 여백, 표는 카드 끝까지 일직선 */
+export function InverterDetailSection({ inverters, flush }: { inverters: InverterStatus[]; flush?: boolean }) {
   const [expandedInv, setExpandedInv] = useState<number | null>(null);
 
   const totalDailyEnergy = inverters.reduce((s, inv) => s + inv.dailyEnergy, 0);
@@ -67,10 +68,10 @@ export function InverterDetailSection({ inverters }: { inverters: InverterStatus
   const totalDcPower = inverters.reduce((s, inv) => s + inv.dc.power, 0);
 
   return (
-    <div className="space-y-4">
+    <div className={flush ? 'space-y-4 pt-4' : 'space-y-4'}>
       {/* Summary row */}
       {/* 요약 KPI: 라벨 + 수치 + 단위(값과 같은 색·크기) */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className={cn('grid grid-cols-4 gap-3', flush && 'px-5')}>
         <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-4 text-center">
           <p className="text-sm text-slate-300 mb-1">인버터 수</p>
           <p className="text-2xl font-bold text-white tabular-nums">{inverters.length}대</p>
@@ -90,7 +91,7 @@ export function InverterDetailSection({ inverters }: { inverters: InverterStatus
       </div>
 
       {/* Inverter Table */}
-      <div className="overflow-x-auto">
+      <div className={flush ? 'overflow-x-auto border-t border-white/[0.06]' : 'overflow-x-auto'}>
         <table className="w-full text-sm">
           <thead className="text-left">
             <tr className="border-b border-white/10">

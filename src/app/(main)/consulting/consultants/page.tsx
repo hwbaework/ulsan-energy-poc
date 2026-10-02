@@ -1,23 +1,8 @@
 'use client';
 
+import { BackButton } from '@/components/layout/PageTitle';
 import { useState } from 'react';
-import {
-  Plus,
-  Users,
-  Star,
-  Briefcase,
-  UserCheck,
-  ArrowLeft,
-  CheckCircle2,
-  FileText,
-  Download,
-  AlertCircle,
-  ArrowUpRight,
-  MapPin,
-  Mail,
-  Phone,
-  Award,
-} from 'lucide-react';
+import { Plus, Users, Star, Briefcase, UserCheck, CheckCircle2, FileText, Download, AlertCircle, ArrowUpRight, MapPin, Mail, Phone, Award } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
@@ -129,13 +114,7 @@ function ConsultantDetail({ consultant, onBack }: { consultant: ConsultantRow; o
     <div className="space-y-6">
       {/* 뒤로가기 + breadcrumb */}
       <div className="flex items-center gap-3 flex-wrap">
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors"
-        >
-          <ArrowLeft size={16} /> 목록으로
-        </button>
-        <span className="text-slate-600">/</span>
+        <BackButton onClick={onBack} label="목록으로" />
         <Breadcrumb
           items={[
             { label: '통합에너지 컨설팅', path: '/consulting' },

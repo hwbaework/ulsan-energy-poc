@@ -1,6 +1,7 @@
 // @ts-nocheck
 'use client';
 
+import { BackButton } from '@/components/layout/PageTitle';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -337,15 +338,14 @@ export default function PlatformPpaDocumentGenerationPage() {
       {/* header */}
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">문서 생성</h1>
+          <div className="flex items-center gap-2">
+            <BackButton href="/platform/ppa/documents" label="보관함으로" />
+            <h1 className="text-2xl font-bold text-white">문서 생성</h1>
+          </div>
           <p className="mt-1 text-sm text-slate-400">
             템플릿 라이브러리를 직접 관리하고, 항목을 자유롭게 추가·수정해 문서를 발행합니다
           </p>
         </div>
-        <Button variant="ghost" onClick={() => router.push('/platform/ppa/documents')}>
-          <ChevronLeft size={14} className="mr-1.5" />
-          보관함으로 돌아가기
-        </Button>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">

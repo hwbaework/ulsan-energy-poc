@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Check, Upload, ShieldCheck, FileText } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Upload, ShieldCheck, FileText } from 'lucide-react';
 import { Card } from '@/components/edm/ui/Card';
 import { Button } from '@/components/edm/ui/Button';
 import { Badge } from '@/components/edm/ui/Badge';
@@ -536,11 +536,11 @@ export default function RegisterWizardPage() {
           disabled={step === 0 || submitting}
           onClick={() => setStep((s) => Math.max(0, s - 1))}
         >
-          <ChevronLeft size={14} /> 이전
+          <ArrowLeft size={14} /> 이전
         </Button>
         {step < STEPS.length - 1 ? (
           <Button size="sm" disabled={!canNext} onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}>
-            다음 <ChevronRight size={14} />
+            다음 <ArrowRight size={14} />
           </Button>
         ) : (
           <Button size="sm" loading={submitting} disabled={submitDisabled} onClick={handleSubmit}>

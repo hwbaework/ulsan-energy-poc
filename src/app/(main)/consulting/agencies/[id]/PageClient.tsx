@@ -1,20 +1,9 @@
 'use client';
 
+import { BackButton } from '@/components/layout/PageTitle';
 import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import {
-  ArrowLeft,
-  Users,
-  Star,
-  Briefcase,
-  Phone,
-  MapPin,
-  FileText,
-  Plus,
-  TrendingUp,
-  Mail,
-  Clock,
-} from 'lucide-react';
+import { useParams } from 'next/navigation';
+import { Users, Star, Briefcase, Phone, MapPin, FileText, Plus, TrendingUp, Mail, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs } from '@/components/ui/Tabs';
@@ -124,7 +113,6 @@ const TAB_LIST = [
 
 export default function AgencyDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState('consultants');
   const [addConsultantOpen, setAddConsultantOpen] = useState(false);
 
@@ -347,14 +335,7 @@ export default function AgencyDetailPage() {
         />
       </div>
 
-      {/* Back button */}
-      <button
-        onClick={() => router.push('/consulting/agencies')}
-        className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors"
-      >
-        <ArrowLeft size={16} />
-        용역사 목록으로
-      </button>
+      <BackButton href="/consulting/agencies" label="용역사 목록으로" />
 
       {/* Agency header card */}
       <div className="rounded-xl border border-white/[0.06] bg-card p-6">

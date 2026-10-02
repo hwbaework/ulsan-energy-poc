@@ -10,15 +10,16 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;
 }
 
+// 투명 버튼 없음(2026-10-02) — secondary · cancel 도 면이 꽉 찬 버튼. ghost 는 아이콘 전용(← 뒤로 등)
 const variantStyles: Record<Variant, string> = {
   primary:
     'bg-gradient-to-b from-blue-500 to-blue-600 text-white shadow-[0_1px_2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.1)] hover:from-blue-400 hover:to-blue-500 active:from-blue-600 active:to-blue-700',
   secondary:
-    'bg-white/[0.06] text-slate-300 ring-1 ring-white/[0.08] hover:bg-white/[0.1] hover:text-white active:bg-white/[0.04]',
+    'bg-gradient-to-b from-slate-500 to-slate-600 text-white shadow-[0_1px_2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.1)] hover:from-slate-400 hover:to-slate-500 active:from-slate-600 active:to-slate-700',
   accent:
     'bg-gradient-to-b from-sky-400 to-sky-500 text-white shadow-[0_1px_2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] hover:from-sky-300 hover:to-sky-400',
   cancel:
-    'bg-white/[0.06] text-slate-400 ring-1 ring-white/[0.08] hover:bg-white/[0.1] hover:text-white active:bg-white/[0.04]',
+    'bg-gradient-to-b from-slate-600 to-slate-700 text-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] hover:from-slate-500 hover:to-slate-600 active:from-slate-700 active:to-slate-800',
   ghost: 'text-slate-400 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.04]',
   danger:
     'bg-gradient-to-b from-red-500 to-red-600 text-white shadow-[0_1px_2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.1)] hover:from-red-400 hover:to-red-500 active:from-red-600 active:to-red-700',

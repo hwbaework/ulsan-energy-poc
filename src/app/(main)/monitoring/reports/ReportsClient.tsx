@@ -6,10 +6,11 @@
  * - 종류 2가지: 발전 실적 · 이상감지. 매월 1건씩 자동 생성
  * - 외부 제출 양식은 없다(내부 보고·검증용)
  */
+import { BackButton } from '@/components/layout/PageTitle';
 import { useMemo, useState } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useQueries } from '@tanstack/react-query';
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { SectionCard } from '@/components/features';
@@ -113,7 +114,6 @@ const KIND_OPTIONS = [
 /* ── 화면 ── */
 
 export default function ReportsClient() {
-  const router = useRouter();
   const { plantId: scope } = useParams<{ plantId: string }>(); // 'all' 또는 발전소 ID
   const contract = useSearchParams().get('contract') as PlantContractKind | null; // 계약 하나만 볼 때
   const [year, setYear] = useState(THIS_YEAR);
@@ -351,9 +351,7 @@ export default function ReportsClient() {
       <Breadcrumb items={[{ label: '통합관제', path: '/dashboard' }, { label: '보고서', path: '/monitoring/reports' }, { label: scopeName }]} />
       <div className="flex items-center gap-3">
         {myPlants.length > 1 && (
-          <Button size="sm" variant="ghost" onClick={() => router.push('/monitoring/reports')} aria-label="발전소 목록으로">
-            <ArrowLeft size={16} />
-          </Button>
+          <BackButton href="/monitoring/reports" label="발전소 목록으로" />
         )}
         <h1 className="text-2xl font-bold text-white">보고서 · {scopeName}</h1>
       </div>

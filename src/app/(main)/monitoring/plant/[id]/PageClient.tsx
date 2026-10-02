@@ -1,5 +1,6 @@
 'use client';
 
+import { BackButton } from '@/components/layout/PageTitle';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
@@ -13,7 +14,7 @@ import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { ContractBadge, SourceBadge, StatusBadge, StatusPill } from '@/components/ui/Design';
 import { CONTRACT_KIND, commStatusOf, contractSplitOf, gradeOf } from '@/lib/design';
 import { useEnergySettings } from '@/hooks/common/useSettings';
-import { ArrowLeft, Sun, Thermometer, Wind, Zap, TrendingUp, TrendingDown } from 'lucide-react';
+import { Sun, Thermometer, Wind, Zap, TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { EnergySource, PlantStatus, InverterStatus, PlantConnectionStatus, PlantContractKind } from '@/types/monitoring';
 import { isLaseePlant } from '@/constants/plant-mapping';
@@ -280,9 +281,7 @@ export default function PlantDetailPage() {
       <Breadcrumb items={[{ label: '통합관제', path: '/dashboard' }, { label: '발전소 상세' }]} />
       <div className="flex items-center gap-3">
         {hasPlantList && (
-          <Button size="sm" variant="ghost" onClick={() => router.push('/monitoring/plant')} aria-label="발전소 목록으로">
-            <ArrowLeft size={16} />
-          </Button>
+          <BackButton href="/monitoring/plant" label="발전소 목록으로" />
         )}
         <div className="flex-1">
           <h1 className="text-xl font-bold text-white">
@@ -572,8 +571,8 @@ export default function PlantDetailPage() {
 
       {/* 인버터 상세 (LASEE plants) */}
       {hasLasee && plant.inverters && plant.inverters.length > 0 && (
-        <SectionCard title="인버터 상세 현황" description={`${plant.inverters.length}대`}>
-          <InverterDetailSection inverters={plant.inverters} />
+        <SectionCard title="인버터 상세 현황" description={`${plant.inverters.length}대`} noPadding>
+          <InverterDetailSection inverters={plant.inverters} flush />
         </SectionCard>
       )}
 

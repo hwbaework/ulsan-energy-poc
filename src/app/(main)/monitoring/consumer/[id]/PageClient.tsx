@@ -1,15 +1,15 @@
 'use client';
 
+import { BackButton } from '@/components/layout/PageTitle';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard, StatCard, StatsGrid } from '@/components/features';
 
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { ArrowLeft, Building2, Target } from 'lucide-react';
+import { Building2, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useConsumerSite } from '@/hooks/consumer/useConsumer';
 
@@ -106,9 +106,7 @@ export default function ConsumerDetailPage() {
     <div className="space-y-6">
       <Breadcrumb items={[{ label: '통합관제', path: '/dashboard' }, { label: '사업장 모니터링' }]} />
       <div className="flex items-center gap-3">
-        <Button size="sm" variant="ghost" onClick={() => router.push('/monitoring')}>
-          <ArrowLeft size={16} />
-        </Button>
+        <BackButton href="/monitoring" label="관제 홈으로" />
         <div>
           <h1 className="text-xl font-bold text-white">{consumer.name}</h1>
           <p className="mt-0.5 text-xs text-slate-400 flex items-center gap-1">

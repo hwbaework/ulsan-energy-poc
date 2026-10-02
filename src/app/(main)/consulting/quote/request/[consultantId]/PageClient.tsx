@@ -2,18 +2,7 @@
 
 import { Suspense, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import {
-  CheckCircle2,
-  ArrowRight,
-  ArrowLeft,
-  Loader2,
-  Users,
-  User,
-  Zap,
-  FileText,
-  Shield,
-  Handshake,
-} from 'lucide-react';
+import { CheckCircle2, ArrowRight, Loader2, Users, User, Zap, FileText, Shield, Handshake } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils';
@@ -303,9 +292,7 @@ function QuoteRequestContent() {
 
           {/* Actions */}
           <div className="flex justify-between">
-            <Button variant="secondary" onClick={() => router.back()}>
-              <ArrowLeft size={14} className="mr-1" /> 돌아가기
-            </Button>
+            <span />
             <Button onClick={handleSubmit} disabled={selectedServices.length === 0 || createProposal.isPending}>
               {createProposal.isPending ? (
                 <Loader2 size={14} className="animate-spin mr-1" />

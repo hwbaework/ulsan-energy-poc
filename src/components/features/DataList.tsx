@@ -80,7 +80,8 @@ export function DataTable<T>({
   const hasFixedWidths = columns.some((col) => col.width);
 
   return (
-    <div className={cn('overflow-x-auto rounded-lg border border-accent/20', className)}>
+    // 둥근 자체 테두리 없음 — 카드 안에서 일직선으로 붙는다. data-table: SectionCard 가 본문 여백을 없애는 표식
+    <div data-table className={cn('overflow-x-auto', className)}>
       <table className={cn('w-full text-sm', hasFixedWidths && 'table-fixed')}>
         {hasFixedWidths && (
           <colgroup>

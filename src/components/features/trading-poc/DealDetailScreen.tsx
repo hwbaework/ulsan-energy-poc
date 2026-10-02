@@ -181,11 +181,11 @@ export function DealDetailScreen({ id }: { id: number }) {
         </div>
 
         <div className="space-y-6">
-          <SectionCard title="진행 이력" count={r.events.length}>
+          <SectionCard title="진행 이력">
             <EventTimeline events={r.events} />
           </SectionCard>
           {contract && (
-            <SectionCard title="문서" count={docs.length}>
+            <SectionCard title="문서">
               {docs.length === 0 ? (
                 <p className="text-sm text-slate-500">문서 없음</p>
               ) : (

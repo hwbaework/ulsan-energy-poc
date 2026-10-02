@@ -153,7 +153,6 @@ export function TradeApprovalsScreen() {
 
       <SectionCard
         title="거래 신청"
-        count={rows.length}
         actions={
           <label className="flex items-center gap-2 text-sm text-slate-400">
             상태

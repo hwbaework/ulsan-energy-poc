@@ -1,9 +1,10 @@
 'use client';
 
+import { BackButton } from '@/components/layout/PageTitle';
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
-import { Star, MapPin, Briefcase, ArrowLeft, Award, Building2 } from 'lucide-react';
+import { Star, MapPin, Briefcase, Award, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs } from '@/components/ui/Tabs';
@@ -104,13 +105,7 @@ export default function ConsultantProfilePage() {
       <div className="relative z-10 w-full max-w-4xl mx-4 my-8 rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.08] shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/[0.06] px-8 py-5">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-1 text-sm text-slate-400 hover:text-white transition-colors"
-          >
-            <ArrowLeft size={14} />
-            돌아가기
-          </button>
+          <BackButton label="돌아가기" />
           <button
             onClick={() => router.push('/consulting')}
             className="rounded-lg p-2 text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors"

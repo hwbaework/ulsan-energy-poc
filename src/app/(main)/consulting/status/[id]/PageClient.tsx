@@ -1,6 +1,7 @@
 // @ts-nocheck
 'use client';
 
+import { BackButton } from '@/components/layout/PageTitle';
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
@@ -732,7 +733,7 @@ export default function ConsultingDetailPage() {
         <div className="rounded-xl bg-[#0d1520] ring-1 ring-white/[0.08] px-6 py-10 text-center">
           <p className="text-sm text-slate-400">해당 컨설팅을 찾을 수 없습니다.</p>
           <Button size="sm" variant="secondary" className="mt-4" onClick={() => router.push('/consulting/status')}>
-            <ChevronLeft size={14} className="mr-1" /> 내 컨설팅 목록
+            <ArrowLeft size={14} className="mr-1" /> 내 컨설팅 목록
           </Button>
         </div>
       </div>
@@ -748,14 +749,7 @@ export default function ConsultingDetailPage() {
     return (
       <div className="max-w-3xl mx-auto space-y-5">
         <div className="mb-4 flex items-center gap-3 flex-wrap">
-          <button
-            type="button"
-            onClick={() => router.push('/consulting/status')}
-            className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors shrink-0"
-          >
-            <ArrowLeft size={16} /> 목록으로
-          </button>
-          <span className="text-slate-600">/</span>
+          <BackButton href="/consulting/status" label="내 컨설팅 목록으로" />
           <Breadcrumb
             items={[
               { label: '통합에너지 컨설팅', path: '/consulting' },
@@ -883,14 +877,7 @@ export default function ConsultingDetailPage() {
       {/* ── 좌측: 진행 허브 ── */}
       <div className="flex-1 min-w-0 space-y-5">
         <div className="mb-4 flex items-center gap-3 flex-wrap">
-          <button
-            type="button"
-            onClick={() => router.push('/consulting/status')}
-            className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors shrink-0"
-          >
-            <ArrowLeft size={16} /> 목록으로
-          </button>
-          <span className="text-slate-600">/</span>
+          <BackButton href="/consulting/status" label="내 컨설팅 목록으로" />
           <Breadcrumb
             items={[
               { label: '통합에너지 컨설팅', path: '/consulting' },

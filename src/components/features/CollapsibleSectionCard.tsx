@@ -2,13 +2,10 @@
 
 import { useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils';
 
 interface CollapsibleSectionCardProps {
   title: ReactNode;
-  count?: number;
-  countUnit?: string;
   description?: ReactNode;
   actions?: ReactNode;
   defaultOpen?: boolean;
@@ -19,8 +16,6 @@ interface CollapsibleSectionCardProps {
 /** SectionCard와 같은 룩에 헤더 클릭으로 본문을 접고 펼 수 있는 카드 */
 export function CollapsibleSectionCard({
   title,
-  count,
-  countUnit = '건',
   description,
   actions,
   defaultOpen = false,
@@ -48,12 +43,6 @@ export function CollapsibleSectionCard({
           <div className="min-w-0">
             <h3 className="text-md font-semibold text-white truncate">
               {title}
-              {count !== undefined && (
-                <Badge variant="primary" className="ml-2">
-                  {count}
-                  {countUnit}
-                </Badge>
-              )}
             </h3>
             {description && <p className="mt-0.5 text-xs text-slate-400 truncate">{description}</p>}
           </div>

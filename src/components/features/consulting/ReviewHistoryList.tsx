@@ -13,7 +13,6 @@ export function ReviewHistoryList({ history, selectedId, onPick, onDelete }: { h
     <div className="rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] lg:sticky lg:top-[116px]">
       <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
         <p className="text-base font-semibold text-white">검토 기록</p>
-        <span className="text-sm text-slate-500 tabular-nums">{history.length}건</span>
       </div>
       {history.length === 0 ? (
         <p className="px-5 py-6 text-sm text-slate-500">아직 검토 기록 없음</p>
@@ -34,7 +33,6 @@ export function ReviewHistoryList({ history, selectedId, onPick, onDelete }: { h
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className={cn('text-sm font-semibold tabular-nums', on ? 'text-primary' : 'text-white')}>{rec.no}</span>
-                      <span className="text-xs text-slate-500 tabular-nums">{rec.at.slice(0, 10)}</span>
                     </div>
                     <p className="mt-0.5 text-sm text-slate-400">
                       {d.sim!.site} · {h.mode} · {h.cap.toLocaleString()} kW · 20년 {EOK(h.save20)}억원

@@ -94,7 +94,6 @@ export function MyContractsScreen() {
 
       <SectionCard
         title="계약"
-        count={rows.length}
         actions={
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-sm text-slate-400">

@@ -254,6 +254,59 @@ export const MOCK_EDU_REPORTS: EduReport[] = [
       },
     ],
   },
+  /* ── 2026-08 (임시 — 짧은 자료 2건 · 문항 2개씩) ── */
+  {
+    id: 'rpt-260825',
+    title: 'K-RE100 재생에너지 사용확인서 — 발급 절차 요약',
+    publishedAt: '2026-08-25',
+    sourceName: '한국에너지공단',
+    sections: [
+      {
+        heading: '사용확인서란',
+        body: ['K-RE100 참여 기업이 재생에너지를 사용했음을 확인받는 서류로, 이행수단(PPA·자가발전·REC 등)별 사용량을 근거로 한국에너지공단이 발급합니다.'],
+      },
+    ],
+    questions: [
+      {
+        id: 'rpt-260825:1',
+        question: '재생에너지 사용확인서를 발급하는 기관은?',
+        options: ['한국전력공사', '한국에너지공단', '전력거래소', '기후에너지환경부'],
+        answerIndex: 1,
+      },
+      {
+        id: 'rpt-260825:2',
+        question: '사용확인서 발급의 근거가 되는 것은?',
+        options: ['매출액', '직원 수', '이행수단별 재생에너지 사용량', '공장 면적'],
+        answerIndex: 2,
+      },
+    ],
+  },
+  {
+    id: 'rpt-260811',
+    title: 'OnSite PPA 한눈에 — 지붕은 빌려주고 전기는 싸게',
+    publishedAt: '2026-08-11',
+    sourceName: '직접 작성',
+    sections: [
+      {
+        heading: 'OnSite PPA 구조',
+        body: ['사업자가 수요기업 지붕에 태양광을 설치·운영하고, 수요기업은 사용한 전력만큼 PPA 단가로 요금을 냅니다. 초기 투자와 유지보수는 사업자 부담입니다.'],
+      },
+    ],
+    questions: [
+      {
+        id: 'rpt-260811:1',
+        question: 'OnSite PPA에서 설비 투자를 부담하는 쪽은?',
+        options: ['수요기업', '사업자', '한국전력공사', '지자체'],
+        answerIndex: 1,
+      },
+      {
+        id: 'rpt-260811:2',
+        question: 'OnSite PPA에서 수요기업이 내는 요금의 기준은?',
+        options: ['설치 용량', '지붕 면적', '사용한 전력량 × PPA 단가', '계약 기간'],
+        answerIndex: 2,
+      },
+    ],
+  },
   /* ── 기본 정보 (basic) — 월에 속하지 않는 상시 자료. 언제든 시험 응시 가능 ── */
   {
     id: 'rpt-basic-01',

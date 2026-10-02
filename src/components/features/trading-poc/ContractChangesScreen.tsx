@@ -149,7 +149,6 @@ export function ContractChangesScreen() {
 
       <SectionCard
         title="변경·해지 요청"
-        count={visible.length}
         actions={
           <label className="flex items-center gap-2 text-sm text-slate-400">
             상태

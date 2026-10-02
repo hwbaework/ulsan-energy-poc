@@ -1,7 +1,7 @@
 /**
  * 울산미포산단 태양광 사업성 시뮬레이터 v1.1 (RMS 분산에너지, 정건호) 계산 이식.
  * 무료진단 = 왼쪽 값 입력 → 오른쪽 사업 검토. 산식·단가·계수는 원본 HTML 그대로.
- *  - 자가소비용: 전기요금 절감 (사업비·국비·자부담은 사전 검토 완료 — 받지 않는다)
+ *  - 자가소비용: 소비자가 설치비 + 추가 시공비를 전액 부담(국비 지원 없음) → J-curve 로 회수 시점
  *  - OnSite PPA: 사업자 투자 · 20년 2구간 단가(한전 연동 / 고정)
  */
 
@@ -35,10 +35,10 @@ const CLIMATE_CHG = 9.0;
 const FUEL_ADJ = 5.0;
 const FUND = 0.037;
 export const SELF_REMAIN = 320; // 자가소비 배정 잔여용량 kW
-// 자가소비 J-curve 용 사업 기준값 (사전 검토 완료 — 입력받지 않는다): 설치단가 135만원/kW, 국비 70%(백만원 미만 절삭), O&M 연 1%
+// 자가소비 사업비 기본값 — 원본 시뮬레이터 기본값(입력에서 바꿀 수 있음). 국비 지원은 없다 — 소비자가 전액 부담
 export const SELF_CAPEX_UNIT = 1_350_000;
-export const SELF_GOV_RATE = 0.7;
-export const SELF_OM_RATE = 0.01;
+export const SELF_EXTRA_COST = 20_000_000;
+export const SELF_OM = 1.0; // %/년, 총사업비 대비
 export const PPA_REMAIN = 2670; // OnSite PPA 배정 잔여용량 kW
 export const CAGR = 0.093; // 산업용 판매단가 실적 CAGR ('19~'25)
 export const PLAN_LABEL: Record<Plan, string> = { '1': '고압A 선택Ⅰ', '2': '고압A 선택Ⅱ' };
@@ -72,7 +72,8 @@ export interface SimInput {
   co2f: number; // t/MWh
   ets: boolean; // 배출권 할당대상업체
   // 자가소비
-  self: { cap: number; ctr: number; usage: number; plan: Plan; ver: TariffVer; esc: number; peakR: number };
+  // capexUnit·extraCost·om: 예전 기록에는 없을 수 있다 → 기본값
+  self: { cap: number; ctr: number; usage: number; plan: Plan; ver: TariffVer; esc: number; peakR: number; capexUnit?: number; extraCost?: number; om?: number };
   // OnSite PPA
   ppa: { cap: number; plan: Plan; ver: TariffVer; esc: number; peakR: number; b1: number; b2: number; segs: [PpaSegInput, PpaSegInput, PpaSegInput]; ppaEsc: number };
 }
@@ -91,7 +92,7 @@ export function defaultSimInput(site = '', address = ''): SimInput {
     kauEsc: 0,
     co2f: 0.4173,
     ets: false,
-    self: { cap: 320, ctr: 10000, usage: 3_000_000, plan: '2', ver: 'old', esc: 2.5, peakR: 30 },
+    self: { cap: 320, ctr: 10000, usage: 3_000_000, plan: '2', ver: 'old', esc: 2.5, peakR: 30, capexUnit: SELF_CAPEX_UNIT, extraCost: SELF_EXTRA_COST, om: SELF_OM },
     ppa: {
       cap: 1000,
       plan: '2',
@@ -124,6 +125,12 @@ export function avgSaveUnit(plan: Plan, ver: TariffVer) {
 /** 사업 검토서 번호 — SR-연도-일련번호 */
 export const reviewNo = (id: number, createdAt: string) => `SR-${createdAt.slice(0, 4)}-${String(id).padStart(4, '0')}`;
 /** 월별 1차년 발전량 [kWh] — 연간 = cap×avgH×365, 월별은 일조시간 비중 배분 */
+/** 자가소비 사업비 — 국비 지원 없음. 소비자 부담 = 설치용량 × 설치단가 + 추가 시공비 */
+export function selfCost(i: SimInput) {
+  const install = i.self.cap * (i.self.capexUnit ?? SELF_CAPEX_UNIT);
+  const extra = i.self.extraCost ?? SELF_EXTRA_COST;
+  return { install, extra, consumer: install + extra };
+}
 const monthlyGen = (cap: number, avgH: number) => SUN.map((h) => (cap * avgH * 365 * h) / SUNTOT);
 
 export interface PpaSeg extends PpaSegInput {
@@ -150,7 +157,7 @@ export const segLabel = (sg: { start: number; end: number }) =>
   sg.end < sg.start ? '미사용' : sg.start === sg.end ? `${sg.start}년차` : `${sg.start}~${sg.end}년차`;
 
 export interface SelfYear {
-  y: number; gen: number; eSave: number; bSave: number; save: number; cum: number; cash: number; cashFull: number; co2: number; cumCo2: number; carbon: number; cumCarbon: number;
+  y: number; gen: number; eSave: number; bSave: number; save: number; om: number; net: number; cum: number; co2: number; cumCo2: number; carbon: number; cumCarbon: number;
 }
 export interface PpaYear {
   y: number; seg: number; linked: boolean; ku: number; pu: number; gen: number; kep: number; ppaAmt: number; bSave: number; saveD: number; cumD: number; co2: number; cumCo2: number; carbon: number; cumCarbon: number; saveT: number; cumT: number;
@@ -158,9 +165,8 @@ export interface PpaYear {
 export interface SelfResult {
   mode: 'self'; cap: number; plan: Plan; ver: TariffVer; esc: number; degR: number; usage: number; baseSaveM: number; mg: number[];
   mrows: { su: number; self: number; surplus: number }[]; annualGen1: number; selfRatio: number;
-  ets: boolean; kau: number; co2f: number; cumCarbon: number; years: SelfYear[]; cumSave: number; cumGen: number; cumCo2: number; burden: number; // 자부담(J-curve 시작점)
-  install: number; // 총사업비(국비 미반영 J-curve 시작점)
- 
+  install: number; extra: number; consumer: number; // 설치비 · 추가 시공비 · 소비자 부담(합)
+  ets: boolean; kau: number; co2f: number; cumCarbon: number; years: SelfYear[]; cumSave: number; cumGen: number; cumCo2: number; payback: number | null;
   save1: number; eSave1: number; bSave1: number; carbon1: number;
 }
 export interface PpaResult {
@@ -192,12 +198,11 @@ export function calc(i: SimInput, escOv?: number): SimResult {
     });
     const selfRatio = annualGen1 > 0 ? mrows.reduce((a, r) => a + r.self, 0) / annualGen1 : 0;
     const years: SelfYear[] = [];
-    let cumSave = 0, cumGen = 0, cumCo2 = 0, cumCarbon = 0;
-    // J-curve — 자부담(설치비 - 국비)에서 시작해 순절감(절감 - O&M)을 쌓는다
-    const install = cap * SELF_CAPEX_UNIT;
-    const burden = install - Math.floor((install * SELF_GOV_RATE) / 1e6) * 1e6;
-    let cash = -burden;
-    let cashFull = -install; // 국비 없이 총사업비 전액을 낸 경우
+    const omR = (i.self.om ?? SELF_OM) / 100;
+    const { install, extra, consumer } = selfCost(i);
+    // J-curve — 소비자 부담에서 마이너스로 시작해 매년 순절감(절감 - O&M)을 쌓는다
+    let cum = -consumer, cumSave = 0, cumGen = 0, cumCo2 = 0, cumCarbon = 0;
+    let payback: number | null = null;
     for (let y = 1; y <= 20; y++) {
       const df = Math.max(0, 1 - degR * (y - 1));
       const ef = Math.pow(1 + esc, y - 1);
@@ -211,14 +216,15 @@ export function calc(i: SimInput, escOv?: number): SimResult {
       const co2 = (gen / 1000) * co2f;
       const carbon = co2 * kau * Math.pow(1 + kauEsc, y - 1);
       const save = eSave + bSave + (ets ? carbon : 0);
-      cumSave += save; cumGen += gen; cumCo2 += co2; cumCarbon += carbon;
-      cash += save - install * SELF_OM_RATE;
-      cashFull += save - install * SELF_OM_RATE;
-      years.push({ y, gen, eSave, bSave, save, cum: cumSave, cash, cashFull, co2, cumCo2, carbon, cumCarbon });
+      const om = consumer * omR; // O&M 은 사업비(소비자 부담) 대비
+      const net = save - om;
+      cum += net; cumSave += save; cumGen += gen; cumCo2 += co2; cumCarbon += carbon;
+      if (payback === null && cum >= 0) payback = y;
+      years.push({ y, gen, eSave, bSave, save, om, net, cum, co2, cumCo2, carbon, cumCarbon });
     }
     return {
-      mode: 'self', cap, plan, ver, esc, degR, usage, baseSaveM, mg, mrows, annualGen1, selfRatio, ets, kau, co2f, cumCarbon,
-      years, cumSave, cumGen, cumCo2, burden, install, save1: years[0]!.save, eSave1: years[0]!.eSave, bSave1: years[0]!.bSave, carbon1: years[0]!.carbon,
+      mode: 'self', cap, plan, ver, esc, degR, usage, baseSaveM, mg, mrows, annualGen1, selfRatio, install, extra, consumer, ets, kau, co2f, cumCarbon,
+      years, cumSave, cumGen, cumCo2, payback, save1: years[0]!.save, eSave1: years[0]!.eSave, bSave1: years[0]!.bSave, carbon1: years[0]!.carbon,
     };
   }
   const { cap, plan, ver } = i.ppa;

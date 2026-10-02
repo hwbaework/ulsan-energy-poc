@@ -126,11 +126,11 @@ export function ContractDashboardScreen() {
         <RmsBarChart data={chart} xKey="month" bars={[{ key: '자가소비', name: '자가소비' }, { key: 'onsite', name: 'onsite' }]} stacked height={260} />
       </SectionCard>
 
-      <SectionCard title="계약별 현황" count={rows.length} noPadding>
+      <SectionCard title="계약별 현황" noPadding>
         <DataTable columns={columns} data={rows} rowKey={(c) => c.id} emptyMessage="계약 없음" />
       </SectionCard>
 
-      <SectionCard title="진행 중 신청" count={inProgress.length} noPadding>
+      <SectionCard title="진행 중 신청" noPadding>
         <DataTable columns={reqColumns} data={inProgress} rowKey={(r) => r.id} emptyMessage="진행 중인 신청 없음" onRowClick={(r) => router.push(`/trading/deal/${r.id}`)} />
       </SectionCard>
     </div>

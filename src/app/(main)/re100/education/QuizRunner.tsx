@@ -1,9 +1,9 @@
 'use client';
 
+import { BackButton } from '@/components/layout/PageTitle';
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ArrowRight, CheckCircle2, Download, FileQuestion, RotateCcw, XCircle } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Download, FileQuestion, RotateCcw, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -16,7 +16,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { exportCertificatePdf } from '@/lib/utils';
 import type { EduQuizQuestion } from '@/types/education';
-import { BASIC_GROUP, formatMonthKo, isQuizOpen } from '@/types/education';
+import { formatMonthKo, isQuizOpen } from '@/types/education';
 
 /** 쪽지시험 — 한 문제씩, 틀린 문항은 다시, 전 문항을 맞히면 수료증 발급. embedded 면 교육 자료 화면 안에 들어간다 */
 export function QuizRunner({ month, embedded = false }: { month: string; embedded?: boolean }) {
@@ -34,7 +34,7 @@ export function QuizRunner({ month, embedded = false }: { month: string; embedde
   const [selected, setSelected] = useState<number | null>(null);
   const [revealed, setRevealed] = useState<{ q: EduQuizQuestion; correct: boolean } | null>(null);
 
-  const validMonth = month === BASIC_GROUP || /^\d{4}-\d{2}$/.test(month ?? '');
+  const validMonth = /^\d{4}-\d{2}$/.test(month ?? ''); // 기본 정보는 시험 없음
   if (!validMonth || questions.length === 0) {
     return (
       <EmptyState
@@ -116,16 +116,9 @@ export function QuizRunner({ month, embedded = false }: { month: string; embedde
         />
       </div>
 
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white">{formatMonthKo(month)} 쪽지시험</h1>
-        </div>
-        <Link
-          href="/re100/education"
-          className="flex shrink-0 items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors"
-        >
-          <ArrowLeft size={14} /> 목록
-        </Link>
+      <div className="flex items-center gap-2">
+        <BackButton href="/re100/education" label="교육 목록으로" />
+        <h1 className="text-2xl font-bold text-white">{formatMonthKo(month)} 쪽지시험</h1>
       </div>
 
         </>

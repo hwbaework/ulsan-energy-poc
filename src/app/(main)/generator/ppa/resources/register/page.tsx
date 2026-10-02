@@ -1,6 +1,7 @@
 // @ts-nocheck
 'use client';
 
+import { BackButton } from '@/components/layout/PageTitle';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Sun, Wind, Battery, Plus, Activity, CheckCircle2, AlertTriangle, Clock, Download } from 'lucide-react';
@@ -594,10 +595,10 @@ export default function GeneratorPpaResourcesPage() {
           return (
             <div className="space-y-4">
               {/* 목록으로 나가기 */}
-              <Button variant="ghost" size="sm" onClick={() => setScopeId('all')}>
-                <ChevronLeft size={13} className="mr-1" />
-                전체 발전소 목록
-              </Button>
+              <div className="flex items-center gap-2">
+                <BackButton onClick={() => setScopeId('all')} label="전체 발전소 목록으로" />
+                <h2 className="text-lg font-semibold text-white">{selected.name}</h2>
+              </div>
 
               {/* 스펙·위치·운영 */}
               <section className="rounded-lg border border-white/[0.06] bg-surface-card overflow-hidden">

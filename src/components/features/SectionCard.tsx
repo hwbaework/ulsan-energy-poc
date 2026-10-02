@@ -1,12 +1,8 @@
 import type { ReactNode } from 'react';
-import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils';
 
 interface SectionCardProps {
   title: ReactNode;
-  /** 제목 옆 카운트 chip — `{count}{countUnit}` 으로 표시. 모든 SectionCard에서 동일한 표준 chip 사용. */
-  count?: number;
-  countUnit?: string;
   description?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
@@ -16,8 +12,6 @@ interface SectionCardProps {
 
 export function SectionCard({
   title,
-  count,
-  countUnit = '건',
   description,
   actions,
   children,
@@ -30,18 +24,13 @@ export function SectionCard({
         <div>
           <h3 className="text-md font-semibold text-white">
             {title}
-            {count !== undefined && (
-              <Badge variant="primary" className="ml-2">
-                {count}
-                {countUnit}
-              </Badge>
-            )}
           </h3>
           {description && <p className="mt-0.5 text-xs text-slate-400">{description}</p>}
         </div>
         {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
       </div>
-      <div className={noPadding ? undefined : 'px-5 py-4'}>{children}</div>
+      {/* 본문에 표(DataTable)가 바로 들어가면 여백 없이 카드 끝까지 — 모든 화면 공통 */}
+      <div className={cn(!noPadding && 'px-5 py-4', 'has-[>[data-table]]:p-0')}>{children}</div>
     </div>
   );
 }

@@ -1,7 +1,8 @@
 'use client';
 
+import { BackButton } from '@/components/layout/PageTitle';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, PencilLine } from 'lucide-react';
+import { PencilLine, Save } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Button } from '@/components/ui/Button';
 import { POC_USERS, useAuthStore } from '@/stores/useAuthStore';
@@ -22,7 +23,7 @@ import type { Diagnosis } from '@/types/consultation';
 /**
  * 무료진단 — 울산미포산단 태양광 사업성 시뮬레이터 기반.
  *  ① 입력 화면(값 입력 + 옆에 지난 검토 기록) → [사업 검토] → ② 단계별 진행 → ③ 검토서(A4 문서)
- *  검토할 때마다 새 사업 검토서로 기록되고, 기록을 누르면 다시 계산하지 않고 그 검토서를 바로 연다.
+ *  결과를 보고 [저장]하면 새 사업 검토서로 기록되고(덮어쓰지 않음), 오른쪽 기록을 누르면 다시 계산하지 않고 그 검토서를 바로 연다.
  */
 const REVIEW_STEPS = ['입력값 확인', '월별 발전량 산정 (울산관측소 일조시간)', '한전 요금 시간대 매칭', '20년 운영 시뮬레이션', '요금 시나리오 · 민감도 분석', '검토서 작성'];
 const STEP_MS = 450;
@@ -51,7 +52,7 @@ export default function DiagnosisPage() {
 
   const [f, setF] = useState<SimInput>(() => defaultSimInput());
   const [view, setView] = useState<View>({ kind: 'input' });
-  const [save, setSave] = useState(true); // 검토 기록에 저장할지 — 끄면 결과만 보고 기록은 남기지 않는다
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (f.site !== site.name) setF((p) => ({ ...p, site: site.name, address: site.address }));
@@ -103,10 +104,16 @@ export default function DiagnosisPage() {
         setView({ kind: 'loading', step: k });
       }
     })();
-    let record: ReviewRecord | undefined;
-    if (save) try {
-      const R = calc(snap);
-      // 검토할 때마다 새 기록 (덮어쓰지 않는다)
+    await steps;
+    showResult(snap); // 저장은 결과를 보고 [저장]으로
+  };
+
+  // 결과를 보고 저장 — 저장하면 검토 기록(내 컨설팅)에 새 검토서로 남는다(덮어쓰지 않음)
+  const saveResult = async () => {
+    if (view.kind !== 'result' || view.record) return;
+    setSaving(true);
+    try {
+      const R = calc(view.input);
       const d = (await createDiagnosis.mutateAsync({
         companyId,
         companyName,
@@ -115,15 +122,16 @@ export default function DiagnosisPage() {
         contactName: user?.name,
         contactEmail: user?.email,
         contactPhone: user?.phone,
-        sim: snap,
+        sim: view.input,
       })) as { id: number; createdAt: string };
-      record = recordOf(d);
+      const record = recordOf(d);
+      setView({ kind: 'result', input: view.input, record });
+      toast('success', `${record.no} 사업 검토서로 저장했습니다`);
     } catch {
       toast('error', '검토서 저장에 실패했습니다');
+    } finally {
+      setSaving(false);
     }
-    await steps;
-    showResult(snap, record);
-    if (record) toast('success', `${record.no} 사업 검토서로 기록했습니다`);
   };
 
   return (
@@ -133,19 +141,21 @@ export default function DiagnosisPage() {
       {view.kind === 'result' ? (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="text-2xl font-bold text-white">무료진단</h1>
+            <div className="flex items-center gap-3">
+              <BackButton onClick={backToInput} label="입력 화면으로" />
+              <h1 className="text-2xl font-bold text-white">무료진단</h1>
+            </div>
             <div className="flex items-center gap-2">
-              <Button variant="secondary" onClick={backToInput}>
-                <ArrowLeft size={14} className="mr-1.5" /> 입력으로
-              </Button>
               <Button
-                variant="secondary"
                 onClick={() => {
                   setF({ ...structuredClone(view.input), site: site.name, address: site.address });
                   backToInput();
                 }}
               >
                 <PencilLine size={14} className="mr-1.5" /> 이 값으로 다시 입력
+              </Button>
+              <Button onClick={saveResult} disabled={!!view.record || saving}>
+                <Save size={14} className="mr-1.5" /> {view.record ? `저장됨 · ${view.record.no}` : saving ? '저장 중...' : '저장'}
               </Button>
             </div>
           </div>
@@ -176,16 +186,17 @@ export default function DiagnosisPage() {
             <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[1fr_340px]">
               {/* 값 입력 */}
               <div>
-                <SimInputPanel value={f} onChange={setF} companyName={companyName} facilitySource={facilitySource} />
-                <div className="sticky bottom-0 z-10 mt-4 flex items-center justify-end gap-5 rounded-xl border-t border-white/[0.06] bg-[#0b1220]/95 px-1 py-4 backdrop-blur">
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
-                    <input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} className="h-4 w-4 accent-[#3b82f6]" />
-                    검토 기록에 저장
-                  </label>
-                  <Button size="lg" onClick={review}>
-                    사업 검토
-                  </Button>
-                </div>
+                <SimInputPanel
+                  value={f}
+                  onChange={setF}
+                  companyName={companyName}
+                  facilitySource={facilitySource}
+                  footer={
+                    <Button size="lg" onClick={review}>
+                      사업 검토
+                    </Button>
+                  }
+                />
               </div>
 
               {/* 지난 검토 기록 — 누르면 그 검토서를 바로 연다 */}

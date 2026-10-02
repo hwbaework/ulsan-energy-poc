@@ -1,7 +1,8 @@
 'use client';
 
+import { BackButton } from '@/components/layout/PageTitle';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Shield, Mail, Phone, Building2, Calendar } from 'lucide-react';
+import { Shield, Mail, Phone, Building2, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Badge } from '@/components/ui/Badge';
@@ -45,12 +46,7 @@ export default function UserDetailPage() {
       <Breadcrumb items={[{ label: '관리' }, { label: '회원 관리', path: '/platform/users' }, { label: user.name }]} />
 
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => router.push('/platform/users')}
-          className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.04] text-slate-400 hover:text-white hover:bg-white/[0.08] transition-colors"
-        >
-          <ArrowLeft size={16} />
-        </button>
+        <BackButton href="/platform/users" label="회원 목록으로" />
         <div>
           <h1 className="text-2xl font-bold text-white">{user.name}</h1>
           <p className="text-sm text-slate-400">{user.email}</p>

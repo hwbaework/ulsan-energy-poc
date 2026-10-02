@@ -1,20 +1,10 @@
 'use client';
 
+import { BackButton } from '@/components/layout/PageTitle';
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  ArrowLeft,
-  Bot,
-  CalendarDays,
-  ExternalLink,
-  FileQuestion,
-  Lock,
-  Paperclip,
-  Pencil,
-  PenLine,
-  Trash2,
-} from 'lucide-react';
+import { Bot, CalendarDays, ExternalLink, FileQuestion, Lock, Paperclip, Pencil, PenLine, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -87,7 +77,9 @@ function EducationReportInner() {
       </div>
 
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
+        <div className="flex min-w-0 items-start gap-3">
+          <BackButton href="/re100/education" label="교육 목록으로" />
+          <div className="min-w-0">
           <h1 className="text-2xl font-bold text-white">{report.title}</h1>
           <div className="mt-2 flex items-center gap-4 text-xs text-slate-500">
             {report.basic ? (
@@ -101,6 +93,7 @@ function EducationReportInner() {
             )}
             {!isPublished(report) && <Badge variant="warning">초안</Badge>}
             {completed && <Badge variant="success">{formatMonthKo(month)} 이수 완료</Badge>}
+          </div>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -128,20 +121,14 @@ function EducationReportInner() {
                   발행하기
                 </Button>
               )}
-              <Button variant="secondary" size="sm" onClick={() => router.push(`/re100/education/editor?id=${report.id}`)}>
-                <Pencil size={13} className="mr-1" /> 수정
+              <Button size="sm" onClick={() => router.push(`/re100/education/editor?id=${report.id}`)}>
+                <Pencil size={14} className="mr-1" /> 수정
               </Button>
               <Button variant="danger" size="sm" onClick={() => setConfirmDelete(true)}>
-                <Trash2 size={13} className="mr-1" /> 삭제
+                <Trash2 size={14} className="mr-1" /> 삭제
               </Button>
             </>
           )}
-          <Link
-            href="/re100/education"
-            className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors"
-          >
-            <ArrowLeft size={14} /> 목록
-          </Link>
         </div>
       </div>
 

@@ -173,7 +173,6 @@ export function DocumentsScreen({ title = '문서 관리' }: { title?: string } 
 
         <SectionCard
           title={!role.isAdmin ? '계약 문서' : category === 'all' ? '전체 문서' : DOC_CATEGORY_LABEL[category]}
-          count={rows.length}
           actions={
             <div className="flex flex-wrap items-center gap-3">
               <label className="flex items-center gap-2 text-sm text-slate-400">

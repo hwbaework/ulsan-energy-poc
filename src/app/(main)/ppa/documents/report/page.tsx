@@ -231,7 +231,7 @@ export default function PpaReportPage() {
 
       {/* Contract Summary + Plant Status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <SectionCard title="계약 현황" count={contracts.length} countUnit="건">
+        <SectionCard title="계약 현황">
           {contracts.length > 0 ? (
             <div className="space-y-3">
               {contracts.map((c: any) => (
@@ -265,7 +265,7 @@ export default function PpaReportPage() {
           )}
         </SectionCard>
 
-        <SectionCard title="발전소 현황" count={plantSummary.length} countUnit="개소">
+        <SectionCard title="발전소 현황">
           {plantSummary.length > 0 ? (
             <div className="space-y-2">
               {plantSummary.map((p) => (
@@ -311,8 +311,6 @@ export default function PpaReportPage() {
       {/* Monthly Detail Table */}
       <SectionCard
         title="월별 운영 실적"
-        count={records.length}
-        countUnit="건"
         description="직접 PPA 월별 발전·정산 상세"
       >
         <DataTable
@@ -354,7 +352,7 @@ export default function PpaReportPage() {
       </SectionCard>
 
       {/* Invoice History */}
-      <SectionCard title="세금계산서 발급 이력" count={invoices.length} countUnit="건">
+      <SectionCard title="세금계산서 발급 이력">
         <DataTable
           data={invoices}
           rowKey={(r) => r.id}

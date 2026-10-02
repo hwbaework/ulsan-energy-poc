@@ -1,8 +1,9 @@
 'use client';
 
+import { BackButton } from '@/components/layout/PageTitle';
 import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Info, Send, Sparkles } from 'lucide-react';
+import { useParams } from 'next/navigation';
+import { Info, Send, Sparkles } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
@@ -82,7 +83,6 @@ function answerQuery(query: string, plant: MonitoringPlant, suggestions: Suggest
 
 export default function PredictiveDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const override = usePersonaOverride((s) => s.override);
   const persona = override ?? getPersona(user);
@@ -123,9 +123,7 @@ export default function PredictiveDetailPage() {
       />
       <div className="flex items-center gap-3">
         {showBack && (
-          <Button size="sm" variant="ghost" onClick={() => router.push('/control/predictive')} aria-label="예지보전 목록으로">
-            <ArrowLeft size={16} />
-          </Button>
+          <BackButton href="/control/predictive" label="예지보전 목록으로" />
         )}
         <h1 className="text-xl font-bold text-white">{plant.name}</h1>
       </div>
