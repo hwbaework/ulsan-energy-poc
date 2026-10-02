@@ -222,7 +222,7 @@ export default function DatasetDetailPage(props: { params: Promise<{ id: string 
                           <tr key={col.name} className="border-b border-accent/10 hover:bg-white/[0.02]">
                             <td className="py-2.5 px-3 font-mono text-xs text-primary">{col.name}</td>
                             <td className="py-2.5 px-3">
-                              <Badge variant="default" className="text-[10px]">
+                              <Badge variant="default">
                                 {col.type}
                               </Badge>
                             </td>

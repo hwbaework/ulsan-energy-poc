@@ -1,6 +1,5 @@
 import { create } from 'zustand';
-import type { EduCertificate, EduQuizProgress } from '@/types/education';
-import { monthCourseTitle } from '@/types/education';
+import type { EduQuizProgress } from '@/types/education';
 
 interface GradeRoundInput {
   month: string;
@@ -15,33 +14,25 @@ interface GradeRoundInput {
 interface EducationState {
   readReportIds: string[];
   progressByMonth: Record<string, EduQuizProgress>;
-  certificates: EduCertificate[];
   markRead: (reportId: string) => void;
-  /**
-   * 라운드 채점 반영. 맞힌 문항은 누적되고, 전 문항을 맞히면 이수 처리 후
-   * 수료증을 발급해 반환한다 (이미 발급된 월이면 null).
-   */
+  /** 라운드 채점 반영. 맞힌 문항은 누적되고, 전 문항을 맞히면 이수(완료) 처리 */
   gradeRound: (input: GradeRoundInput) => {
     progress: EduQuizProgress;
     completed: boolean;
-    certificate: EduCertificate | null;
   };
 }
-
-let counter = 0;
 
 // POC 단계 — 인메모리(새로고침 시 초기화). 백엔드 구현 시 서버 저장으로 교체한다.
 export const useEducationStore = create<EducationState>()((set, get) => ({
   readReportIds: [],
   progressByMonth: {},
-  certificates: [],
 
   markRead: (reportId) =>
     set((s) =>
       s.readReportIds.includes(reportId) ? s : { readReportIds: [...s.readReportIds, reportId] },
     ),
 
-  gradeRound: ({ month, correctQuestionIds, allQuestionIds, userName, companyName }) => {
+  gradeRound: ({ month, correctQuestionIds, allQuestionIds }) => {
     const valid = new Set(allQuestionIds);
     const prev = get().progressByMonth[month];
     const merged = new Set(
@@ -57,26 +48,11 @@ export const useEducationStore = create<EducationState>()((set, get) => ({
       completedAt: prev?.completedAt ?? (completed ? now.toISOString() : undefined),
     };
 
-    let certificate: EduCertificate | null = null;
-    const alreadyIssued = get().certificates.some((c) => c.month === month);
-    if (completed && !alreadyIssued) {
-      const seq = String(get().certificates.length + 1).padStart(4, '0');
-      certificate = {
-        id: `cert-${Date.now()}-${++counter}`,
-        certificateNo: `RE100-EDU-${now.getFullYear()}-${seq}`,
-        month,
-        courseTitle: monthCourseTitle(month),
-        userName,
-        companyName,
-        issuedAt: now.toISOString().slice(0, 10),
-      };
-    }
 
     set((s) => ({
       progressByMonth: { ...s.progressByMonth, [month]: progress },
-      certificates: certificate ? [certificate, ...s.certificates] : s.certificates,
     }));
 
-    return { progress, completed, certificate };
+    return { progress, completed };
   },
 }));

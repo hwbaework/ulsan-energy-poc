@@ -14,6 +14,8 @@ import { useEducationContentStore } from '@/stores/useEducationContentStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { getCollectedArticle } from '@/lib/mock-education-collect';
 import type { EduAttachment, EduReport } from '@/types/education';
+import { currentMonthStart, isMonthClosed } from '@/types/education';
+import { Badge } from '@/components/ui/Badge';
 
 interface SectionForm {
   heading: string;
@@ -67,6 +69,8 @@ function EducationEditor() {
 
   const [title, setTitle] = useState('');
   const [publishedAt, setPublishedAt] = useState(() => new Date().toISOString().slice(0, 10));
+  // 끝난 달 자료 — 이미 그 달 쪽지시험이 열려 있어 문항·발행일을 바꾸지 않는다
+  const locked = !!editing && !editing.basic && isMonthClosed(editing.publishedAt.slice(0, 7));
   const [sections, setSections] = useState<SectionForm[]>([{ ...EMPTY_SECTION }]);
   const [questions, setQuestions] = useState<QuestionForm[]>([]);
   const [sources, setSources] = useState<SourceForm[]>([]);
@@ -215,6 +219,10 @@ function EducationEditor() {
       toast('warning', '제목을 입력해 주세요.');
       return;
     }
+    if (!locked && !editing?.basic && isMonthClosed(publishedAt.slice(0, 7))) {
+      toast('warning', '끝난 달로는 발행할 수 없습니다.');
+      return;
+    }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(publishedAt)) {
       toast('warning', '발행일을 선택해 주세요.');
       return;
@@ -313,6 +321,8 @@ function EducationEditor() {
             required
             type="date"
             value={publishedAt}
+            min={editing?.basic ? undefined : currentMonthStart()}
+            disabled={locked}
             onChange={(e) => setPublishedAt(e.target.value)}
           />
         </div>
@@ -472,8 +482,10 @@ function EducationEditor() {
       {/* 쪽지시험 문항 */}
       <div className="rounded-xl bg-[#1a2332] p-6 ring-1 ring-white/[0.06] space-y-5">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-white">쪽지시험 문항</h2>
-          <div className="flex items-center gap-2">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-white">
+            쪽지시험 문항 {locked && <Badge variant="default">끝난 달 · 문항 고정</Badge>}
+          </h2>
+          <div className={locked ? 'hidden' : 'flex items-center gap-2'}>
             <Button variant="secondary" size="sm" onClick={handleGenerateQuestions}>
               <Sparkles size={13} className="mr-1" /> AI 문항 생성
             </Button>
@@ -486,6 +498,7 @@ function EducationEditor() {
             </Button>
           </div>
         </div>
+        <fieldset disabled={locked} className="space-y-5">
         {questions.map((q, qi) => (
           <div key={qi} className="rounded-lg bg-white/[0.03] p-4 ring-1 ring-white/[0.06] space-y-3">
             <div className="flex items-center gap-2">
@@ -497,7 +510,7 @@ function EducationEditor() {
                   placeholder="질문을 입력하세요"
                 />
               </div>
-              <Button variant="danger" size="sm" onClick={() => setQuestions((prev) => prev.filter((_, idx) => idx !== qi))}>
+              <Button variant="danger" size="sm" className={locked ? 'hidden' : undefined} onClick={() => setQuestions((prev) => prev.filter((_, idx) => idx !== qi))}>
                 <Trash2 size={14} className="mr-1" /> 문항 삭제
               </Button>
             </div>
@@ -530,6 +543,7 @@ function EducationEditor() {
             </div>
           </div>
         ))}
+        </fieldset>
         {questions.length === 0 && (
           <p className="text-sm text-slate-500 text-center py-4">
             문항이 없습니다. 문항을 추가하면 이 자료가 월간 쪽지시험에 출제됩니다.

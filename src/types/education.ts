@@ -1,4 +1,4 @@
-/* RE100 교육 — 동향 레포트 피드(월별) / 월간 쪽지시험(전 문항 정복형) / 수료증 */
+/* RE100 교육 — 동향 레포트 피드(월별) / 월간 쪽지시험(전 문항 정복형) */
 
 export interface EduReportSection {
   heading: string;
@@ -63,26 +63,10 @@ export interface EduQuizProgress {
   completedAt?: string; // 전 문항 정답 달성 시각 (ISO)
 }
 
-/** 월 단위 수료증 — 해당 월 시험 전 문항 이수 시 발급 */
-export interface EduCertificate {
-  id: string;
-  certificateNo: string; // RE100-EDU-YYYY-NNNN
-  month: string; // YYYY-MM
-  courseTitle: string; // 예: 2026년 7월 RE100 동향 교육
-  userName: string;
-  companyName?: string;
-  issuedAt: string; // YYYY-MM-DD
-}
-
 /** 월 라벨 — 날짜 양식은 하이픈(2026-07), 기본 그룹은 '기본 정보' */
 export function formatMonthKo(month: string): string {
   if (month === BASIC_GROUP) return '기본 정보';
   return month;
-}
-
-export function monthCourseTitle(month: string): string {
-  if (month === BASIC_GROUP) return 'RE100 기본 교육';
-  return `${formatMonthKo(month)} RE100 교육`;
 }
 
 /**
@@ -94,4 +78,14 @@ export function isQuizOpen(month: string, now: Date = new Date()): boolean {
   if (month === BASIC_GROUP) return true;
   const current = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   return month < current;
+}
+
+/** 끝난 달인지 — 끝난 달은 쪽지시험이 열려 있으니 그 달 문항·발행일·초안 발행을 바꾸지 않는다(기본 정보 제외) */
+export function isMonthClosed(month: string, now: Date = new Date()): boolean {
+  return month !== BASIC_GROUP && isQuizOpen(month, now);
+}
+
+/** 이번 달 1일 — 새 자료 발행일은 이 날 이후만 (끝난 달로 넣지 않는다) */
+export function currentMonthStart(now: Date = new Date()): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
 }

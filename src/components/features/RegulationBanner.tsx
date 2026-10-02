@@ -36,7 +36,7 @@ export function RegulationBanner({ regulations, onStartConsulting }: RegulationB
             className="rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] p-4 min-w-[260px] shrink-0"
           >
             <div className="flex items-center gap-2">
-              <Badge variant={URGENCY_BADGE_VARIANT[urgency]} className="text-[10px]">
+              <Badge variant={URGENCY_BADGE_VARIANT[urgency]}>
                 {regulation.code}
               </Badge>
             </div>

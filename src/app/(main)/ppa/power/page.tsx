@@ -714,7 +714,7 @@ export default function PpaPowerPage() {
         title="★ 24/7 CFE 매칭률"
         description="시간대별 탄소 무배출 에너지 매칭 패턴 — 풍력·태양광 가용 시간에 부하를 정렬"
         actions={
-          <Badge variant="info" className="text-[10px]">
+          <Badge variant="info">
             시그니처
           </Badge>
         }

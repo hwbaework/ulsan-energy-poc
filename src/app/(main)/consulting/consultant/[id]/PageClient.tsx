@@ -208,7 +208,7 @@ export default function ConsultantProfilePage() {
                         <p className="text-sm font-medium text-white">{item.title}</p>
                         <p className="mt-1 text-xs text-slate-500">{item.year}</p>
                       </div>
-                      <Badge variant="success" className="text-[10px]">
+                      <Badge variant="success">
                         {item.result}
                       </Badge>
                     </div>

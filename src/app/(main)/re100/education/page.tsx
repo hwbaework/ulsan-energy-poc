@@ -2,29 +2,25 @@
 
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Award, BadgeCheck, CheckCircle2, ChevronRight, Download, Lock, PenLine, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { BadgeCheck, CheckCircle2, ChevronRight, Lock, PenLine, Pencil, Plus, Trash2 } from 'lucide-react';
 import { SectionCard } from '@/components/features';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { StatusPill } from '@/components/ui/Design';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { getBasicReports, getEduMonths, getMonthlyQuiz, getReportsByMonth } from '@/lib/mock-education';
 import { useEducationStore } from '@/stores/useEducationStore';
 import { useEducationContentStore } from '@/stores/useEducationContentStore';
 import { useToastStore } from '@/stores/useToastStore';
-import { exportCertificatePdf } from '@/lib/utils';
 import { DataSourcePanel } from './DataSourcePanel';
-import { QuizRunner } from './QuizRunner';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { getPersona } from '@/lib/persona';
-import { BASIC_GROUP, formatMonthKo, isPublished, isQuizOpen } from '@/types/education';
+import { BASIC_GROUP, formatMonthKo, isPublished, isQuizOpen, isMonthClosed } from '@/types/education';
 
 function EducationInner() {
   const router = useRouter();
-  const certificates = useEducationStore((s) => s.certificates);
-  // 쪽지시험은 화면 안에서 펼쳐 푼다 — 자료 상세에서 넘어오면 ?quiz=월 로 바로 연다
-  const [openQuiz, setOpenQuiz] = useState<string | null>(useSearchParams().get('quiz'));
   const readReportIds = useEducationStore((s) => s.readReportIds);
   const progressByMonth = useEducationStore((s) => s.progressByMonth);
   const reports = useEducationContentStore((s) => s.reports);
@@ -32,15 +28,17 @@ function EducationInner() {
   const setStatus = useEducationContentStore((s) => s.setStatus);
   const toast = useToastStore((s) => s.add);
 
-  // 관리자(SPC)만 작성·발행·삭제. 전기사용자·발전사업자는 열람·시험·수료증
+  // 관리자(SPC)만 작성·발행·삭제. 전기사용자·발전사업자는 열람·시험
   const user = useAuthStore((s) => s.user);
   const isAdmin = ['admin', 'spc'].includes(getPersona(user));
 
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   // "기본" 그룹을 맨 앞에, 그 다음 월별 그룹 (기본 자료가 있을 때만 기본 그룹 노출)
-  const hasBasic = getBasicReports(reports).length > 0;
-  const groups = [...(hasBasic ? [BASIC_GROUP] : []), ...getEduMonths(reports)];
+  // 관리자는 초안까지, 사용자는 발행된 자료만
+  const visible = isAdmin ? reports : reports.filter(isPublished);
+  const hasBasic = getBasicReports(visible).length > 0;
+  const groups = [...(hasBasic ? [BASIC_GROUP] : []), ...getEduMonths(visible)];
   const deleteTarget = reports.find((r) => r.id === deleteTargetId);
 
   return (
@@ -64,32 +62,10 @@ function EducationInner() {
       {/* 자료 수집 — 관리자만. 소스(API·크롤링)에서 모은 글을 건별로 [초안 만들기] / [발행 안 함] */}
       {isAdmin && <DataSourcePanel />}
 
-      {/* 내 수료증 — 쪽지시험 전 문항을 맞히면 여기 바로 쌓이고 PDF 로 받는다 */}
-      {!isAdmin && certificates.length > 0 && (
-        <SectionCard title="내 수료증" noPadding>
-          <div className="divide-y divide-white/[0.05]">
-            {certificates.map((cert) => (
-              <div key={cert.id} className="flex items-center gap-4 px-5 py-3">
-                <Award size={16} className="shrink-0 text-violet-400" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white">{cert.courseTitle}</p>
-                  <p className="text-xs text-slate-500 tabular-nums">
-                    {cert.certificateNo} · 발급일 {cert.issuedAt}
-                  </p>
-                </div>
-                <Button size="sm" variant="secondary" onClick={() => exportCertificatePdf(cert)}>
-                  <Download size={14} className="mr-1" /> 수료증 PDF
-                </Button>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-      )}
-
       {groups.map((month) => {
         const isBasic = month === BASIC_GROUP;
-        const monthReports = getReportsByMonth(reports, month);
-        const quiz = isBasic ? [] : getMonthlyQuiz(reports, month); // 기본 정보는 시험 없이 읽기만
+        const monthReports = getReportsByMonth(visible, month);
+        const quiz = getMonthlyQuiz(reports, month); // 기본 정보도 쪽지시험 — 월별과 같은 자리(카드 제목 오른쪽), 언제든 응시
         const progress = progressByMonth[month];
         const quizIds = new Set(quiz.map((q) => q.id));
         const solvedCount = (progress?.correctQuestionIds ?? []).filter((id) => quizIds.has(id)).length;
@@ -102,44 +78,24 @@ function EducationInner() {
             noPadding
             actions={
               quiz.length > 0 &&
-              (!isQuizOpen(month) ? (
+              (completed ? (
+                <StatusPill tone="normal" label="이수 완료" />
+              ) : !isQuizOpen(month) ? (
                 <span className="flex items-center gap-2 rounded-lg bg-white/[0.04] px-3 py-1.5 ring-1 ring-white/[0.06] text-sm text-slate-500">
                   <Lock size={13} />
                   <span>쪽지시험은 {formatMonthKo(month)} 종료 후 오픈</span>
                 </span>
               ) : (
-                <Button size="sm" onClick={() => setOpenQuiz(openQuiz === month ? null : month)}>
-                  {completed ? (
-                    <>
-                      <Award size={14} />
-                      <span>이수 완료</span>
-                    </>
-                  ) : (
-                    <>
-                      <PenLine size={14} />
-                      <span>월간 쪽지시험</span>
-                      <span className="text-xs text-white/80">
-                        {solvedCount}/{quiz.length} 문항
-                      </span>
-                    </>
-                  )}
+                <Button size="sm" onClick={() => router.push(`/re100/education/quiz?month=${month}`)}>
+                  <PenLine size={14} />
+                  <span>{isBasic ? '기본 쪽지시험' : '월간 쪽지시험'}</span>
+                  <span className="text-xs text-white/80">
+                    {solvedCount}/{quiz.length} 문항
+                  </span>
                 </Button>
               ))
             }
           >
-            {/* 쪽지시험 — 이 자리에서 풀고 수료증까지 */}
-            {openQuiz === month && (
-              <div className="border-b border-white/[0.06] bg-white/[0.02] px-5 py-5">
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-sm font-semibold text-white">{`${formatMonthKo(month)} 쪽지시험`}</p>
-                  <button type="button" onClick={() => setOpenQuiz(null)} className="rounded-md p-1.5 text-slate-500 hover:bg-white/[0.08] hover:text-white" aria-label="닫기">
-                    <X size={15} />
-                  </button>
-                </div>
-                <QuizRunner month={month} embedded />
-              </div>
-            )}
-
             {/* 자료 목록 */}
             <div className="divide-y divide-white/[0.05]">
               {monthReports.map((report) => {
@@ -163,7 +119,8 @@ function EducationInner() {
                     </Badge>
                     {isAdmin && (
                       <div className="flex shrink-0 items-center gap-1">
-                        {!isPublished(report) && (
+                        {/* 끝난 달 초안은 발행 불가 — 그 달 쪽지시험 문항이 바뀌지 않게 */}
+                        {!isPublished(report) && (report.basic || !isMonthClosed(report.publishedAt.slice(0, 7))) && (
                           <button
                             type="button"
                             title="발행"

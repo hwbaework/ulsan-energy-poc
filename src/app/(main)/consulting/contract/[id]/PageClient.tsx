@@ -233,7 +233,7 @@ function ContractContent() {
               <div className="mt-4 pt-4 border-t border-white/[0.06] flex flex-wrap gap-1.5">
                 <p className="text-[10px] text-slate-500 w-full mb-1">서비스 범위</p>
                 {scope.map((s: string) => (
-                  <Badge key={s} variant="primary" className="text-[10px]">
+                  <Badge key={s} variant="primary">
                     {SCOPE_LABELS[s] ?? s}
                   </Badge>
                 ))}

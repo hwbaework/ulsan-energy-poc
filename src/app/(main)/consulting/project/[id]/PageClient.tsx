@@ -841,7 +841,7 @@ function ProjectHubContent() {
                             </div>
                           </div>
                           {isLinked ? (
-                            <Badge variant="success" className="text-[9px]">
+                            <Badge variant="success">
                               연결됨
                             </Badge>
                           ) : (
@@ -881,7 +881,7 @@ function ProjectHubContent() {
                               <p className="text-[10px] text-slate-500">{s.address}</p>
                             </div>
                           </div>
-                          <Badge variant="default" className="text-[9px]">
+                          <Badge variant="default">
                             {s.siteType === 'HEAD' ? '본사' : s.siteType === 'BRANCH' ? '지사' : s.siteType}
                           </Badge>
                         </div>
@@ -1259,7 +1259,6 @@ function ProjectHubContent() {
                             variant={
                               r.status === 'APPROVED' ? 'success' : r.status === 'REJECTED' ? 'danger' : 'warning'
                             }
-                            className="text-[9px]"
                           >
                             {r.status === 'APPROVED'
                               ? '승인'
@@ -1499,7 +1498,6 @@ function ProjectHubContent() {
                         </div>
                         <Badge
                           variant={r.status === 'APPROVED' ? 'success' : r.status === 'REJECTED' ? 'danger' : 'warning'}
-                          className="text-[9px]"
                         >
                           {r.status === 'APPROVED'
                             ? '승인'

@@ -23,11 +23,17 @@ export function SourceMarker({ type, size = 18, className }: { type: string; siz
   return <Image src={s.markerUrl} width={size} height={size} alt={s.label} className={cn('inline-block shrink-0', className)} />;
 }
 
+/**
+ * 표 셀(td) 안의 배지 — 박스를 빼고 옆 글자와 같은 크기(셀 글자 크기 상속). 점·아이콘·색은 그대로.
+ * 표 밖에서는 박스 + 12px.
+ */
+export const IN_TABLE = '[td_&]:!bg-transparent [td_&]:!shadow-none [td_&]:ring-0 [td_&]:border-0 [td_&]:px-0 [td_&]:py-0 [td_&]:text-[length:inherit]';
+
 export function SourceBadge({ type, withIcon = true, className }: { type: string; withIcon?: boolean; className?: string }) {
   const s = sourceOf(type);
   return (
     <span
-      className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium', className)}
+      className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium', IN_TABLE, className)}
       style={{ color: s.color, backgroundColor: `${s.color}1F`, boxShadow: `inset 0 0 0 1px ${s.color}66` }}
     >
       {withIcon && <SourceIcon type={type} size={12} />}
@@ -38,7 +44,7 @@ export function SourceBadge({ type, withIcon = true, className }: { type: string
 
 /** 계약 유형 배지 — 자가소비 / 온사이트 PPA. 발전소 목록·상세·관제 홈이 같이 쓴다 */
 /**
- * size: 'sm' = 목록·상세의 SourceBadge 와 같은 크기(10px) / 'md' = 관제 홈 발전원 칩과 같은 크기(text-xs semibold)
+ * size: 'sm' = 목록·상세의 SourceBadge 와 같은 크기(12px) / 'md' = 관제 홈 발전원 칩과 같은 크기(text-xs semibold)
  * 옆에 놓이는 칩과 글자 크기를 맞춘다. 색으로 구분하지 않는다 — 유형은 글자로만 읽힌다
  */
 export function ContractBadge({
@@ -57,9 +63,10 @@ export function ContractBadge({
     <span
       className={cn(
         'inline-flex items-center whitespace-nowrap',
-        size === 'md' ? 'text-xs font-semibold' : 'text-[10px] font-medium',
+        IN_TABLE,
+        size === 'md' ? 'text-xs font-semibold' : 'text-xs font-medium',
         boxed
-          ? cn('rounded-md border border-white/10 bg-white/[0.04] text-white', size === 'md' ? 'px-2 py-0.5' : 'px-1.5 py-0.5')
+          ? cn('rounded-md border border-white/10 bg-white/[0.04] text-white', 'px-2 py-0.5')
           : size === 'md'
             ? 'text-slate-300'
             : 'text-slate-400',
@@ -108,7 +115,7 @@ export function StatusDot({ status, pulse = false, className }: { status: string
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
   const s = statusOf(status);
   return (
-    <span className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium ring-1 whitespace-nowrap', s.badgeClass, className)}>
+    <span className={cn('inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium ring-1 whitespace-nowrap', IN_TABLE, s.badgeClass, className)}>
       <span className={cn('h-1.5 w-1.5 rounded-full', s.dotClass)} />
       {s.label}
     </span>
@@ -132,7 +139,7 @@ const TONE_STYLE: Record<StatusTone, { badge: string; dot: string }> = {
 export function StatusPill({ tone, label, className }: { tone: StatusTone; label: string; className?: string }) {
   const s = TONE_STYLE[tone];
   return (
-    <span className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium ring-1 whitespace-nowrap', s.badge, className)}>
+    <span className={cn('inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium ring-1 whitespace-nowrap', IN_TABLE, s.badge, className)}>
       <span className={cn('h-1.5 w-1.5 rounded-full', s.dot)} />
       {label}
     </span>

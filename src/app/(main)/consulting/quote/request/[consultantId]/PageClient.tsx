@@ -199,7 +199,7 @@ function QuoteRequestContent() {
                 <Users size={18} className="text-slate-500" />
                 <p className="mt-2 text-sm font-medium text-slate-500">비교 견적</p>
                 <p className="mt-1 text-xs text-slate-600">유사 컨설턴트 최대 3명에게 동시 요청</p>
-                <Badge variant="default" className="absolute top-3 right-3 text-[9px]">
+                <Badge variant="default" className="absolute top-3 right-3">
                   준비 중
                 </Badge>
               </div>
@@ -238,7 +238,7 @@ function QuoteRequestContent() {
                           {item.label}
                         </span>
                         {item.required && (
-                          <Badge variant="default" className="text-[9px]">
+                          <Badge variant="default">
                             필수
                           </Badge>
                         )}

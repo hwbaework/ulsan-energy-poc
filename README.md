@@ -32,6 +32,8 @@ npm run deploy     # build + wrangler deploy (Cloudflare 로그인 필요)
 ## 디자인 기준
 
 - 색·아이콘·상태 규칙은 `src/lib/design.ts` 한 곳에서 정의한다 (근거: DT WEB 기본 디자인 가이드). 화면은 `src/components/ui/Design.tsx` 의 `SourceBadge` / `SourceIcon` / `StatusBadge` / `MetricIcon` 만 쓴다.
+- 배지 글자는 모두 12px. 상태는 네모 + 점 + 글자(`StatusPill`), 분류(초안·출처·구분)는 네모 + 글자(`Badge`). 화면에서 배지 글자 크기를 덮어쓰지 않는다.
+- 표 셀 안의 배지는 박스 없이 점 + 글자, 글자 크기는 옆 셀과 같게 — `Design.tsx` 의 `IN_TABLE` 이 자동 처리.
 - 가이드 페이지: `/guide` (메뉴에 없음, URL 로만 접근). 배포 후 `https://ulsanenergypoc.pairwork.net/guide`.
 - 규칙 요약: 발전원 색은 **태양광 노랑 `#F59E0B` · ORC 바이올렛 `#8B5CF6` · 연료전지 파랑 `#3B82F6`** 로 고정(2026-09-22). 화면 아이콘은 lucide(Sun / Flame / BatteryCharging), 지도 핀은 `public/assets/icon/icon_zoom_out_*.svg` 벡터이며 fill 을 `design.ts` 와 같게 유지한다. 상태는 정상 초록·이상감지 빨강 두 가지뿐이고, 지도에서는 이상 발전소의 **핀 자체를 빨강**으로 표시한다(링·펄스 없음). 숫자 KPI 카드에는 아이콘을 붙이지 않는다. 지표는 라벨이 같으면 아이콘도 같다. 퍼센트·이모지는 쓰지 않는다.
 - 화면설계서 작성 표준: [`docs/화면설계서-양식.md`](docs/화면설계서-양식.md)

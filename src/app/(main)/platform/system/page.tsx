@@ -174,7 +174,7 @@ export default function SystemHealthPage() {
                 )}
                 <span className="text-xs font-medium text-white">{name}</span>
               </div>
-              <Badge variant={comp.status === 'UP' ? 'success' : 'danger'} className="text-[10px]">
+              <Badge variant={comp.status === 'UP' ? 'success' : 'danger'}>
                 {comp.status}
               </Badge>
             </div>

@@ -248,7 +248,7 @@ function QuoteCompareContent() {
                     {proposal.scope.length > 0 && (
                       <div className="px-6 py-3 border-t border-white/[0.06] flex flex-wrap gap-1.5">
                         {proposal.scope.map((s) => (
-                          <Badge key={s} variant="default" className="text-[10px]">
+                          <Badge key={s} variant="default">
                             {SCOPE_LABELS[s] ?? s}
                           </Badge>
                         ))}

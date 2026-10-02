@@ -259,6 +259,8 @@ export default function DesignGuidePage() {
             <li>계약 유형 배지는 회색 중립(자가소비 · 온사이트). 연료전지·ORC에는 계약 배지를 붙이지 않는다.</li>
             <li>페이지 제목 24px bold, 카드 제목 16px semibold, 라벨 12px slate-400, 카드 수치 24px bold.</li>
             <li>상태·통신·전원 칩은 StatusPill(동그라미 + 라벨) 한 형태로 통일한다. 새 배지 모양을 만들지 않는다.</li>
+            <li>배지 글자는 모두 12px. 상태는 네모 + 점 + 글자(StatusPill), 분류(초안·출처·구분)는 네모 + 글자(Badge). 화면에서 글자 크기를 덮어쓰지 않는다.</li>
+            <li>표 셀 안의 배지는 박스 없이 점 + 글자, 글자 크기는 옆 셀과 같게(공통 컴포넌트가 자동 처리).</li>
             <li>표에서 발전소는 PlantNameCell(아이콘 + 이름 + 발전원 라벨)로 표기한다. 순번은 시스템 ID가 아니라 별도 'No.' 컬럼(1,2,3…)으로 매긴다.</li>
             <li>숫자 KPI 카드(StatCard)에는 sub 설명을 넣지 않는다. 라벨 + 수치만.</li>
             <li>

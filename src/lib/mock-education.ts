@@ -236,7 +236,7 @@ export const MOCK_EDU_REPORTS: EduReport[] = [
         options: [
           '재생에너지 종류 제한',
           '매 시간 단위의 무탄소 전력 매칭',
-          '수료증 발급 여부',
+          '인증서 발급 기관',
           '참여 기업 규모 제한',
         ],
         answerIndex: 1,

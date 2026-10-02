@@ -387,7 +387,7 @@ export default function GeneratorPpaRevenueAnalyticsPage() {
         title={`${displayPeriod} 수익 구성`}
         description={`${isDirect ? 'Onsite · Offsite PPA' : '온사이트 PPA'} 분해`}
         actions={
-          <Badge variant="info" className="text-[10px]">
+          <Badge variant="info">
             {displayPeriod}
           </Badge>
         }
@@ -675,7 +675,7 @@ export default function GeneratorPpaRevenueAnalyticsPage() {
               <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.04] p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-slate-300">월간 수익 리포트</span>
-                  <Badge variant={deliveryEnabled ? 'info' : 'default'} className="text-[10px]">
+                  <Badge variant={deliveryEnabled ? 'info' : 'default'}>
                     {deliveryEnabled ? `매월 ${deliveryDay}일` : '비활성'}
                   </Badge>
                 </div>

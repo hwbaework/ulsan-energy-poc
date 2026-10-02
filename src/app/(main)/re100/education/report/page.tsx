@@ -16,7 +16,7 @@ import { useEducationContentStore } from '@/stores/useEducationContentStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { getPersona } from '@/lib/persona';
-import { BASIC_GROUP, formatMonthKo, isPublished, isQuizOpen } from '@/types/education';
+import { BASIC_GROUP, formatMonthKo, isPublished, isQuizOpen, isMonthClosed } from '@/types/education';
 
 function EducationReportInner() {
   // 정적 export 라 동적 세그먼트 대신 ?id= 로 받는다
@@ -30,7 +30,7 @@ function EducationReportInner() {
   const progressByMonth = useEducationStore((s) => s.progressByMonth);
   const toast = useToastStore((s) => s.add);
 
-  // 관리자(SPC)만 작성·발행·삭제. 전기사용자·발전사업자는 열람·시험·수료증
+  // 관리자(SPC)만 작성·발행·삭제. 전기사용자·발전사업자는 열람·시험
   const user = useAuthStore((s) => s.user);
   const isAdmin = ['admin', 'spc'].includes(getPersona(user));
 
@@ -113,6 +113,7 @@ function EducationReportInner() {
               ) : (
                 <Button
                   size="sm"
+                  disabled={!report.basic && isMonthClosed(report.publishedAt.slice(0, 7))}
                   onClick={() => {
                     setStatus(report.id, 'published');
                     toast('success', '자료가 발행되었습니다. 문항이 월간 쪽지시험에 포함됩니다.');
@@ -240,19 +241,18 @@ function EducationReportInner() {
             <h2 className="text-base font-semibold text-white">{formatMonthKo(month)} 쪽지시험</h2>
             <p className="mt-1 text-sm text-slate-400">
               {isQuizOpen(month) ? (
-                <>
-                  이 달의 교육 자료 기반 {quiz.length}문항 — 전 문항을 맞히면 수료증이 발급됩니다 ({solvedCount}/
-                  {quiz.length} 정복)
-                </>
+                <span className="tabular-nums">
+                  {solvedCount}/{quiz.length} 문항
+                </span>
               ) : (
-                <>{formatMonthKo(month)}이 끝나면 이 달의 자료 기반 쪽지시험이 오픈됩니다</>
+                <>{formatMonthKo(month)} 종료 후 오픈</>
               )}
             </p>
           </div>
           <div className="flex items-center gap-2">
             {isQuizOpen(month) ? (
               <>
-                <Link href={`/re100/education?quiz=${month}`}>
+                <Link href={`/re100/education/quiz?month=${month}`}>
                   <Button>
                     <PenLine size={15} className="mr-1.5" />
                     {completed ? '시험 다시 보기' : '쪽지시험 풀기'}

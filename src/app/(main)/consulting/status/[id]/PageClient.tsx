@@ -1403,7 +1403,7 @@ export default function ConsultingDetailPage() {
                                 </div>
                               </div>
                               {isLinked ? (
-                                <Badge variant="success" className="text-[9px]">
+                                <Badge variant="success">
                                   연결됨
                                 </Badge>
                               ) : (

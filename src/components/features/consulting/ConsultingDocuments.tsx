@@ -43,8 +43,8 @@ export function ConsultingDocuments() {
     },
     { key: 'category', header: '분류', width: '120px', render: (d) => cell(d.category) },
     ...(isAdmin ? [{ key: 'company', header: '업체', width: '150px', render: (d: ConsultingDoc) => cell(d.companyName) }] : []),
-    { key: 'contract', header: '계약번호', width: '150px', render: (d) => <div className="space-y-0.5">{d.contracts.map((c) => <div key={c.no}>{cellNum(c.no)}</div>)}</div> },
-    { key: 'plant', header: '발전소', width: '180px', render: (d) => <div className="space-y-0.5">{d.contracts.map((c) => <div key={c.no}>{cell(c.plant)}</div>)}</div> },
+    { key: 'contract', header: '계약번호', width: '150px', render: (d) => cellNum(d.contractNo) },
+    { key: 'plant', header: '발전소', width: '180px', render: (d) => cell(d.plantName) },
     { key: 'issuedAt', header: '발행일', width: '130px', sortable: true, sortValue: (d) => d.issuedAt, render: (d) => cellMuted(d.issuedAt) },
     {
       key: 'down',

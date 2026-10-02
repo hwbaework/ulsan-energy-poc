@@ -3,7 +3,7 @@
 import { BackButton } from '@/components/layout/PageTitle';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, CheckCircle2, Download, FileQuestion, RotateCcw, XCircle } from 'lucide-react';
+import { ArrowRight, CheckCircle2, FileQuestion, RotateCcw, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -14,11 +14,10 @@ import { useEducationStore } from '@/stores/useEducationStore';
 import { useEducationContentStore } from '@/stores/useEducationContentStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
-import { exportCertificatePdf } from '@/lib/utils';
 import type { EduQuizQuestion } from '@/types/education';
-import { formatMonthKo, isQuizOpen } from '@/types/education';
+import { BASIC_GROUP, formatMonthKo, isQuizOpen } from '@/types/education';
 
-/** 쪽지시험 — 한 문제씩, 틀린 문항은 다시, 전 문항을 맞히면 수료증 발급. embedded 면 교육 자료 화면 안에 들어간다 */
+/** 쪽지시험 — 한 문제씩, 틀린 문항은 다시, 전 문항을 맞히면 이수 완료. embedded 면 교육 자료 화면 안에 들어간다 */
 export function QuizRunner({ month, embedded = false }: { month: string; embedded?: boolean }) {
   const router = useRouter();
   const reports = useEducationContentStore((s) => s.reports);
@@ -26,7 +25,6 @@ export function QuizRunner({ month, embedded = false }: { month: string; embedde
 
   const user = useAuthStore((s) => s.user);
   const progressByMonth = useEducationStore((s) => s.progressByMonth);
-  const certificates = useEducationStore((s) => s.certificates);
   const gradeRound = useEducationStore((s) => s.gradeRound);
   const toast = useToastStore((s) => s.add);
 
@@ -34,7 +32,7 @@ export function QuizRunner({ month, embedded = false }: { month: string; embedde
   const [selected, setSelected] = useState<number | null>(null);
   const [revealed, setRevealed] = useState<{ q: EduQuizQuestion; correct: boolean } | null>(null);
 
-  const validMonth = /^\d{4}-\d{2}$/.test(month ?? ''); // 기본 정보는 시험 없음
+  const validMonth = month === BASIC_GROUP || /^\d{4}-\d{2}$/.test(month ?? '');
   if (!validMonth || questions.length === 0) {
     return (
       <EmptyState
@@ -70,7 +68,6 @@ export function QuizRunner({ month, embedded = false }: { month: string; embedde
   const solvedIds = new Set(progress?.correctQuestionIds ?? []);
   const remaining = questions.filter((q) => !solvedIds.has(q.id));
   const completed = remaining.length === 0;
-  const certificate = certificates.find((c) => c.month === month);
   const currentQ = remaining[0];
 
   const handleCheck = () => {
@@ -94,9 +91,7 @@ export function QuizRunner({ month, embedded = false }: { month: string; embedde
     const wasLast = revealed?.correct && remaining.length === 1;
     setRevealed(null);
     setSelected(null);
-    if (wasLast && certificate) {
-      toast('success', '전 문항 이수 완료! 수료증이 발급되었습니다.');
-    }
+    if (wasLast) toast('success', '이수 완료');
   };
 
   const solvedCount = solvedIds.size;
@@ -111,14 +106,14 @@ export function QuizRunner({ month, embedded = false }: { month: string; embedde
             { label: 'RE100', path: '/re100' },
             { label: 'RE100 교육', path: '/re100/education' },
             { label: '교육 자료', path: '/re100/education' },
-            { label: `${formatMonthKo(month)} 쪽지시험` },
+            { label: month === BASIC_GROUP ? '기본 쪽지시험' : `${formatMonthKo(month)} 쪽지시험` },
           ]}
         />
       </div>
 
       <div className="flex items-center gap-2">
-        <BackButton href="/re100/education" label="교육 목록으로" />
-        <h1 className="text-2xl font-bold text-white">{formatMonthKo(month)} 쪽지시험</h1>
+        <BackButton href="/re100/education" label="교육 자료로" />
+        <h1 className="text-2xl font-bold text-white">{month === BASIC_GROUP ? '기본 쪽지시험' : `${formatMonthKo(month)} 쪽지시험`}</h1>
       </div>
 
         </>
@@ -134,22 +129,13 @@ export function QuizRunner({ month, embedded = false }: { month: string; embedde
       {/* 이수 완료 */}
       {completed ? (
         <div className="rounded-xl bg-[#1a2332] p-6 ring-1 ring-emerald-500/40">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 size={32} className="text-emerald-400 shrink-0" />
-              <div>
-                <div className="text-lg font-bold text-white">이수 완료</div>
-                <div className="text-sm text-slate-400">
-                  {questions.length}문항 전체를 맞혔습니다 · 채점 {progress?.attemptCount ?? 0}회
-                </div>
+          <div className="flex items-center gap-3">
+            <CheckCircle2 size={32} className="text-emerald-400 shrink-0" />
+            <div>
+              <div className="text-lg font-bold text-white">이수 완료</div>
+              <div className="text-sm text-slate-400 tabular-nums">
+                {questions.length}문항 · 채점 {progress?.attemptCount ?? 0}회
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {certificate && (
-                <Button onClick={() => exportCertificatePdf(certificate)}>
-                  <Download size={15} className="mr-1.5" /> 수료증 다운로드
-                </Button>
-              )}
             </div>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { IN_TABLE } from '@/components/ui/Design';
 
 export type BadgeVariant = 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info';
 
@@ -21,7 +22,8 @@ export function Badge({ variant = 'default', children, className }: BadgeProps) 
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium whitespace-nowrap',
+        IN_TABLE,
         variantStyles[variant],
         className,
       )}

@@ -28,7 +28,7 @@ export default function ConsultingDocumentViewPage() {
           <h1 className="text-2xl font-bold text-white">{doc?.title ?? '문서'}</h1>
           {doc && (
             <p className="mt-1.5 text-sm text-slate-400 tabular-nums">
-              {doc.companyName} · {doc.contracts.map((c) => `${c.no} ${c.plant}`).join(' / ')} · 발행일 {doc.issuedAt} · {doc.pages}쪽
+              {[doc.companyName, doc.plantName, doc.contractNo, `발행일 ${doc.issuedAt}`, `${doc.pages}쪽`].filter(Boolean).join(' · ')}
             </p>
           )}
           </div>

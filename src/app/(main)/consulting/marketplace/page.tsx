@@ -288,7 +288,7 @@ function MarketplaceContent() {
 
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {consultant.specializations.map((s) => (
-                      <Badge key={s} variant="default" className="text-[10px]">
+                      <Badge key={s} variant="default">
                         {DOMAIN_LABELS[s as ConsultationDomain] ?? s}
                       </Badge>
                     ))}
