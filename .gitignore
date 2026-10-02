@@ -6,6 +6,7 @@ dist-ssr
 .next-30*
 *.local
 
+# .env 는 커밋한다 — Mapbox 공개 토큰(pk., 사용 도메인 제한)만 있어 배포 빌드가 그대로 읽는다
 .env.*
 !.env.example
 
@@ -24,5 +25,3 @@ docs/
 out/
 .wrangler/
 
-# 로컬 토큰 (GitHub push protection 회피) — .env.example 참고
-.env
