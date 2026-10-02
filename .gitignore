@@ -25,3 +25,6 @@ docs/
 out/
 .wrangler/
 
+
+# 도구 상태 파일 — src 아래 생긴 것도 커밋하지 않는다
+src/**/.omc/
