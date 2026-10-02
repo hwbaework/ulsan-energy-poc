@@ -91,7 +91,7 @@ export function SimInputPanel({
   companyName: string;
   facilitySource?: string;
   footer?: ReactNode; // 한 장 맨 아래(여백 안) — [사업 검토]
-  /** 관리자만 — 기존 기업을 고르거나 기업명·기업 주소를 직접 입력. 없으면 로그인(가입) 값 고정 */
+  /** 관리자만 — 기존 기업을 고르면 기업명·기업 주소 고정, 신규 기업 등록이면 직접 입력. 없으면 로그인(가입) 값 고정 */
   companyEdit?: {
     options: { value: string; label: string }[];
     pick: string;
@@ -154,11 +154,11 @@ export function SimInputPanel({
                   <Sel value={companyEdit.pick} options={[{ value: '', label: '신규 기업 등록' }, ...companyEdit.options]} onChange={companyEdit.onPick} />
                 </Field>
                 <Field label="기업명">
-                  <input value={companyEdit.name} onChange={(e) => companyEdit.onName(e.target.value)} className={FIELD} />
+                  {companyEdit.pick ? <Fixed>{companyEdit.name}</Fixed> : <input value={companyEdit.name} onChange={(e) => companyEdit.onName(e.target.value)} className={FIELD} />}
                 </Field>
                 <div className="sm:col-span-2">
                   <Field label="기업 주소">
-                    <input value={companyEdit.address} onChange={(e) => companyEdit.onAddress(e.target.value)} className={FIELD} />
+                    {companyEdit.pick ? <Fixed>{companyEdit.address}</Fixed> : <input value={companyEdit.address} onChange={(e) => companyEdit.onAddress(e.target.value)} className={FIELD} />}
                   </Field>
                 </div>
               </div>

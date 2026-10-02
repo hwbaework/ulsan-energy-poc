@@ -8,20 +8,31 @@ import { Textarea } from '@/components/ui/Textarea';
 import { useToastStore } from '@/stores/useToastStore';
 import { useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { Contract, ContractChange } from '@/types/trading-poc';
+import type { PlantContractKind } from '@/types/monitoring';
 import { useTradingRole } from './useTradingRole';
-import { CHANGE_TYPE, PARTY_LABEL, fmtDateTime, fmtKw, fmtPrice, kindLabel } from './meta';
+import { PARTY_LABEL, changeTypeLabel, fmtDateTime, fmtKw, fmtPrice, kindLabel } from './meta';
 import { ChangeStatusPill, Info, ModalFooter } from './Bits';
 
-/** 변경 내용 한 줄 — 단가·용량은 전 → 후, 해지는 해지일 */
-export function changeText(ch: ContractChange) {
+/** 변경 내용 한 줄 — onsite 단가는 그 구간, 자가소비는 연간 O&M %, 용량·기간은 전 → 후, 해지는 해지일 */
+export function changeText(ch: ContractChange, kind?: PlantContractKind) {
   if (ch.type === 'TERMINATE') return `해지일 ${ch.effectiveDate ?? ''}`;
-  if (ch.type === 'PRICE') return `${fmtPrice(Number(ch.before))} → ${fmtPrice(Number(ch.after))}`;
+  if (ch.type === 'PRICE' && kind === 'SELF_CONSUMPTION') return `O&M ${ch.before}% → ${ch.after}%`;
+  if (ch.type === 'PRICE')
+    return `${ch.segment ? `${ch.segment}구간 ` : ''}${fmtPrice(Number(ch.before))} → ${fmtPrice(Number(ch.after))}`;
   if (ch.type === 'CAPACITY') return `${fmtKw(Number(ch.before))} → ${fmtKw(Number(ch.after))}`;
   return `${ch.before ?? ''} → ${ch.after ?? ''}`;
 }
 
 /** 변경·해지 상세 — 관리자는 승인·반려(승인하면 계약에 바로 반영), 요청한 쪽은 처리 전 취소 */
-export function ChangeDetailModal({ change, contract, onClose }: { change: ContractChange | null; contract?: Contract; onClose: () => void }) {
+export function ChangeDetailModal({
+  change,
+  contract,
+  onClose,
+}: {
+  change: ContractChange | null;
+  contract?: Contract;
+  onClose: () => void;
+}) {
   const role = useTradingRole();
   const addToast = useToastStore((s) => s.add);
   const approve = useTradingPocStore((s) => s.approveChange);
@@ -45,10 +56,10 @@ export function ChangeDetailModal({ change, contract, onClose }: { change: Contr
               <Info label="요청번호" value={ch.no} />
               <Info label="상태" value={<ChangeStatusPill status={ch.status} />} />
               <Info label="계약번호" value={contract?.no} />
-              <Info label="발전소" value={contract?.plantName} />
+              <Info label="기업명" value={contract?.consumerCompanyName} />
               <Info label="계약 유형" value={contract ? kindLabel(contract.kind) : undefined} />
-              <Info label="변경 유형" value={CHANGE_TYPE[ch.type]} />
-              <Info label="내용" value={changeText(ch)} className="col-span-2" />
+              <Info label="변경 유형" value={changeTypeLabel(ch.type, contract?.kind)} />
+              <Info label="내용" value={changeText(ch, contract?.kind)} className="col-span-2" />
               <Info label="요청자" value={`${ch.requestedByName} (${PARTY_LABEL[ch.requestedBy]})`} />
               <Info label="요청일" value={fmtDateTime(ch.requestedAt)} />
               <Info label="사유" value={ch.reason} className="col-span-2" />
@@ -122,8 +133,12 @@ export function ChangeDetailModal({ change, contract, onClose }: { change: Contr
           setConfirm(null);
           onClose();
         }}
-        title={confirm === 'approve' ? `${ch ? CHANGE_TYPE[ch.type] : ''} 승인` : '요청 취소'}
-        message={confirm === 'approve' ? `${ch?.no} 승인 — 계약 ${contract?.no ?? ''} 에 바로 반영되고 합의서가 문서 관리에 남습니다.` : `${ch?.no} 요청을 취소합니다.`}
+        title={confirm === 'approve' ? `${ch ? changeTypeLabel(ch.type, contract?.kind) : ''} 승인` : '요청 취소'}
+        message={
+          confirm === 'approve'
+            ? `${ch?.no} 승인 — 계약 ${contract?.no ?? ''} 에 바로 반영되고 합의서가 문서 관리에 남습니다.`
+            : `${ch?.no} 요청을 취소합니다.`
+        }
         confirmLabel={confirm === 'approve' ? '승인' : '요청 취소'}
         variant={confirm === 'approve' && ch?.type !== 'TERMINATE' ? 'primary' : 'danger'}
       />

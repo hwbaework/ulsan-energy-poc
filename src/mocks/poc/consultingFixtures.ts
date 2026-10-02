@@ -142,10 +142,38 @@ const diag = (id: number, sim: SimInput, createdAt: string): Diagnosis => {
   };
 };
 
-const DIAGNOSES: Diagnosis[] = [diag(1, SIM_HQ_PPA, '2026-08-18T15:20:00'), diag(2, SIM_SITE2_SELF, '2026-06-11T10:40:00'), diag(3, SIM_HQ_SELF_OLD, '2026-02-05T14:00:00')];
+/* 발전사업자 계정(울산 발전(주) · companyId 3) 기록 — 한일튜브 부지 */
+const GEN = { companyId: 3, companyName: '울산 발전(주)', contactName: '박발전', contactEmail: 'operator@test.com', contactPhone: '010-2000-0002' };
+const SIM_GEN_PPA: SimInput = (() => {
+  const x = defaultSimInput('울산 발전(주)', '울산 남구 부곡동 273-6');
+  x.mode = 'ppa';
+  x.roof = 2400;
+  x.facilities = [{ source: '태양광', kw: 429.44, genKwh: 0, useKwh: 0 }];
+  x.ppa = { ...x.ppa, cap: 180, b1: 3, b2: 20, segs: [{ linked: false, price: 136 }, { linked: false, price: 136 }, { linked: false, price: 136 }] };
+  return x;
+})();
+const SIM_GEN_SELF: SimInput = (() => {
+  const x = defaultSimInput('울산 발전(주)', '울산 남구 부곡동 273-6');
+  x.mode = 'self';
+  x.facilities = [{ source: '태양광', kw: 429.44, genKwh: 0, useKwh: 0 }];
+  x.self = { ...x.self, cap: 100, ctr: 600, usage: 52_000 };
+  return x;
+})();
+const diagGen = (id: number, sim: SimInput, createdAt: string): Diagnosis => {
+  const R = calc(sim);
+  return { id, ...GEN, domain: 'RE100', annualEnergyUsage: Math.round(R.annualGen1 / 1000), sim, createdAt } as Diagnosis;
+};
+
+const DIAGNOSES: Diagnosis[] = [
+  diag(1, SIM_HQ_PPA, '2026-08-18T15:20:00'),
+  diag(2, SIM_SITE2_SELF, '2026-06-11T10:40:00'),
+  diag(3, SIM_HQ_SELF_OLD, '2026-02-05T14:00:00'),
+  diagGen(5, SIM_GEN_PPA, '2026-09-15T14:00:00'),
+  diagGen(6, SIM_GEN_SELF, '2026-07-20T10:30:00'),
+];
 
 /* 새로고침해도 신청·진단이 남게 — 브라우저에 저장 (POC) */
-const STORE_KEY = 'ulsan-consulting-poc-v6';
+const STORE_KEY = 'ulsan-consulting-poc-v7';
 if (typeof window !== 'undefined') {
   try {
     const saved = JSON.parse(window.localStorage.getItem(STORE_KEY) ?? 'null');

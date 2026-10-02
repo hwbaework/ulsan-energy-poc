@@ -18,6 +18,24 @@ export type TradeRequestStatus =
   | 'REJECTED' // 반려
   | 'CANCELLED'; // 신청 취소
 
+/** 계약 현황의 소통 — 신청자(기업·발전사업자) ↔ SPC */
+export interface TradeMessage {
+  at: string;
+  by: Party;
+  byName: string;
+  text: string;
+}
+
+/** SPC 조건 제안 — 실측 뒤 조건을 고쳐 제안하고 신청자가 수락하거나 수정 요청. 수락되면 승인 때 계약 조건이 된다 */
+export interface TermsProposal {
+  at: string;
+  terms: Partial<ContractTerms> & { capacityKw?: number; termYears?: number };
+  note?: string;
+  status: 'OPEN' | 'ACCEPTED' | 'REVISE';
+  respondedAt?: string;
+  responseNote?: string;
+}
+
 export interface TradeEvent {
   at: string; // ISO
   by: Party;
@@ -25,7 +43,36 @@ export interface TradeEvent {
   note?: string;
 }
 
-export interface TradeRequest {
+/**
+ * 계약 조건 — 거래 신청에서 넣고, 승인되면 계약(내 계약)이 같은 값을 갖는다.
+ *  - 자가소비: 기업이 설치비 부담(설치 용량 × 설치 가능 단가 + 추가 시공비), SPC 에 연간 O&M(총사업비 대비 %) 지급
+ *  - onsite : EPC 가 설치비 부담, 기업은 사용분을 PPA 단가(1구간 · 2구간)로 지급
+ */
+export interface ContractTerms {
+  /** 컨설팅 › 무료진단 검토번호(SR-YYYY-NNNN) */
+  reviewNo?: string;
+  /** 요금제 · 요금 기준 — 한전 산업용(을) 고압A */
+  tariffPlan?: string;
+  tariffBasis?: string;
+  /** 자가소비 설치단가 (원/kW) — 무료진단 예상 · 제시한 설치 가능 단가 */
+  estInstallUnit?: number;
+  installUnit?: number;
+  /** 자가소비 추가 시공비(원) */
+  extraCost?: number;
+  /** 자가소비 연간 O&M — 총사업비(예상 설치비) 대비 % */
+  omRatePct?: number;
+  /** O&M 포함 — 필수 */
+  omIncluded?: boolean;
+  /** 현장 실측 */
+  surveyRequested?: boolean;
+  surveyDate?: string;
+  /** onsite 구간 단가 — 1구간 · 2구간 (₩/kWh) */
+  segments?: { from: number; to: number; price: number }[];
+  /** 기업 담당자 */
+  contact?: { name: string; phone: string; email?: string };
+}
+
+export interface TradeRequest extends ContractTerms {
   id: number;
   no: string; // TR-2026-0001
   kind: PlantContractKind;
@@ -49,23 +96,6 @@ export interface TradeRequest {
   unitPrice: number;
   termYears: number;
   note?: string;
-  /** 컨설팅 › 무료진단 검토번호(SR-YYYY-NNNN) — 진단 결과를 불러와 신청했을 때 */
-  reviewNo?: string;
-  /** 요금제 · 요금 기준 — 한전 산업용(을) 고압A (무료진단에서) */
-  tariffPlan?: string;
-  tariffBasis?: string;
-  /** 자가소비 설치단가 (원/kW) — 무료진단 예상 · 발전사업자가 가능한 단가 */
-  estInstallUnit?: number;
-  installUnit?: number;
-  /** O&M 포함 — 필수 */
-  omIncluded?: boolean;
-  /** 현장 실측 — 무료진단은 추정이라 실측으로 확정 */
-  surveyRequested?: boolean;
-  surveyDate?: string;
-  /** onsite 구간 단가 — 1구간 · 2구간 (₩/kWh). 같아도 구간별로 적는다 */
-  segments?: { from: number; to: number; price: number }[];
-  /** 수용가 담당자 연락처 */
-  contact?: { name: string; phone: string; email?: string };
   status: TradeRequestStatus;
   submittedAt: string;
   updatedAt: string;
@@ -73,11 +103,15 @@ export interface TradeRequest {
   /** 승인 시 생성되는 계약 */
   contractId?: number;
   events: TradeEvent[];
+  /** 계약 현황 — 소통 · 조건 제안 · 현장 실측 완료일 */
+  messages?: TradeMessage[];
+  proposal?: TermsProposal;
+  surveyDoneAt?: string;
 }
 
 export type ContractStatus = 'PENDING_SIGN' | 'ACTIVE' | 'TERMINATED';
 
-export interface Contract {
+export interface Contract extends ContractTerms {
   id: number;
   no: string; // CT-2026-0001
   requestId?: number;
@@ -115,7 +149,9 @@ export interface ContractChange {
   requestedByName: string;
   requestedAt: string;
   reason: string;
-  /** 변경 전·후 — 단가 ₩/kWh, 용량 kW, 기간 종료일 */
+  /** onsite 단가 변경 — 몇 구간(1 · 2) */
+  segment?: number;
+  /** 변경 전·후 — onsite 단가 ₩/kWh · 자가소비 연간 O&M %, 용량 kW, 기간 종료일 */
   before?: string;
   after?: string;
   /** TERMINATE — 희망 해지일 */
@@ -125,7 +161,8 @@ export interface ContractChange {
   decisionNote?: string;
 }
 
-export type DocCategory = 'CONTRACT' | 'SIGNED' | 'INVOICE' | 'TAX' | 'CHANGE' | 'REPORT';
+/** 전력거래 문서 — 계약서(초안) · 계약서(서명본) · 청구서 · 세금계산서 · 변경·해지 합의서 */
+export type DocCategory = 'CONTRACT' | 'SIGNED' | 'INVOICE' | 'TAX' | 'CHANGE';
 
 export interface TradeDocument {
   id: number;

@@ -5,53 +5,63 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { DOC_CATEGORY_LABEL, settlementsOf } from '@/stores/useTradingPocStore';
 import type { Contract, ContractChange, TradeDocument } from '@/types/trading-poc';
-import { CHANGE_TYPE, amountLabel, daysLeft, fmtDate, fmtDateTime, fmtKrw, fmtKw, fmtKwh, fmtPrice, kindLabel, priceLabel } from './meta';
+import { changeTypeLabel, daysLeft, fmtDate, fmtDateTime, fmtKrw, fmtKwh, fmtNum } from './meta';
 import { ChangeStatusPill, ContractStatusPill, Info, ModalFooter } from './Bits';
+import { TermsInfo } from './TermsInfo';
+import { changeText } from './ChangeDetailModal';
 
 interface Props {
   contract: Contract | null;
   onClose: () => void;
   changes: ContractChange[];
   documents: TradeDocument[];
-  /** 발전사업자(운영 중 계약)에게만 변경·해지 버튼 */
+  /** 운영 중 계약에서만 변경·해지 신청 버튼 */
   canRequestChange: boolean;
   onRequestChange?: (contract: Contract, type?: 'TERMINATE') => void;
 }
 
-/** 계약 상세 — 계약 정보 · 서명 현황 · 최근 정산 · 변경·해지 이력 · 문서 */
-export function ContractDetailModal({ contract: c, onClose, changes, documents, canRequestChange, onRequestChange }: Props) {
-  const recent = c ? settlementsOf([c]).filter((s) => s.status === 'CONFIRMED').slice(-3).reverse() : [];
+/** 계약 상세 — 신청 때 넣은 계약 조건 그대로 · 계약 기간 · 서명 · 최근 정산 · 변경·해지 · 문서 */
+export function ContractDetailModal({
+  contract: c,
+  onClose,
+  changes,
+  documents,
+  canRequestChange,
+  onRequestChange,
+}: Props) {
+  const recent = c
+    ? settlementsOf([c])
+        .filter((s) => s.status === 'CONFIRMED')
+        .slice(-3)
+        .reverse()
+    : [];
   const myChanges = c ? changes.filter((ch) => ch.contractId === c.id) : [];
   const myDocs = c ? documents.filter((d) => d.contractId === c.id).slice(0, 6) : [];
   const left = c ? daysLeft(c.endDate) : 0;
+  const self = c?.kind === 'SELF_CONSUMPTION';
 
   return (
     <Modal open={!!c} onClose={onClose} title="계약 상세" size="lg">
       {c && (
         <div className="space-y-6">
           <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-lg font-semibold text-white">
-                {c.no} · {c.plantName}
-              </p>
-              <p className="text-sm text-slate-400">
-                {kindLabel(c.kind)} · {c.generatorCompanyName} → {c.consumerCompanyName}
-              </p>
-            </div>
+            <p className="text-lg font-semibold text-white">
+              {c.no} · {c.consumerCompanyName}
+            </p>
             <ContractStatusPill status={c.status} />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
-            <Info label="계약 유형" value={kindLabel(c.kind)} />
-            <Info label="발전사업자" value={c.generatorCompanyName} />
-            <Info label="수용가" value={c.consumerCompanyName} />
-            <Info label="사업장" value={c.siteName} />
-            <Info label="주소" value={c.address} className="col-span-2" />
-            <Info label="설비 용량" value={fmtKw(c.capacityKw)} />
-            <Info label={priceLabel(c.kind)} value={fmtPrice(c.unitPrice)} />
-            <Info label="계약 기간" value={`${c.termYears}년`} />
+            <TermsInfo x={c} />
             <Info label="시작일" value={c.startDate} />
-            <Info label="종료일" value={c.status === 'TERMINATED' ? `${c.terminatedAt} (해지)` : `${c.endDate} (${left > 0 ? `${left.toLocaleString()}일 남음` : '만료'})`} />
+            <Info
+              label="종료일"
+              value={
+                c.status === 'TERMINATED'
+                  ? `${c.terminatedAt ?? ''} (해지)`
+                  : `${c.endDate} (${left > 0 ? `${left.toLocaleString()}일 남음` : '만료'})`
+              }
+            />
             <Info label="체결일" value={fmtDateTime(c.signedAt)} />
           </div>
 
@@ -60,10 +70,13 @@ export function ContractDetailModal({ contract: c, onClose, changes, documents, 
             <p className="text-sm text-slate-400 mb-2">전자서명</p>
             <div className="flex flex-wrap gap-6">
               {[
-                { label: `발전사업자 · ${c.generatorCompanyName}`, done: c.signedByGenerator },
-                { label: `수용가 · ${c.consumerCompanyName}`, done: c.signedByConsumer },
+                { label: `계약 상대 · ${c.generatorCompanyName}`, done: c.signedByGenerator },
+                { label: `기업 · ${c.consumerCompanyName}`, done: c.signedByConsumer },
               ].map((s) => (
-                <span key={s.label} className={`inline-flex items-center gap-1.5 text-sm ${s.done ? 'text-emerald-400' : 'text-slate-500'}`}>
+                <span
+                  key={s.label}
+                  className={`inline-flex items-center gap-1.5 text-sm ${s.done ? 'text-emerald-400' : 'text-slate-500'}`}
+                >
                   {s.done ? <CheckCircle2 size={15} /> : <Circle size={15} />}
                   {s.label} {s.done ? '서명 완료' : '서명 대기'}
                 </span>
@@ -71,7 +84,7 @@ export function ContractDetailModal({ contract: c, onClose, changes, documents, 
             </div>
           </div>
 
-          {/* 최근 정산 3개월 */}
+          {/* 최근 정산 3개월 — 자가소비: 월 O&M(연간 O&M ÷ 12) / onsite: 사용량 × 그 구간 단가 */}
           <div>
             <p className="text-sm text-slate-400 mb-2">최근 정산</p>
             {recent.length === 0 ? (
@@ -81,8 +94,9 @@ export function ContractDetailModal({ contract: c, onClose, changes, documents, 
                 <thead>
                   <tr className="text-slate-500 border-b border-white/[0.06]">
                     <th className="py-1.5 text-left font-medium">월</th>
-                    <th className="py-1.5 text-left font-medium">{c.kind === 'ONSITE' ? '공급량' : '발전량'}</th>
-                    <th className="py-1.5 text-left font-medium">{amountLabel(c.kind)}</th>
+                    <th className="py-1.5 text-left font-medium">{self ? '발전량' : '사용량'}</th>
+                    <th className="py-1.5 text-left font-medium">{self ? '기준' : '적용 단가'}</th>
+                    <th className="py-1.5 text-left font-medium">{self ? 'O&M 비용' : '사용료'}</th>
                     <th className="py-1.5 text-left font-medium">부가세</th>
                     <th className="py-1.5 text-left font-medium">합계</th>
                   </tr>
@@ -92,6 +106,13 @@ export function ContractDetailModal({ contract: c, onClose, changes, documents, 
                     <tr key={s.id} className="border-b border-white/[0.04] text-slate-300 tabular-nums">
                       <td className="py-1.5">{s.period}</td>
                       <td className="py-1.5">{fmtKwh(s.generationKwh)}</td>
+                      <td className="py-1.5">
+                        {self
+                          ? s.omRatePct
+                            ? `연 ${s.omRatePct}% ÷ 12`
+                            : ''
+                          : `${s.segment ? `${s.segment}구간 ` : ''}₩${fmtNum(s.smpUnitPrice, 1)}/kWh`}
+                      </td>
                       <td className="py-1.5">{fmtKrw(s.supplyAmount)}</td>
                       <td className="py-1.5">{fmtKrw(s.vat)}</td>
                       <td className="py-1.5 text-white">{fmtKrw(s.total)}</td>
@@ -112,8 +133,7 @@ export function ContractDetailModal({ contract: c, onClose, changes, documents, 
                 {myChanges.map((ch) => (
                   <li key={ch.id} className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-slate-300">
-                      {ch.no} · {CHANGE_TYPE[ch.type]}
-                      {ch.before && ch.after ? ` · ${ch.before} → ${ch.after}` : ch.effectiveDate ? ` · ${ch.effectiveDate}` : ''}
+                      {ch.no} · {changeTypeLabel(ch.type, c.kind)} · {changeText(ch, c.kind)}
                       <span className="text-slate-500"> · {fmtDate(ch.requestedAt)}</span>
                     </span>
                     <ChangeStatusPill status={ch.status} />

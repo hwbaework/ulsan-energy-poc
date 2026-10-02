@@ -1,18 +1,20 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { CheckCircle2, Circle, Clock, XCircle } from 'lucide-react';
+import { CheckCircle2, XCircle } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { StatusPill } from '@/components/ui/Design';
 import { cn } from '@/lib/utils';
-import type { ChangeStatus, ContractStatus, TradeEvent, TradeRequestStatus } from '@/types/trading-poc';
+import type { ChangeStatus, ContractStatus, TradeEvent, TradeRequest, TradeRequestStatus } from '@/types/trading-poc';
 import { CHANGE_STATUS, CONTRACT_STATUS, PARTY_LABEL, REQUEST_STATUS, fmtDateTime } from './meta';
 
 /** 제목만 — 부제 없음 (통합관제와 같은 규칙). 브레드크럼은 RE100 › (상위 ›) 화면 */
 export function PageHeader({ title, parent, actions }: { title: string; parent?: string; actions?: ReactNode }) {
   return (
     <div className="space-y-6">
-      <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, ...(parent ? [{ label: parent }] : []), { label: title }]} />
+      <Breadcrumb
+        items={[{ label: 'RE100', path: '/re100' }, ...(parent ? [{ label: parent }] : []), { label: title }]}
+      />
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-white">{title}</h1>
         {actions && <div className="flex items-center gap-2">{actions}</div>}
@@ -39,58 +41,103 @@ export function Info({ label, value, className }: { label: string; value?: React
   return (
     <div className={className}>
       <p className="text-sm text-slate-400 mb-1">{label}</p>
-      <p className="text-base text-white break-words">{value === undefined || value === null || value === '' ? '\u00A0' : value}</p>
+      <p className="text-base text-white break-words">
+        {value === undefined || value === null || value === '' ? '\u00A0' : value}
+      </p>
     </div>
   );
 }
 
 /** 표 셀 텍스트 — 계약 유형 등은 글자만(네모·색 없음) */
-export const cell = (v: ReactNode, cls?: string) => <span className={cn('text-sm text-slate-300 whitespace-nowrap', cls)}>{v}</span>;
-export const cellStrong = (v: ReactNode) => <span className="text-sm font-medium text-white whitespace-nowrap">{v}</span>;
-export const cellNum = (v: ReactNode) => <span className="text-sm text-slate-300 tabular-nums whitespace-nowrap">{v}</span>;
-export const cellMuted = (v: ReactNode) => <span className="text-sm text-slate-400 tabular-nums whitespace-nowrap">{v}</span>;
+export const cell = (v: ReactNode, cls?: string) => (
+  <span className={cn('text-sm text-slate-300 whitespace-nowrap', cls)}>{v}</span>
+);
+export const cellStrong = (v: ReactNode) => (
+  <span className="text-sm font-medium text-white whitespace-nowrap">{v}</span>
+);
+export const cellNum = (v: ReactNode) => (
+  <span className="text-sm text-slate-300 tabular-nums whitespace-nowrap">{v}</span>
+);
+export const cellMuted = (v: ReactNode) => (
+  <span className="text-sm text-slate-400 tabular-nums whitespace-nowrap">{v}</span>
+);
 
-/* ── 진행 스텝퍼: 신청 접수 → SPC 검토 → 승인 → 전자서명 → 체결 (반려·취소는 끊긴 자리에 표시) ── */
-export const DEAL_STEPS = ['신청 접수', 'SPC 검토', '승인', '전자서명', '체결'] as const;
+/* ── 진행 단계 — 거래 이력 · 거래 승인이 같은 단계를 쓴다 ── */
+export const TRADE_STEPS = ['신청 접수', 'SPC 검토', '현장 실측', '조건 협의', '승인', '전자서명', '체결'] as const;
 
-export function stepIndexOf(status: TradeRequestStatus): { current: number; failed?: number } {
-  switch (status) {
+/** 검토 중 어디까지 왔는지 — 실측이 끝났거나 조건 협의로 넘겼으면 조건 협의, 실측으로 넘겼으면 현장 실측, 아니면 SPC 검토 */
+function reviewStepOf(r: TradeRequest) {
+  const has = (label: string) => r.events.some((e) => e.label === label);
+  if (r.surveyDoneAt || has('조건 협의')) return 3;
+  if (has('현장 실측')) return 2;
+  return has('검토 시작') ? 1 : 0;
+}
+
+/** 지금 단계(TRADE_STEPS 번호). 체결되면 TRADE_STEPS.length — 전부 끝 */
+export function tradeStepOf(r: TradeRequest): number {
+  switch (r.status) {
     case 'SUBMITTED':
-      return { current: 1 };
+      return 0;
     case 'REVIEW':
-      return { current: 1 };
+      return Math.max(1, reviewStepOf(r));
     case 'APPROVED':
-      return { current: 3 }; // 서명 진행 — 몇 명 서명했는지는 라벨(n/2)로
+      return 5;
     case 'SIGNED':
-      return { current: 5 };
-    case 'REJECTED':
-      return { current: 2, failed: 2 };
-    case 'CANCELLED':
-      return { current: 1, failed: 1 };
+      return TRADE_STEPS.length;
+    default:
+      return reviewStepOf(r); // 반려 · 취소 — 멈춘 단계
   }
 }
 
-export function DealStepper({ status, signedCount, className }: { status: TradeRequestStatus; signedCount: number; className?: string }) {
-  const { current, failed } = stepIndexOf(status);
-  const label = (i: number) => (i === 3 && status === 'APPROVED' ? `전자서명 ${signedCount}/2` : DEAL_STEPS[i]);
+/** 진행 단계 — 번호 원 · 선. 반려 · 취소는 멈춘 자리에 표시 */
+export function TradeStepper({
+  r,
+  signedCount = 0,
+  className,
+}: {
+  r: TradeRequest;
+  signedCount?: number;
+  className?: string;
+}) {
+  const step = tradeStepOf(r);
+  const failed = r.status === 'REJECTED' || r.status === 'CANCELLED';
   return (
-    <ol className={cn('flex items-center', className)}>
-      {DEAL_STEPS.map((_, i) => {
-        const done = failed === undefined ? i < current : i < failed;
-        const bad = failed !== undefined && i === failed;
-        const now = failed === undefined && i === current;
+    <ol className={cn('flex items-start', className)}>
+      {TRADE_STEPS.map((label, i) => {
+        const bad = failed && i === step;
+        const state = bad ? 'bad' : i < step ? 'done' : i === step && !failed ? 'now' : 'next';
         return (
-          <li key={i} className="flex items-center flex-1 last:flex-none">
-            <span
-              className={cn(
-                'inline-flex items-center gap-1.5 text-xs whitespace-nowrap',
-                bad ? 'text-red-400' : done ? 'text-emerald-400' : now ? 'text-primary' : 'text-slate-600',
-              )}
-            >
-              {bad ? <XCircle size={14} /> : done ? <CheckCircle2 size={14} /> : now ? <Clock size={14} /> : <Circle size={14} />}
-              {bad ? (status === 'REJECTED' ? '반려' : '취소') : label(i)}
-            </span>
-            {i < DEAL_STEPS.length - 1 && <span className={cn('h-px flex-1 mx-2', done ? 'bg-emerald-500/40' : 'bg-white/[0.08]')} />}
+          <li key={label} className="flex flex-1 items-start last:flex-none">
+            <div className="flex flex-col items-center">
+              <span
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ring-1',
+                  state === 'done' && 'bg-primary text-white ring-primary',
+                  state === 'now' && 'bg-primary/20 text-primary ring-primary/50',
+                  state === 'bad' && 'bg-red-500/15 text-red-400 ring-red-500/40',
+                  state === 'next' && 'bg-white/[0.04] text-slate-500 ring-white/[0.1]',
+                )}
+              >
+                {state === 'done' ? <CheckCircle2 size={14} /> : state === 'bad' ? <XCircle size={14} /> : i + 1}
+              </span>
+              <span
+                className={cn(
+                  'mt-1 whitespace-nowrap text-xs',
+                  state === 'next' ? 'text-slate-500' : state === 'bad' ? 'text-red-400' : 'text-slate-300',
+                )}
+              >
+                {bad
+                  ? r.status === 'REJECTED'
+                    ? '반려'
+                    : '취소'
+                  : i === 5 && r.status === 'APPROVED'
+                    ? `전자서명 ${signedCount}/2`
+                    : label}
+              </span>
+            </div>
+            {i < TRADE_STEPS.length - 1 && (
+              <span className={cn('mx-1 mt-3.5 h-px flex-1', i < step && !bad ? 'bg-primary/50' : 'bg-white/[0.08]')} />
+            )}
           </li>
         );
       })}

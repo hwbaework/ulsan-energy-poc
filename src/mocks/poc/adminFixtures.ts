@@ -115,12 +115,11 @@ addMenu('보고서', 'CONTROL_REPORT', '/monitoring/reports', M_CONTROL, 1);
 // RE100
 const M_RE100 = addMenu('RE100', 'RE100', '/platform/trading', null, 0);
 addMenu('거래 신청', 'RE100_TRADING', '/platform/trading', M_RE100, 1);
-addMenu('거래 현황', 'RE100_STATUS', '/platform/trading/status', M_RE100, 1);
+addMenu('거래 이력', 'RE100_HISTORY', '/platform/trading/history', M_RE100, 1);
 addMenu('거래 승인', 'RE100_APPROVALS', '/platform/trading/approvals', M_RE100, 1);
+addMenu('계약 현황', 'RE100_DASHBOARD', '/platform/ppa/dashboard', M_RE100, 1);
 addMenu('내 계약', 'RE100_CONTRACTS', '/platform/ppa/contracts', M_RE100, 1);
 addMenu('변경·해지', 'RE100_CONTRACT_CHANGES', '/platform/trading/changes', M_RE100, 1);
-addMenu('계약 현황', 'RE100_DASHBOARD', '/platform/ppa/dashboard', M_RE100, 1);
-addMenu('거래 이력', 'RE100_HISTORY', '/platform/trading/history', M_RE100, 1);
 const M_BILLING = addMenu('수익·정산', 'RE100_BILLING', null, M_RE100, 1);
 addMenu('세금계산서', 'RE100_BILLING_TAX', '/platform/ppa/billing/tax-invoice', M_BILLING, 2);
 addMenu('청구서', 'RE100_BILLING_INVOICE', '/platform/ppa/billing/invoices', M_BILLING, 2);

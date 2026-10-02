@@ -22,7 +22,7 @@ const PLANT_SPECS: Record<
   17511: { type: 'SOLAR', capacity: 152.32, status: 'NORMAL', contract: 'SELF_CONSUMPTION' }, // 용인금속 · 자가소비
   17512: { type: 'SOLAR', capacity: 46.08, status: 'NORMAL', contract: 'SELF_CONSUMPTION' }, // 태성산업 · 자가소비
   17513: { type: 'SOLAR', capacity: 33.92, status: 'ANOMALY', contract: 'SELF_CONSUMPTION' }, // 건호이엔씨 · 자가소비 (미조치 이상감지 1건)
-  17514: { type: 'SOLAR', capacity: 429.44, status: 'NORMAL', contract: 'ONSITE', contracts: ['SELF_CONSUMPTION', 'ONSITE'], split: [{ kind: 'SELF_CONSUMPTION', capacityKw: 129.44 }, { kind: 'ONSITE', capacityKw: 300 }] }, // 한일튜브 · 자가소비(99.84)+PPA(329.6)
+  17514: { type: 'SOLAR', capacity: 429.44, status: 'NORMAL', contract: 'ONSITE', contracts: ['SELF_CONSUMPTION', 'ONSITE'], split: [{ kind: 'SELF_CONSUMPTION', capacityKw: 99.84 }, { kind: 'ONSITE', capacityKw: 329.6 }] }, // 한일튜브 · 자가소비(99.84)+PPA(329.6)
   17515: { type: 'SOLAR', capacity: 90.88, status: 'NORMAL', contract: 'SELF_CONSUMPTION' }, // 한길 · 자가소비
   17601: { type: 'FUEL_CELL', capacity: 2000, status: 'NORMAL' }, // 연료전지 — 계약 유형 없음 (용량 미확인, 임시 2MW)
   17602: { type: 'ORC', capacity: 500, status: 'NORMAL' }, // ORC — 계약 유형 없음 (용량 미확인, 임시)

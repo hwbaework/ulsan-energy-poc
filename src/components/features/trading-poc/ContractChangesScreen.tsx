@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import type { ContractChange } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
-import { CHANGE_STATUS, CHANGE_TYPE, PARTY_LABEL, fmtDate, kindLabel } from './meta';
+import { CHANGE_STATUS, changeTypeLabel, PARTY_LABEL, fmtDate, kindLabel } from './meta';
 import { ChangeStatusPill, PageHeader, cell, cellMuted, cellStrong } from './Bits';
 import { ChangeRequestModal } from './ChangeRequestModal';
 import { ChangeDetailModal, changeText } from './ChangeDetailModal';
@@ -24,7 +24,10 @@ export function ContractChangesScreen() {
   const active = useMemo(() => role.contracts.filter((c) => c.status === 'ACTIVE'), [role.contracts]);
   const contractOf = (id?: number) => role.contracts.find((c) => c.id === id);
   const rows = useMemo(
-    () => [...role.changes].sort((a, b) => b.requestedAt.localeCompare(a.requestedAt)).filter((c) => status === 'all' || c.status === status),
+    () =>
+      [...role.changes]
+        .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))
+        .filter((c) => status === 'all' || c.status === status),
     [role.changes, status],
   );
   const year = String(new Date().getFullYear());
@@ -37,12 +40,47 @@ export function ContractChangesScreen() {
 
   const columns: Column<ContractChange>[] = [
     { key: 'no', header: '요청번호', width: '140px', render: (c) => cellStrong(c.no) },
-    { key: 'contract', header: '계약 · 발전소', render: (c) => cell(`${contractOf(c.contractId)?.no ?? ''} · ${contractOf(c.contractId)?.plantName ?? ''}`, 'text-white') },
-    { key: 'kind', header: '계약 유형', width: '100px', render: (c) => cell(contractOf(c.contractId) ? kindLabel(contractOf(c.contractId)!.kind) : '') },
-    { key: 'type', header: '변경 유형', width: '100px', render: (c) => cell(CHANGE_TYPE[c.type]) },
-    { key: 'detail', header: '내용', width: '220px', render: (c) => cell(changeText(c)) },
-    { key: 'by', header: '요청자', width: '170px', render: (c) => cell(`${c.requestedByName} (${PARTY_LABEL[c.requestedBy]})`) },
-    { key: 'at', header: '요청일', width: '110px', sortable: true, sortValue: (c) => c.requestedAt, render: (c) => cellMuted(fmtDate(c.requestedAt)) },
+    {
+      key: 'contract',
+      header: '계약 · 기업명',
+      render: (c) =>
+        cell(
+          `${contractOf(c.contractId)?.no ?? ''} · ${contractOf(c.contractId)?.consumerCompanyName ?? ''}`,
+          'text-white',
+        ),
+    },
+    {
+      key: 'kind',
+      header: '계약 유형',
+      width: '100px',
+      render: (c) => cell(contractOf(c.contractId) ? kindLabel(contractOf(c.contractId)!.kind) : ''),
+    },
+    {
+      key: 'type',
+      header: '변경 유형',
+      width: '100px',
+      render: (c) => cell(changeTypeLabel(c.type, contractOf(c.contractId)?.kind)),
+    },
+    {
+      key: 'detail',
+      header: '내용',
+      width: '220px',
+      render: (c) => cell(changeText(c, contractOf(c.contractId)?.kind)),
+    },
+    {
+      key: 'by',
+      header: '요청자',
+      width: '170px',
+      render: (c) => cell(`${c.requestedByName} (${PARTY_LABEL[c.requestedBy]})`),
+    },
+    {
+      key: 'at',
+      header: '요청일',
+      width: '110px',
+      sortable: true,
+      sortValue: (c) => c.requestedAt,
+      render: (c) => cellMuted(fmtDate(c.requestedAt)),
+    },
     { key: 'status', header: '상태', width: '100px', render: (c) => <ChangeStatusPill status={c.status} /> },
     { key: 'go', header: '', width: '40px', render: () => <ChevronRight size={15} className="text-slate-600" /> },
   ];
@@ -73,7 +111,13 @@ export function ContractChangesScreen() {
           <label className="flex items-center gap-2 text-sm text-slate-400">
             상태
             <Select
-              options={[{ value: 'all', label: '전체' }, ...(Object.keys(CHANGE_STATUS) as ContractChange['status'][]).map((s) => ({ value: s, label: CHANGE_STATUS[s].label }))]}
+              options={[
+                { value: 'all', label: '전체' },
+                ...(Object.keys(CHANGE_STATUS) as ContractChange['status'][]).map((s) => ({
+                  value: s,
+                  label: CHANGE_STATUS[s].label,
+                })),
+              ]}
               value={status}
               onChange={(e) => setStatus(e.target.value)}
               className="w-32"
@@ -82,10 +126,22 @@ export function ContractChangesScreen() {
         }
         noPadding
       >
-        <DataTable columns={columns} data={rows} rowKey={(c) => c.id} emptyMessage="변경·해지 요청 없음" onRowClick={(c) => setDetail(c)} />
+        <DataTable
+          columns={columns}
+          data={rows}
+          rowKey={(c) => c.id}
+          emptyMessage="변경·해지 요청 없음"
+          onRowClick={(c) => setDetail(c)}
+        />
       </SectionCard>
 
-      <ChangeRequestModal open={newOpen} onClose={() => setNewOpen(false)} contracts={active} requestedBy={role.party} requestedByName={role.companyName} />
+      <ChangeRequestModal
+        open={newOpen}
+        onClose={() => setNewOpen(false)}
+        contracts={active}
+        requestedBy={role.party}
+        requestedByName={role.companyName}
+      />
       <ChangeDetailModal change={detail} contract={contractOf(detail?.contractId)} onClose={() => setDetail(null)} />
     </div>
   );

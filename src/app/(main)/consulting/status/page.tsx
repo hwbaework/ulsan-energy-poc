@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Button } from '@/components/ui/Button';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useDeleteDiagnosis, useDiagnosesByCompany } from '@/hooks/consulting/useConsultations';
+import { useDeleteDiagnosis, useDiagnoses, useDiagnosesByCompany } from '@/hooks/consulting/useConsultations';
+import { getPersona } from '@/lib/persona';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToastStore } from '@/stores/useToastStore';
 import { SimDiagnosisById, recordOf } from '@/components/features/consulting/SimDiagnosisView';
@@ -18,8 +19,13 @@ import type { Diagnosis } from '@/types/consultation';
  */
 export default function MyConsultingPage() {
   const router = useRouter();
-  const companyId = useAuthStore((s) => s.user?.companyId ?? 0);
-  const { data, isLoading } = useDiagnosesByCompany(companyId);
+  const user = useAuthStore((s) => s.user);
+  const companyId = user?.companyId ?? 0;
+  // 관리자는 전체 기업 기록, 그 외는 내 기업 기록
+  const isAdmin = ['admin', 'spc'].includes(getPersona(user));
+  const mineQ = useDiagnosesByCompany(isAdmin ? 0 : companyId);
+  const allQ = useDiagnoses();
+  const { data, isLoading } = isAdmin ? allQ : mineQ;
   const history = useMemo(() => ((data ?? []) as Diagnosis[]).filter((d) => d.sim), [data]);
   const [picked, setPicked] = useState<number | null>(null);
   // 삭제 — 확인 받고 지운다(수정은 없다)

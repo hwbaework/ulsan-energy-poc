@@ -29,6 +29,8 @@ interface DataTableProps<T> {
   rowKey: (row: T) => string | number;
   className?: string;
   defaultSort?: SortState;
+  /** 행마다 덧붙일 클래스 — 고른 행 강조 등 */
+  rowClassName?: (row: T) => string;
 }
 
 export function DataTable<T>({
@@ -40,6 +42,7 @@ export function DataTable<T>({
   rowKey,
   className,
   defaultSort,
+  rowClassName,
 }: DataTableProps<T>) {
   const [sort, setSort] = useState<SortState | null>(defaultSort ?? null);
 
@@ -134,6 +137,7 @@ export function DataTable<T>({
                 'border-b border-accent/10 transition-colors',
                 rowIndex % 2 === 1 && 'bg-white/[0.1]',
                 onRowClick && 'cursor-pointer hover:bg-surface-elevated/50',
+                rowClassName?.(row),
               )}
             >
               {columns.map((col) => (

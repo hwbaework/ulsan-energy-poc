@@ -12,6 +12,7 @@ import { getPersona, usePersonaOverride } from '@/lib/persona';
 import { useAuthStore } from '@/stores/useAuthStore';
 import {
   useConsultationsByConsultant,
+  useDiagnoses,
   useDiagnosesByCompany,
 } from '@/hooks/consulting/useConsultations';
 import { EOK, F1 } from '@/lib/solar-sim';
@@ -25,7 +26,11 @@ export default function ConsultingPage() {
   const override = usePersonaOverride((s) => s.override);
   const persona = override ?? getPersona(user);
   const companyId = user?.companyId ?? 0;
-  const { data: diagnoses } = useDiagnosesByCompany(companyId);
+  // 관리자는 전체 기업 기록
+  const isAdminView = ['admin', 'spc'].includes(getPersona(user));
+  const { data: myDiagnoses } = useDiagnosesByCompany(isAdminView ? 0 : companyId);
+  const { data: allDiagnoses } = useDiagnoses();
+  const diagnoses = isAdminView ? allDiagnoses : myDiagnoses;
   const diagnosisList = (diagnoses ?? []) as Diagnosis[];
   // 진단 결과 — 행을 누르면 내 컨설팅에서 그 검토서를 연다
   const openReview = (id: number) => router.push(`/consulting/status?review=${id}`);

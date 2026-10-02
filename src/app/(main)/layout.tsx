@@ -9,7 +9,6 @@ import {
   LogOut,
   User,
   AlertTriangle,
-  Activity,
   BarChart3,
   Building2,
   Handshake,
@@ -216,14 +215,13 @@ const GNB_ITEMS: GnbItem[] = [
       // 전기사용자: 2.2 컨설팅만
       consumer: [...RE100_CONSULTING_CHILDREN, RE100_EDU(false)],
       generator: [
-        // 2.1 전력거래 — WBS 2.1 항목 전부. 순서: 신청 → 현황 → 승인 → 내 계약 → 변경·해지 → 계약 현황 → 거래 이력 → 수익·정산 → 문서
+        // 2.1 전력거래 — 흐름 순서: 거래 신청 · 거래 이력 · 거래 승인 · 계약 현황 · 내 계약 · 변경·해지 · 수익·정산(세금계산서·청구서) · 문서 관리
         { to: '/generator/trading', icon: ArrowRightLeft, label: '거래 신청', section: '전력거래', end: true }, // 2.1.1
-        { to: '/generator/trading/status', icon: Activity, label: '거래 현황', section: '전력거래' },
+        { to: '/generator/trading/history', icon: History, label: '거래 이력', section: '전력거래' }, // 2.1.4
         { to: '/generator/trading/approvals', icon: ShieldCheck, label: '거래 승인', section: '전력거래' }, // 2.1.7
+        { to: '/generator/ppa/dashboard', icon: BarChart3, label: '계약 현황', section: '전력거래' }, // 2.1.6
         { to: '/generator/ppa/contracts', icon: Handshake, label: '내 계약', section: '전력거래' }, // 2.1.2
         { to: '/generator/trading/changes', icon: ClipboardList, label: '변경·해지', section: '전력거래' }, // 2.1.3
-        { to: '/generator/ppa/dashboard', icon: BarChart3, label: '계약 현황', section: '전력거래' }, // 2.1.6
-        { to: '/generator/trading/history', icon: History, label: '거래 이력', section: '전력거래' }, // 2.1.4
         {
           to: '/generator/ppa/direct/revenue/tax-invoice',
           icon: Receipt,
@@ -239,14 +237,13 @@ const GNB_ITEMS: GnbItem[] = [
         RE100_EDU(false),
       ],
       admin: [
-        // 2.1 전력거래 — WBS 2.1 항목 전부. 순서: 신청 → 현황 → 승인 → 내 계약 → 변경·해지 → 계약 현황 → 거래 이력 → 수익·정산 → 문서
+        // 2.1 전력거래 — 흐름 순서: 거래 신청 · 거래 이력 · 거래 승인 · 계약 현황 · 내 계약 · 변경·해지 · 수익·정산(세금계산서·청구서) · 문서 관리
         { to: '/platform/trading', icon: ArrowRightLeft, label: '거래 신청', section: '전력거래', end: true }, // 2.1.1
-        { to: '/platform/trading/status', icon: Activity, label: '거래 현황', section: '전력거래' },
+        { to: '/platform/trading/history', icon: History, label: '거래 이력', section: '전력거래' }, // 2.1.4
         { to: '/platform/trading/approvals', icon: ShieldCheck, label: '거래 승인', section: '전력거래' }, // 2.1.7
+        { to: '/platform/ppa/dashboard', icon: BarChart3, label: '계약 현황', section: '전력거래' }, // 2.1.6
         { to: '/platform/ppa/contracts', icon: Handshake, label: '내 계약', section: '전력거래' }, // 2.1.2
         { to: '/platform/trading/changes', icon: ClipboardList, label: '변경·해지', section: '전력거래' }, // 2.1.3
-        { to: '/platform/ppa/dashboard', icon: BarChart3, label: '계약 현황', section: '전력거래' }, // 2.1.6
-        { to: '/platform/trading/history', icon: History, label: '거래 이력', section: '전력거래' }, // 2.1.4
         {
           to: '/platform/ppa/billing/tax-invoice',
           icon: Receipt,
@@ -924,7 +921,7 @@ function getNotifLink(n: { type: string; link?: string }, persona: Persona): str
   const isSpcLike = persona === 'spc' || persona === 'admin';
   const isGen = persona === 'generator';
   // 페르소나별 거래/계약 목적지
-  const tradeList = isSpcLike ? '/platform/trading/approvals' : isGen ? '/generator/trading/status' : '/ppa/trading';
+  const tradeList = isSpcLike ? '/platform/trading/history' : isGen ? '/generator/trading/history' : '/ppa/trading';
   const dealOrTrading = (_id: string) => tradeList;
   const myContracts = isSpcLike ? '/platform/ppa/contracts' : isGen ? '/generator/ppa/contracts' : '/ppa/contracts';
   const changes = isSpcLike ? '/platform/trading/changes' : isGen ? '/generator/trading/changes' : myContracts;
