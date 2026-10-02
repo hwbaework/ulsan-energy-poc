@@ -10,8 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getPowerStationsByCompany } from '@/api/common/power-stations';
 import { powerStationKeys } from '@/api/queryKeys';
 import { useToastStore } from '@/stores/useToastStore';
-import { useCreateDiagnosis, useDiagnosesByCompany } from '@/hooks/consulting/useConsultations';
-import { useConsumerSites } from '@/hooks/consumer/useConsumer';
+import { useCreateDiagnosis, useDiagnoses, useDiagnosesByCompany } from '@/hooks/consulting/useConsultations';
 import { SimInputPanel } from '@/components/features/consulting/SimInputPanel';
 import { recordOf } from '@/components/features/consulting/SimDiagnosisView';
 import { SimReport, type ReviewRecord } from '@/components/features/consulting/SimReport';
@@ -19,6 +18,8 @@ import { ReviewHistoryList } from '@/components/features/consulting/ReviewHistor
 import { calc, defaultSimInput, type SimInput } from '@/lib/solar-sim';
 import { cn } from '@/lib/utils';
 import type { Diagnosis } from '@/types/consultation';
+import { getPersona } from '@/lib/persona';
+import { CONSUMERS } from '@/stores/useTradingPocStore';
 
 /**
  * 무료진단 — 울산미포산단 태양광 사업성 시뮬레이터 기반.
@@ -34,29 +35,36 @@ export default function DiagnosisPage() {
   const user = useAuthStore((s) => s.user);
   const toast = useToastStore((s) => s.add);
   const createDiagnosis = useCreateDiagnosis();
-  const companyId = user?.companyId ?? 0;
-  const companyName = user?.companyName ?? '';
+  // 관리자만 — 전화로 들어온 신규 기업도 진단: 기존 기업을 고르거나 기업명·기업 주소를 직접 입력. 그 외는 로그인(가입) 값 고정
+  const isAdmin = ['admin', 'spc'].includes(getPersona(user));
+  const [target, setTarget] = useState({ pick: '', name: '', address: '' });
+  const companyId = isAdmin ? Number(target.pick) || 0 : (user?.companyId ?? 0);
+  const companyName = isAdmin ? target.name.trim() : (user?.companyName ?? '');
 
-  // 사업장 — 가입 회사의 등록 사업장(대표 사업장). 입력받지 않는다
-  const { data: siteData } = useConsumerSites({ companyId });
+  // 기업 — 관리자는 고르거나 입력한 값, 그 외는 로그인(가입) 값. 기업 주소가 저장본에 없으면 데모 계정 정보에서
   const site = useMemo(() => {
-    const raw = (Array.isArray(siteData) ? siteData : ((siteData as { content?: unknown[] } | undefined)?.content ?? [])) as { companyId?: number; name: string; address: string }[];
-    // 등록 사업장이 없으면 가입 회사 주소(저장된 로그인 정보에 주소가 없으면 데모 계정 정보에서)
+    if (isAdmin) return { name: target.name.trim(), address: target.address.trim() };
     const address = user?.companyAddress || Object.values(POC_USERS).find((u) => u.companyId === companyId)?.companyAddress || '';
-    return raw.find((s) => s.companyId === companyId) ?? { name: '본사', address };
-  }, [siteData, companyId, user?.companyAddress]);
+    return { name: companyName, address };
+  }, [isAdmin, target.name, target.address, user?.companyAddress, companyId, companyName]);
 
   // 지난 검토 기록
-  const { data: diagData } = useDiagnosesByCompany(companyId);
-  const history = useMemo(() => ((diagData ?? []) as Diagnosis[]).filter((d) => d.sim), [diagData]);
+  const { data: myDiag } = useDiagnosesByCompany(isAdmin ? 0 : companyId);
+  const { data: allDiag } = useDiagnoses(); // 관리자 — 전체에서 업체로 찾는다
+  const diagData = isAdmin ? allDiag : myDiag;
+  // 관리자가 넣은 신규 기업(번호 없음)은 기업명으로 찾는다
+  const history = useMemo(
+    () => ((diagData ?? []) as Diagnosis[]).filter((d) => d.sim && (!isAdmin || (companyId > 0 ? d.companyId === companyId : !!companyName && d.companyName === companyName))),
+    [diagData, isAdmin, companyId, companyName],
+  );
 
   const [f, setF] = useState<SimInput>(() => defaultSimInput());
   const [view, setView] = useState<View>({ kind: 'input' });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (f.site !== site.name) setF((p) => ({ ...p, site: site.name, address: site.address }));
-  }, [site, f.site]);
+    if (f.site !== site.name || f.address !== site.address) setF((p) => ({ ...p, site: site.name, address: site.address }));
+  }, [site, f.site, f.address]);
 
   // 기존 태양광 설비 — 이 회사에 연결된 발전소(대시보드와 같은 power-stations/by-company). 설비 규모만 채우고
   // 연간 발전량·사용량은 아직 모르니 비워 둔다. 관리자처럼 연결된 발전소가 없으면 직접 입력
@@ -71,6 +79,10 @@ export default function DiagnosisPage() {
     ? `발전소 데이터에서 불러옴 — ${stations.map((s) => `${s.name} ${s.capacityKw} kW${s.address ? ` (${s.address})` : ''}`).join(', ')}`
     : '연결된 발전소 없음 — 필요하면 직접 입력';
   const filled = useRef(false);
+  useEffect(() => {
+    filled.current = false;
+    if (isAdmin) setF((p) => ({ ...p, facilities: [] }));
+  }, [companyId, isAdmin]);
   useEffect(() => {
     if (filled.current || !stations.length) return;
     filled.current = true;
@@ -119,9 +131,10 @@ export default function DiagnosisPage() {
         companyName,
         domain: 'RE100',
         annualEnergyUsage: Math.round(R.annualGen1 / 1000),
-        contactName: user?.name,
-        contactEmail: user?.email,
-        contactPhone: user?.phone,
+        // 관리자가 대신 진단하면 담당자는 비워 둔다(거래 신청에서 입력)
+        contactName: isAdmin ? undefined : user?.name,
+        contactEmail: isAdmin ? undefined : user?.email,
+        contactPhone: isAdmin ? undefined : user?.phone,
         sim: view.input,
       })) as { id: number; createdAt: string };
       const record = recordOf(d);
@@ -191,8 +204,24 @@ export default function DiagnosisPage() {
                   onChange={setF}
                   companyName={companyName}
                   facilitySource={facilitySource}
+                  companyEdit={
+                    isAdmin
+                      ? {
+                          options: CONSUMERS.map((c) => ({ value: String(c.id), label: c.name })),
+                          pick: target.pick,
+                          onPick: (v) => {
+                            const c = CONSUMERS.find((x) => String(x.id) === v);
+                            setTarget(c ? { pick: v, name: c.name, address: c.address } : { pick: '', name: '', address: '' });
+                          },
+                          name: target.name,
+                          onName: (v) => setTarget((t) => ({ ...t, name: v, pick: '' })),
+                          address: target.address,
+                          onAddress: (v) => setTarget((t) => ({ ...t, address: v })),
+                        }
+                      : undefined
+                  }
                   footer={
-                    <Button size="lg" onClick={review}>
+                    <Button size="lg" onClick={review} disabled={isAdmin && (!target.name.trim() || !target.address.trim())}>
                       사업 검토
                     </Button>
                   }

@@ -79,7 +79,7 @@ export default function ConsultingPage() {
               <thead>
                 <tr className="border-b border-white/[0.06] text-left text-slate-400">
                   <th className="px-6 py-3 font-medium">진단일</th>
-                  <th className="px-4 py-3 font-medium">사업장</th>
+                  <th className="px-4 py-3 font-medium">기업명</th>
                   <th className="px-4 py-3 font-medium">방식</th>
                   <th className="px-4 py-3 font-medium">설치용량</th>
                   <th className="px-4 py-3 font-medium">연간 발전량 (1차년)</th>

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Textarea } from '@/components/ui/Textarea';
 import { useToastStore } from '@/stores/useToastStore';
-import { useTradingPocStore } from '@/stores/useTradingPocStore';
+import { CO, useTradingPocStore } from '@/stores/useTradingPocStore';
 import { useTradingRole } from './useTradingRole';
 import { PARTY_LABEL, amountLabel, estimateMonthlyAmount, estimateMonthlyKwh, fmtDateTime, fmtKrw, fmtKw, fmtKwh, fmtPrice, kindLabel, priceLabel } from './meta';
 import { DealStepper, EventTimeline, Info, ModalFooter, RequestStatusPill } from './Bits';
@@ -45,8 +45,9 @@ export function DealDetailModal({ requestId, onClose }: { requestId: number | nu
         ? ['review']
         : r.status === 'REVIEW'
           ? ['approve']
-          : r.status === 'APPROVED' && c && !c.signedByConsumer
-            ? ['consumer']
+          : r.status === 'APPROVED' && c
+            ? // SPC 가 상대인 계약은 관리자가 SPC 명의로 서명, 수용가 서명은 확인 처리
+              ([...(c.generatorCompanyId === CO.SPC.id && !c.signedByGenerator ? ['sign'] : []), ...(!c.signedByConsumer ? ['consumer'] : [])] as Action[])
             : []
       : mine && (r.status === 'SUBMITTED' || r.status === 'REVIEW')
         ? ['cancel']
@@ -58,7 +59,7 @@ export function DealDetailModal({ requestId, onClose }: { requestId: number | nu
     review: { label: '검토 시작', title: '검토 시작', message: `${r?.no} 검토를 시작합니다.`, variant: 'primary', run: () => r && startReview(r.id) },
     approve: { label: '승인', title: '승인', message: `${r?.no} 신청을 승인합니다. 계약서 초안이 만들어지고 전자서명 단계로 넘어갑니다.`, variant: 'primary', run: () => r && approve(r.id) },
     consumer: { label: '수용가 서명 확인', title: '수용가 서명 확인', message: `${r?.consumerCompanyName} 전자서명을 확인 처리합니다.`, variant: 'primary', run: () => c && confirmConsumer(c.id) },
-    sign: { label: '전자서명', title: '전자서명', message: `${c?.no} 계약서에 ${role.companyName} 명의로 서명합니다.`, variant: 'primary', run: () => c && sign(c.id) },
+    sign: { label: role.isAdmin ? 'SPC 전자서명' : '전자서명', title: '전자서명', message: `${c?.no} 계약서에 ${role.isAdmin ? CO.SPC.name : role.companyName} 명의로 서명합니다.`, variant: 'primary', run: () => c && sign(c.id) },
     cancel: { label: '신청 취소', title: '신청 취소', message: `${r?.no} 신청을 취소합니다.`, variant: 'danger', run: () => r && cancel(r.id) },
   };
 
@@ -78,16 +79,30 @@ export function DealDetailModal({ requestId, onClose }: { requestId: number | nu
 
             <div className="grid grid-cols-3 gap-4">
               <Info label="계약 유형" value={kindLabel(r.kind)} />
-              <Info label="발전사업자" value={r.generatorCompanyName} />
-              <Info label="수용가" value={r.consumerCompanyName} />
-              <Info label="사업장" value={r.siteName} />
-              <Info label="주소" value={r.address} className="col-span-2" />
-              <Info label="설비 용량" value={fmtKw(r.capacityKw)} />
+              <Info label="기업명" value={r.consumerCompanyName} />
+              <Info label="계약 상대" value={r.generatorCompanyName} />
+              <Info label="기업 주소" value={r.address} className="col-span-3" />
+              <Info label="설치 용량" value={fmtKw(r.capacityKw)} />
               <Info label={priceLabel(r.kind)} value={fmtPrice(r.unitPrice)} />
               <Info label="계약 기간" value={`${r.termYears}년`} />
               <Info label={`예상 월 ${r.kind === 'ONSITE' ? '공급량' : '발전량'}`} value={fmtKwh(estimateMonthlyKwh(r.capacityKw))} />
               <Info label={`예상 월 ${amountLabel(r.kind)}`} value={fmtKrw(estimateMonthlyAmount(r.capacityKw, r.unitPrice))} />
               <Info label="무료진단" value={r.reviewNo} />
+              {r.segments && (
+                <Info label="구간 단가" value={r.segments.map((g, i) => `${i + 1}구간 ${g.from}~${g.to}년차 ₩${g.price}/kWh`).join(' · ')} className="col-span-2" />
+              )}
+              <Info label="요금제" value={r.tariffPlan} />
+              <Info label="요금 기준" value={r.tariffBasis} />
+              <Info label="O&M" value={r.omIncluded ? '포함 (필수)' : undefined} />
+              {r.kind === 'SELF_CONSUMPTION' && (
+                <>
+                  <Info label="예상 설치단가 (무료진단)" value={r.estInstallUnit ? `₩${r.estInstallUnit.toLocaleString('ko-KR')}/kW` : undefined} />
+                  <Info label="설치 가능 단가" value={r.installUnit ? `₩${r.installUnit.toLocaleString('ko-KR')}/kW` : undefined} />
+                  <Info label="예상 설치비" value={r.installUnit ? `₩${Math.round(r.installUnit * r.capacityKw).toLocaleString('ko-KR')}` : undefined} />
+                </>
+              )}
+              <Info label="현장 실측" value={r.surveyRequested ? `요청${r.surveyDate ? ` · 희망일 ${r.surveyDate}` : ''}` : r.surveyRequested === false ? '요청 안 함' : undefined} />
+              <Info label="담당자" value={r.contact ? [r.contact.name, r.contact.phone, r.contact.email].filter(Boolean).join(' · ') : undefined} className="col-span-2" />
               <Info label="신청자" value={`${r.applicantCompanyName} (${PARTY_LABEL[r.applicant]})`} />
               <Info label="신청일" value={fmtDateTime(r.submittedAt)} />
               {r.status === 'REJECTED' && <Info label="반려 사유" value={r.rejectReason} />}

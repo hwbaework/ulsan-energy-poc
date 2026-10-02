@@ -33,8 +33,8 @@ export const POC_USERS: Record<PocRole, User> = {
     department: '시설관리팀',
     status: 'ACTIVE',
     companyId: 2,
-    companyName: '울산 수용가(주)',
-    companyAddress: '울산 남구 처용로 100',
+    companyName: '한길',
+    companyAddress: '울산 남구 용연동 490-11',
     roles: ['CONSUMER_MANAGER'],
     createdAt: '2026-01-01T00:00:00',
     updatedAt: '2026-01-01T00:00:00',
@@ -90,6 +90,14 @@ export const useAuthStore = create<AuthState>()(
       name: 'ulsan-poc-auth',
       storage: createJSONStorage(() => ssrSafeStorage),
       partialize: (s) => ({ user: s.user, role: s.role, isAuthenticated: s.isAuthenticated }),
+      // 데모 계정의 기업명·기업 주소는 코드 값으로 맞춘다 — 저장본이 예전 값(울산 수용가(주) 등)이어도 다시 로그인 없이 바뀐다
+      merge: (persisted, current) => {
+        const p = persisted as Partial<AuthState> | undefined;
+        if (!p) return current;
+        const fresh = p.role ? POC_USERS[p.role] : undefined;
+        const user = p.user && fresh ? { ...p.user, companyId: fresh.companyId, companyName: fresh.companyName, companyAddress: fresh.companyAddress } : (p.user ?? null);
+        return { ...current, ...p, user };
+      },
     },
   ),
 );

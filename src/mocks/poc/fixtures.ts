@@ -151,7 +151,7 @@ registerMock(/^\/monitoring\/plants\/(\d+)\/history$/, ({ match, query }) => {
 
 /* ── 수용가 (지도 마커) ───────────────────────────────────── */
 export const CONSUMERS: MonitoringConsumer[] = [
-  { id: 1, companyId: 2, name: '울산 수용가(주) 본사공장', address: '울산 남구 처용로 100', latitude: 35.5091, longitude: 129.3402, reTargetPct: 30, reCurrentPct: 18.4, monthlyDemandKwh: 184000, monthlySupplyKwh: 33800, todaySupplyKwh: 1260 },
+  { id: 1, companyId: 2, name: '한길', address: '울산 남구 용연동 490-11', latitude: 35.5091, longitude: 129.3402, reTargetPct: 30, reCurrentPct: 18.4, monthlyDemandKwh: 184000, monthlySupplyKwh: 33800, todaySupplyKwh: 1260 },
   { id: 2, companyId: 4, name: '미포 정밀화학', address: '울산 남구 장생포로 55', latitude: 35.5012, longitude: 129.3521, reTargetPct: 20, reCurrentPct: 12.1, monthlyDemandKwh: 96000, monthlySupplyKwh: 11600, todaySupplyKwh: 410 },
   { id: 3, companyId: 5, name: '온산 스틸', address: '울산 울주군 온산읍 산업로 12', latitude: 35.4788, longitude: 129.3574, reTargetPct: 40, reCurrentPct: 27.5, monthlyDemandKwh: 402000, monthlySupplyKwh: 110500, todaySupplyKwh: 3980 },
 ];
@@ -184,7 +184,7 @@ const HANGIL = PLANTS.find((p) => p.plantId === 17515) ?? PLANTS[0]!;
 /** 발전사업자(회사 3) 소유 발전소 — 한일튜브 1개 (온사이트 PPA) */
 export const POWER_STATIONS: PowerStation[] = [stationOf(HANIL, 1, 3, '울산 발전(주)')];
 /** 전기사용자(회사 2) 자가소비 발전소 — 한길 1개 */
-export const CONSUMER_STATIONS: PowerStation[] = [stationOf(HANGIL, 101, 2, '울산 수용가(주)')];
+export const CONSUMER_STATIONS: PowerStation[] = [stationOf(HANGIL, 101, 2, '한길')];
 registerMock(/^\/power-stations\/by-company\/(\d+)$/, ({ match }) => {
   const companyId = Number(match[1]);
   if (companyId === 3) return POWER_STATIONS;
@@ -196,8 +196,7 @@ registerMock(/^\/power-stations\/(\d+)$/, ({ match }) => POWER_STATIONS.find((s)
 
 /* ── 전기사용자 사업장 ────────────────────────────────────── */
 export const SITES: ConsumerSite[] = [
-  { id: 1, companyId: 2, name: '본사공장', siteType: 'FACTORY', siteCode: 'ULS-01', address: '울산 남구 처용로 100', contractPowerKw: 1200, peakDemandKw: 940, rePercent: 18.4, status: 'ACTIVE' },
-  { id: 2, companyId: 2, name: '제2공장', siteType: 'FACTORY', siteCode: 'ULS-02', address: '울산 남구 용잠로 210', contractPowerKw: 800, peakDemandKw: 610, rePercent: 9.7, status: 'ACTIVE' },
+  { id: 1, companyId: 2, name: '한길', siteType: 'FACTORY', siteCode: 'ULS-01', address: '울산 남구 용연동 490-11', contractPowerKw: 1200, peakDemandKw: 940, rePercent: 18.4, status: 'ACTIVE' },
 ];
 registerMock(/^\/consumer\/sites$/, () => pageOf(SITES));
 registerMock(/^\/consumer\/sites\/(\d+)$/, ({ match }) => SITES.find((s) => s.id === Number(match[1])) ?? SITES[0]);

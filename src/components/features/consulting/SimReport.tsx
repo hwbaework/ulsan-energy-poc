@@ -365,7 +365,8 @@ function InputRecord({ input: i, companyName }: { input: SimInput; companyName: 
   const cost = selfCost(i);
   const items: [string, string][] = [
     ['업체', companyName || '-'],
-    ['사업장', [i.site, i.address].filter(Boolean).join(' · ') || '-'],
+    ['기업명', i.site || '-'],
+    ['기업 주소', i.address || '-'],
     ['검토 방식', self ? '자가소비용' : 'OnSite PPA (리스형)'],
     ['지붕 가용면적', i.roof ? `${F(i.roof)} ㎡ (약 ${F(i.roof / (i.areaPerKw || 10))} kW)` : ''],
     ['일평균 발전시간', `${i.avgH} h/일`],

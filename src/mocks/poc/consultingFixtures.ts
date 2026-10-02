@@ -1,5 +1,5 @@
 /**
- * 컨설팅 목업 — 전기사용자(이수용 · 울산 수용가(주), companyId 2) 기준 예시.
+ * 컨설팅 목업 — 전기사용자(이수용 · 한길, companyId 2) 기준 예시.
  * 내 컨설팅: 진행 중 1 · 신청(미배정) 1 · 완료 1 — 홈·목록·상세가 세 상태를 다 보여 준다.
  * 무료진단: 최근 진단 1건 + 새로 제출하면 메모리에 쌓인다(새로고침 시 초기화).
  */
@@ -8,7 +8,7 @@ import type { Consultation, Diagnosis } from '@/types/consultation';
 import { calc, defaultSimInput, type SimInput } from '@/lib/solar-sim';
 
 const CONSUMER_COMPANY_ID = 2;
-const CONSUMER_COMPANY_NAME = '울산 수용가(주)';
+const CONSUMER_COMPANY_NAME = '한길';
 
 const CONSULTATIONS: Consultation[] = [
   {
@@ -114,7 +114,7 @@ CONSULTATIONS.push(
 /* 무료진단 — 태양광 사업성 검토 입력값(solar-sim). 자가소비 · OnSite PPA · 설비 있음/없음이 다 보이게 3건 */
 const contact = { contactName: '이수용', contactEmail: 'consumer@test.com', contactPhone: '010-3000-0003' };
 const SIM_HQ_PPA: SimInput = (() => {
-  const x = defaultSimInput('본사공장', '울산 남구 처용로 100');
+  const x = defaultSimInput('한길', '울산 남구 용연동 490-11');
   x.mode = 'ppa';
   x.roof = 9000;
   x.facilities = [{ source: '태양광', kw: 90.88, genKwh: 121_400, useKwh: 121_400 }];
@@ -122,13 +122,13 @@ const SIM_HQ_PPA: SimInput = (() => {
   return x;
 })();
 const SIM_SITE2_SELF: SimInput = (() => {
-  const x = defaultSimInput('제2공장', '울산 남구 용잠로 210');
+  const x = defaultSimInput('한길', '울산 남구 용연동 490-11');
   x.mode = 'self';
   x.self = { ...x.self, cap: 250, ctr: 800, usage: 71_800 };
   return x;
 })();
 const SIM_HQ_SELF_OLD: SimInput = (() => {
-  const x = defaultSimInput('본사공장', '울산 남구 처용로 100');
+  const x = defaultSimInput('한길', '울산 남구 용연동 490-11');
   x.mode = 'self';
   x.facilities = [{ source: '태양광', kw: 90.88, genKwh: 121_400, useKwh: 121_400 }];
   x.self = { ...x.self, cap: 400, ctr: 1200, usage: 184_000 };
@@ -145,7 +145,7 @@ const diag = (id: number, sim: SimInput, createdAt: string): Diagnosis => {
 const DIAGNOSES: Diagnosis[] = [diag(1, SIM_HQ_PPA, '2026-08-18T15:20:00'), diag(2, SIM_SITE2_SELF, '2026-06-11T10:40:00'), diag(3, SIM_HQ_SELF_OLD, '2026-02-05T14:00:00')];
 
 /* 새로고침해도 신청·진단이 남게 — 브라우저에 저장 (POC) */
-const STORE_KEY = 'ulsan-consulting-poc-v5';
+const STORE_KEY = 'ulsan-consulting-poc-v6';
 if (typeof window !== 'undefined') {
   try {
     const saved = JSON.parse(window.localStorage.getItem(STORE_KEY) ?? 'null');
@@ -201,6 +201,8 @@ registerMock(
 );
 
 /* 무료진단 — 회사별 목록 · 상세 · 제출 */
+/* 전체 목록 — 관리자가 신규 기업(번호 없음)의 진단을 업체명으로 찾을 때 */
+registerMock(/^\/consultations\/diagnoses$/, () => [...DIAGNOSES].sort((a, b) => b.createdAt.localeCompare(a.createdAt)), 'GET');
 registerMock(/^\/consultations\/diagnoses\/by-company\/(\d+)$/, ({ match, query }) => {
   const companyId = Number(match[1]);
   const domain = query.get('domain');

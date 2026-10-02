@@ -51,6 +51,21 @@ export interface TradeRequest {
   note?: string;
   /** 컨설팅 › 무료진단 검토번호(SR-YYYY-NNNN) — 진단 결과를 불러와 신청했을 때 */
   reviewNo?: string;
+  /** 요금제 · 요금 기준 — 한전 산업용(을) 고압A (무료진단에서) */
+  tariffPlan?: string;
+  tariffBasis?: string;
+  /** 자가소비 설치단가 (원/kW) — 무료진단 예상 · 발전사업자가 가능한 단가 */
+  estInstallUnit?: number;
+  installUnit?: number;
+  /** O&M 포함 — 필수 */
+  omIncluded?: boolean;
+  /** 현장 실측 — 무료진단은 추정이라 실측으로 확정 */
+  surveyRequested?: boolean;
+  surveyDate?: string;
+  /** onsite 구간 단가 — 1구간 · 2구간 (₩/kWh). 같아도 구간별로 적는다 */
+  segments?: { from: number; to: number; price: number }[];
+  /** 수용가 담당자 연락처 */
+  contact?: { name: string; phone: string; email?: string };
   status: TradeRequestStatus;
   submittedAt: string;
   updatedAt: string;

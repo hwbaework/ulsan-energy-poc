@@ -7,7 +7,7 @@ import { F, PLAN_LABEL, SELF_CAPEX_UNIT, SELF_EXTRA_COST, SELF_OM, VER_LABEL, av
 /**
  * 무료진단 입력 화면 — 울산미포산단 태양광 사업성 시뮬레이터 v1.1 입력값. 한 장의 페이지 안에서
  * 짧은 항목은 두 개씩 나란히(1·2, 3·4), 칸은 '이름 위 · 값 아래' 로 빈 공간 없이. 검토 방식 · [사업 검토] 버튼까지 한 장 안에(footer).
- * 업체·사업장·주소는 가입 정보로 고정(입력 없음). 기존 태양광 설비 규모는 연결된 발전소 데이터에서 불러와 채운다(고칠 수 있음).
+ * 기업명·기업 주소는 로그인(가입) 값으로 고정(입력 없음) — 관리자만 companyEdit 로 기존 기업 선택 또는 직접 입력. 기존 태양광 설비 규모는 연결된 발전소 데이터에서 불러와 채운다(고칠 수 있음).
  */
 
 const FIELD = 'h-9 w-full rounded-md bg-white/[0.04] ring-1 ring-white/[0.08] px-2.5 text-sm text-white tabular-nums focus:outline-none focus:ring-primary/60';
@@ -46,7 +46,7 @@ function Field({ label, sub, hl, span, children }: { label: string; sub?: string
     </label>
   );
 }
-const Fixed = ({ children }: { children: ReactNode }) => <div className="flex h-9 items-center rounded-md bg-white/[0.02] px-2.5 text-sm text-slate-200">{children || '-'}</div>;
+const Fixed = ({ children }: { children: ReactNode }) => <div className="flex min-h-9 items-center break-words rounded-md bg-white/[0.02] px-2.5 py-1.5 text-sm text-slate-200">{children || '-'}</div>;
 function Sel<T extends string>({ value, options, onChange }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void }) {
   return (
     <select value={value} onChange={(e) => onChange(e.target.value as T)} className={cn(FIELD, 'cursor-pointer')}>
@@ -84,12 +84,23 @@ export function SimInputPanel({
   companyName,
   facilitySource,
   footer,
+  companyEdit,
 }: {
   value: SimInput;
   onChange: (next: SimInput) => void;
   companyName: string;
   facilitySource?: string;
   footer?: ReactNode; // 한 장 맨 아래(여백 안) — [사업 검토]
+  /** 관리자만 — 기존 기업을 고르거나 기업명·기업 주소를 직접 입력. 없으면 로그인(가입) 값 고정 */
+  companyEdit?: {
+    options: { value: string; label: string }[];
+    pick: string;
+    onPick: (v: string) => void;
+    name: string;
+    onName: (v: string) => void;
+    address: string;
+    onAddress: (v: string) => void;
+  };
 }) {
   const set = (patch: Partial<SimInput>) => onChange({ ...f, ...patch });
   const setSelf = (patch: Partial<SimInput['self']>) => onChange({ ...f, self: { ...f.self, ...patch } });
@@ -134,21 +145,40 @@ export function SimInputPanel({
       </div>
 
       <div>
-        {/* 1 · 2 */}
-        <Line pair>
-          <Sec n={++n} title="사업장 (가입 정보)">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="업체명">
-                <Fixed>{companyName}</Fixed>
-              </Field>
-              <Field label="사업장">
-                <Fixed>{f.site}</Fixed>
-              </Field>
-              <Field label="주소" span={2}>
-                <Fixed>{f.address}</Fixed>
-              </Field>
-            </div>
+        {/* 1 — 기업: 한 줄 전체(기업 주소가 길어도 잘리지 않게). 관리자만 고르거나 입력 */}
+        <Line>
+          <Sec n={++n} title={companyEdit ? '기업' : '기업 (가입 정보)'}>
+            {companyEdit ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="기존 기업 선택">
+                  <Sel value={companyEdit.pick} options={[{ value: '', label: '신규 기업 등록' }, ...companyEdit.options]} onChange={companyEdit.onPick} />
+                </Field>
+                <Field label="기업명">
+                  <input value={companyEdit.name} onChange={(e) => companyEdit.onName(e.target.value)} className={FIELD} />
+                </Field>
+                <div className="sm:col-span-2">
+                  <Field label="기업 주소">
+                    <input value={companyEdit.address} onChange={(e) => companyEdit.onAddress(e.target.value)} className={FIELD} />
+                  </Field>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3">
+                <Field label="기업명">
+                  <Fixed>{companyName}</Fixed>
+                </Field>
+                <div>
+                  <Field label="기업 주소">
+                    <Fixed>{f.address}</Fixed>
+                  </Field>
+                </div>
+              </div>
+            )}
           </Sec>
+        </Line>
+
+        {/* 2 */}
+        <Line>
           <Sec n={++n} title="지붕 면적 (선택)">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="지붕 가용면적">
