@@ -63,6 +63,9 @@ interface ApiStatement {
 }
 
 const api = () => getApiClient();
+// 목록 응답이 배열이 아니어도(.map 크래시 방지) 빈 목록으로 받는다
+const asArray = <T,>(v: T[] | null | undefined): T[] => (Array.isArray(v) ? v : []);
+
 
 const mapSource = (s: ApiSource): EmissionSource => ({
   id: String(s.id),
@@ -108,7 +111,7 @@ export function useGhgSources(companyId?: number) {
   const q = useQuery({
     queryKey: ghgKeys.sources(companyId),
     queryFn: async () =>
-      (await api().get<ApiSource[]>(ENDPOINTS.ghg.sources, { companyId })).map(mapSource),
+      asArray(await api().get<ApiSource[]>(ENDPOINTS.ghg.sources, { companyId })).map(mapSource),
     enabled: !!companyId,
     retry: false,
   });
@@ -119,7 +122,7 @@ export function useGhgActivities(companyId?: number, year = 2026) {
   const q = useQuery({
     queryKey: ghgKeys.activities(companyId, year),
     queryFn: async () =>
-      (await api().get<ApiActivity[]>(ENDPOINTS.ghg.activities, { companyId, year })).map(
+      asArray(await api().get<ApiActivity[]>(ENDPOINTS.ghg.activities, { companyId, year })).map(
         mapActivity,
       ),
     enabled: !!companyId,
@@ -138,10 +141,11 @@ export function useGhgCalculation(companyId?: number, year = 2026) {
   });
   if (q.isSuccess && q.data) {
     return {
-      rows: q.data.rows.map(mapCalcRow),
-      scope1: Number(q.data.scope1),
-      scope2: Number(q.data.scope2),
-      total: Number(q.data.total),
+      // 응답에 필드가 빠져도 화면이 죽지 않게 — 행은 빈 목록, 합계는 0
+      rows: (Array.isArray(q.data.rows) ? q.data.rows : []).map(mapCalcRow),
+      scope1: Number(q.data.scope1) || 0,
+      scope2: Number(q.data.scope2) || 0,
+      total: Number(q.data.total) || 0,
       isLive: true,
       isError: false,
     };
@@ -160,7 +164,7 @@ export function useGhgStatements(companyId?: number) {
   const q = useQuery({
     queryKey: ghgKeys.statements(companyId),
     queryFn: async () =>
-      (await api().get<ApiStatement[]>(ENDPOINTS.ghg.statements, { companyId })).map(mapStatement),
+      asArray(await api().get<ApiStatement[]>(ENDPOINTS.ghg.statements, { companyId })).map(mapStatement),
     enabled: !!companyId,
     retry: false,
   });

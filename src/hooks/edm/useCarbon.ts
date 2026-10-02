@@ -41,6 +41,9 @@ interface ApiOffset {
 }
 
 const api = () => getApiClient();
+// 목록 응답이 배열이 아니어도(.map 크래시 방지) 빈 목록으로 받는다
+const asArray = <T,>(v: T[] | null | undefined): T[] => (Array.isArray(v) ? v : []);
+
 
 const EMPTY_HOLDING = { kau: 0, koc: 0, kcu: 0 };
 
@@ -48,7 +51,7 @@ export function useCarbonQuotes() {
   const q = useQuery({
     queryKey: carbonKeys.quotes(),
     queryFn: async () =>
-      (await api().get<ApiQuote[]>(ENDPOINTS.carbon.quotes)).map(
+      asArray(await api().get<ApiQuote[]>(ENDPOINTS.carbon.quotes)).map(
         (x): KrxQuote => ({
           name: x.name,
           last: Number(x.last),
@@ -72,7 +75,7 @@ export function useCarbonHolding(companyId?: number) {
   });
   if (q.isSuccess && q.data) {
     return {
-      data: { kau: Number(q.data.kau), koc: Number(q.data.koc), kcu: Number(q.data.kcu) },
+      data: { kau: Number(q.data.kau) || 0, koc: Number(q.data.koc) || 0, kcu: Number(q.data.kcu) || 0 },
       isLive: true,
       isError: false,
     };
@@ -85,7 +88,7 @@ export function useCarbonOtc(companyId?: number) {
   const q = useQuery({
     queryKey: carbonKeys.otc(companyId),
     queryFn: async () =>
-      (await api().get<ApiOtc[]>(ENDPOINTS.carbon.otc, { companyId })).map(
+      asArray(await api().get<ApiOtc[]>(ENDPOINTS.carbon.otc, { companyId })).map(
         (o): OtcOrder => ({
           id: String(o.id),
           company: o.company,
@@ -107,7 +110,7 @@ export function useCarbonOffsets(companyId?: number) {
   const q = useQuery({
     queryKey: carbonKeys.offsets(companyId),
     queryFn: async () =>
-      (await api().get<ApiOffset[]>(ENDPOINTS.carbon.offsetProjects, { companyId })).map(
+      asArray(await api().get<ApiOffset[]>(ENDPOINTS.carbon.offsetProjects, { companyId })).map(
         (p): OffsetProject => ({
           id: String(p.id),
           name: p.name,

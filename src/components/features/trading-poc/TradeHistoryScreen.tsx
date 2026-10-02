@@ -379,7 +379,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
               : moveStage(r.id, '조건 협의')
           }
         >
-          {r.surveyRequested ? '다음 — 현장 실측' : '다음 — 조건 협의'}
+          {r.surveyRequested ? '현장 실측 →' : '조건 협의 →'}
         </Button>
       )}
       {admin && step === 2 && (

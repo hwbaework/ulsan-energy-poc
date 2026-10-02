@@ -294,7 +294,6 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
                   {i < crumb.length - 1 && <ChevronRight size={12} className="text-slate-600" />}
                 </span>
               ))}
-              <span className="ml-1 text-xs tabular-nums text-slate-500">({visible.length}건)</span>
             </span>
             <div className="flex items-center gap-2">
               <div className="relative w-60">

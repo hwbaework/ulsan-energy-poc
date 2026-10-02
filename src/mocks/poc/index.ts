@@ -6,3 +6,4 @@ export * from './registry';
 import './fixtures';
 import './tradingFixtures';
 import './consultingFixtures';
+import './edmFixtures';

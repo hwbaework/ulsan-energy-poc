@@ -47,7 +47,9 @@ export default function OffsetPage() {
         onSuccess: (res) => {
           toast('success', '모니터링 보고서를 생성·제출했습니다.');
           // 제출 시점 트리거 — ghg 감축실적 원장에 UPSERT(멱등). carbon BE 미수정.
-          const m = (res as { data?: { id?: number; period?: string; monitoredTco2?: number } })?.data;
+          // API 클라이언트는 본문(payload)을 바로 돌려준다 — 예전 { data } 감싼 모양도 받는다
+          type MonitoringRes = { id?: number; period?: string; monitoredTco2?: number };
+          const m = (res as { data?: MonitoringRes })?.data ?? (res as MonitoringRes | undefined);
           if (m?.id != null) {
             syncReduction
               .mutateAsync({
@@ -82,7 +84,8 @@ export default function OffsetPage() {
       { companyId, offsetProjectId: Number(id), amount },
       {
         onSuccess: (res) => {
-          const c = (res as { data?: { status?: string; blockedReason?: string | null } })?.data;
+          type ConversionRes = { status?: string; blockedReason?: string | null };
+          const c = (res as { data?: ConversionRes })?.data ?? (res as ConversionRes | undefined);
           if (c?.status === 'CROSSCHECK_FAILED') toast('warning', `전환 차단: ${c.blockedReason ?? 'REC 중복'}`);
           else toast('success', 'KCU로 전환했습니다.');
           setConvertFor(null);

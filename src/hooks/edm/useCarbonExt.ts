@@ -9,6 +9,9 @@ import { ENDPOINTS } from '@/api/edmEndpoints';
 import { carbonKeys } from '@/api/edmQueryKeys';
 
 const api = () => getApiClient();
+// 목록 응답이 배열이 아니어도(.map 크래시 방지) 빈 목록으로 받는다
+const asArray = <T,>(v: T[] | null | undefined): T[] => (Array.isArray(v) ? v : []);
+
 
 export interface EtrsRow {
   id: string;
@@ -39,7 +42,7 @@ export function useCarbonEtrs(companyId?: number) {
   const q = useQuery({
     queryKey: carbonKeys.etrs(companyId),
     queryFn: async () =>
-      (await api().get<ApiEtrs[]>(ENDPOINTS.carbon.etrs, { companyId })).map(
+      asArray(await api().get<ApiEtrs[]>(ENDPOINTS.carbon.etrs, { companyId })).map(
         (t): EtrsRow => ({
           id: String(t.id),
           counterparty: t.counterparty,
@@ -95,7 +98,7 @@ export function useCarbonMatches(companyId?: number) {
   const q = useQuery({
     queryKey: carbonKeys.matches(companyId),
     queryFn: async () =>
-      (await api().get<ApiMatch[]>(ENDPOINTS.carbon.matches, { companyId })).map(
+      asArray(await api().get<ApiMatch[]>(ENDPOINTS.carbon.matches, { companyId })).map(
         (m): MatchRow => ({
           id: m.id,
           buyCompany: m.buyCompany,

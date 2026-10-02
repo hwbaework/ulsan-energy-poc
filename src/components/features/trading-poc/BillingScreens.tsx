@@ -215,7 +215,7 @@ function BillingScreen({ kind }: { kind: Kind }) {
 
       <div className="grid items-start gap-6 xl:grid-cols-3">
         <SectionCard
-          title={`전체 ${list.length}건`}
+          title={kind === 'TAX' ? '세금계산서' : '청구서'}
           className="xl:col-span-2"
           actions={
             <div className="flex flex-wrap items-center gap-3">
