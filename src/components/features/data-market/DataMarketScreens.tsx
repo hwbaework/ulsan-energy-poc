@@ -2,13 +2,15 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, Copy, Plus, RotateCw } from 'lucide-react';
+import { ChevronRight, Copy, FileText, Plus, RotateCw, Search, Zap } from 'lucide-react';
 import { StatCard, StatsGrid } from '@/components/features/StatCard';
 import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { BackButton } from '@/components/layout/PageTitle';
+import { Badge } from '@/components/ui/Badge/Badge';
 import { Button } from '@/components/ui/Button';
+import { Checkbox } from '@/components/ui/Checkbox/Checkbox';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -22,12 +24,16 @@ import {
   DATASET_STATUS_LABEL,
   DATA_KINDS,
   DELIVERIES,
+  INTERVALS,
   PRICE_TYPE_LABEL,
+  UNIT_OF,
+  sampleRowsOf,
   settlementsOfTrades,
   usageDays,
   usageOf,
   useDataMarketStore,
   useHydrateDataMarket,
+  type DataInterval,
   type DataKind,
   type DataSettlement,
   type DataTrade,
@@ -40,13 +46,14 @@ import {
 /* ── 공통 ── */
 const won = (n: number) => `₩${n.toLocaleString('ko-KR')}`;
 const day = (iso?: string) => (iso ? iso.slice(0, 10) : '');
+const priceOf = (d: Pick<Dataset, 'price' | 'proposedPrice'>) => d.price ?? d.proposedPrice;
 const priceText = (d: Pick<Dataset, 'priceType' | 'price' | 'proposedPrice'>) =>
-  `${won(d.price ?? d.proposedPrice)} · ${PRICE_TYPE_LABEL[d.priceType]}`;
+  d.priceType === 'MONTHLY' ? `${won(priceOf(d))}/월` : won(priceOf(d));
 const periodText = (d: Pick<Dataset, 'periodFrom' | 'periodTo'>) => `${d.periodFrom} ~ ${d.periodTo ?? ''}`;
 const STATUS_TONE: Record<DatasetStatus, StatusTone> = { PENDING: 'warning', APPROVED: 'normal', REJECTED: 'danger' };
 const cell = (v: ReactNode, cls = 'text-slate-300') => <span className={`whitespace-nowrap text-sm ${cls}`}>{v}</span>;
 const num = (v: ReactNode) => <span className="whitespace-nowrap text-sm tabular-nums text-slate-300">{v}</span>;
-const arrow: Column<never> = {
+const arrow = {
   key: 'go',
   header: '',
   width: '40px',
@@ -102,47 +109,89 @@ function useDataRole() {
       isAdmin ? tradesAll : tradesAll.filter((t) => t.buyerCompanyId === companyId || t.sellerCompanyId === companyId),
     [isAdmin, tradesAll, companyId],
   );
-  return { isAdmin, companyId, companyName, datasets, trades };
+  return { isAdmin, companyId, companyName, datasets, trades, tradesAll };
 }
 
-/* ══ 3.3.1 데이터 등록/신청 — 목록 ══ */
+/* ══ 3.3.1 데이터 등록/신청 — 검색 · 카드 ══ */
+
+/** 데이터 카드 — 종류 · 제공 방식 · 이름 · 내용 · 제공 기업 · 수집 주기 · 가격 */
+function DatasetCard({ d, buyers, onClick }: { d: Dataset; buyers: number; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex flex-col rounded-xl bg-[#0d1520] p-5 text-left ring-1 ring-white/[0.08] transition-all hover:-translate-y-0.5 hover:ring-primary/40"
+    >
+      <div className="mb-3 flex items-center justify-between">
+        <Badge variant="primary">{d.kind}</Badge>
+        <span className="inline-flex items-center gap-1 text-sm text-slate-400">
+          {d.delivery === 'API' ? <Zap size={14} /> : <FileText size={14} />}
+          {d.delivery}
+        </span>
+      </div>
+      <h3 className="mb-1 line-clamp-1 text-base font-semibold text-white group-hover:text-primary">{d.name}</h3>
+      <p className="mb-4 line-clamp-2 flex-1 text-sm text-slate-400">{d.description}</p>
+      <p className="mb-4 text-sm text-slate-400">
+        {d.ownerCompanyName} <span className="text-slate-600">·</span> {d.interval}
+      </p>
+      <div className="flex items-center justify-between border-t border-white/[0.06] pt-3">
+        {d.status === 'APPROVED' ? (
+          <span className="text-sm text-slate-400">구매 {buyers}건</span>
+        ) : (
+          <StatusPill tone={STATUS_TONE[d.status]} label={DATASET_STATUS_LABEL[d.status]} />
+        )}
+        <span className="text-base font-semibold tabular-nums text-primary">{priceText(d)}</span>
+      </div>
+    </button>
+  );
+}
+
+function FilterBox({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="rounded-xl bg-[#0d1520] p-5 ring-1 ring-white/[0.06]">
+      <p className="mb-3 text-base font-semibold text-white">{title}</p>
+      <div className="flex flex-col items-start gap-2.5">{children}</div>
+    </div>
+  );
+}
+
 export function DataCatalogScreen() {
   const router = useRouter();
   const role = useDataRole();
-  const [status, setStatus] = useState('');
-  const [kind, setKind] = useState('');
-  const rows = useMemo(
-    () =>
-      role.datasets
-        .filter((d) => (!status || d.status === status) && (!kind || d.kind === kind))
-        .sort((a, b) => b.registeredAt.localeCompare(a.registeredAt)),
-    [role.datasets, status, kind],
-  );
-  const count = (s: DatasetStatus) => role.datasets.filter((d) => d.status === s).length;
+  const [q, setQ] = useState('');
+  const [kinds, setKinds] = useState<Set<string>>(new Set());
+  const [deliveries, setDeliveries] = useState<Set<string>>(new Set());
+  const [prices, setPrices] = useState<Set<string>>(new Set());
+  const [statuses, setStatuses] = useState<Set<string>>(new Set());
+  const [sort, setSort] = useState<'new' | 'low' | 'high'>('new');
 
-  const columns: Column<Dataset>[] = [
-    { key: 'name', header: '데이터명', render: (d) => cell(d.name, 'font-medium text-white') },
-    { key: 'kind', header: '종류', width: '120px', render: (d) => cell(d.kind) },
-    { key: 'owner', header: '제공 기업', width: '120px', render: (d) => cell(d.ownerCompanyName) },
-    { key: 'delivery', header: '제공 방식', width: '90px', render: (d) => cell(d.delivery) },
-    { key: 'period', header: '기간', width: '170px', render: (d) => num(periodText(d)) },
-    { key: 'price', header: '가격', width: '190px', render: (d) => num(priceText(d)) },
-    {
-      key: 'registered',
-      header: '등록일',
-      width: '120px',
-      sortable: true,
-      sortValue: (d) => d.registeredAt,
-      render: (d) => num(day(d.registeredAt)),
-    },
-    {
-      key: 'status',
-      header: '상태',
-      width: '100px',
-      render: (d) => <StatusPill tone={STATUS_TONE[d.status]} label={DATASET_STATUS_LABEL[d.status]} />,
-    },
-    arrow as Column<Dataset>,
-  ];
+  const toggle = (set: Set<string>, put: (s: Set<string>) => void, v: string) => {
+    const next = new Set(set);
+    if (next.has(v)) next.delete(v);
+    else next.add(v);
+    put(next);
+  };
+  const buyersOf = (id: number) => role.tradesAll.filter((t) => t.datasetId === id).length;
+  const list = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    return role.datasets
+      .filter(
+        (d) => !s || [d.name, d.description ?? '', d.ownerCompanyName, d.kind].some((v) => v.toLowerCase().includes(s)),
+      )
+      .filter((d) => !kinds.size || kinds.has(d.kind))
+      .filter((d) => !deliveries.size || deliveries.has(d.delivery))
+      .filter((d) => !prices.size || prices.has(d.priceType))
+      .filter((d) => !statuses.size || statuses.has(d.status))
+      .sort((a, b) =>
+        sort === 'new'
+          ? b.registeredAt.localeCompare(a.registeredAt)
+          : sort === 'low'
+            ? priceOf(a) - priceOf(b)
+            : priceOf(b) - priceOf(a),
+      );
+  }, [role.datasets, q, kinds, deliveries, prices, statuses, sort]);
+  // 승인 대기 · 반려는 관리자와 등록한 기업에만 보인다
+  const showStatus = role.isAdmin || role.datasets.some((d) => d.status !== 'APPROVED');
 
   return (
     <div className="space-y-6">
@@ -156,51 +205,100 @@ export function DataCatalogScreen() {
           )
         }
       />
-      <StatsGrid columns={3}>
-        <StatCard label="승인" value={`${count('APPROVED')}건`} />
-        <StatCard label="승인 대기" value={`${count('PENDING')}건`} />
-        <StatCard label="반려" value={`${count('REJECTED')}건`} />
-      </StatsGrid>
-      <SectionCard
-        title="데이터"
-        actions={
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-slate-400">
-              종류
-              <Select
-                options={[{ value: '', label: '전체' }, ...DATA_KINDS.map((k) => ({ value: k, label: k }))]}
-                value={kind}
-                onChange={(e) => setKind(e.target.value)}
-                className="w-32"
-              />
-            </label>
-            <label className="flex items-center gap-2 text-sm text-slate-400">
-              상태
-              <Select
-                options={[
-                  { value: '', label: '전체' },
-                  ...(Object.keys(DATASET_STATUS_LABEL) as DatasetStatus[]).map((s) => ({
-                    value: s,
-                    label: DATASET_STATUS_LABEL[s],
-                  })),
-                ]}
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="w-32"
-              />
-            </label>
-          </div>
-        }
-        noPadding
-      >
-        <DataTable
-          columns={columns}
-          data={rows}
-          rowKey={(d) => d.id}
-          emptyMessage="데이터 없음"
-          onRowClick={(d) => router.push(`${CATALOG}/view?id=${d.id}`)}
+
+      <div className="relative">
+        <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="데이터 검색 (데이터명 · 기업 · 종류)"
+          className="h-12 w-full rounded-xl bg-[#0d1520] pl-11 pr-4 text-base text-white ring-1 ring-white/[0.08] placeholder:text-slate-500 focus:outline-none focus:ring-primary/60"
         />
-      </SectionCard>
+      </div>
+
+      <div className="grid items-start gap-6 lg:grid-cols-[260px_1fr]">
+        <div className="space-y-4">
+          <FilterBox title="종류">
+            {DATA_KINDS.map((k) => {
+              const n = role.datasets.filter((d) => d.kind === k).length;
+              return (
+                <Checkbox
+                  key={k}
+                  label={`${k} (${n})`}
+                  checked={kinds.has(k)}
+                  onChange={() => toggle(kinds, setKinds, k)}
+                />
+              );
+            })}
+          </FilterBox>
+          <FilterBox title="제공 방식">
+            {DELIVERIES.map((k) => (
+              <Checkbox
+                key={k}
+                label={k}
+                checked={deliveries.has(k)}
+                onChange={() => toggle(deliveries, setDeliveries, k)}
+              />
+            ))}
+          </FilterBox>
+          <FilterBox title="가격 방식">
+            {(Object.keys(PRICE_TYPE_LABEL) as PriceType[]).map((k) => (
+              <Checkbox
+                key={k}
+                label={PRICE_TYPE_LABEL[k]}
+                checked={prices.has(k)}
+                onChange={() => toggle(prices, setPrices, k)}
+              />
+            ))}
+          </FilterBox>
+          {showStatus && (
+            <FilterBox title="상태">
+              {(Object.keys(DATASET_STATUS_LABEL) as DatasetStatus[]).map((k) => (
+                <Checkbox
+                  key={k}
+                  label={DATASET_STATUS_LABEL[k]}
+                  checked={statuses.has(k)}
+                  onChange={() => toggle(statuses, setStatuses, k)}
+                />
+              ))}
+            </FilterBox>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-base text-slate-300">
+              총 <span className="font-semibold text-white">{list.length}</span>개 데이터
+            </p>
+            <Select
+              options={[
+                { value: 'new', label: '최신순' },
+                { value: 'low', label: '가격 낮은순' },
+                { value: 'high', label: '가격 높은순' },
+              ]}
+              value={sort}
+              onChange={(e) => setSort(e.target.value as 'new' | 'low' | 'high')}
+              className="w-36"
+            />
+          </div>
+          {list.length === 0 ? (
+            <div className="rounded-xl bg-[#0d1520] p-12 text-center text-base text-slate-400 ring-1 ring-white/[0.06]">
+              데이터 없음
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {list.map((d) => (
+                <DatasetCard
+                  key={d.id}
+                  d={d}
+                  buyers={buyersOf(d.id)}
+                  onClick={() => router.push(`${CATALOG}/view?id=${d.id}`)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -215,6 +313,7 @@ export function DataRegisterScreen() {
     name: '',
     kind: '발전량' as DataKind,
     delivery: 'API' as Delivery,
+    interval: '시간별' as DataInterval,
     periodFrom: '',
     periodTo: '',
     description: '',
@@ -229,6 +328,7 @@ export function DataRegisterScreen() {
       name: v.name.trim(),
       kind: v.kind,
       delivery: v.delivery,
+      interval: v.interval,
       periodFrom: v.periodFrom,
       periodTo: v.periodTo || undefined,
       description: v.description.trim() || undefined,
@@ -271,7 +371,7 @@ export function DataRegisterScreen() {
               label="데이터명"
               value={v.name}
               onChange={(e) => set('name', e.target.value)}
-              placeholder="예: 한길 전력 사용량 (15분)"
+              placeholder="예: 한길 전력 사용량"
               required
             />
           </div>
@@ -288,7 +388,12 @@ export function DataRegisterScreen() {
             value={v.delivery}
             onChange={(e) => set('delivery', e.target.value as Delivery)}
           />
-          <div />
+          <Select
+            label="수집 주기"
+            options={INTERVALS.map((k) => ({ value: k, label: k }))}
+            value={v.interval}
+            onChange={(e) => set('interval', e.target.value as DataInterval)}
+          />
           <Input
             label="기간 시작"
             type="month"
@@ -339,7 +444,7 @@ export function DataRegisterScreen() {
   );
 }
 
-/* ══ 데이터 한 건 — 관리자: 가격 확정 · 승인 / 반려, 다른 기업: 신청 ══ */
+/* ══ 데이터 한 건 — 정보 · 샘플. 관리자: 가격 확정 · 승인 / 반려, 다른 기업: 신청 ══ */
 export function DataDetailScreen() {
   const router = useRouter();
   const role = useDataRole();
@@ -356,12 +461,13 @@ export function DataDetailScreen() {
   }, []);
   const d = id == null ? undefined : role.datasets.find((x) => x.id === id);
   useEffect(() => {
-    if (d) setPrice(String(d.price ?? d.proposedPrice));
+    if (d) setPrice(String(priceOf(d)));
   }, [d]);
   const mine = !!d && d.ownerCompanyId === role.companyId;
   const myTrade = d ? role.trades.find((t) => t.datasetId === d.id && t.buyerCompanyId === role.companyId) : undefined;
   const deciding = role.isAdmin && d?.status === 'PENDING';
   const canApply = !!d && !role.isAdmin && !mine && d.status === 'APPROVED' && !myTrade;
+  const samples = d ? sampleRowsOf(d) : [];
 
   return (
     <div className="space-y-6">
@@ -377,8 +483,8 @@ export function DataDetailScreen() {
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-white">{d?.name ?? '데이터'}</h1>
           {d && (
-            <p className="mt-1 text-sm text-slate-400">
-              {[d.ownerCompanyName, d.kind, d.delivery, DATASET_STATUS_LABEL[d.status]].join(' · ')}
+            <p className="mt-1 text-base text-slate-400">
+              {[d.ownerCompanyName, d.kind, d.delivery, d.interval, DATASET_STATUS_LABEL[d.status]].join(' · ')}
             </p>
           )}
         </div>
@@ -389,84 +495,112 @@ export function DataDetailScreen() {
           데이터를 찾을 수 없습니다
         </div>
       ) : d ? (
-        <SectionCard
-          title="데이터"
-          actions={
-            <>
-              {deciding && (
-                <>
-                  <Button size="sm" variant="danger" onClick={() => setConfirm('reject')}>
+        <div className="grid items-start gap-6 xl:grid-cols-3">
+          <SectionCard
+            title="데이터"
+            className="xl:col-span-2"
+            actions={
+              <>
+                {deciding && (
+                  <>
+                    <Button size="sm" variant="danger" onClick={() => setConfirm('reject')}>
+                      반려
+                    </Button>
+                    <Button size="sm" disabled={!(Number(price) > 0)} onClick={() => setConfirm('approve')}>
+                      승인
+                    </Button>
+                  </>
+                )}
+                {canApply && (
+                  <Button size="sm" onClick={() => setConfirm('apply')}>
+                    신청
+                  </Button>
+                )}
+                {myTrade && (
+                  <Button size="sm" variant="secondary" onClick={() => router.push('/e-data/api-hub')}>
+                    토큰 보기
+                  </Button>
+                )}
+              </>
+            }
+          >
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <Info label="제공 기업" value={d.ownerCompanyName} />
+              <Info label="종류" value={d.kind} />
+              <Info label="제공 방식" value={d.delivery} />
+              <Info label="수집 주기" value={d.interval} />
+              <Info label="기간" value={periodText(d)} />
+              <Info label="가격 방식" value={PRICE_TYPE_LABEL[d.priceType]} />
+              <Info label="제시 가격" value={won(d.proposedPrice)} />
+              {deciding ? (
+                <Input
+                  label="승인 가격 (원)"
+                  inputMode="numeric"
+                  value={price ? Number(price).toLocaleString('ko-KR') : ''}
+                  onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, ''))}
+                />
+              ) : (
+                <Info label="승인 가격" value={d.price != null ? won(d.price) : undefined} />
+              )}
+              <Info label="구매" value={`${role.tradesAll.filter((t) => t.datasetId === d.id).length}건`} />
+              <Info label="등록일" value={day(d.registeredAt)} />
+              <Info label={d.status === 'REJECTED' ? '반려일' : '승인일'} value={day(d.decidedAt)} />
+              <div />
+              {d.status === 'REJECTED' && <Info label="반려 사유" value={d.rejectReason} className="md:col-span-3" />}
+              <Info label="내용" value={d.description} className="md:col-span-3" />
+            </div>
+            {confirm === 'reject' && (
+              <div className="mt-4 space-y-3 rounded-lg bg-white/[0.03] p-4 ring-1 ring-white/[0.06]">
+                <Textarea
+                  label="반려 사유"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  rows={2}
+                  className="resize-none"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => setConfirm(null)}>
+                    취소
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    disabled={!reason.trim()}
+                    onClick={() => {
+                      reject(d.id, reason.trim());
+                      addToast('success', `${d.name} 반려`);
+                      setConfirm(null);
+                    }}
+                  >
                     반려
                   </Button>
-                  <Button size="sm" disabled={!(Number(price) > 0)} onClick={() => setConfirm('approve')}>
-                    승인
-                  </Button>
-                </>
-              )}
-              {canApply && (
-                <Button size="sm" onClick={() => setConfirm('apply')}>
-                  신청
-                </Button>
-              )}
-              {myTrade && (
-                <Button size="sm" variant="secondary" onClick={() => router.push('/e-data/api-hub')}>
-                  토큰 보기
-                </Button>
-              )}
-            </>
-          }
-        >
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <Info label="제공 기업" value={d.ownerCompanyName} />
-            <Info label="종류" value={d.kind} />
-            <Info label="제공 방식" value={d.delivery} />
-            <Info label="기간" value={periodText(d)} />
-            <Info label="가격 방식" value={PRICE_TYPE_LABEL[d.priceType]} />
-            <Info label="제시 가격" value={won(d.proposedPrice)} />
-            {deciding ? (
-              <Input
-                label="승인 가격 (원)"
-                inputMode="numeric"
-                value={price ? Number(price).toLocaleString('ko-KR') : ''}
-                onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, ''))}
-              />
-            ) : (
-              <Info label="승인 가격" value={d.price != null ? won(d.price) : undefined} />
-            )}
-            <Info label="등록일" value={day(d.registeredAt)} />
-            <Info label={d.status === 'REJECTED' ? '반려일' : '승인일'} value={day(d.decidedAt)} />
-            {d.status === 'REJECTED' && <Info label="반려 사유" value={d.rejectReason} className="md:col-span-3" />}
-            <Info label="내용" value={d.description} className="md:col-span-3" />
-          </div>
-          {confirm === 'reject' && (
-            <div className="mt-4 space-y-3 rounded-lg bg-white/[0.03] p-4 ring-1 ring-white/[0.06]">
-              <Textarea
-                label="반려 사유"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                rows={2}
-                className="resize-none"
-              />
-              <div className="flex justify-end gap-2">
-                <Button size="sm" variant="secondary" onClick={() => setConfirm(null)}>
-                  취소
-                </Button>
-                <Button
-                  size="sm"
-                  variant="danger"
-                  disabled={!reason.trim()}
-                  onClick={() => {
-                    reject(d.id, reason.trim());
-                    addToast('success', `${d.name} 반려`);
-                    setConfirm(null);
-                  }}
-                >
-                  반려
-                </Button>
+                </div>
               </div>
-            </div>
-          )}
-        </SectionCard>
+            )}
+          </SectionCard>
+
+          {/* 샘플 — 앞부분 몇 줄 */}
+          <SectionCard title={`샘플 (${d.interval})`} noPadding>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/[0.06] text-slate-400">
+                  <th className="px-5 py-2.5 text-left font-medium">시각</th>
+                  <th className="px-5 py-2.5 text-right font-medium">값 ({UNIT_OF[d.kind]})</th>
+                </tr>
+              </thead>
+              <tbody>
+                {samples.map((r) => (
+                  <tr key={r.at} className="border-b border-white/[0.04] last:border-0">
+                    <td className="px-5 py-2.5 tabular-nums text-slate-300">{r.at}</td>
+                    <td className="px-5 py-2.5 text-right tabular-nums text-white">
+                      {r.value.toLocaleString('ko-KR')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </SectionCard>
+        </div>
       ) : null}
 
       <ConfirmDialog
@@ -495,157 +629,131 @@ export function DataDetailScreen() {
   );
 }
 
-/* ══ 3.3.2 거래 현황 — 구매(위) · 판매(아래). 관리자는 전체 거래 ══ */
+/* ══ 3.3.2 거래 현황 — 구매(위) · 판매(아래). 누가 무엇을 샀는지 ══ */
 export function DataTradesScreen() {
   const router = useRouter();
   const role = useDataRole();
-  const bought = role.trades.filter((t) => t.buyerCompanyId === role.companyId);
-  const sold = role.trades.filter((t) => t.sellerCompanyId === role.companyId);
+  // 관리자는 전체 거래를 구매 기업 기준 · 판매 기업 기준으로 본다
+  const bought = role.isAdmin ? role.trades : role.trades.filter((t) => t.buyerCompanyId === role.companyId);
+  const sold = role.isAdmin ? role.trades : role.trades.filter((t) => t.sellerCompanyId === role.companyId);
   const go = (t: DataTrade) => router.push(`${CATALOG}/view?id=${t.datasetId}`);
-  const base: Column<DataTrade>[] = [
-    { key: 'name', header: '데이터명', render: (t) => cell(t.datasetName, 'font-medium text-white') },
-    {
-      key: 'price',
-      header: '가격',
-      width: '190px',
-      render: (t) => num(`${won(t.price)} · ${PRICE_TYPE_LABEL[t.priceType]}`),
-    },
-    {
-      key: 'start',
+  const col = {
+    day: {
+      key: 'day',
       header: '거래일',
       width: '120px',
       sortable: true,
-      sortValue: (t) => t.startedAt,
-      render: (t) => num(day(t.startedAt)),
+      sortValue: (t: DataTrade) => t.startedAt,
+      render: (t: DataTrade) => num(day(t.startedAt)),
     },
-  ];
-  const seller: Column<DataTrade> = {
-    key: 'seller',
-    header: '판매 기업',
-    width: '130px',
-    render: (t) => cell(t.sellerCompanyName),
-  };
-  const buyer: Column<DataTrade> = {
-    key: 'buyer',
-    header: '구매 기업',
-    width: '130px',
-    render: (t) => cell(t.buyerCompanyName),
-  };
-  const token: Column<DataTrade> = {
-    key: 'token',
-    header: '토큰',
-    width: '200px',
-    render: (t) => <span className="font-mono text-xs text-slate-400">{t.token.slice(0, 14)}…</span>,
-  };
-  const sorted = (xs: DataTrade[]) => [...xs].sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+    name: { key: 'name', header: '데이터', render: (t: DataTrade) => cell(t.datasetName, 'font-medium text-white') },
+    buyer: { key: 'buyer', header: '구매 기업', width: '130px', render: (t: DataTrade) => cell(t.buyerCompanyName) },
+    seller: { key: 'seller', header: '판매 기업', width: '130px', render: (t: DataTrade) => cell(t.sellerCompanyName) },
+    price: {
+      key: 'price',
+      header: '가격',
+      width: '150px',
+      render: (t: DataTrade) => num(t.priceType === 'MONTHLY' ? `${won(t.price)}/월` : won(t.price)),
+    },
+    token: {
+      key: 'token',
+      header: '토큰',
+      width: '180px',
+      render: (t: DataTrade) => <span className="font-mono text-xs text-slate-400">{t.token.slice(0, 14)}…</span>,
+    },
+  } satisfies Record<string, Column<DataTrade>>;
+  const sorted = (xs: DataTrade[], by: (t: DataTrade) => string) =>
+    [...xs].sort((a, b) => by(a).localeCompare(by(b), 'ko') || b.startedAt.localeCompare(a.startedAt));
 
   return (
     <div className="space-y-6">
       <Header title="거래 현황" />
       <StatsGrid columns={3}>
-        {role.isAdmin ? (
-          <StatCard label="거래" value={`${role.trades.length}건`} />
-        ) : (
-          <StatCard label="구매" value={`${bought.length}건`} />
-        )}
-        {role.isAdmin ? (
-          <StatCard
-            label="월 이용료 합계"
-            value={won(role.trades.filter((t) => t.priceType === 'MONTHLY').reduce((a, t) => a + t.price, 0))}
-          />
-        ) : (
-          <StatCard label="판매" value={`${sold.length}건`} />
-        )}
-        <StatCard label="발급 토큰" value={`${role.isAdmin ? role.trades.length : bought.length}개`} />
+        <StatCard label={role.isAdmin ? '거래' : '구매'} value={`${bought.length}건`} />
+        <StatCard
+          label={role.isAdmin ? '판매 기업' : '판매'}
+          value={role.isAdmin ? `${new Set(sold.map((t) => t.sellerCompanyId)).size}곳` : `${sold.length}건`}
+        />
+        <StatCard label="발급 토큰" value={`${bought.length}개`} />
       </StatsGrid>
-      {role.isAdmin ? (
-        <SectionCard title="거래" noPadding>
-          <DataTable
-            columns={[...base.slice(0, 1), seller, buyer, ...base.slice(1), arrow as Column<DataTrade>]}
-            data={sorted(role.trades)}
-            rowKey={(t) => t.id}
-            emptyMessage="거래 없음"
-            onRowClick={go}
-          />
-        </SectionCard>
-      ) : (
-        <>
-          <SectionCard title="구매" noPadding>
-            <DataTable
-              columns={[...base.slice(0, 1), seller, ...base.slice(1), token, arrow as Column<DataTrade>]}
-              data={sorted(bought)}
-              rowKey={(t) => t.id}
-              emptyMessage="구매 없음"
-              onRowClick={go}
-            />
-          </SectionCard>
-          <SectionCard title="판매" noPadding>
-            <DataTable
-              columns={[...base.slice(0, 1), buyer, ...base.slice(1), arrow as Column<DataTrade>]}
-              data={sorted(sold)}
-              rowKey={(t) => t.id}
-              emptyMessage="판매 없음"
-              onRowClick={go}
-            />
-          </SectionCard>
-        </>
-      )}
+      <SectionCard title="구매" noPadding>
+        <DataTable
+          columns={
+            role.isAdmin
+              ? [col.buyer, col.name, col.seller, col.price, col.day, arrow]
+              : [col.name, col.seller, col.price, col.day, col.token, arrow]
+          }
+          data={role.isAdmin ? sorted(bought, (t) => t.buyerCompanyName) : sorted(bought, () => '')}
+          rowKey={(t) => t.id}
+          emptyMessage="구매 없음"
+          onRowClick={go}
+        />
+      </SectionCard>
+      <SectionCard title="판매" noPadding>
+        <DataTable
+          columns={
+            role.isAdmin
+              ? [col.seller, col.name, col.buyer, col.price, col.day, arrow]
+              : [col.name, col.buyer, col.price, col.day, arrow]
+          }
+          data={role.isAdmin ? sorted(sold, (t) => t.sellerCompanyName) : sorted(sold, () => '')}
+          rowKey={(t) => t.id}
+          emptyMessage="판매 없음"
+          onRowClick={go}
+        />
+      </SectionCard>
     </div>
   );
 }
 
-/* ══ 3.3.3 정산 — 달마다 무엇을 팔고 샀는지, 금액. 월 이용료는 매달, 1회 구매는 산 달 ══ */
+/* ══ 3.3.3 정산 — 판매 · 구매 각각, 달마다 금액. 월 이용료는 매달, 1회 구매는 산 달 ══ */
 export function DataSettlementScreen() {
   const role = useDataRole();
   const rows = useMemo(() => settlementsOfTrades(role.trades), [role.trades]);
   const [period, setPeriod] = useState('');
   const periods = [...new Set(rows.map((r) => r.period))];
   const inPeriod = rows.filter((r) => !period || r.period === period);
-  const sold = inPeriod.filter((r) => role.isAdmin || r.trade.sellerCompanyId === role.companyId);
-  const bought = inPeriod.filter((r) => !role.isAdmin && r.trade.buyerCompanyId === role.companyId);
+  const soldRows = inPeriod.filter((r) => role.isAdmin || r.trade.sellerCompanyId === role.companyId);
+  const boughtRows = inPeriod.filter((r) => role.isAdmin || r.trade.buyerCompanyId === role.companyId);
   const total = (xs: DataSettlement[]) => won(xs.reduce((a, r) => a + r.amount, 0));
-  const year = rows.filter((r) => r.period.startsWith('2026'));
 
-  const columns = (who: 'buyer' | 'seller' | 'both'): Column<DataSettlement>[] => [
-    {
+  const col = {
+    period: {
       key: 'period',
       header: '기간',
       width: '100px',
       sortable: true,
-      sortValue: (r) => r.period,
-      render: (r) => cell(r.period, 'font-medium text-white tabular-nums'),
+      sortValue: (r: DataSettlement) => r.period,
+      render: (r: DataSettlement) => cell(r.period, 'font-medium tabular-nums text-white'),
     },
-    { key: 'name', header: '데이터명', render: (r) => cell(r.trade.datasetName, 'text-white') },
-    ...(who !== 'buyer'
-      ? [
-          {
-            key: 'buyer',
-            header: '구매 기업',
-            width: '130px',
-            render: (r: DataSettlement) => cell(r.trade.buyerCompanyName),
-          },
-        ]
-      : []),
-    ...(who !== 'seller'
-      ? [
-          {
-            key: 'seller',
-            header: '판매 기업',
-            width: '130px',
-            render: (r: DataSettlement) => cell(r.trade.sellerCompanyName),
-          },
-        ]
-      : []),
-    { key: 'type', header: '가격 방식', width: '120px', render: (r) => cell(PRICE_TYPE_LABEL[r.trade.priceType]) },
-    {
+    name: { key: 'name', header: '데이터', render: (r: DataSettlement) => cell(r.trade.datasetName, 'text-white') },
+    buyer: {
+      key: 'buyer',
+      header: '구매 기업',
+      width: '130px',
+      render: (r: DataSettlement) => cell(r.trade.buyerCompanyName),
+    },
+    seller: {
+      key: 'seller',
+      header: '판매 기업',
+      width: '130px',
+      render: (r: DataSettlement) => cell(r.trade.sellerCompanyName),
+    },
+    type: {
+      key: 'type',
+      header: '가격 방식',
+      width: '110px',
+      render: (r: DataSettlement) => cell(PRICE_TYPE_LABEL[r.trade.priceType]),
+    },
+    amount: {
       key: 'amount',
       header: '금액',
       width: '130px',
-      render: (r) => (
+      render: (r: DataSettlement) => (
         <span className="whitespace-nowrap text-sm font-medium tabular-nums text-white">{won(r.amount)}</span>
       ),
     },
-  ];
+  } satisfies Record<string, Column<DataSettlement>>;
 
   return (
     <div className="space-y-6">
@@ -664,36 +772,37 @@ export function DataSettlementScreen() {
         }
       />
       <StatsGrid columns={3}>
+        <StatCard label={role.isAdmin ? '거래 금액' : '판매 금액'} value={total(soldRows)} />
         <StatCard
-          label={role.isAdmin ? '2026 거래 금액' : '2026 판매'}
-          value={total(year.filter((r) => role.isAdmin || r.trade.sellerCompanyId === role.companyId))}
+          label={role.isAdmin ? '판매 기업' : '구매 금액'}
+          value={role.isAdmin ? `${new Set(soldRows.map((r) => r.trade.sellerCompanyId)).size}곳` : total(boughtRows)}
         />
-        <StatCard
-          label={role.isAdmin ? '2026-09 거래 금액' : '2026 구매'}
-          value={
-            role.isAdmin
-              ? total(rows.filter((r) => r.period === '2026-09'))
-              : total(year.filter((r) => r.trade.buyerCompanyId === role.companyId))
-          }
-        />
-        <StatCard
-          label="정산 건"
-          value={`${(role.isAdmin ? rows : rows.filter((r) => r.trade.sellerCompanyId === role.companyId || r.trade.buyerCompanyId === role.companyId)).length}건`}
-        />
+        <StatCard label="정산 건" value={`${role.isAdmin ? soldRows.length : soldRows.length + boughtRows.length}건`} />
       </StatsGrid>
-      <SectionCard title={role.isAdmin ? '거래' : '판매'} noPadding>
+      <SectionCard title="판매" noPadding>
         <DataTable
-          columns={columns(role.isAdmin ? 'both' : 'seller')}
-          data={sold}
+          columns={
+            role.isAdmin
+              ? [col.period, col.seller, col.name, col.buyer, col.type, col.amount]
+              : [col.period, col.name, col.buyer, col.type, col.amount]
+          }
+          data={soldRows}
           rowKey={(r) => r.key}
           emptyMessage="정산 없음"
         />
       </SectionCard>
-      {!role.isAdmin && (
-        <SectionCard title="구매" noPadding>
-          <DataTable columns={columns('buyer')} data={bought} rowKey={(r) => r.key} emptyMessage="정산 없음" />
-        </SectionCard>
-      )}
+      <SectionCard title="구매" noPadding>
+        <DataTable
+          columns={
+            role.isAdmin
+              ? [col.period, col.buyer, col.name, col.seller, col.type, col.amount]
+              : [col.period, col.name, col.seller, col.type, col.amount]
+          }
+          data={boughtRows}
+          rowKey={(r) => r.key}
+          emptyMessage="정산 없음"
+        />
+      </SectionCard>
     </div>
   );
 }
@@ -720,14 +829,14 @@ export function DataApiHubScreen() {
   };
 
   const columns: Column<DataTrade>[] = [
-    { key: 'name', header: '데이터명', render: (t) => cell(t.datasetName, 'font-medium text-white') },
+    { key: 'name', header: '데이터', render: (t) => cell(t.datasetName, 'font-medium text-white') },
     ...(role.isAdmin
       ? [{ key: 'buyer', header: '구매 기업', width: '120px', render: (t: DataTrade) => cell(t.buyerCompanyName) }]
       : []),
     {
       key: 'token',
       header: '토큰',
-      width: '420px',
+      width: '440px',
       render: (t) => (
         <span className="inline-flex items-center gap-2">
           <code className="rounded-md bg-white/[0.04] px-2 py-1 font-mono text-xs text-slate-300 ring-1 ring-white/[0.08]">

@@ -28,6 +28,7 @@ import {
   PageHeader,
   TRADE_STEPS,
   TradeStepper,
+  stepLabel,
   cell,
   cellMuted,
   cellNum,
@@ -39,12 +40,11 @@ import { TermsInfo, type TermsEdit } from './TermsInfo';
 const IN_TALK: TradeRequest['status'][] = ['SUBMITTED', 'REVIEW'];
 const IN_APPROVALS: TradeRequest['status'][] = ['APPROVED', 'SIGNED'];
 
-/** 거래 이력 상태 — 승인 전까지(신청 접수 · SPC 검토 · 현장 실측 · 조건 협의) + 반려 · 취소. 승인부터는 거래 승인에 */
-const HISTORY_STATUS = ['신청 접수', 'SPC 검토', '현장 실측', '조건 협의', '반려', '취소'] as const;
+/** 거래 이력 상태 — 승인 전까지(신청 접수 · 관리자 검토 · 현장 실측 · 조건 협의) + 반려 · 취소. 승인부터는 거래 승인에 */
+const HISTORY_STATUS = ['관리자 검토', '현장 실측', '조건 협의', '반려', '취소'] as const;
 type HistoryStatus = (typeof HISTORY_STATUS)[number];
 const HISTORY_TONE: Record<HistoryStatus, StatusTone> = {
-  '신청 접수': 'muted',
-  'SPC 검토': 'warning',
+  '관리자 검토': 'warning',
   '현장 실측': 'warning',
   '조건 협의': 'warning',
   반려: 'danger',
@@ -57,7 +57,8 @@ function historyStatusOf(r: TradeRequest): HistoryStatus {
 }
 const HistoryPill = ({ r }: { r: TradeRequest }) => {
   const label = historyStatusOf(r);
-  return <StatusPill tone={HISTORY_TONE[label]} label={label} />;
+  const done = r.status === 'REJECTED' || r.status === 'CANCELLED';
+  return <StatusPill tone={HISTORY_TONE[label]} label={done ? label : stepLabel(label, tradeStepOf(r))} />;
 };
 
 /** 신청한 쪽(기업·발전사업자)인지 — 관리자가 아니고 당사자 */
@@ -105,7 +106,7 @@ export function TradeHistoryScreen() {
     { key: 'no', header: '신청번호', width: '140px', render: (r) => cellStrong(r.no) },
     { key: 'consumer', header: '기업명', render: (r) => cell(r.consumerCompanyName, 'text-white') },
     { key: 'kind', header: '계약 유형', width: '100px', render: (r) => cell(kindLabel(r.kind)) },
-    { key: 'capacity', header: '용량', width: '100px', render: (r) => cellNum(fmtKw(r.capacityKw)) },
+    { key: 'capacity', header: '용량', width: '130px', render: (r) => cellNum(fmtKw(r.capacityKw)) },
     {
       key: 'talk',
       header: '최근 소통',
@@ -114,7 +115,7 @@ export function TradeHistoryScreen() {
       sortValue: (r) => r.updatedAt,
       render: (r) => cellMuted(fmtDate(r.messages?.length ? r.messages[r.messages.length - 1]!.at : r.updatedAt)),
     },
-    { key: 'status', header: '상태', width: '100px', render: (r) => <HistoryPill r={r} /> },
+    { key: 'status', header: '상태', width: '150px', render: (r) => <HistoryPill r={r} /> },
     arrow,
   ];
 
@@ -359,25 +360,15 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   // 단계별 처리 — 신청 내용 위에 고정
   const actions = (
     <>
-      {admin && step === 0 && (
-        <Button
-          size="sm"
-          onClick={() => {
-            startReview(r.id);
-            addToast('success', `${r.no} 검토 시작`);
-          }}
-        >
-          검토 시작
-        </Button>
-      )}
       {admin && step === 1 && (
         <Button
           size="sm"
-          onClick={() =>
-            r.surveyRequested
-              ? moveStage(r.id, '현장 실측', r.surveyDate ? `${r.surveyDate} 예정` : undefined)
-              : moveStage(r.id, '조건 협의')
-          }
+          onClick={() => {
+            // 관리자 검토 통과 — 실측 요청이 있으면 현장 실측, 없으면 조건 협의로
+            if (r.status === 'SUBMITTED') startReview(r.id);
+            if (r.surveyRequested) moveStage(r.id, '현장 실측', r.surveyDate ? `${r.surveyDate} 예정` : undefined);
+            else moveStage(r.id, '조건 협의');
+          }}
         >
           {r.surveyRequested ? '현장 실측 →' : '조건 협의 →'}
         </Button>
@@ -556,7 +547,7 @@ function ChatPanel({ r, canSend }: { r: TradeRequest; canSend: boolean }) {
                   me ? 'bg-primary/20 text-white' : 'bg-white/[0.06] text-slate-200',
                 )}
               >
-                <p className="text-[11px] text-slate-400">
+                <p className="text-xs text-slate-400">
                   {m.byName} · {fmtDateTime(m.at)}
                 </p>
                 <p className="mt-0.5 whitespace-pre-wrap">{m.text}</p>

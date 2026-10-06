@@ -8,11 +8,14 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { ssrSafeStorage } from '@/lib/ssr-storage';
 
-export const DM_SEED_VERSION = 1;
+export const DM_SEED_VERSION = 2;
 
 export const DATA_KINDS = ['발전량', '전력 사용량', '배출량', '기타'] as const;
 export type DataKind = (typeof DATA_KINDS)[number];
 export const DELIVERIES = ['API', '파일'] as const;
+/** 수집 주기 — 값 하나가 몇 분/시간/일/월마다 찍히는지. 15분 단위 = 한전 전자식 계량기(AMI)가 15분마다 기록하는 사용량 */
+export const INTERVALS = ['15분 단위', '시간별', '일별', '월별'] as const;
+export type DataInterval = (typeof INTERVALS)[number];
 export type Delivery = (typeof DELIVERIES)[number];
 /** 가격 방식 — 월 이용료 / 1회 구매 */
 export type PriceType = 'MONTHLY' | 'ONCE';
@@ -32,6 +35,7 @@ export interface Dataset {
   name: string;
   kind: DataKind;
   delivery: Delivery;
+  interval: DataInterval;
   /** 데이터 기간 — 2025-03 ~ 2026-09 (끝이 없으면 계속) */
   periodFrom: string;
   periodTo?: string;
@@ -87,11 +91,13 @@ function seed(): { datasets: Dataset[]; trades: DataTrade[] } {
   const datasets: Dataset[] = [
     {
       id: 1,
-      name: '한일튜브 태양광 발전량 (시간별)',
+      name: '한일튜브 태양광 발전량',
       kind: '발전량',
       delivery: 'API',
+      interval: '시간별',
       periodFrom: '2025-03',
-      description: '한일튜브 울산공장 지붕 태양광 429.44 kW — 시간별 발전량(kWh)',
+      description:
+        '한일튜브 울산공장 지붕 태양광 429.44 kW(자가소비 99.84 + onsite 329.6) — 시간마다 발전량(kWh)',
       ownerCompanyId: 4,
       ownerCompanyName: '한일튜브',
       priceType: 'MONTHLY',
@@ -103,11 +109,12 @@ function seed(): { datasets: Dataset[]; trades: DataTrade[] } {
     },
     {
       id: 2,
-      name: '한길 전력 사용량 (15분)',
+      name: '한길 전력 사용량',
       kind: '전력 사용량',
       delivery: 'API',
+      interval: '15분 단위',
       periodFrom: '2025-05',
-      description: '한길 사업장 15분 단위 전력 사용량(kWh)',
+      description: '한길 사업장 전력 사용량(kWh) — 한전 계량기가 15분마다 기록한 값',
       ownerCompanyId: 2,
       ownerCompanyName: '한길',
       priceType: 'MONTHLY',
@@ -118,13 +125,49 @@ function seed(): { datasets: Dataset[]; trades: DataTrade[] } {
       decidedAt: '2026-06-12T11:00:00',
     },
     {
+      id: 5,
+      name: '건호이엔씨 태양광 발전량',
+      kind: '발전량',
+      delivery: 'API',
+      interval: '시간별',
+      periodFrom: '2024-12',
+      description: '건호이엔씨 공장 태양광 33.92 kW — 시간마다 발전량(kWh)',
+      ownerCompanyId: 7,
+      ownerCompanyName: '건호이엔씨',
+      priceType: 'MONTHLY',
+      proposedPrice: 20_000,
+      price: 20_000,
+      status: 'APPROVED',
+      registeredAt: '2026-07-20T10:00:00',
+      decidedAt: '2026-07-22T14:00:00',
+    },
+    {
+      id: 6,
+      name: '한길 온실가스 배출량',
+      kind: '배출량',
+      delivery: '파일',
+      interval: '월별',
+      periodFrom: '2024-01',
+      periodTo: '2026-08',
+      description: '한길 사업장 Scope 1 · 2 배출량(tCO₂eq) — 달마다 합계, CSV',
+      ownerCompanyId: 2,
+      ownerCompanyName: '한길',
+      priceType: 'ONCE',
+      proposedPrice: 120_000,
+      price: 120_000,
+      status: 'APPROVED',
+      registeredAt: '2026-08-25T09:00:00',
+      decidedAt: '2026-08-27T10:00:00',
+    },
+    {
       id: 3,
-      name: '용인금속 전력 사용량 (월별)',
+      name: '용인금속 전력 사용량',
       kind: '전력 사용량',
       delivery: '파일',
+      interval: '월별',
       periodFrom: '2024-09',
       periodTo: '2026-08',
-      description: '용인금속 울산공장 월별 전력 사용량(kWh) — CSV',
+      description: '용인금속 울산공장 전력 사용량(kWh) — 달마다 합계, CSV',
       ownerCompanyId: 5,
       ownerCompanyName: '용인금속',
       priceType: 'ONCE',
@@ -134,12 +177,13 @@ function seed(): { datasets: Dataset[]; trades: DataTrade[] } {
     },
     {
       id: 4,
-      name: '태성산업 태양광 발전량 (일별)',
+      name: '태성산업 태양광 발전량',
       kind: '발전량',
       delivery: '파일',
+      interval: '일별',
       periodFrom: '2024-11',
       periodTo: '2026-08',
-      description: '태성산업 본사 태양광 46.08 kW — 일별 발전량(kWh)',
+      description: '태성산업 본사 태양광 46.08 kW — 하루 발전량(kWh), CSV',
       ownerCompanyId: 6,
       ownerCompanyName: '태성산업',
       priceType: 'ONCE',
@@ -150,37 +194,84 @@ function seed(): { datasets: Dataset[]; trades: DataTrade[] } {
       rejectReason: '2025-01 ~ 2025-06 데이터 빠짐 — 보완 후 다시 등록',
     },
   ];
+  const t = (id: number, d: Dataset, buyer: [number, string], startedAt: string): DataTrade => ({
+    id,
+    datasetId: d.id,
+    datasetName: d.name,
+    sellerCompanyId: d.ownerCompanyId,
+    sellerCompanyName: d.ownerCompanyName,
+    buyerCompanyId: buyer[0],
+    buyerCompanyName: buyer[1],
+    priceType: d.priceType,
+    price: d.price ?? d.proposedPrice,
+    startedAt,
+    token: tokenOf(id * 11),
+    tokenUpdatedAt: startedAt,
+  });
+  const by = (id: number) => datasets.find((d) => d.id === id)!;
   const trades: DataTrade[] = [
-    {
-      id: 1,
-      datasetId: 2,
-      datasetName: datasets[1]!.name,
-      sellerCompanyId: 2,
-      sellerCompanyName: '한길',
-      buyerCompanyId: 3,
-      buyerCompanyName: '울산 발전(주)',
-      priceType: 'MONTHLY',
-      price: 30_000,
-      startedAt: '2026-07-01T09:00:00',
-      token: tokenOf(11),
-      tokenUpdatedAt: '2026-07-01T09:00:00',
-    },
-    {
-      id: 2,
-      datasetId: 1,
-      datasetName: datasets[0]!.name,
-      sellerCompanyId: 4,
-      sellerCompanyName: '한일튜브',
-      buyerCompanyId: 2,
-      buyerCompanyName: '한길',
-      priceType: 'MONTHLY',
-      price: 50_000,
-      startedAt: '2026-08-01T10:00:00',
-      token: tokenOf(22),
-      tokenUpdatedAt: '2026-08-01T10:00:00',
-    },
+    t(1, by(2), [3, '울산 발전(주)'], '2026-07-01T09:00:00'),
+    t(2, by(1), [2, '한길'], '2026-08-01T10:00:00'),
+    t(3, by(5), [4, '한일튜브'], '2026-09-01T11:00:00'),
+    t(4, by(6), [6, '태성산업'], '2026-09-10T15:00:00'),
   ];
   return { datasets, trades };
+}
+
+/* ── 샘플 — 데이터 앞부분 몇 줄(데모 값). 신청 전에 어떤 모양인지 본다 ── */
+export const UNIT_OF: Record<DataKind, string> = {
+  발전량: 'kWh',
+  '전력 사용량': 'kWh',
+  배출량: 'tCO₂eq',
+  기타: '',
+};
+export function sampleRowsOf(
+  d: Pick<Dataset, 'id' | 'kind' | 'interval' | 'periodFrom'>,
+  n = 8,
+): { at: string; value: number }[] {
+  const start = new Date(`${d.periodFrom}-01T00:00:00Z`);
+  const step = (i: number) => {
+    const x = new Date(start);
+    if (d.interval === '15분 단위') x.setUTCMinutes(i * 15 + 9 * 60);
+    else if (d.interval === '시간별') x.setUTCHours(i + 9);
+    else if (d.interval === '일별') x.setUTCDate(i + 1);
+    else x.setUTCMonth(i);
+    return x.toISOString();
+  };
+  const fmt = (iso: string) =>
+    d.interval === '15분 단위' || d.interval === '시간별'
+      ? iso.slice(0, 16).replace('T', ' ')
+      : d.interval === '일별'
+        ? iso.slice(0, 10)
+        : iso.slice(0, 7);
+  const base: Record<DataKind, number> = {
+    발전량:
+      d.interval === '15분 단위'
+        ? 12
+        : d.interval === '시간별'
+          ? 48
+          : d.interval === '일별'
+            ? 420
+            : 12_600,
+    '전력 사용량':
+      d.interval === '15분 단위'
+        ? 31
+        : d.interval === '시간별'
+          ? 124
+          : d.interval === '일별'
+            ? 2_980
+            : 89_400,
+    배출량: 103,
+    기타: 100,
+  };
+  return Array.from({ length: n }, (_, i) => {
+    const wiggle = 1 + (((d.id * 7 + i * 5) % 11) - 5) / 40;
+    const v = base[d.kind] * wiggle;
+    return {
+      at: fmt(step(i)),
+      value: d.kind === '배출량' ? Math.round(v * 10) / 10 : Math.round(v),
+    };
+  });
 }
 
 interface DataMarketState {

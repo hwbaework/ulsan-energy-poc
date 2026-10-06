@@ -17,10 +17,21 @@ import { CO, useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { TradeRequest } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
 import { fmtDate, fmtKw, kindLabel } from './meta';
-import { EventTimeline, Info, PageHeader, TradeStepper, cell, cellMuted, cellNum, cellStrong } from './Bits';
+import {
+  EventTimeline,
+  Info,
+  PageHeader,
+  TRADE_STEPS,
+  TradeStepper,
+  stepLabel,
+  cell,
+  cellMuted,
+  cellNum,
+  cellStrong,
+} from './Bits';
 import { CONTRACT_PDF } from './DocumentsScreen';
 
-/** 거래 승인 상태 — 진행 5단계(신청 접수 · SPC 검토 · 승인 · 전자서명 · 체결)의 뒤 3단계 */
+/** 거래 승인 상태 — 진행 5단계(신청 접수 · 관리자 검토 · 승인 · 전자서명 · 체결)의 뒤 3단계 */
 const SIGN_STATUS = ['승인', '전자서명', '체결'] as const;
 type SignStatus = (typeof SIGN_STATUS)[number];
 
@@ -81,7 +92,12 @@ export function TradeApprovalsScreen() {
       key: 'status',
       header: '상태',
       width: '150px',
-      render: (r) => <StatusPill tone={r.status === 'SIGNED' ? 'normal' : 'warning'} label={signStatusOf(r)} />,
+      render: (r) => (
+        <StatusPill
+          tone={r.status === 'SIGNED' ? 'normal' : 'warning'}
+          label={stepLabel(signStatusOf(r), TRADE_STEPS.indexOf(signStatusOf(r)))}
+        />
+      ),
     },
     arrow,
   ];

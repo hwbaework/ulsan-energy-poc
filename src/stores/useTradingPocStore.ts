@@ -24,7 +24,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 16;
+export const SEED_VERSION = 17;
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC · 2 전기사용자 · 3 발전사업자) ───────── */
 export const CO = {
@@ -479,7 +479,7 @@ function seedRequests(): TradeRequest[] {
       ),
     }),
     // ── 상태별 샘플 1건씩 — 실제 기업·용량·조건만 ──
-    // 신청 접수
+    // 관리자 검토 (신청하면 바로)
     mk({
       id: 6,
       ...gen,
@@ -503,36 +503,6 @@ function seedRequests(): TradeRequest[] {
           by: 'generator',
           byName: CO.GENERATOR_LOGIN.name,
           text: '한길 자가소비 90.88kW 신청합니다. 실측 일정 조율 부탁드립니다.',
-        },
-      ],
-    }),
-    // SPC 검토
-    mk({
-      id: 16,
-      ...gen,
-      kind: 'SELF_CONSUMPTION',
-      consumerCompanyId: 5,
-      consumerCompanyName: CO.YONGIN.name,
-      plantName: '용인금속',
-      siteName: '용인금속 울산공장',
-      address: '울산 남구 여천동 887-18',
-      capacityKw: 152.32,
-      unitPrice: 26,
-      termYears: 10,
-      status: 'REVIEW',
-      surveyRequested: false,
-      submittedAt: iso('2026-09-28', '09:00:00'),
-      updatedAt: iso('2026-09-30', '10:00:00'),
-      events: [
-        ev(iso('2026-09-28', '09:00:00'), 'generator', '신청 접수'),
-        ev(iso('2026-09-30', '10:00:00'), 'spc', '검토 시작'),
-      ],
-      messages: [
-        {
-          at: iso('2026-09-30', '10:05:00'),
-          by: 'spc',
-          byName: CO.SPC.name,
-          text: '도면으로 설치 면적 확인 중입니다.',
         },
       ],
     }),

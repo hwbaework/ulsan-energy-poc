@@ -63,23 +63,26 @@ export const cellMuted = (v: ReactNode) => (
 );
 
 /* ── 진행 단계 — 거래 이력 · 거래 승인이 같은 단계를 쓴다 ── */
-export const TRADE_STEPS = ['신청 접수', 'SPC 검토', '현장 실측', '조건 협의', '승인', '전자서명', '체결'] as const;
+export const TRADE_STEPS = ['신청 접수', '관리자 검토', '현장 실측', '조건 협의', '승인', '전자서명', '체결'] as const;
 
-/** 검토 중 어디까지 왔는지 — 실측이 끝났거나 조건 협의로 넘겼으면 조건 협의, 실측으로 넘겼으면 현장 실측, 아니면 SPC 검토 */
+/** 검토 중 어디까지 왔는지 — 실측이 끝났거나 조건 협의로 넘겼으면 조건 협의, 실측으로 넘겼으면 현장 실측, 아니면 관리자 검토 */
 function reviewStepOf(r: TradeRequest) {
   const has = (label: string) => r.events.some((e) => e.label === label);
   if (r.surveyDoneAt || has('조건 협의')) return 3;
   if (has('현장 실측')) return 2;
-  return has('검토 시작') ? 1 : 0;
+  return 1; // 신청하면 바로 관리자 검토
 }
+
+/** 단계 표기 — 관리자 검토 (2/7) */
+export const stepLabel = (label: string, i: number) => `${label} (${i + 1}/${TRADE_STEPS.length})`;
 
 /** 지금 단계(TRADE_STEPS 번호). 체결되면 TRADE_STEPS.length — 전부 끝 */
 export function tradeStepOf(r: TradeRequest): number {
   switch (r.status) {
     case 'SUBMITTED':
-      return 0;
+      return 1;
     case 'REVIEW':
-      return Math.max(1, reviewStepOf(r));
+      return reviewStepOf(r);
     case 'APPROVED':
       return 5;
     case 'SIGNED':
@@ -111,19 +114,25 @@ export function TradeStepper({
             <div className="flex flex-col items-center">
               <span
                 className={cn(
-                  'flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ring-1',
+                  'flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ring-1',
                   state === 'done' && 'bg-primary text-white ring-primary',
                   state === 'now' && 'bg-primary/20 text-primary ring-primary/50',
                   state === 'bad' && 'bg-red-500/15 text-red-400 ring-red-500/40',
                   state === 'next' && 'bg-white/[0.04] text-slate-500 ring-white/[0.1]',
                 )}
               >
-                {state === 'done' ? <CheckCircle2 size={14} /> : state === 'bad' ? <XCircle size={14} /> : i + 1}
+                {state === 'done' ? <CheckCircle2 size={17} /> : state === 'bad' ? <XCircle size={17} /> : i + 1}
               </span>
               <span
                 className={cn(
-                  'mt-1 whitespace-nowrap text-xs',
-                  state === 'next' ? 'text-slate-500' : state === 'bad' ? 'text-red-400' : 'text-slate-300',
+                  'mt-2 whitespace-nowrap text-sm',
+                  state === 'next'
+                    ? 'text-slate-500'
+                    : state === 'bad'
+                      ? 'text-red-400'
+                      : state === 'now'
+                        ? 'font-semibold text-white'
+                        : 'text-slate-300',
                 )}
               >
                 {bad
@@ -136,7 +145,9 @@ export function TradeStepper({
               </span>
             </div>
             {i < TRADE_STEPS.length - 1 && (
-              <span className={cn('mx-1 mt-3.5 h-px flex-1', i < step && !bad ? 'bg-primary/50' : 'bg-white/[0.08]')} />
+              <span
+                className={cn('mx-2 mt-[18px] h-px flex-1', i < step && !bad ? 'bg-primary/50' : 'bg-white/[0.08]')}
+              />
             )}
           </li>
         );
