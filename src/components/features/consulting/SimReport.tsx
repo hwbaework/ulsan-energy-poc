@@ -637,13 +637,13 @@ function PpaSummary({ R }: { R: PpaResult }) {
   const tot = R.ets ? R.cumT : R.cumSaveD;
   return (
     <>
-      <SumItem k="20년 총 발전량" v={`${F(R.cumGen / 1000)} MWh`} s={`1차년 ${F1(R.annualGen1 / 1000)} MWh`} />
-      <SumItem k="20년 전기요금 절감" v={`${EOK(R.cumSaveD)} 억원`} s="한전요금 대비 (전력량+기본요금)" />
-      <SumItem k="배출권 가치 20년" v={`${EOK(R.cumCarbon)} 억원`} s={`${R.ets ? '절감액 합산 (할당업체)' : '참고 — 비할당업체'} · ${F(R.kau)}원/t`} dim={!R.ets} />
-      <SumItem k={`20년 총 절감${R.ets ? ' (합산)' : ''}`} v={`${EOK(tot)} 억원`} s={`연평균 ${EOK(tot / 20)}억 · 투자 0원`} />
-      <SumItem k="한전 총액 vs PPA 총액" v={`${EOK(R.sumKep)} vs ${EOK(R.sumPpa)}`} s="억원 (20년)" />
-      <SumItem k="kWh당 평균 절감 (20년)" v={`${F1(R.avgKu - R.avgPu)} 원`} s={`한전 ${F1(R.avgKu)} vs PPA ${F1(R.avgPu)}`} />
-      <SumItem k="CO₂ 총감축 (RE100)" v={`${F(R.cumCo2)} t`} />
+      {/* 자가소비 요약과 같은 꼴 — 보조 설명 줄 없이, 꼭 필요한 조건만 칸 이름 괄호에. kWh당 절감은 위 PPA 단가 구조·시나리오에 있어 뺌 */}
+      <SumItem k="20년 총 발전량" v={`${F(R.cumGen / 1000)} MWh`} />
+      <SumItem k="20년 전기요금 절감" v={`${EOK(R.cumSaveD)} 억원`} />
+      <SumItem k={`배출권 가치 20년 (${R.ets ? '합산' : '참고'})`} v={`${EOK(R.cumCarbon)} 억원`} dim={!R.ets} />
+      <SumItem k={`20년 총 절감${R.ets ? ' (배출권 합산)' : ''}`} v={`${EOK(tot)} 억원`} />
+      <SumItem k="한전 총액 vs PPA 총액 (억원)" v={`${EOK(R.sumKep)} vs ${EOK(R.sumPpa)}`} />
+      <SumItem k="CO₂ 총감축" v={`${F(R.cumCo2)} t`} />
     </>
   );
 }
