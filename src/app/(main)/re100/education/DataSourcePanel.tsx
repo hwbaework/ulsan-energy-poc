@@ -57,16 +57,42 @@ export function DataSourcePanel() {
 
   const [showAll, setShowAll] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
-  // '' = 이번 달 새 글(기본), 'YYYY-MM' = 그 달 전체
-  const [selectedMonth, setSelectedMonth] = useState('');
+  // 보기 — 'new' = 이번 달 새 글(기본), 'range' = 기간(시작 월 ~ 끝 월). 몇 달 걸러 수집할 수 있어 기간으로 고른다
+  const [mode, setMode] = useState<'new' | 'range'>('new');
 
-  // 수집된 글에서 월 목록 (최신순)
+  // 고를 수 있는 달 — 수집된 글의 가장 오래된 달부터 이번 달까지 빠짐없이 (최신순)
   const months = useMemo(() => {
-    const set = new Set(fetchedItems.map((it) => it.pubDate.slice(0, 7)).filter((m) => /^\d{4}-\d{2}$/.test(m)));
-    return [...set].sort((a, b) => b.localeCompare(a));
-  }, [fetchedItems]);
+    const got = fetchedItems.map((it) => it.pubDate.slice(0, 7)).filter((m) => /^\d{4}-\d{2}$/.test(m));
+    const first = got.length ? got.reduce((a, b) => (a < b ? a : b)) : nowMonth;
+    const out: string[] = [];
+    let [y, m] = first.split('-').map(Number) as [number, number];
+    for (let guard = 0; guard < 240; guard++) {
+      const key = `${y}-${String(m).padStart(2, '0')}`;
+      out.push(key);
+      if (key >= nowMonth) break;
+      m += 1;
+      if (m > 12) {
+        m = 1;
+        y += 1;
+      }
+    }
+    return out.reverse();
+  }, [fetchedItems, nowMonth]);
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  // 기간 기본값 — 가장 오래된 달 ~ 이번 달. 시작이 끝보다 늦으면 서로 바꿔 읽는다
+  const rangeFrom = from || months[months.length - 1] || nowMonth;
+  const rangeTo = to || months[0] || nowMonth;
+  const [lo, hi] = rangeFrom <= rangeTo ? [rangeFrom, rangeTo] : [rangeTo, rangeFrom];
+  const periodLabel = lo === hi ? formatMonthKo(lo) : `${formatMonthKo(lo)} ~ ${formatMonthKo(hi)}`;
 
-  const listItems = selectedMonth ? fetchedItems.filter((it) => it.pubDate.startsWith(selectedMonth)) : monthItems;
+  const listItems =
+    mode === 'range'
+      ? fetchedItems.filter((it) => {
+          const mm = it.pubDate.slice(0, 7);
+          return mm >= lo && mm <= hi;
+        })
+      : monthItems;
 
   const visibleItems = showAll ? listItems : listItems.slice(0, PREVIEW_COUNT);
   const hiddenCount = listItems.length - visibleItems.length;
@@ -85,27 +111,60 @@ export function DataSourcePanel() {
         <h3 className="text-md font-semibold text-white">
           자료 수집
           <Badge variant="primary" className="ml-2">
-            {selectedMonth
-              ? `${listItems.length}건`
+            {mode === 'range'
+              ? `${periodLabel} ${listItems.length}건`
               : `${formatMonthKo(nowMonth)} ${monthItems.length}건${newCount ? ` · 새 글 ${newCount}` : ''}`}
           </Badge>
         </h3>
         <div className="flex items-center gap-2">
           <select
-            value={selectedMonth}
+            aria-label="보기"
+            value={mode}
             onChange={(e) => {
-              setSelectedMonth(e.target.value);
+              setMode(e.target.value as 'new' | 'range');
               setShowAll(false);
             }}
             className="h-8 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 text-xs text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
           >
-            <option value="">새 글만</option>
-            {months.map((m) => (
-              <option key={m} value={m}>
-                {formatMonthKo(m)}
-              </option>
-            ))}
+            <option value="new">새 글만</option>
+            <option value="range">기간</option>
           </select>
+          {/* 기간 — 시작 월 ~ 끝 월 */}
+          {mode === 'range' && (
+            <>
+              <select
+                aria-label="시작 월"
+                value={rangeFrom}
+                onChange={(e) => {
+                  setFrom(e.target.value);
+                  setShowAll(false);
+                }}
+                className="h-8 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 text-xs text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
+              >
+                {months.map((m) => (
+                  <option key={m} value={m}>
+                    {formatMonthKo(m)}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-slate-500">~</span>
+              <select
+                aria-label="끝 월"
+                value={rangeTo}
+                onChange={(e) => {
+                  setTo(e.target.value);
+                  setShowAll(false);
+                }}
+                className="h-8 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 text-xs text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
+              >
+                {months.map((m) => (
+                  <option key={m} value={m}>
+                    {formatMonthKo(m)}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
           <Button size="sm" onClick={handleCollect} loading={isFetching}>
             <RefreshCw size={13} className="mr-1" /> 수집
           </Button>
@@ -145,9 +204,9 @@ export function DataSourcePanel() {
         </div>
       ) : !listItems.length ? (
         <p className="px-5 py-6 text-sm text-slate-500">
-          {selectedMonth
-            ? `${formatMonthKo(selectedMonth)}에 수집된 글이 없습니다.`
-            : `${formatMonthKo(nowMonth)}에 수집된 글이 없습니다. 지난 달 자료는 위 월 선택에서 볼 수 있습니다.`}
+          {mode === 'range'
+            ? `${periodLabel}에 수집된 글이 없습니다.`
+            : `${formatMonthKo(nowMonth)}에 수집된 글이 없습니다.`}
         </p>
       ) : (
         <div className="divide-y divide-white/[0.05]">
