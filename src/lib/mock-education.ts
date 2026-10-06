@@ -2,7 +2,7 @@ import type { EduQuizQuestion, EduReport } from '@/types/education';
 import { BASIC_GROUP, isPublished } from '@/types/education';
 
 /**
- * RE100 교육 자료 목데이터 — 기본 정보(basic) + 월별 자료.
+ * RE100 교육 자료 목데이터 — 기본 정보(basic) + 차수별 자료(예전 2026-07 → 1차, 2026-08 → 2차).
  * 백엔드 구현 시 api/education 모듈로 교체하고 이 파일은 제거한다.
  */
 export const MOCK_EDU_REPORTS: EduReport[] = [
@@ -10,6 +10,7 @@ export const MOCK_EDU_REPORTS: EduReport[] = [
     id: 'rpt-260731',
     title: 'SMP와 REC 이해하기 — 전력 가격이 결정되는 구조',
     publishedAt: '2026-07-31',
+    round: 1,
     sourceName: '기후에너지환경부',
     sections: [
       {
@@ -44,6 +45,7 @@ export const MOCK_EDU_REPORTS: EduReport[] = [
     id: 'rpt-260728',
     title: '태양광 이격거리 규제 개편 — 주택 200m 통일, 도로 기준 삭제',
     publishedAt: '2026-07-28',
+    round: 1,
     sourceName: '기후에너지환경부',
     sections: [
       {
@@ -89,6 +91,7 @@ export const MOCK_EDU_REPORTS: EduReport[] = [
     id: 'rpt-260724',
     title: '2026 고정가격계약 상한가 조정과 발전사업자 대응',
     publishedAt: '2026-07-24',
+    round: 1,
     sourceName: '한국에너지공단',
     sections: [
       {
@@ -128,6 +131,7 @@ export const MOCK_EDU_REPORTS: EduReport[] = [
     id: 'rpt-260721',
     title: '기업 자가소비형 태양광 초과발전량 처리 방식 정리',
     publishedAt: '2026-07-21',
+    round: 1,
     sourceName: '한국에너지공단',
     sections: [
       {
@@ -167,6 +171,7 @@ export const MOCK_EDU_REPORTS: EduReport[] = [
     id: 'rpt-260715',
     title: '2026 상반기 RE100 글로벌 동향과 국내 기업 시사점',
     publishedAt: '2026-07-15',
+    round: 1,
     sourceName: '글로벌 RE100',
     sections: [
       {
@@ -214,6 +219,7 @@ export const MOCK_EDU_REPORTS: EduReport[] = [
     id: 'rpt-260708',
     title: '24/7 CFE 논의 동향 — RE100 다음 단계를 준비하라',
     publishedAt: '2026-07-08',
+    round: 1,
     sourceName: '글로벌 RE100',
     sections: [
       {
@@ -259,6 +265,7 @@ export const MOCK_EDU_REPORTS: EduReport[] = [
     id: 'rpt-260825',
     title: 'K-RE100 재생에너지 사용확인서 — 발급 절차 요약',
     publishedAt: '2026-08-25',
+    round: 2,
     sourceName: '한국에너지공단',
     sections: [
       {
@@ -285,6 +292,7 @@ export const MOCK_EDU_REPORTS: EduReport[] = [
     id: 'rpt-260811',
     title: 'OnSite PPA 한눈에 — 지붕은 빌려주고 전기는 싸게',
     publishedAt: '2026-08-11',
+    round: 2,
     sourceName: '직접 작성',
     sections: [
       {
@@ -307,7 +315,7 @@ export const MOCK_EDU_REPORTS: EduReport[] = [
       },
     ],
   },
-  /* ── 기본 정보 (basic) — 월에 속하지 않는 상시 자료. 언제든 시험 응시 가능 ── */
+  /* ── 기본 정보 (basic) — 차수에 속하지 않는 상시 자료. 언제든 시험 응시 가능 ── */
   {
     id: 'rpt-basic-01',
     basic: true,
@@ -534,30 +542,26 @@ export const MOCK_EDU_REPORTS: EduReport[] = [
   },
 ];
 
-/** 기본 정보 자료 (월에 속하지 않음) */
+/** 기본 정보 자료 */
 export function getBasicReports(reports: EduReport[]): EduReport[] {
   return reports.filter((r) => r.basic);
 }
 
-/** 자료가 존재하는 월 목록 (YYYY-MM, 최신순) — 기본 자료는 제외 */
-export function getEduMonths(reports: EduReport[]): string[] {
-  const months = new Set(reports.filter((r) => !r.basic).map((r) => r.publishedAt.slice(0, 7)));
-  return [...months].sort((a, b) => b.localeCompare(a));
+/** 차수 키 목록 — 최근 차수가 위로 */
+export function getEduRounds(reports: EduReport[]): string[] {
+  const rounds = new Set(reports.filter((r) => !r.basic).map((r) => r.round ?? 1));
+  return [...rounds].sort((a, b) => b - a).map(String);
 }
 
-/**
- * 해당 그룹의 자료.
- * - month === BASIC_GROUP: 기본 자료
- * - 그 외: 해당 월(YYYY-MM)에 발행된 월별 자료 (기본 자료 제외)
- */
-export function getReportsByMonth(reports: EduReport[], month: string): EduReport[] {
-  if (month === BASIC_GROUP) return getBasicReports(reports);
-  return reports.filter((r) => !r.basic && r.publishedAt.startsWith(month));
+/** 그룹의 자료 — key === BASIC_GROUP 이면 기본 자료, 아니면 그 차수 자료(발행일 최신순) */
+export function getReportsByRound(reports: EduReport[], key: string): EduReport[] {
+  if (key === BASIC_GROUP) return getBasicReports(reports);
+  return reports.filter((r) => !r.basic && String(r.round ?? 1) === key).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
 }
 
-/** 그룹 쪽지시험 문항 — 발행된 자료의 모든 문항 (초안 문항은 발행 전까지 미출제) */
-export function getMonthlyQuiz(allReports: EduReport[], month: string): EduQuizQuestion[] {
-  return getReportsByMonth(allReports, month)
+/** 그룹 쪽지시험 문항 — 발행된 자료의 문항만 */
+export function getRoundQuiz(allReports: EduReport[], key: string): EduQuizQuestion[] {
+  return getReportsByRound(allReports, key)
     .filter(isPublished)
     .flatMap((r) => r.questions);
 }

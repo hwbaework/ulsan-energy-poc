@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { StatusPill } from '@/components/ui/Design';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { getBasicReports, getEduMonths, getMonthlyQuiz, getReportsByMonth } from '@/lib/mock-education';
+import { getBasicReports, getEduRounds, getReportsByRound, getRoundQuiz } from '@/lib/mock-education';
 import { useEducationStore, useHydrateEducation } from '@/stores/useEducationStore';
 import { exportCertificatePdf } from '@/lib/utils';
 import { useEducationContentStore } from '@/stores/useEducationContentStore';
@@ -18,17 +18,19 @@ import { useToastStore } from '@/stores/useToastStore';
 import { DataSourcePanel } from './DataSourcePanel';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { getPersona } from '@/lib/persona';
-import { BASIC_GROUP, formatMonthKo, isPublished, isQuizOpen, isMonthClosed } from '@/types/education';
+import { BASIC_GROUP, formatRound, isPublished, isQuizOpen, isRoundClosed, quizTitle, roundKey } from '@/types/education';
 
 function EducationInner() {
   useHydrateEducation();
   const router = useRouter();
   const certificates = useEducationStore((s) => s.certificates);
   const readReportIds = useEducationStore((s) => s.readReportIds);
-  const progressByMonth = useEducationStore((s) => s.progressByMonth);
+  const progressByRound = useEducationStore((s) => s.progressByRound);
   const reports = useEducationContentStore((s) => s.reports);
   const deleteReport = useEducationContentStore((s) => s.deleteReport);
   const setStatus = useEducationContentStore((s) => s.setStatus);
+  const closedRounds = useEducationContentStore((s) => s.closedRounds);
+  const closeRound = useEducationContentStore((s) => s.closeRound);
   const toast = useToastStore((s) => s.add);
 
   // 관리자(SPC)만 작성·발행·삭제. 전기사용자·발전사업자는 열람·시험·수료증
@@ -36,12 +38,13 @@ function EducationInner() {
   const isAdmin = ['admin', 'spc'].includes(getPersona(user));
 
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [closeTarget, setCloseTarget] = useState<string | null>(null);
 
-  // "기본" 그룹을 맨 앞에, 그 다음 월별 그룹 (기본 자료가 있을 때만 기본 그룹 노출)
+  // "기본" 그룹을 맨 앞에, 그 다음 차수 그룹 최근 차수부터 (기본 자료가 있을 때만 기본 그룹 노출)
   // 관리자는 초안까지, 사용자는 발행된 자료만
   const visible = isAdmin ? reports : reports.filter(isPublished);
   const hasBasic = getBasicReports(visible).length > 0;
-  const groups = [...(hasBasic ? [BASIC_GROUP] : []), ...getEduMonths(visible)];
+  const groups = [...(hasBasic ? [BASIC_GROUP] : []), ...getEduRounds(visible)];
   const deleteTarget = reports.find((r) => r.id === deleteTargetId);
 
   return (
@@ -87,50 +90,63 @@ function EducationInner() {
         </SectionCard>
       )}
 
-      {groups.map((month) => {
-        const isBasic = month === BASIC_GROUP;
-        const monthReports = getReportsByMonth(visible, month);
-        const quiz = getMonthlyQuiz(reports, month); // 기본 정보도 쪽지시험 — 월별과 같은 자리(카드 제목 오른쪽), 언제든 응시
-        const progress = progressByMonth[month];
+      {groups.map((key) => {
+        const isBasic = key === BASIC_GROUP;
+        const roundReports = getReportsByRound(visible, key);
+        const quiz = getRoundQuiz(reports, key); // 기본 정보도 쪽지시험 — 차수와 같은 자리(카드 제목 오른쪽), 언제든 응시
+        const progress = progressByRound[key];
+        const closed = isRoundClosed(key, closedRounds);
         const quizIds = new Set(quiz.map((q) => q.id));
         const solvedCount = (progress?.correctQuestionIds ?? []).filter((id) => quizIds.has(id)).length;
         const completed = quiz.length > 0 && solvedCount >= quiz.length;
 
         return (
           <SectionCard
-            key={month}
-            title={formatMonthKo(month)}
+            key={key}
+            title={formatRound(key)}
             noPadding
             actions={
-              quiz.length > 0 &&
+              // 관리자 — 마감 전 차수에는 [차수 마감] (마감하면 쪽지시험이 열린다)
+              (isAdmin && !isBasic && !closed ? (
+                <span className="flex items-center gap-2">
+                  {quiz.length > 0 && (
+                    <span className="text-sm text-slate-400 tabular-nums">
+                      {quizTitle(key)} {quiz.length}문항
+                    </span>
+                  )}
+                  <Button size="sm" onClick={() => setCloseTarget(key)}>
+                    <Lock size={14} className="mr-1" /> {formatRound(key)} 마감
+                  </Button>
+                </span>
+              ) : quiz.length > 0 &&
               (completed ? (
                 <span className="flex items-center gap-2">
                   <StatusPill tone="normal" label="이수 완료" />
                   {!isAdmin && (
-                    <Button size="sm" onClick={() => router.push(`/re100/education/quiz?month=${month}`)}>
+                    <Button size="sm" onClick={() => router.push(`/re100/education/quiz?round=${key}`)}>
                       <Award size={14} className="mr-1" /> 수료증
                     </Button>
                   )}
                 </span>
-              ) : !isQuizOpen(month) ? (
+              ) : !isQuizOpen(key, closedRounds) ? (
                 <span className="flex items-center gap-2 rounded-lg bg-white/[0.04] px-3 py-1.5 ring-1 ring-white/[0.06] text-sm text-slate-500">
                   <Lock size={13} />
-                  <span>쪽지시험은 {formatMonthKo(month)} 종료 후 오픈</span>
+                  <span>쪽지시험은 {formatRound(key)} 마감 후 오픈</span>
                 </span>
               ) : (
-                <Button size="sm" onClick={() => router.push(`/re100/education/quiz?month=${month}`)}>
+                <Button size="sm" onClick={() => router.push(`/re100/education/quiz?round=${key}`)}>
                   <PenLine size={14} />
-                  <span>{isBasic ? '기본 쪽지시험' : '월간 쪽지시험'}</span>
+                  <span>{quizTitle(key)}</span>
                   <span className="text-xs text-white/80">
                     {solvedCount}/{quiz.length} 문항
                   </span>
                 </Button>
-              ))
+              )))
             }
           >
             {/* 자료 목록 */}
             <div className="divide-y divide-white/[0.05]">
-              {monthReports.map((report) => {
+              {roundReports.map((report) => {
                 const isRead = readReportIds.includes(report.id);
                 return (
                   <div
@@ -151,15 +167,15 @@ function EducationInner() {
                     </Badge>
                     {isAdmin && (
                       <div className="flex shrink-0 items-center gap-1">
-                        {/* 끝난 달 초안은 발행 불가 — 그 달 쪽지시험 문항이 바뀌지 않게 */}
-                        {!isPublished(report) && (report.basic || !isMonthClosed(report.publishedAt.slice(0, 7))) && (
+                        {/* 마감한 차수 초안은 발행 불가 — 그 차수 쪽지시험 문항이 바뀌지 않게 */}
+                        {!isPublished(report) && !isRoundClosed(roundKey(report), closedRounds) && (
                           <button
                             type="button"
                             title="발행"
                             onClick={(e) => {
                               e.stopPropagation();
                               setStatus(report.id, 'published');
-                              toast('success', '자료가 발행되었습니다. 문항이 월간 쪽지시험에 포함됩니다.');
+                              toast('success', `자료가 발행되었습니다. 문항이 ${quizTitle(roundKey(report))}에 포함됩니다.`);
                             }}
                             className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-emerald-400 hover:bg-emerald-500/15 transition-colors"
                           >
@@ -201,6 +217,21 @@ function EducationInner() {
           </SectionCard>
         );
       })}
+
+      <ConfirmDialog
+        open={closeTarget != null}
+        onClose={() => setCloseTarget(null)}
+        onConfirm={() => {
+          if (closeTarget) {
+            closeRound(Number(closeTarget));
+            toast('success', `${formatRound(closeTarget)}를 마감했습니다. ${quizTitle(closeTarget)}이 열립니다.`);
+          }
+          setCloseTarget(null);
+        }}
+        title="차수 마감"
+        message={closeTarget ? `${formatRound(closeTarget)}를 마감할까요? 마감하면 ${quizTitle(closeTarget)}이 열리고, 이 차수에는 자료를 더 발행할 수 없습니다.` : ''}
+        confirmLabel="마감"
+      />
 
       <ConfirmDialog
         open={deleteTargetId != null}

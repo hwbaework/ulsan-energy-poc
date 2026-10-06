@@ -9,24 +9,25 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { getMonthlyQuiz } from '@/lib/mock-education';
+import { getRoundQuiz } from '@/lib/mock-education';
 import { useEducationStore, useHydrateEducation } from '@/stores/useEducationStore';
 import { exportCertificatePdf } from '@/lib/utils';
 import { useEducationContentStore } from '@/stores/useEducationContentStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import type { EduQuizQuestion } from '@/types/education';
-import { BASIC_GROUP, formatMonthKo, isQuizOpen } from '@/types/education';
+import { BASIC_GROUP, formatRound, isQuizOpen, quizTitle } from '@/types/education';
 
 /** 쪽지시험 — 한 문제씩, 틀린 문항은 다시, 전 문항을 맞히면 이수 완료 · 수료증 자동 발급. embedded 면 교육 자료 화면 안에 들어간다 */
-export function QuizRunner({ month, embedded = false }: { month: string; embedded?: boolean }) {
+export function QuizRunner({ round, embedded = false }: { round: string; embedded?: boolean }) {
   useHydrateEducation();
   const router = useRouter();
   const reports = useEducationContentStore((s) => s.reports);
-  const questions = useMemo(() => (month ? getMonthlyQuiz(reports, month) : []), [reports, month]);
+  const closedRounds = useEducationContentStore((s) => s.closedRounds);
+  const questions = useMemo(() => (round ? getRoundQuiz(reports, round) : []), [reports, round]);
 
   const user = useAuthStore((s) => s.user);
-  const progressByMonth = useEducationStore((s) => s.progressByMonth);
+  const progressByRound = useEducationStore((s) => s.progressByRound);
   const certificates = useEducationStore((s) => s.certificates);
   const gradeRound = useEducationStore((s) => s.gradeRound);
   const toast = useToastStore((s) => s.add);
@@ -35,13 +36,13 @@ export function QuizRunner({ month, embedded = false }: { month: string; embedde
   const [selected, setSelected] = useState<number | null>(null);
   const [revealed, setRevealed] = useState<{ q: EduQuizQuestion; correct: boolean } | null>(null);
 
-  const validMonth = month === BASIC_GROUP || /^\d{4}-\d{2}$/.test(month ?? '');
-  if (!validMonth || questions.length === 0) {
+  const validRound = round === BASIC_GROUP || /^\d+$/.test(round ?? '');
+  if (!validRound || questions.length === 0) {
     return (
       <EmptyState
         icon={<FileQuestion size={48} />}
-        title="해당 월의 쪽지시험이 없습니다"
-        description="교육 자료가 등록된 월에만 쪽지시험이 출제됩니다."
+        title="해당 차수의 쪽지시험이 없습니다"
+        description="문항이 있는 교육 자료가 발행된 차수에만 쪽지시험이 출제됩니다."
         action={
           <Button variant="secondary" onClick={() => router.push('/re100/education')}>
             교육 자료 목록으로
@@ -51,13 +52,13 @@ export function QuizRunner({ month, embedded = false }: { month: string; embedde
     );
   }
 
-  // 진행 중인 달은 응시 불가 — 자료 열람만 가능, 월 종료 후 오픈
-  if (!isQuizOpen(month)) {
+  // 마감 전 차수는 응시 불가 — 자료 열람만 가능, 관리자가 차수를 마감하면 오픈
+  if (!isQuizOpen(round, closedRounds)) {
     return (
       <EmptyState
         icon={<FileQuestion size={48} />}
         title="아직 응시할 수 없습니다"
-        description={`${formatMonthKo(month)} 쪽지시험은 해당 월이 끝난 뒤에 오픈됩니다. 그때까지 교육 자료를 학습해 주세요.`}
+        description={`${quizTitle(round)}은 ${formatRound(round)} 마감 후 오픈됩니다. 그때까지 교육 자료를 학습해 주세요.`}
         action={
           <Button variant="secondary" onClick={() => router.push('/re100/education')}>
             교육 자료 목록으로
@@ -67,11 +68,11 @@ export function QuizRunner({ month, embedded = false }: { month: string; embedde
     );
   }
 
-  const progress = progressByMonth[month];
+  const progress = progressByRound[round];
   const solvedIds = new Set(progress?.correctQuestionIds ?? []);
   const remaining = questions.filter((q) => !solvedIds.has(q.id));
   const completed = remaining.length === 0;
-  const certificate = certificates.find((c) => c.month === month);
+  const certificate = certificates.find((c) => c.round === round);
   const currentQ = remaining[0];
 
   const handleCheck = () => {
@@ -80,7 +81,7 @@ export function QuizRunner({ month, embedded = false }: { month: string; embedde
     if (correct) {
       // 맞으면 이 문항을 정복 처리(누적) — 남은 목록에서 빠진다
       gradeRound({
-        month,
+        round,
         correctQuestionIds: [currentQ.id],
         allQuestionIds: questions.map((q) => q.id),
         userName: user?.name ?? '수강자',
@@ -110,14 +111,14 @@ export function QuizRunner({ month, embedded = false }: { month: string; embedde
             { label: 'RE100', path: '/re100' },
             { label: 'RE100 교육', path: '/re100/education' },
             { label: '교육 자료', path: '/re100/education' },
-            { label: month === BASIC_GROUP ? '기본 쪽지시험' : `${formatMonthKo(month)} 쪽지시험` },
+            { label: quizTitle(round) },
           ]}
         />
       </div>
 
       <div className="flex items-center gap-2">
         <BackButton href="/re100/education" label="교육 자료로" />
-        <h1 className="text-2xl font-bold text-white">{month === BASIC_GROUP ? '기본 쪽지시험' : `${formatMonthKo(month)} 쪽지시험`}</h1>
+        <h1 className="text-2xl font-bold text-white">{quizTitle(round)}</h1>
       </div>
 
         </>

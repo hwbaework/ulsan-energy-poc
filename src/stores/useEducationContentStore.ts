@@ -12,10 +12,15 @@ interface EducationContentState {
   deleteReport: (id: string) => void;
   /** 발행/발행취소 — draft ↔ published */
   setStatus: (id: string, status: EduReportStatus) => void;
+  /** 마감한 차수 — 마감하면 그 차수 쪽지시험이 열리고, 그 차수 자료는 더 바꾸지 않는다 */
+  closedRounds: number[];
+  closeRound: (round: number) => void;
 }
 
 export const useEducationContentStore = create<EducationContentState>()((set) => ({
   reports: MOCK_EDU_REPORTS,
+  // 시드 — 예전 2026-07(1차) · 2026-08(2차)은 이미 끝난 달이라 마감 상태
+  closedRounds: [1, 2],
 
   upsertReport: (report) =>
     set((s) => {
@@ -23,8 +28,8 @@ export const useEducationContentStore = create<EducationContentState>()((set) =>
       const reports = exists
         ? s.reports.map((r) => (r.id === report.id ? report : r))
         : [report, ...s.reports];
-      // 발행일 내림차순 유지
-      reports.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+      // 차수 내림차순 → 발행일 내림차순 유지
+      reports.sort((a, b) => (b.round ?? 0) - (a.round ?? 0) || b.publishedAt.localeCompare(a.publishedAt));
       return { reports };
     }),
 
@@ -32,4 +37,6 @@ export const useEducationContentStore = create<EducationContentState>()((set) =>
 
   setStatus: (id, status) =>
     set((s) => ({ reports: s.reports.map((r) => (r.id === id ? { ...r, status } : r)) })),
+
+  closeRound: (round) => set((s) => (s.closedRounds.includes(round) ? s : { closedRounds: [...s.closedRounds, round] })),
 }));

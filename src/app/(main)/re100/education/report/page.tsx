@@ -10,13 +10,13 @@ import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { getMonthlyQuiz } from '@/lib/mock-education';
+import { getRoundQuiz } from '@/lib/mock-education';
 import { useEducationStore, useHydrateEducation } from '@/stores/useEducationStore';
 import { useEducationContentStore } from '@/stores/useEducationContentStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { getPersona } from '@/lib/persona';
-import { BASIC_GROUP, formatMonthKo, isPublished, isQuizOpen, isMonthClosed } from '@/types/education';
+import { formatRound, isPublished, isQuizOpen, isRoundClosed, quizTitle, roundKey } from '@/types/education';
 
 function EducationReportInner() {
   useHydrateEducation();
@@ -27,8 +27,9 @@ function EducationReportInner() {
   const reports = useEducationContentStore((s) => s.reports);
   const deleteReport = useEducationContentStore((s) => s.deleteReport);
   const setStatus = useEducationContentStore((s) => s.setStatus);
+  const closedRounds = useEducationContentStore((s) => s.closedRounds);
   const markRead = useEducationStore((s) => s.markRead);
-  const progressByMonth = useEducationStore((s) => s.progressByMonth);
+  const progressByRound = useEducationStore((s) => s.progressByRound);
   const toast = useToastStore((s) => s.add);
 
   // 관리자(SPC)만 작성·발행·삭제. 전기사용자·발전사업자는 열람·시험
@@ -57,11 +58,12 @@ function EducationReportInner() {
     );
   }
 
-  // 기본 자료는 'basic' 그룹, 월별 자료는 발행월 그룹
-  const month = report.basic ? BASIC_GROUP : report.publishedAt.slice(0, 7);
-  const quiz = getMonthlyQuiz(reports, month);
+  // 기본 자료는 'basic' 그룹, 그 외는 차수 그룹
+  const key = roundKey(report);
+  const open = isQuizOpen(key, closedRounds);
+  const quiz = getRoundQuiz(reports, key);
   const quizIds = new Set(quiz.map((q) => q.id));
-  const solvedCount = (progressByMonth[month]?.correctQuestionIds ?? []).filter((qid) => quizIds.has(qid)).length;
+  const solvedCount = (progressByRound[key]?.correctQuestionIds ?? []).filter((qid) => quizIds.has(qid)).length;
   const completed = quiz.length > 0 && solvedCount >= quiz.length;
 
   return (
@@ -93,7 +95,7 @@ function EducationReportInner() {
               </span>
             )}
             {!isPublished(report) && <Badge variant="warning">초안</Badge>}
-            {completed && <Badge variant="success">{formatMonthKo(month)} 이수 완료</Badge>}
+            {completed && <Badge variant="success">{formatRound(key)} 이수 완료</Badge>}
           </div>
           </div>
         </div>
@@ -114,10 +116,10 @@ function EducationReportInner() {
               ) : (
                 <Button
                   size="sm"
-                  disabled={!report.basic && isMonthClosed(report.publishedAt.slice(0, 7))}
+                  disabled={isRoundClosed(key, closedRounds)}
                   onClick={() => {
                     setStatus(report.id, 'published');
-                    toast('success', '자료가 발행되었습니다. 문항이 월간 쪽지시험에 포함됩니다.');
+                    toast('success', `자료가 발행되었습니다. 문항이 ${quizTitle(key)}에 포함됩니다.`);
                   }}
                 >
                   발행하기
@@ -239,21 +241,21 @@ function EducationReportInner() {
       {quiz.length > 0 && (
         <div className="rounded-xl bg-[#1a2332] p-6 ring-1 ring-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
-            <h2 className="text-base font-semibold text-white">{formatMonthKo(month)} 쪽지시험</h2>
+            <h2 className="text-base font-semibold text-white">{quizTitle(key)}</h2>
             <p className="mt-1 text-sm text-slate-400">
-              {isQuizOpen(month) ? (
+              {open ? (
                 <span className="tabular-nums">
                   {solvedCount}/{quiz.length} 문항
                 </span>
               ) : (
-                <>{formatMonthKo(month)} 종료 후 오픈</>
+                <>{formatRound(key)} 마감 후 오픈</>
               )}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {isQuizOpen(month) ? (
+            {open ? (
               <>
-                <Link href={`/re100/education/quiz?month=${month}`}>
+                <Link href={`/re100/education/quiz?round=${key}`}>
                   <Button>
                     <PenLine size={15} className="mr-1.5" />
                     {completed ? '시험 다시 보기' : '쪽지시험 풀기'}
@@ -262,7 +264,7 @@ function EducationReportInner() {
               </>
             ) : (
               <span className="flex items-center gap-2 rounded-lg bg-white/[0.04] px-4 py-2 ring-1 ring-white/[0.06] text-sm text-slate-500">
-                <Lock size={14} /> 월 종료 후 응시 가능
+                <Lock size={14} /> 차수 마감 후 응시 가능
               </span>
             )}
           </div>

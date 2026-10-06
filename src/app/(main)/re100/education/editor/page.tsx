@@ -14,7 +14,8 @@ import { useEducationContentStore } from '@/stores/useEducationContentStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { getCollectedArticle } from '@/lib/mock-education-collect';
 import type { EduAttachment, EduReport } from '@/types/education';
-import { currentMonthStart, isMonthClosed } from '@/types/education';
+import { formatRound, isRoundClosed, quizTitle, roundKey } from '@/types/education';
+import { Select } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 
 interface SectionForm {
@@ -56,6 +57,7 @@ function EducationEditor() {
 
   const reports = useEducationContentStore((s) => s.reports);
   const upsertReport = useEducationContentStore((s) => s.upsertReport);
+  const closedRounds = useEducationContentStore((s) => s.closedRounds);
   const toast = useToastStore((s) => s.add);
 
   const editing = editId ? reports.find((r) => r.id === editId) : undefined;
@@ -69,8 +71,19 @@ function EducationEditor() {
 
   const [title, setTitle] = useState('');
   const [publishedAt, setPublishedAt] = useState(() => new Date().toISOString().slice(0, 10));
-  // 끝난 달 자료 — 이미 그 달 쪽지시험이 열려 있어 문항·발행일을 바꾸지 않는다
-  const locked = !!editing && !editing.basic && isMonthClosed(editing.publishedAt.slice(0, 7));
+  // 마감한 차수 자료 — 이미 그 차수 쪽지시험이 열려 있어 문항·차수를 바꾸지 않는다
+  const locked = !!editing && !editing.basic && isRoundClosed(roundKey(editing), closedRounds);
+  // 차수 — 마감 안 한 차수 중 고르거나 새 차수(지금 가장 큰 차수 + 1). 기본 정보 자료는 차수 없음
+  const allRounds = [...new Set(reports.filter((r) => !r.basic).map((r) => r.round ?? 1))].sort((a, b) => b - a);
+  const newRound = (allRounds[0] ?? 0) + 1;
+  const openRounds = allRounds.filter((r) => !closedRounds.includes(r));
+  const [round, setRound] = useState<number>(() => editing?.round ?? openRounds[0] ?? newRound);
+  const roundOptions = locked
+    ? [{ value: String(editing?.round ?? 1), label: `${formatRound(String(editing?.round ?? 1))} · 마감` }]
+    : [
+        ...openRounds.map((r) => ({ value: String(r), label: formatRound(String(r)) })),
+        ...(openRounds.includes(newRound) ? [] : [{ value: String(newRound), label: `${formatRound(String(newRound))} · 새 차수` }]),
+      ];
   const [sections, setSections] = useState<SectionForm[]>([{ ...EMPTY_SECTION }]);
   const [questions, setQuestions] = useState<QuestionForm[]>([]);
   const [sources, setSources] = useState<SourceForm[]>([]);
@@ -152,6 +165,7 @@ function EducationEditor() {
     if (editing) {
       setTitle(editing.title);
       setPublishedAt(editing.publishedAt);
+      if (editing.round) setRound(editing.round);
       setSections(
         editing.sections.map((s) => ({
           heading: s.heading,
@@ -219,8 +233,8 @@ function EducationEditor() {
       toast('warning', '제목을 입력해 주세요.');
       return;
     }
-    if (!locked && !editing?.basic && isMonthClosed(publishedAt.slice(0, 7))) {
-      toast('warning', '끝난 달로는 발행할 수 없습니다.');
+    if (!locked && !editing?.basic && closedRounds.includes(round)) {
+      toast('warning', '마감한 차수로는 발행할 수 없습니다.');
       return;
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(publishedAt)) {
@@ -254,6 +268,8 @@ function EducationEditor() {
       id,
       title: title.trim(),
       publishedAt,
+      // 기본 정보 자료는 기본 그룹 유지, 그 외는 고른 차수
+      ...(editing?.basic ? { basic: true } : { round: locked ? editing?.round : round }),
       sections: validSections,
       questions: questions.map((q, i) => ({
         id: `${id}:${i + 1}`,
@@ -271,7 +287,7 @@ function EducationEditor() {
     toast(
       'success',
       status === 'published'
-        ? '교육 자료가 발행되었습니다. 문항이 월간 쪽지시험에 포함됩니다.'
+        ? `교육 자료가 발행되었습니다. 문항이 ${quizTitle(editing?.basic ? roundKey({ basic: true }) : String(round))}에 포함됩니다.`
         : '초안으로 저장되었습니다. 발행 전까지 사용자에게 보이지 않습니다.',
     );
     router.push(`/re100/education/report?id=${id}`);
@@ -315,16 +331,12 @@ function EducationEditor() {
           onChange={(e) => setTitle(e.target.value)}
           placeholder="예: 직접 PPA 제도 개편 핵심 정리"
         />
-        <div className="max-w-xs">
-          <Input
-            label="발행일"
-            required
-            type="date"
-            value={publishedAt}
-            min={editing?.basic ? undefined : currentMonthStart()}
-            disabled={locked}
-            onChange={(e) => setPublishedAt(e.target.value)}
-          />
+        <div className="grid max-w-xl grid-cols-1 gap-4 sm:grid-cols-2">
+          <Input label="발행일" required type="date" value={publishedAt} onChange={(e) => setPublishedAt(e.target.value)} />
+          {/* 차수 — 기본 정보 자료는 없음. 마감한 차수 자료는 바꾸지 않는다 */}
+          {!editing?.basic && (
+            <Select label="차수" options={roundOptions} value={String(locked ? editing?.round ?? 1 : round)} onChange={(e) => setRound(Number(e.target.value))} disabled={locked} />
+          )}
         </div>
       </div>
 
@@ -546,7 +558,7 @@ function EducationEditor() {
         </fieldset>
         {questions.length === 0 && (
           <p className="text-sm text-slate-500 text-center py-4">
-            문항이 없습니다. 문항을 추가하면 이 자료가 월간 쪽지시험에 출제됩니다.
+            문항이 없습니다. 문항을 추가하면 이 자료가 차수 쪽지시험에 출제됩니다.
           </p>
         )}
       </div>

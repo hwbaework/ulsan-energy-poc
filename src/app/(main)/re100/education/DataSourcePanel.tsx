@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ExternalLink, FilePlus2, KeyRound, Plus, RefreshCw, Settings2 } from 'lucide-react';
+import { ChevronDown, ExternalLink, FilePlus2, KeyRound, RefreshCw, Settings2 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -214,7 +214,6 @@ export function DataSourcePanel() {
   );
 }
 
-const EMPTY_FORM = { org: '', name: '', url: '', apiKey: '' };
 
 /**
  * 실제 동작 기준의 정직한 상태:
@@ -231,34 +230,14 @@ function sourceStatus(source: EduDataSource): { label: string; variant: 'success
   return { label: '연결 대기', variant: 'warning' };
 }
 
-/** 데이터 소스 팝업 — 연결 상태 확인 + 키 등록 + 새 소스 등록 */
+/** 데이터 소스 팝업 — 연결 상태 확인 + 키 등록 (새 소스 등록은 뺌 — 수집 연결 개발이 따라붙어 일이 커짐) */
 function SourceModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const sources = useEducationSourceStore((s) => s.sources);
-  const addSource = useEducationSourceStore((s) => s.addSource);
   const updateSource = useEducationSourceStore((s) => s.updateSource);
   const toast = useToastStore((s) => s.add);
 
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [formOpen, setFormOpen] = useState(false);
   const [keyInputId, setKeyInputId] = useState<string | null>(null);
   const [keyValue, setKeyValue] = useState('');
-
-  const handleAdd = () => {
-    if (!form.org.trim() || !form.name.trim() || !form.url.trim()) {
-      toast('warning', '기관·소스명·주소를 입력해 주세요.');
-      return;
-    }
-    addSource({
-      org: form.org.trim(),
-      name: form.name.trim(),
-      method: 'API',
-      url: form.url.trim(),
-      apiKey: form.apiKey.trim() || undefined,
-    });
-    toast('success', '소스가 등록되었습니다. 수집 연결은 개발팀이 진행합니다.');
-    setForm(EMPTY_FORM);
-    setFormOpen(false);
-  };
 
   return (
     <Modal open={open} onClose={onClose} title="데이터 소스" size="md">
@@ -336,53 +315,6 @@ function SourceModal({ open, onClose }: { open: boolean; onClose: () => void }) 
           })}
         </div>
 
-        {formOpen ? (
-          <div className="space-y-3 rounded-lg bg-white/[0.03] p-4 ring-1 ring-white/[0.06]">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Input
-                label="기관"
-                required
-                value={form.org}
-                onChange={(e) => setForm((f) => ({ ...f, org: e.target.value }))}
-                placeholder="예: 한국전력공사"
-              />
-              <Input
-                label="소스명"
-                required
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="예: 보도자료"
-              />
-              <Input
-                label="주소 (URL / API)"
-                required
-                value={form.url}
-                onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
-                placeholder="https://..."
-              />
-              <Input
-                label="인증키 (선택)"
-                value={form.apiKey}
-                onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
-                placeholder="API 인증키가 있으면 입력"
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="cancel" size="sm" onClick={() => setFormOpen(false)}>
-                취소
-              </Button>
-              <Button size="sm" onClick={handleAdd}>
-                등록
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex justify-end">
-            <Button variant="secondary" size="sm" onClick={() => setFormOpen(true)}>
-              <Plus size={13} className="mr-1" /> 소스 추가
-            </Button>
-          </div>
-        )}
       </div>
     </Modal>
   );
