@@ -267,13 +267,40 @@ registerMock(/^\/notifications\/(\d+)\/read$/, ({ match }) => {
 });
 registerMock(/^\/notifications$/, () => pageOf(NOTIFICATIONS));
 
-// 에너지 설정 — SMP 상한가 · CO₂ 배출계수 (관리자 설정에서 관리, 대시보드가 참조)
-registerMock(/^\/settings\/public\/energy$/, () => ({
+// 에너지 설정 — 관리 › 시스템 › 에너지 설정에서 관리. 대시보드·RE100·PPA 보고서·무료진단이 같은 값을 읽는다.
+// 새로고침해도 남게 브라우저에 저장 (POC)
+const ENERGY_KEY = 'ulsan-energy-settings-v1';
+let ENERGY: Record<string, string> = {
   SMP_PRICE_CAP: '180', // ₩/kWh — SMP 상한제 값(설정)
-  CO2_EMISSION_FACTOR: '0.4594', // tCO₂/MWh
+  CO2_EMISSION_FACTOR: '0.4173', // tCO₂/MWh — 국가 전력배출계수
+  CO2_FACTOR_YEAR: '2023', // 배출계수 기준 연도
+  CO2_FACTOR_PUBLISHED: '2025-12-17', // 기후에너지환경부 공표일
+  CLIMATE_CHG: '9.0', // ₩/kWh — 기후환경요금
+  FUEL_ADJ: '5.0', // ₩/kWh — 연료비조정요금 (2026 3분기)
+  SELF_REMAIN_KW: '320', // 자가소비 배정 잔여용량
+  PPA_REMAIN_KW: '2670', // OnSite PPA 배정 잔여용량
   KEPCO_UNIT_PRICE: '152.3', // ₩/kWh — 한전 산업용 단가. 자가소비 절감액 = 발전량 × 이 값
   PPA_UNIT_PRICE: '138.0', // ₩/kWh — 온사이트 PPA 계약 단가. PPA 요금 = 발전량 × 이 값
-}));
+};
+if (typeof window !== 'undefined') {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(ENERGY_KEY) ?? 'null');
+    if (saved && typeof saved === 'object') ENERGY = { ...ENERGY, ...saved };
+  } catch {
+    /* 저장본이 깨졌으면 기본값으로 시작 */
+  }
+}
+registerMock(/^\/settings\/public\/energy$/, () => ENERGY, 'GET');
+registerMock(/^\/settings\/public\/energy$/, ({ body }) => {
+  const patch = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+  ENERGY = { ...ENERGY, ...Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, String(v)])) };
+  try {
+    window.localStorage.setItem(ENERGY_KEY, JSON.stringify(ENERGY));
+  } catch {
+    /* 저장 실패는 무시 — 메모리에는 남는다 */
+  }
+  return ENERGY;
+}, 'PUT');
 
 // 산업용 평균판매단가 연도별 실적 — 관리 › 에너지 설정. 새로고침해도 남게 브라우저에 저장 (POC)
 const TARIFF_KEY = 'ulsan-industrial-tariff-v2'; // v2 — 2019~2025 공개 실적 7개로 시드 교체

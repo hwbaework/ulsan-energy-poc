@@ -19,6 +19,11 @@ export async function getEnergySettings(): Promise<Record<string, string>> {
   return getApiClient().get(ENDPOINTS.systemSettings.energy);
 }
 
+/** 에너지 설정 저장 — 바꾼 키만 보내면 나머지는 그대로 */
+export async function saveEnergySettings(patch: Record<string, string>): Promise<Record<string, string>> {
+  return getApiClient().put(ENDPOINTS.systemSettings.energy, patch);
+}
+
 /** 산업용 평균판매단가 연도별 실적 — 무료진단 실적 CAGR 시나리오 근거 */
 export async function getIndustrialTariff(): Promise<TariffYear[]> {
   return getApiClient().get(ENDPOINTS.systemSettings.industrialTariff);

@@ -53,3 +53,17 @@ export const useSaveIndustrialTariff = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: settingsKeys.industrialTariff() }),
   });
 };
+
+export const useSaveEnergySettings = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: settingsApi.saveEnergySettings,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: settingsKeys.energy() }),
+  });
+};
+
+/** 에너지 설정을 숫자로 — 값이 없거나 깨졌으면 fb */
+export const energyNum = (es: Record<string, string> | undefined, key: string, fb: number) => {
+  const n = Number(es?.[key]);
+  return es?.[key] !== undefined && Number.isFinite(n) ? n : fb;
+};

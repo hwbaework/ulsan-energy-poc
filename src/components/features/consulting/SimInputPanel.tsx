@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { ADDRESS_MAX, F, LIM, NAME_MAX, PLAN_LABEL, SELF_CAPEX_UNIT, SELF_EXTRA_COST, SELF_OM, VER_LABEL, avgSaveUnit, segLabel, ppaSegs, selfCost, type Plan, type SimInput, type TariffVer } from '@/lib/solar-sim';
+import { ADDRESS_MAX, F, LIM, adjOf, NAME_MAX, PLAN_LABEL, SELF_CAPEX_UNIT, SELF_EXTRA_COST, SELF_OM, VER_LABEL, avgSaveUnit, segLabel, ppaSegs, selfCost, type Plan, type SimInput, type TariffVer } from '@/lib/solar-sim';
 
 /**
  * 무료진단 입력 화면 — 울산미포산단 태양광 사업성 시뮬레이터 v1.1 입력값. 한 장의 페이지 안에서
@@ -126,7 +126,7 @@ export function SimInputPanel({
   };
   const segs = ppaSegs(f).filter((sg) => sg.idx <= 2); // 3구간은 쓰지 않는다
   const w = [f.ppa.b1, 20 - f.ppa.b1]; // 1구간 · 2구간
-  const kepcoUnit = Math.round(avgSaveUnit(f.ppa.plan, f.ppa.ver) * 10) / 10;
+  const kepcoUnit = Math.round(avgSaveUnit(f.ppa.plan, f.ppa.ver, adjOf(f)) * 10) / 10;
   let n = 0;
 
   const cost = selfCost(f);

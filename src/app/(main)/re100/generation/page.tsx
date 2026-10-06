@@ -6,6 +6,7 @@
 // 되먹임(06 §13.3.4): 진입 시 achievements staleTime=0 재조회. refSettlementId 진입 시 설비 행 강조.
 
 import { useState } from 'react';
+import { energyNum, useEnergySettings } from '@/hooks/common/useSettings';
 import { Zap, Coins, Leaf, Factory, Sun, ArrowRight, HelpCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -45,10 +46,11 @@ const TABS: { key: Kind; label: string }[] = [
   { key: 'SELF', label: '자가소비형' },
 ];
 
-// tCO₂ 산정 계수(edata inventory 계수 정합 — 06 §13.3.1-5·§15-4). 표시 툴팁용.
-const CO2_FACTOR_TON_PER_MWH = 0.4594;
 
 export default function Re100GenerationPage() {
+  // tCO₂ 산정 계수 — 관리 › 에너지 설정의 전력 배출계수
+  const { data: energySettings } = useEnergySettings();
+  const CO2_FACTOR_TON_PER_MWH = energyNum(energySettings, 'CO2_EMISSION_FACTOR', 0.4173);
   const companyId = useAuthStore((s) => s.user?.companyId ?? undefined);
   const currentYear = new Date().getFullYear();
   const searchParams = useSearchParams();
@@ -152,7 +154,7 @@ export default function Re100GenerationPage() {
               <th className="px-4 py-3 text-right">발전량</th>
               <th
                 className="px-4 py-3 text-right"
-                title={`tCO₂ = 발전량(MWh) × ${CO2_FACTOR_TON_PER_MWH} (edata inventory 배출계수 정합)`}
+                title={`tCO₂ = 발전량(MWh) × ${CO2_FACTOR_TON_PER_MWH} (관리 › 에너지 설정 전력 배출계수)`}
               >
                 <span className="inline-flex items-center gap-1 justify-end">
                   저감(추정) <HelpCircle size={11} />
@@ -207,8 +209,8 @@ export default function Re100GenerationPage() {
       </div>
       <p className="text-[11px] text-slate-500">
         전력거래형(4.2MW)=PPA(SMP+REC 수익), 자가소비형(0.9MW)=SELF_CONSUME(전력비 절감액 내부정산). 실적은 정산 확정
-        파생 — RE100 화면에서 재입력하지 않음(19-03 D3). 저감 계수 {CO2_FACTOR_TON_PER_MWH} tCO₂/MWh(edata inventory
-        정합).
+        파생 — RE100 화면에서 재입력하지 않음(19-03 D3). 저감 계수 {CO2_FACTOR_TON_PER_MWH} tCO₂/MWh(관리 › 에너지
+        설정).
       </p>
     </div>
   );

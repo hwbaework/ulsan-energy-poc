@@ -11,8 +11,8 @@ import { exportPdf } from '@/lib/utils';
 import { useAllMonthlyRecords, useAllLeaseInvoices, useVolumeContracts } from '@/hooks/lease';
 import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
 import type { LeaseMonthlyRecord, LeaseInvoice } from '@/types';
+import { energyNum, useEnergySettings } from '@/hooks/common/useSettings';
 
-const CO2_FACTOR = 0.4594;
 
 const PERIOD_LABELS: Record<string, string> = {
   '2026-02': '2월',
@@ -41,6 +41,9 @@ function fmtKwh(v: number) {
 
 export default function PpaReportPage() {
   const [year] = useState(2026);
+  // 전력 배출계수 — 관리 › 에너지 설정
+  const { data: energySettings } = useEnergySettings();
+  const CO2_FACTOR = energyNum(energySettings, 'CO2_EMISSION_FACTOR', 0.4173);
 
   const { data: monthlyRes, isLoading: monthlyLoading } = useAllMonthlyRecords({ year });
   const { data: invoiceRes, isLoading: invoiceLoading } = useAllLeaseInvoices({ year });

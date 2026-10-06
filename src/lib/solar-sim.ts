@@ -31,8 +31,15 @@ const PVSHARE: Record<TariffVer, { mid: number; peak: number }[]> = {
   new: [{ mid: 0.7, peak: 0.3 }, { mid: 0.7, peak: 0.3 }, { mid: 0.7, peak: 0.3 }],
   old: [{ mid: 0.48, peak: 0.52 }, { mid: 0.48, peak: 0.52 }, { mid: 0.55, peak: 0.45 }],
 };
-const CLIMATE_CHG = 9.0;
-const FUEL_ADJ = 5.0;
+export const CLIMATE_CHG = 9.0; // 원/kWh — 관리 › 에너지 설정 값이 없을 때 기본
+export const FUEL_ADJ = 5.0; // 원/kWh — 연료비조정요금(분기마다 바뀜). 관리 › 에너지 설정 값이 없을 때 기본
+/** 요금 가산 — 기후환경요금 · 연료비조정요금. 검토 시점 값을 입력값에 남겨 저장된 검토서는 그 값으로 다시 계산 */
+export interface TariffAdj {
+  climate: number;
+  fuel: number;
+}
+const DEFAULT_ADJ: TariffAdj = { climate: CLIMATE_CHG, fuel: FUEL_ADJ };
+export const adjOf = (i: { climateChg?: number; fuelAdj?: number }): TariffAdj => ({ climate: i.climateChg ?? CLIMATE_CHG, fuel: i.fuelAdj ?? FUEL_ADJ });
 const FUND = 0.037;
 export const SELF_REMAIN = 320; // 자가소비 배정 잔여용량 kW
 // 자가소비 사업비 기본값 — 원본 시뮬레이터 기본값(입력에서 바꿀 수 있음). 국비 지원은 없다 — 소비자가 전액 부담
@@ -96,6 +103,8 @@ export interface SimInput {
   kau: number; // 원/t
   kauEsc: number; // %/yr
   co2f: number; // t/MWh
+  climateChg?: number; // 기후환경요금 원/kWh — 예전 기록에는 없을 수 있다 → 기본값
+  fuelAdj?: number; // 연료비조정요금 원/kWh — 예전 기록에는 없을 수 있다 → 기본값
   ets: boolean; // 배출권 할당대상업체
   // 자가소비
   // capexUnit·extraCost·om: 예전 기록에는 없을 수 있다 → 기본값
@@ -144,6 +153,7 @@ export const LIM = {
   facKw: [0, 100_000], facKwh: [0, 10_000_000_000],
   cap: [1, 100_000], ctr: [0, 1_000_000], usage: [0, 1_000_000_000], pct: [0, 100], esc: [0, 30],
   capexUnit: [0, 10_000_000], extraCost: [0, 100_000_000_000], segPrice: [0, 1_000], b: [0, 20],
+  climateChg: [0, 100], fuelAdj: [-100, 100], remain: [0, 100_000],
 } as const satisfies Record<string, readonly [number, number]>;
 export const NAME_MAX = 50;
 export const ADDRESS_MAX = 100;
@@ -156,6 +166,7 @@ export function clampSimInput(i: SimInput): SimInput {
     facilities: i.facilities.map((f) => ({ ...f, kw: cl(f.kw, LIM.facKw), genKwh: cl(f.genKwh, LIM.facKwh), useKwh: cl(f.useKwh, LIM.facKwh) })),
     roof: cl(i.roof, LIM.roof), areaPerKw: cl(i.areaPerKw, LIM.areaPerKw), avgH: cl(i.avgH, LIM.avgH), deg: cl(i.deg, LIM.deg),
     kau: cl(i.kau, LIM.kau), kauEsc: cl(i.kauEsc, LIM.kauEsc), co2f: cl(i.co2f, LIM.co2f),
+    climateChg: clOpt(i.climateChg, LIM.climateChg), fuelAdj: clOpt(i.fuelAdj, LIM.fuelAdj),
     self: {
       ...i.self,
       cap: cl(i.self.cap, LIM.cap), ctr: cl(i.self.ctr, LIM.ctr), usage: cl(i.self.usage, LIM.usage),
@@ -173,14 +184,14 @@ export function clampSimInput(i: SimInput): SimInput {
 
 /* ── 계산 ── */
 /** 계절별 태양광 대체단가(원/kWh) */
-export function saveUnit(season: number, plan: Plan, ver: TariffVer) {
+export function saveUnit(season: number, plan: Plan, ver: TariffVer, adj: TariffAdj = DEFAULT_ADJ) {
   const t = TARIFF[ver][plan];
   const s = PVSHARE[ver][season]!;
-  return (t.mid[season]! * s.mid + t.peak[season]! * s.peak + CLIMATE_CHG + FUEL_ADJ) * (1 + FUND);
+  return (t.mid[season]! * s.mid + t.peak[season]! * s.peak + adj.climate + adj.fuel) * (1 + FUND);
 }
 /** 1차년 한전 태양광 대체단가(원/kWh) — 월별 일조시간 가중 평균. PPA 연동 구간의 기준 단가 */
-export function avgSaveUnit(plan: Plan, ver: TariffVer) {
-  return SUN.reduce((a, h, m) => a + h * saveUnit(SEASON[m]!, plan, ver), 0) / SUNTOT;
+export function avgSaveUnit(plan: Plan, ver: TariffVer, adj: TariffAdj = DEFAULT_ADJ) {
+  return SUN.reduce((a, h, m) => a + h * saveUnit(SEASON[m]!, plan, ver, adj), 0) / SUNTOT;
 }
 /** 사업 검토서 번호 — SR-연도-일련번호 */
 export const reviewNo = (id: number, createdAt: string) => `SR-${createdAt.slice(0, 4)}-${String(id).padStart(4, '0')}`;
@@ -226,11 +237,11 @@ export interface SelfResult {
   mode: 'self'; cap: number; plan: Plan; ver: TariffVer; esc: number; degR: number; usage: number; baseSaveM: number; mg: number[];
   mrows: { su: number; self: number; surplus: number }[]; annualGen1: number; selfRatio: number;
   install: number; extra: number; consumer: number; // 설치비 · 추가 시공비 · 소비자 부담(합)
-  ets: boolean; kau: number; co2f: number; cumCarbon: number; years: SelfYear[]; cumSave: number; cumGen: number; cumCo2: number; payback: number | null;
+  ets: boolean; kau: number; co2f: number; adj: TariffAdj; cumCarbon: number; years: SelfYear[]; cumSave: number; cumGen: number; cumCo2: number; payback: number | null;
   save1: number; eSave1: number; bSave1: number; carbon1: number;
 }
 export interface PpaResult {
-  mode: 'ppa'; cap: number; plan: Plan; ver: TariffVer; esc: number; degR: number; baseSaveM: number; segs: PpaSeg[]; ppaEsc: number; ets: boolean; kau: number; co2f: number;
+  mode: 'ppa'; cap: number; plan: Plan; ver: TariffVer; esc: number; degR: number; baseSaveM: number; segs: PpaSeg[]; ppaEsc: number; ets: boolean; kau: number; co2f: number; adj: TariffAdj;
   mg: number[]; mrows: { su: number; kepco: number; ppaCost: number }[]; annualGen1: number; years: PpaYear[]; cumSaveD: number; cumGen: number; cumCo2: number; cumCarbon: number; cumT: number;
   saveD1: number; avgSu: number; avgPu: number; avgKu: number; firstFixed: PpaYear | null; sumKep: number; sumPpa: number;
 }
@@ -245,6 +256,7 @@ export function calc(i: SimInput, escOv?: number): SimResult {
   const kau = i.kau;
   const kauEsc = i.kauEsc / 100;
   const ets = i.ets;
+  const adj = adjOf(i);
   if (i.mode === 'self') {
     const { cap, usage, plan, ver } = i.self;
     const esc = escOv !== undefined ? escOv : i.self.esc / 100;
@@ -254,7 +266,7 @@ export function calc(i: SimInput, escOv?: number): SimResult {
     const annualGen1 = mg.reduce((a, b) => a + b, 0);
     const baseSaveM = base * cap * peakR * (1 + FUND); // 월 기본요금 절감
     const mrows = mg.map((g, m) => {
-      const su = saveUnit(SEASON[m]!, plan, ver);
+      const su = saveUnit(SEASON[m]!, plan, ver, adj);
       return { su, self: Math.min(g, usage), surplus: Math.max(0, g - usage) };
     });
     const selfRatio = annualGen1 > 0 ? mrows.reduce((a, r) => a + r.self, 0) / annualGen1 : 0;
@@ -284,7 +296,7 @@ export function calc(i: SimInput, escOv?: number): SimResult {
       years.push({ y, gen, eSave, bSave, save, om, net, cum, co2, cumCo2, carbon, cumCarbon });
     }
     return {
-      mode: 'self', cap, plan, ver, esc, degR, usage, baseSaveM, mg, mrows, annualGen1, selfRatio, install, extra, consumer, ets, kau, co2f, cumCarbon,
+      mode: 'self', cap, plan, ver, esc, degR, usage, baseSaveM, mg, mrows, annualGen1, selfRatio, install, extra, consumer, ets, kau, co2f, adj, cumCarbon,
       years, cumSave, cumGen, cumCo2, payback, save1: years[0]!.save, eSave1: years[0]!.eSave, bSave1: years[0]!.bSave, carbon1: years[0]!.carbon,
     };
   }
@@ -299,7 +311,7 @@ export function calc(i: SimInput, escOv?: number): SimResult {
   const baseSaveM = base * cap * peakR * (1 + FUND);
   const u1 = ppaUnitForYear(segOf(segs, 1), 1, ppaEsc);
   const mrows = mg.map((g, m) => {
-    const su = saveUnit(SEASON[m]!, plan, ver);
+    const su = saveUnit(SEASON[m]!, plan, ver, adj);
     const pu = u1 === null ? su : u1;
     return { su, kepco: g * su, ppaCost: g * pu };
   });
@@ -328,7 +340,7 @@ export function calc(i: SimInput, escOv?: number): SimResult {
   }
   const avgSu = annualGen1 ? mrows.reduce((a, r) => a + r.kepco, 0) / annualGen1 : 0;
   return {
-    mode: 'ppa', cap, plan, ver, esc, degR, baseSaveM, segs, ppaEsc, ets, kau, co2f, mg, mrows, annualGen1, years, cumSaveD, cumGen, cumCo2, cumCarbon, cumT,
+    mode: 'ppa', cap, plan, ver, esc, degR, baseSaveM, segs, ppaEsc, ets, kau, co2f, adj, mg, mrows, annualGen1, years, cumSaveD, cumGen, cumCo2, cumCarbon, cumT,
     saveD1: years[0]!.saveD, avgSu, avgPu: cumGen ? sumPpa / cumGen : 0, avgKu: cumGen ? sumKep / cumGen : 0, firstFixed: years.find((r) => !r.linked) ?? null, sumKep, sumPpa,
   };
 }

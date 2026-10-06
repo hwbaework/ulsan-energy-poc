@@ -65,7 +65,7 @@ function withForecast(rows: Array<Record<string, unknown> & { x: string }>, tu: 
   });
 }
 
-const DEFAULT_CO2_EMISSION_FACTOR = 0.4594;
+const DEFAULT_CO2_EMISSION_FACTOR = 0.4173; // 관리 › 에너지 설정 값이 없을 때만
 const EMPTY_IDS: number[] = [];
 const PLANT_COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#EAB308'] as const;
 const shortPlantName = (name: string) => name.replace(/^울산\s*/, '');
