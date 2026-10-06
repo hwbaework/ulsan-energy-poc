@@ -261,7 +261,6 @@ export function SimReport({ input, companyName, record, autoPdf }: { input: SimI
           <b>OnSite PPA(리스형)</b> 검토를 권장합니다 — 초기투자 0원, 구간별 PPA 단가 적용(초기 구간 한전요금 연동 가능).
         </div>
       )}
-      {!self && <Re100Card R={R} />}
 
       {/* KPI */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{self ? <SelfKpis R={R} /> : <PpaKpis R={R} />}</div>
@@ -541,27 +540,6 @@ function PpaKpis({ R }: { R: PpaResult }) {
         s={`전기요금 ${EOK(R.cumSaveD)}억 ${R.ets ? `+ 배출권 ${EOK(R.cumCarbon)}억` : `· 배출권 참고가치 ${EOK(R.cumCarbon)}억`} · CO₂ ${F(R.cumCo2)} t`}
       />
     </>
-  );
-}
-function Re100Card({ R }: { R: PpaResult }) {
-  const y1 = R.years[0]!;
-  return (
-    <div className="rounded-xl border border-emerald-300 bg-gradient-to-r from-emerald-900 to-emerald-700 px-5 py-4 text-[12.5px] leading-relaxed text-emerald-50">
-      <p className="mb-1.5 text-sm font-extrabold text-white">RE100 이행 수단 — OnSite PPA로 재생에너지 사용실적 확보</p>
-      온사이트 PPA로 사용하는 전력은 <b className="text-emerald-300">K-RE100 이행수단으로 인정</b>되어, RE100 가입 기업은 물론 고객사·공급망으로부터 재생에너지 사용을 요구받는 기업의{' '}
-      <b className="text-emerald-300">이행 실적으로 직접 활용</b>할 수 있습니다. 본 OnSite PPA 도입 시 <b className="text-emerald-300">연간 {F1(R.annualGen1 / 1000)} MWh</b>의 재생에너지 사용실적이 확보되어{' '}
-      <b className="text-emerald-300">재생에너지 사용확인서</b> 발급 대상이 되며, Scope 2 배출량 <b className="text-emerald-300">연 {F((R.annualGen1 / 1000) * R.co2f)} tCO₂</b> 감축 —{' '}
-      {R.ets
-        ? `할당대상업체로서 간접배출량 감소분이 감축실적으로 인정되어 배출권 연 ${F(y1.carbon / 1e4)}만원(KAU ${F(R.kau)}원/t) 상당의 매각·구매회피 효과가 발생합니다.`
-        : `배출권 할당대상업체라면 간접배출 감축실적 인정으로 연 ${F(y1.carbon / 1e4)}만원(KAU ${F(R.kau)}원/t) 상당의 배출권 가치가 추가됩니다(참고).`}
-      <div className="mt-2.5 flex flex-wrap gap-2">
-        {['K-RE100 이행수단 인정', '재생에너지 사용확인서', 'Scope 2 감축', 'K-ETS 간접배출 감축실적', 'CDP·공급망 실사 대응'].map((p) => (
-          <span key={p} className="rounded-full border border-emerald-300/40 bg-emerald-300/10 px-3 py-1 text-[11px] font-bold text-emerald-200">
-            {p}
-          </span>
-        ))}
-      </div>
-    </div>
   );
 }
 
