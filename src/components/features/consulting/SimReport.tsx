@@ -19,9 +19,10 @@ import {
   SELF_CAPEX_UNIT,
   SELF_EXTRA_COST,
   SELF_OM,
+  PPA_REMAIN,
   SELF_REMAIN,
   TARIFF_YEAR_SEED,
-  bookOf,
+  tableOf,
   calc,
   cagrOf,
   escInput,
@@ -38,7 +39,7 @@ import {
   type TariffAdj,
   type TariffYear,
 } from '@/lib/solar-sim';
-import { energyNum, useEnergySettings, useIndustrialTariff } from '@/hooks/common/useSettings';
+import { useIndustrialTariff } from '@/hooks/common/useSettings';
 
 /**
  * 태양광 사업성 검토서 — 울산미포산단 태양광 사업성 시뮬레이터 v1.1 오른쪽 화면을 그대로 옮긴다(실무진 검토 값).
@@ -174,17 +175,15 @@ export function SimReport({ input, companyName, record, autoPdf }: { input: SimI
   const [showBasis, setShowBasis] = useState(false); // 산정 기준 및 출처 — 참고용, 펼칠 때만
   // 실적 CAGR — 관리 › 에너지 설정의 산업용 평균판매단가 표(첫해 → 마지막 해). 못 읽으면 기본값
   const { data: tariffYears } = useIndustrialTariff();
-  // 잔여 배정용량 · 배출계수 공표 정보 — 관리 › 에너지 설정
-  const { data: energySettings } = useEnergySettings();
+  // 잔여 배정용량 — 원본 값(계산에는 안 들어가고 초과 안내 배너·산정 기준 문구에만)
   const es = {
-    selfRemain: energyNum(energySettings, 'SELF_REMAIN_KW', SELF_REMAIN),
-    ppaRemain: energyNum(energySettings, 'PPA_REMAIN_KW', 2670),
+    selfRemain: SELF_REMAIN,
+    ppaRemain: PPA_REMAIN,
   };
   const cg = useMemo(() => cagrOf(tariffYears) ?? { rate: CAGR, from: TARIFF_YEAR_SEED[0]!, to: TARIFF_YEAR_SEED[TARIFF_YEAR_SEED.length - 1]! }, [tariffYears]);
   const sc = useMemo(() => scenarios(input, cg.rate), [input, cg.rate]);
   const R = sc[scen]!.R;
   const self = R.mode === 'self';
-  const ver = R.ver;
   const written = (record?.at ?? new Date().toISOString()).slice(0, 10);
   const rows = monthlyFor(R, mY);
 
@@ -293,8 +292,8 @@ export function SimReport({ input, companyName, record, autoPdf }: { input: SimI
         </div>
         {!self && (
           <Note>
-            ※ 한전 기준액(회색 점선)은 계절별 단가 차등이 반영되어 발전량과 비례하지 않음 — {mY}차년 태양광 대체단가: 여름 {F1(saveUnit(0, R.plan, ver, R.adj, R.book) * Math.pow(1 + R.esc, mY - 1))}원 / 봄가을{' '}
-            {F1(saveUnit(1, R.plan, ver, R.adj, R.book) * Math.pow(1 + R.esc, mY - 1))}원 / 겨울 {F1(saveUnit(2, R.plan, ver, R.adj, R.book) * Math.pow(1 + R.esc, mY - 1))}원/kWh (상승률 {(R.esc * 100).toFixed(1)}%/yr 누적).{' '}
+            ※ 한전 기준액(회색 점선)은 계절별 단가 차등이 반영되어 발전량과 비례하지 않음 — {mY}차년 태양광 대체단가: 여름 {F1(saveUnit(0, R.plan, R.table, R.adj) * Math.pow(1 + R.esc, mY - 1))}원 / 봄가을{' '}
+            {F1(saveUnit(1, R.plan, R.table, R.adj) * Math.pow(1 + R.esc, mY - 1))}원 / 겨울 {F1(saveUnit(2, R.plan, R.table, R.adj) * Math.pow(1 + R.esc, mY - 1))}원/kWh (상승률 {(R.esc * 100).toFixed(1)}%/yr 누적).{' '}
             {segNow!.linked
               ? `${mY}차년은 ${segNow!.idx}구간 한전 연동으로 PPA 납입료(주황)가 한전 기준액과 동일 — 전력량요금 절감 0, 기본요금 절감만 발생`
               : `PPA 납입료(주황)는 ${segNow!.idx}구간 고정단가 ${F1(rows[0]!.pu)}원/kWh로 발전량에 정비례`}{' '}
@@ -396,7 +395,7 @@ function InputRecord({ input: i, companyName }: { input: SimInput; companyName: 
           ['태양광 설치용량', `${F(i.self.cap)} kW`],
           ['계약전력', i.self.ctr ? `${F(i.self.ctr)} kW` : ''],
           ['월평균 전기사용량', `${F(i.self.usage)} kWh`],
-          ['요금제 · 요금 기준', `${PLAN_LABEL[i.self.plan]} · ${bookOf(i)[i.self.ver].label}`],
+          ['요금제 · 요금 기준', `${PLAN_LABEL[i.self.plan]} · ${tableOf(i, i.self.ver).label}`],
           ['전기요금 상승률', `${i.self.esc} %/yr`],
           ['기본요금 피크감축 반영률', `${i.self.peakR} %`],
           ['설치단가', `${F(i.self.capexUnit ?? SELF_CAPEX_UNIT)} 원/kW`],
@@ -406,7 +405,7 @@ function InputRecord({ input: i, companyName }: { input: SimInput; companyName: 
         ] as [string, string][])
       : ([
           ['태양광 설치용량', `${F(i.ppa.cap)} kW`],
-          ['비교 요금제 · 요금 기준', `${PLAN_LABEL[i.ppa.plan]} · ${bookOf(i)[i.ppa.ver].label}`],
+          ['비교 요금제 · 요금 기준', `${PLAN_LABEL[i.ppa.plan]} · ${tableOf(i, i.ppa.ver).label}`],
           ['한전요금 상승률', `${i.ppa.esc} %/yr`],
           ['기본요금 피크감축 반영률', `${i.ppa.peakR} %`],
           ...ppaSegs(i)

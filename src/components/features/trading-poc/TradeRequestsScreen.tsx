@@ -15,6 +15,7 @@ import {
   SELF_EXTRA_COST,
   SELF_OM,
   VER_LABEL,
+  tableOf,
   reviewNo as toReviewNo,
 } from '@/lib/solar-sim';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -225,7 +226,7 @@ export function TradeRequestsScreen() {
       capacity: String(kind === 'ONSITE' ? sim.ppa.cap : sim.self.cap),
       term: String(SIM_YEARS),
       tariffPlan: PLAN_LABEL[kind === 'ONSITE' ? sim.ppa.plan : sim.self.plan],
-      tariffBasis: VER_LABEL[kind === 'ONSITE' ? sim.ppa.ver : sim.self.ver],
+      tariffBasis: tableOf(sim, kind === 'ONSITE' ? sim.ppa.ver : sim.self.ver).label,
       estInstallUnit: kind === 'SELF_CONSUMPTION' ? (sim.self.capexUnit ?? SELF_CAPEX_UNIT) : undefined,
       extraCost: kind === 'SELF_CONSUMPTION' ? String(sim.self.extraCost ?? SELF_EXTRA_COST) : '',
       omRate: kind === 'SELF_CONSUMPTION' ? String(sim.self.om ?? SELF_OM) : '',

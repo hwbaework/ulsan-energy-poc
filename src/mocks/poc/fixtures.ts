@@ -10,7 +10,7 @@ import type { MonitoringConsumer, PlantContractKind, PlantAnomalySummary } from 
 import type { PowerStation } from '@/types/power-station';
 import type { ConsumerSite } from '@/types/consumer';
 import type { MarketPrice } from '@/types/trading';
-import { TARIFF_BOOK_SEED, TARIFF_YEAR_SEED, cleanBook, type TariffBook, type TariffYear } from '@/lib/solar-sim';
+import { TARIFF_TABLE_SEED, TARIFF_YEAR_SEED, cleanTable, type TariffTable, type TariffYear } from '@/lib/solar-sim';
 import './adminFixtures'; // 관리(ADMIN) 축 목업
 
 const NOW = '2026-09-15T10:00:00';
@@ -277,8 +277,6 @@ let ENERGY: Record<string, string> = {
   CO2_FACTOR_PUBLISHED: '2025-12-17', // 기후에너지환경부 공표일
   CLIMATE_CHG: '9.0', // ₩/kWh — 기후환경요금
   FUEL_ADJ: '5.0', // ₩/kWh — 연료비조정요금 (2026 3분기)
-  SELF_REMAIN_KW: '320', // 자가소비 배정 잔여용량
-  PPA_REMAIN_KW: '2670', // OnSite PPA 배정 잔여용량
   KEPCO_UNIT_PRICE: '152.3', // ₩/kWh — 한전 산업용 단가. 자가소비 절감액 = 발전량 × 이 값
   PPA_UNIT_PRICE: '138.0', // ₩/kWh — 온사이트 PPA 계약 단가. PPA 요금 = 발전량 × 이 값
 };
@@ -325,25 +323,25 @@ registerMock(/^\/settings\/public\/industrial-tariff$/, ({ body }) => {
 }, 'PUT');
 
 // 한전 요금표 — 관리 › 에너지 설정. 새로고침해도 남게 브라우저에 저장 (POC)
-const KEPCO_KEY = 'ulsan-kepco-tariff-v1';
-let KEPCO_BOOK: TariffBook = cleanBook(TARIFF_BOOK_SEED);
+const KEPCO_KEY = 'ulsan-kepco-tariff-v2'; // v2 — 요금표 하나(요금 기준 2개 → 1개)
+let KEPCO_TABLE: TariffTable = cleanTable(TARIFF_TABLE_SEED);
 if (typeof window !== 'undefined') {
   try {
     const saved = JSON.parse(window.localStorage.getItem(KEPCO_KEY) ?? 'null');
-    if (saved) KEPCO_BOOK = cleanBook(saved);
+    if (saved) KEPCO_TABLE = cleanTable(saved);
   } catch {
     /* 저장본이 깨졌으면 원본 값으로 시작 */
   }
 }
-registerMock(/^\/settings\/public\/kepco-tariff$/, () => KEPCO_BOOK, 'GET');
+registerMock(/^\/settings\/public\/kepco-tariff$/, () => KEPCO_TABLE, 'GET');
 registerMock(/^\/settings\/public\/kepco-tariff$/, ({ body }) => {
-  KEPCO_BOOK = cleanBook(body);
+  KEPCO_TABLE = cleanTable(body);
   try {
-    window.localStorage.setItem(KEPCO_KEY, JSON.stringify(KEPCO_BOOK));
+    window.localStorage.setItem(KEPCO_KEY, JSON.stringify(KEPCO_TABLE));
   } catch {
     /* 저장 실패는 무시 — 메모리에는 남는다 */
   }
-  return KEPCO_BOOK;
+  return KEPCO_TABLE;
 }, 'PUT');
 
 /* ── SMP 시장 정보 (대시보드 최근 30일 일평균) ───────────────── */

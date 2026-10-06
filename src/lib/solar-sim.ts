@@ -77,26 +77,39 @@ export function cagrOf(rows: TariffYear[] | undefined): { rate: number; from: Ta
 export const PLAN_LABEL: Record<Plan, string> = { '1': '고압A 선택Ⅰ', '2': '고압A 선택Ⅱ' };
 export const VER_LABEL: Record<TariffVer, string> = { old: '2025-04 확정단가 (고시)', new: '2026-04 개편 (참고·계산값)' };
 
-/** 한전 요금표 — 관리 › 시스템 › 에너지 설정에서 관리. 요금 기준 2개(old · new) × 요금제 2개. 원본 값이 시드 */
-export type TariffRow = { base: number; light: number[]; mid: number[]; peak: number[] };
-export type TariffBook = Record<TariffVer, { label: string } & Record<Plan, TariffRow>>;
-export const TARIFF_BOOK_SEED: TariffBook = {
-  old: { label: VER_LABEL.old, ...TARIFF.old },
-  new: { label: VER_LABEL.new, ...TARIFF.new },
+/** 한전 요금표 — 관리 › 시스템 › 에너지 설정에서 하나만 관리. 산업용(을) 고압A 선택Ⅰ·Ⅱ 기본요금 + 중간·최대부하 × 계절,
+ *  태양광 발전 시간대 비중(중간·최대). 경부하(밤)는 태양광이 발전하지 않아 계산에 안 쓰므로 두지 않는다. 시드 = 원본 2025-04 확정단가 */
+export type TariffRow = { base: number; mid: number[]; peak: number[] };
+export type TariffTable = { label: string; share: { mid: number; peak: number }[] } & Record<Plan, TariffRow>;
+const legacyRow = (r: { base: number; mid: number[]; peak: number[] }): TariffRow => ({ base: r.base, mid: [...r.mid], peak: [...r.peak] });
+/** 예전 기록(요금표를 남기지 않은 검토서)은 그 기록의 요금 기준 원본 값으로 — 숫자가 바뀌지 않게 */
+const legacyTable = (ver: TariffVer): TariffTable => ({
+  label: VER_LABEL[ver],
+  share: PVSHARE[ver].map((x) => ({ ...x })),
+  '1': legacyRow(TARIFF[ver]['1']),
+  '2': legacyRow(TARIFF[ver]['2']),
+});
+export const TARIFF_TABLE_SEED: TariffTable = legacyTable('old');
+export const TARIFF_LIM = { base: [0, 100_000], unit: [0, 1_000], share: [0, 1] } as const;
+const clip = (v: unknown, [lo, hi]: readonly [number, number], fb: number) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fb;
 };
-export const TARIFF_LIM = { base: [0, 100_000], unit: [0, 1_000] } as const;
 /** 저장된 요금표가 깨졌으면 시드로 — 숫자는 범위 안으로 */
-export function cleanBook(b: unknown): TariffBook {
-  const src = (b ?? {}) as Partial<TariffBook>;
-  const row = (r: Partial<TariffRow> | undefined, d: TariffRow): TariffRow => {
-    const arr = (a: unknown, da: number[]) => da.map((x, k) => { const n = Number((a as number[] | undefined)?.[k]); return Number.isFinite(n) ? Math.min(TARIFF_LIM.unit[1], Math.max(TARIFF_LIM.unit[0], n)) : x; });
-    const base = Number(r?.base);
-    return { base: Number.isFinite(base) ? Math.min(TARIFF_LIM.base[1], Math.max(TARIFF_LIM.base[0], base)) : d.base, light: arr(r?.light, d.light), mid: arr(r?.mid, d.mid), peak: arr(r?.peak, d.peak) };
-  };
-  const ver = (v: TariffVer) => ({ label: typeof src[v]?.label === 'string' && src[v]!.label.trim() ? src[v]!.label.slice(0, 40) : TARIFF_BOOK_SEED[v].label, '1': row(src[v]?.['1'], TARIFF_BOOK_SEED[v]['1']), '2': row(src[v]?.['2'], TARIFF_BOOK_SEED[v]['2']) });
-  return { old: ver('old'), new: ver('new') };
+export function cleanTable(t: unknown): TariffTable {
+  const src = (t ?? {}) as Partial<TariffTable>;
+  const d = TARIFF_TABLE_SEED;
+  const arr = (a: unknown, da: number[]) => da.map((x, k) => clip((a as number[] | undefined)?.[k], TARIFF_LIM.unit, x));
+  const row = (r: Partial<TariffRow> | undefined, dr: TariffRow): TariffRow => ({ base: clip(r?.base, TARIFF_LIM.base, dr.base), mid: arr(r?.mid, dr.mid), peak: arr(r?.peak, dr.peak) });
+  const share = d.share.map((x, k) => {
+    const mid = clip(src.share?.[k]?.mid, TARIFF_LIM.share, x.mid);
+    return { mid, peak: Math.round((1 - mid) * 1000) / 1000 };
+  });
+  const label = typeof src.label === 'string' && src.label.trim() ? src.label.slice(0, 40) : d.label;
+  return { label, share, '1': row(src['1'], d['1']), '2': row(src['2'], d['2']) };
 }
-export const bookOf = (i: { tariffBook?: TariffBook }): TariffBook => (i.tariffBook ? cleanBook(i.tariffBook) : TARIFF_BOOK_SEED);
+/** 검토에 쓸 요금표 — 검토 시점에 남긴 요금표, 없으면 그 기록의 요금 기준 원본 값 */
+export const tableOf = (i: { tariff?: TariffTable }, ver: TariffVer): TariffTable => (i.tariff ? cleanTable(i.tariff) : legacyTable(ver));
 
 /** 기존 태양광 설비 — 이미 설치한 설비(기록용, 계산에는 안 들어감) */
 export interface Facility {
@@ -126,7 +139,7 @@ export interface SimInput {
   co2f: number; // t/MWh
   climateChg?: number; // 기후환경요금 원/kWh — 예전 기록에는 없을 수 있다 → 기본값
   fuelAdj?: number; // 연료비조정요금 원/kWh — 예전 기록에는 없을 수 있다 → 기본값
-  tariffBook?: TariffBook; // 한전 요금표 — 검토 시점 값. 예전 기록에는 없을 수 있다 → 원본 값
+  tariff?: TariffTable; // 한전 요금표 — 검토 시점 값. 예전 기록에는 없을 수 있다 → 그 기록의 요금 기준 원본 값
   ets: boolean; // 배출권 할당대상업체
   // 자가소비
   // capexUnit·extraCost·om: 예전 기록에는 없을 수 있다 → 기본값
@@ -206,14 +219,14 @@ export function clampSimInput(i: SimInput): SimInput {
 
 /* ── 계산 ── */
 /** 계절별 태양광 대체단가(원/kWh) */
-export function saveUnit(season: number, plan: Plan, ver: TariffVer, adj: TariffAdj = DEFAULT_ADJ, book: TariffBook = TARIFF_BOOK_SEED) {
-  const t = book[ver][plan];
-  const s = PVSHARE[ver][season]!;
+export function saveUnit(season: number, plan: Plan, table: TariffTable = TARIFF_TABLE_SEED, adj: TariffAdj = DEFAULT_ADJ) {
+  const t = table[plan];
+  const s = table.share[season]!;
   return (t.mid[season]! * s.mid + t.peak[season]! * s.peak + adj.climate + adj.fuel) * (1 + FUND);
 }
 /** 1차년 한전 태양광 대체단가(원/kWh) — 월별 일조시간 가중 평균. PPA 연동 구간의 기준 단가 */
-export function avgSaveUnit(plan: Plan, ver: TariffVer, adj: TariffAdj = DEFAULT_ADJ, book: TariffBook = TARIFF_BOOK_SEED) {
-  return SUN.reduce((a, h, m) => a + h * saveUnit(SEASON[m]!, plan, ver, adj, book), 0) / SUNTOT;
+export function avgSaveUnit(plan: Plan, table: TariffTable = TARIFF_TABLE_SEED, adj: TariffAdj = DEFAULT_ADJ) {
+  return SUN.reduce((a, h, m) => a + h * saveUnit(SEASON[m]!, plan, table, adj), 0) / SUNTOT;
 }
 /** 사업 검토서 번호 — SR-연도-일련번호 */
 export const reviewNo = (id: number, createdAt: string) => `SR-${createdAt.slice(0, 4)}-${String(id).padStart(4, '0')}`;
@@ -259,11 +272,11 @@ export interface SelfResult {
   mode: 'self'; cap: number; plan: Plan; ver: TariffVer; esc: number; degR: number; usage: number; baseSaveM: number; mg: number[];
   mrows: { su: number; self: number; surplus: number }[]; annualGen1: number; selfRatio: number;
   install: number; extra: number; consumer: number; // 설치비 · 추가 시공비 · 소비자 부담(합)
-  ets: boolean; kau: number; co2f: number; adj: TariffAdj; book: TariffBook; cumCarbon: number; years: SelfYear[]; cumSave: number; cumGen: number; cumCo2: number; payback: number | null;
+  ets: boolean; kau: number; co2f: number; adj: TariffAdj; table: TariffTable; cumCarbon: number; years: SelfYear[]; cumSave: number; cumGen: number; cumCo2: number; payback: number | null;
   save1: number; eSave1: number; bSave1: number; carbon1: number;
 }
 export interface PpaResult {
-  mode: 'ppa'; cap: number; plan: Plan; ver: TariffVer; esc: number; degR: number; baseSaveM: number; segs: PpaSeg[]; ppaEsc: number; ets: boolean; kau: number; co2f: number; adj: TariffAdj; book: TariffBook;
+  mode: 'ppa'; cap: number; plan: Plan; ver: TariffVer; esc: number; degR: number; baseSaveM: number; segs: PpaSeg[]; ppaEsc: number; ets: boolean; kau: number; co2f: number; adj: TariffAdj; table: TariffTable;
   mg: number[]; mrows: { su: number; kepco: number; ppaCost: number }[]; annualGen1: number; years: PpaYear[]; cumSaveD: number; cumGen: number; cumCo2: number; cumCarbon: number; cumT: number;
   saveD1: number; avgSu: number; avgPu: number; avgKu: number; firstFixed: PpaYear | null; sumKep: number; sumPpa: number;
 }
@@ -279,17 +292,17 @@ export function calc(i: SimInput, escOv?: number): SimResult {
   const kauEsc = i.kauEsc / 100;
   const ets = i.ets;
   const adj = adjOf(i);
-  const book = bookOf(i);
   if (i.mode === 'self') {
     const { cap, usage, plan, ver } = i.self;
+    const table = tableOf(i, ver);
     const esc = escOv !== undefined ? escOv : i.self.esc / 100;
     const peakR = i.self.peakR / 100;
-    const base = book[ver][plan].base;
+    const base = table[plan].base;
     const mg = monthlyGen(cap, avgH);
     const annualGen1 = mg.reduce((a, b) => a + b, 0);
     const baseSaveM = base * cap * peakR * (1 + FUND); // 월 기본요금 절감
     const mrows = mg.map((g, m) => {
-      const su = saveUnit(SEASON[m]!, plan, ver, adj, book);
+      const su = saveUnit(SEASON[m]!, plan, table, adj);
       return { su, self: Math.min(g, usage), surplus: Math.max(0, g - usage) };
     });
     const selfRatio = annualGen1 > 0 ? mrows.reduce((a, r) => a + r.self, 0) / annualGen1 : 0;
@@ -319,22 +332,23 @@ export function calc(i: SimInput, escOv?: number): SimResult {
       years.push({ y, gen, eSave, bSave, save, om, net, cum, co2, cumCo2, carbon, cumCarbon });
     }
     return {
-      mode: 'self', cap, plan, ver, esc, degR, usage, baseSaveM, mg, mrows, annualGen1, selfRatio, install, extra, consumer, ets, kau, co2f, adj, book, cumCarbon,
+      mode: 'self', cap, plan, ver, esc, degR, usage, baseSaveM, mg, mrows, annualGen1, selfRatio, install, extra, consumer, ets, kau, co2f, adj, table, cumCarbon,
       years, cumSave, cumGen, cumCo2, payback, save1: years[0]!.save, eSave1: years[0]!.eSave, bSave1: years[0]!.bSave, carbon1: years[0]!.carbon,
     };
   }
   const { cap, plan, ver } = i.ppa;
+  const table = tableOf(i, ver);
   const ppaEsc = i.ppa.ppaEsc / 100;
   const segs = ppaSegs(i);
   const esc = escOv !== undefined ? escOv : i.ppa.esc / 100;
   const peakR = i.ppa.peakR / 100;
-  const base = book[ver][plan].base;
+  const base = table[plan].base;
   const mg = monthlyGen(cap, avgH);
   const annualGen1 = mg.reduce((a, b) => a + b, 0);
   const baseSaveM = base * cap * peakR * (1 + FUND);
   const u1 = ppaUnitForYear(segOf(segs, 1), 1, ppaEsc);
   const mrows = mg.map((g, m) => {
-    const su = saveUnit(SEASON[m]!, plan, ver, adj, book);
+    const su = saveUnit(SEASON[m]!, plan, table, adj);
     const pu = u1 === null ? su : u1;
     return { su, kepco: g * su, ppaCost: g * pu };
   });
@@ -363,7 +377,7 @@ export function calc(i: SimInput, escOv?: number): SimResult {
   }
   const avgSu = annualGen1 ? mrows.reduce((a, r) => a + r.kepco, 0) / annualGen1 : 0;
   return {
-    mode: 'ppa', cap, plan, ver, esc, degR, baseSaveM, segs, ppaEsc, ets, kau, co2f, adj, book, mg, mrows, annualGen1, years, cumSaveD, cumGen, cumCo2, cumCarbon, cumT,
+    mode: 'ppa', cap, plan, ver, esc, degR, baseSaveM, segs, ppaEsc, ets, kau, co2f, adj, table, mg, mrows, annualGen1, years, cumSaveD, cumGen, cumCo2, cumCarbon, cumT,
     saveD1: years[0]!.saveD, avgSu, avgPu: cumGen ? sumPpa / cumGen : 0, avgKu: cumGen ? sumKep / cumGen : 0, firstFixed: years.find((r) => !r.linked) ?? null, sumKep, sumPpa,
   };
 }
