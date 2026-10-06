@@ -60,29 +60,16 @@ export function DataSourcePanel() {
   // 보기 — 'new' = 이번 달 새 글(기본), 'range' = 기간(시작 월 ~ 끝 월). 몇 달 걸러 수집할 수 있어 기간으로 고른다
   const [mode, setMode] = useState<'new' | 'range'>('new');
 
-  // 고를 수 있는 달 — 수집된 글의 가장 오래된 달부터 이번 달까지 빠짐없이 (최신순)
-  const months = useMemo(() => {
+  // 기간 기본 시작 — 수집된 글의 가장 오래된 달
+  const firstMonth = useMemo(() => {
     const got = fetchedItems.map((it) => it.pubDate.slice(0, 7)).filter((m) => /^\d{4}-\d{2}$/.test(m));
-    const first = got.length ? got.reduce((a, b) => (a < b ? a : b)) : nowMonth;
-    const out: string[] = [];
-    let [y, m] = first.split('-').map(Number) as [number, number];
-    for (let guard = 0; guard < 240; guard++) {
-      const key = `${y}-${String(m).padStart(2, '0')}`;
-      out.push(key);
-      if (key >= nowMonth) break;
-      m += 1;
-      if (m > 12) {
-        m = 1;
-        y += 1;
-      }
-    }
-    return out.reverse();
+    return got.length ? got.reduce((a, b) => (a < b ? a : b)) : nowMonth;
   }, [fetchedItems, nowMonth]);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   // 기간 기본값 — 가장 오래된 달 ~ 이번 달. 시작이 끝보다 늦으면 서로 바꿔 읽는다
-  const rangeFrom = from || months[months.length - 1] || nowMonth;
-  const rangeTo = to || months[0] || nowMonth;
+  const rangeFrom = from || firstMonth;
+  const rangeTo = to || nowMonth;
   const [lo, hi] = rangeFrom <= rangeTo ? [rangeFrom, rangeTo] : [rangeTo, rangeFrom];
   const periodLabel = lo === hi ? formatMonthKo(lo) : `${formatMonthKo(lo)} ~ ${formatMonthKo(hi)}`;
 
@@ -126,43 +113,36 @@ export function DataSourcePanel() {
             }}
             className="h-8 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 text-xs text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
           >
-            <option value="new">새 글만</option>
-            <option value="range">기간</option>
+            <option value="new" className="bg-[#0d1520] text-white">새 글만</option>
+            <option value="range" className="bg-[#0d1520] text-white">기간</option>
           </select>
           {/* 기간 — 시작 월 ~ 끝 월 */}
           {mode === 'range' && (
             <>
-              <select
+              {/* 월 선택 — 아무 달이나(예: 2025-03) · 이번 달까지 */}
+              <input
+                type="month"
                 aria-label="시작 월"
                 value={rangeFrom}
+                max={nowMonth}
                 onChange={(e) => {
-                  setFrom(e.target.value);
+                  if (/^\d{4}-\d{2}$/.test(e.target.value)) setFrom(e.target.value);
                   setShowAll(false);
                 }}
-                className="h-8 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 text-xs text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
-              >
-                {months.map((m) => (
-                  <option key={m} value={m}>
-                    {formatMonthKo(m)}
-                  </option>
-                ))}
-              </select>
+                className="h-8 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 text-xs text-white [color-scheme:dark] focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
+              />
               <span className="text-xs text-slate-500">~</span>
-              <select
+              <input
+                type="month"
                 aria-label="끝 월"
                 value={rangeTo}
+                max={nowMonth}
                 onChange={(e) => {
-                  setTo(e.target.value);
+                  if (/^\d{4}-\d{2}$/.test(e.target.value)) setTo(e.target.value);
                   setShowAll(false);
                 }}
-                className="h-8 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 text-xs text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
-              >
-                {months.map((m) => (
-                  <option key={m} value={m}>
-                    {formatMonthKo(m)}
-                  </option>
-                ))}
-              </select>
+                className="h-8 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 text-xs text-white [color-scheme:dark] focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
+              />
             </>
           )}
           <Button size="sm" onClick={handleCollect} loading={isFetching}>
