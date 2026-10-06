@@ -12,7 +12,6 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { getBasicReports, getEduRounds, getReportsByRound, getRoundQuiz } from '@/lib/mock-education';
 import { useEducationStore, useHydrateEducation, useSeedEducationDemo } from '@/stores/useEducationStore';
-import { exportCertificatePdf } from '@/lib/utils';
 import { useEducationContentStore } from '@/stores/useEducationContentStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { DataSourcePanel } from './DataSourcePanel';
@@ -103,9 +102,9 @@ function EducationInner() {
               (completed ? (
                 <span className="flex items-center gap-2">
                   <StatusPill tone="normal" label="이수 완료" />
-                  {/* 수료증 — 이 차수 카드에서 바로 PDF 로 받는다(사업계획서 p.142 수료증 발급). 따로 모아 두는 카드는 두지 않는다 */}
+                  {/* 수료증 — 이 차수 이수 완료 화면으로 들어가 확인하고 [수료증 다운로드]로 받는다(사업계획서 p.142). 따로 모아 두는 카드는 두지 않는다 */}
                   {!isAdmin && cert && (
-                    <Button size="sm" onClick={() => exportCertificatePdf(cert)}>
+                    <Button size="sm" onClick={() => router.push(`/re100/education/quiz?round=${key}`)}>
                       <Award size={14} className="mr-1" /> 수료증
                     </Button>
                   )}
