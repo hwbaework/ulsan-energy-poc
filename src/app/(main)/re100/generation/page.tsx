@@ -138,7 +138,7 @@ export default function Re100GenerationPage() {
 
       {/* 정산 흐름 안내 (19-03 §2) */}
       <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-[11px] text-slate-400">
-        발전설비 ─① 계측─▶ VPP ─② 정산─▶ SPC ─③ 공급─▶ 수용가(PPA/자가소비) · ④ 정산 확정 = RE100 이행실적 확정
+        발전설비 ─① 계측─▶ VPP ─② 정산─▶ SPC ─③ 공급─▶ 전기사용자(PPA/자가소비) · ④ 정산 확정 = RE100 이행실적 확정
       </div>
 
       {/* 정산 실적 테이블 */}

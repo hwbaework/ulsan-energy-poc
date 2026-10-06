@@ -101,7 +101,7 @@ const RECALCS: Recalc[] = [];
 
 const BEARER_META = {
   generator: { label: '발전사업자', tone: 'text-amber-300' },
-  consumer: { label: '수용가', tone: 'text-blue-300' },
+  consumer: { label: '전기사용자', tone: 'text-blue-300' },
   spc: { label: 'SPC', tone: 'text-violet-300' },
   shared: { label: '공동 분담', tone: 'text-slate-300' },
 };
@@ -227,7 +227,7 @@ export default function PlatformPpaUsageDeviationPage() {
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
               <Input
                 type="text"
-                placeholder="발전소·수용가"
+                placeholder="발전소·전기사용자"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
@@ -253,7 +253,7 @@ export default function PlatformPpaUsageDeviationPage() {
                     <tr className="text-[11px] text-slate-500 bg-white/[0.02] border-b border-white/[0.06]">
                       <th className="text-left font-medium px-4 py-3">사이클</th>
                       <th className="font-medium px-3 py-3">유형</th>
-                      <th className="text-left font-medium px-3 py-3">발전소 → 수용가</th>
+                      <th className="text-left font-medium px-3 py-3">발전소 → 전기사용자</th>
                       <th className="font-medium px-3 py-3">계약량</th>
                       <th className="font-medium px-3 py-3">실적</th>
                       <th className="font-medium px-3 py-3">차이</th>
@@ -527,7 +527,7 @@ export default function PlatformPpaUsageDeviationPage() {
               <Field label="제기 주체">
                 <select className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white">
                   <option>발전사업자</option>
-                  <option>수용가</option>
+                  <option>전기사용자</option>
                   <option>SPC</option>
                 </select>
               </Field>

@@ -70,7 +70,7 @@ const AGENCY_OPTIONS = [
 ];
 
 const FILTER_FIELDS: FilterField[] = [
-  { key: 'search', label: '프로젝트 검색', type: 'text', placeholder: '프로젝트명 또는 대상 수용가 검색' },
+  { key: 'search', label: '프로젝트 검색', type: 'text', placeholder: '프로젝트명 또는 대상 전기사용자 검색' },
   {
     key: 'status',
     label: '상태',
@@ -184,7 +184,7 @@ export default function ConsultingProjectsPage() {
     },
     {
       key: 'targetCustomer',
-      header: '대상 수용가',
+      header: '대상 전기사용자',
       render: (row) => <span className="text-sm text-slate-300">{row.targetCustomer}</span>,
     },
     {

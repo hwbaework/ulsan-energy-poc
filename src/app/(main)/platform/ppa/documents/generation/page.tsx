@@ -736,7 +736,7 @@ export default function PlatformPpaDocumentGenerationPage() {
             {!editMode && hasFields && (
               <div className="mt-3 rounded-lg border border-violet-500/[0.20] bg-violet-500/[0.04] p-3 text-[11px] text-violet-200">
                 <Sparkles size={11} className="inline mr-1" />
-                회원·계약 데이터 자동 채움 — 발전소·수용가 선택 시 사업자번호·주소·계좌·CFE 목표가 자동 입력됩니다.
+                회원·계약 데이터 자동 채움 — 발전소·전기사용자 선택 시 사업자번호·주소·계좌·CFE 목표가 자동 입력됩니다.
               </div>
             )}
           </div>

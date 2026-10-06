@@ -298,15 +298,15 @@ export const MILESTONE_TEMPLATES: Record<
 > = {
   outsource: [
     {
-      title: '수용가 발굴',
-      description: '대상 수용가를 발굴하고 접촉합니다',
-      actionLabel: '수용가 등록',
+      title: '전기사용자 발굴',
+      description: '대상 전기사용자를 발굴하고 접촉합니다',
+      actionLabel: '전기사용자 등록',
       actionType: 'prospect',
       weight: 15,
     },
     {
       title: '현장 방문',
-      description: '수용가 현장을 방문하여 현황을 파악합니다',
+      description: '전기사용자 현장을 방문하여 현황을 파악합니다',
       actionLabel: '일정 잡기',
       actionType: 'schedule',
       weight: 15,
@@ -379,7 +379,7 @@ export const MILESTONE_TEMPLATES: Record<
     },
   ],
   referral: [
-    { title: '초대 수락', description: '수용가가 진단 초대를 수락합니다', weight: 5 },
+    { title: '초대 수락', description: '전기사용자가 진단 초대를 수락합니다', weight: 5 },
     {
       title: '설문 조사',
       description: '에너지 사용 현황 설문을 수행합니다',

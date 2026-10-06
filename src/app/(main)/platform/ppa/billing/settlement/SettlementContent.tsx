@@ -289,7 +289,7 @@ type SettlementPlant = {
   id: string;
   name: string;
   counterparty: string; // 발전사업자
-  consumers: string[]; // 수용가 (N:1·1:N 표현)
+  consumers: string[]; // 전기사용자 (N:1·1:N 표현)
   matchType: MatchType;
   monthlyKwh: number;
   ppaPriceKwh: number;
@@ -307,13 +307,13 @@ const PLANT_KIND_META: Record<string, { label: string; cls: string }> = {
 // contractStart 5/1 — 5월 정산 1행씩 생성
 const SETTLEMENT_PLANTS: SettlementPlant[] = [];
 
-// 이의 제기 — 발전사/수용가가 동의 대기 단계에서 거절(이의)하면 SPC settlement 에 사유 노출
+// 이의 제기 — 발전사/전기사용자가 동의 대기 단계에서 거절(이의)하면 SPC settlement 에 사유 노출
 // key = record id (`${plant.id}-${period.key}`)
-// 데모: Lease 한일튜브 5월 정산에 대한 수용가 이의 제기 1건 (mock)
+// 데모: Lease 한일튜브 5월 정산에 대한 전기사용자 이의 제기 1건 (mock)
 type ObjectionFrom = 'generator' | 'consumer';
 type Objection = {
   from: ObjectionFrom;
-  partyName: string; // 이의 제기 주체 (발전사명·수용가명)
+  partyName: string; // 이의 제기 주체 (발전사명·전기사용자명)
   reason: string; // 이의 사유
   createdAt: string; // 'YYYY-MM-DD HH:mm'
   status: 'open' | 'resolved';
@@ -323,7 +323,7 @@ const OBJECTIONS_SEED: Record<string, Objection> = {};
 // DEMO-MOCK: 세션에 저장된 PendingRequest(체결된 PPA)를 SettlementPlant 배열로 변환
 // 매칭된 후보 1개당 1개의 settlement 행 생성
 //   - 매칭 1건 → 1행 (1:1)
-//   - 매칭 N건 → N행 (N:1, 동일 수용가에 다발 공급)
+//   - 매칭 N건 → N행 (N:1, 동일 전기사용자에 다발 공급)
 function pendingPpaToSettlementPlants(r: PendingRequest): SettlementPlant[] {
   if (r.dealType !== 'ppa') return [];
   if (r.step < r.totalSteps) return [];
@@ -358,7 +358,7 @@ function pendingPpaToSettlementPlants(r: PendingRequest): SettlementPlant[] {
       consumers: [r.site],
       matchType,
       monthlyKwh,
-      // 단가는 매칭된 발전소의 제안 단가가 우선 (수용가 희망 단가는 제안일 뿐)
+      // 단가는 매칭된 발전소의 제안 단가가 우선 (전기사용자 희망 단가는 제안일 뿐)
       ppaPriceKwh: cand.proposedPriceKrw ?? r.unitPrice ?? 140,
       contractStart: r.contract.effectiveFrom,
       contractEnd,
@@ -366,22 +366,22 @@ function pendingPpaToSettlementPlants(r: PendingRequest): SettlementPlant[] {
   });
 }
 // 매칭 cardinality — Offsite PPA 변형 (PPT 분석서 slide 2 기준)
-//   1:1 — 발전소 1곳 → 수용가 1곳
-//   1:N — 발전소 1곳 → 수용가 N곳 (비례 공급)
-//   N:1 — 동일 발전사업자의 발전소 N곳 → 수용가 1곳 (비례 공급)
+//   1:1 — 발전소 1곳 → 전기사용자 1곳
+//   1:N — 발전소 1곳 → 전기사용자 N곳 (비례 공급)
+//   N:1 — 동일 발전사업자의 발전소 N곳 → 전기사용자 1곳 (비례 공급)
 const MATCH_TYPE_META: Record<MatchType, { tone: string; bg: string; ring: string; desc: string }> = {
-  '1:1': { tone: 'text-blue-300', bg: 'bg-blue-500/[0.10]', ring: 'ring-blue-500/30', desc: '발전소 1 → 수용가 1' },
+  '1:1': { tone: 'text-blue-300', bg: 'bg-blue-500/[0.10]', ring: 'ring-blue-500/30', desc: '발전소 1 → 전기사용자 1' },
   '1:N': {
     tone: 'text-violet-300',
     bg: 'bg-violet-500/[0.10]',
     ring: 'ring-violet-500/30',
-    desc: '발전소 1 → 수용가 N',
+    desc: '발전소 1 → 전기사용자 N',
   },
   'N:1': {
     tone: 'text-emerald-300',
     bg: 'bg-emerald-500/[0.10]',
     ring: 'ring-emerald-500/30',
-    desc: '발전소 N → 수용가 1',
+    desc: '발전소 N → 전기사용자 1',
   },
 };
 const SETTLEMENT_PERIODS = ['2026-01', '2026-02', '2026-03', '2026-04', '2026-05'].map((key) => {
@@ -582,7 +582,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
 
   // 정산 record 선택 + 요금 조정 워크플로우 (SPC 전용 편집 권한)
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
-  // 통지서/청구서 미리보기 모달 — recipient: 발전사(지급통지) | 수용가(청구서)
+  // 통지서/청구서 미리보기 모달 — recipient: 발전사(지급통지) | 전기사용자(청구서)
   const [noticePreview, setNoticePreview] = useState<{ recordId: string; recipient: 'generator' | 'consumer' } | null>(
     null,
   );
@@ -667,7 +667,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
   const { adjustments, getAdjustment, updateAdjustment } = useDemoAdjustments();
   // record 검토 상태 — 발전사 화면에 값 노출 여부 결정
   const { getApproval, setApproval } = useDemoApprovals();
-  // 이의 제기 — 발전사/수용가가 동의 대기 단계에서 거절(이의)하면 record 에 사유 매핑
+  // 이의 제기 — 발전사/전기사용자가 동의 대기 단계에서 거절(이의)하면 record 에 사유 매핑
   // 데모: seed 한 건만 우선 로드, SPC 가 사유 반영 → '해결 처리'로 status='resolved'
   const [objections, setObjections] = useState<Record<string, Objection>>(OBJECTIONS_SEED);
   const getObjection = (id: string): Objection | undefined => objections[id];
@@ -1019,7 +1019,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
                 <div className="border-b border-white/[0.06] px-5 py-3">
                   <h3 className="text-md font-semibold text-white">전체 {settlementRecords.length}건</h3>
                   <p className="mt-0.5 text-xs text-slate-400">
-                    SPC가 작성 · 검토 후 발전사·수용가 동시 통보 · 행 클릭 시 우측에서 편집
+                    SPC가 작성 · 검토 후 발전사·전기사용자 동시 통보 · 행 클릭 시 우측에서 편집
                   </p>
                 </div>
                 <div className="overflow-x-auto">
@@ -1066,7 +1066,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
                         <th className="px-3 py-2 text-left font-medium whitespace-nowrap">
                           계약 당사자
                           <br />
-                          <span className="text-[10px] font-normal text-slate-500">발전사업자 → 수용가</span>
+                          <span className="text-[10px] font-normal text-slate-500">발전사업자 → 전기사용자</span>
                         </th>
                         <th className="px-3 py-2 text-left font-medium whitespace-nowrap">발전소</th>
                         <th className="px-3 py-2 font-medium whitespace-nowrap">공급량</th>
@@ -1157,7 +1157,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
                                       +{r.plant.consumers.length - 1}개 ({r.plant.consumers.slice(1).join(', ')})
                                     </p>
                                   ) : (
-                                    <p className="text-[10px] text-slate-500">수용가</p>
+                                    <p className="text-[10px] text-slate-500">전기사용자</p>
                                   )}
                                 </div>
                               </div>
@@ -1345,7 +1345,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
                               </span>
                             </div>
                             <div className="flex justify-between gap-2">
-                              <span className="text-slate-500">수용가</span>
+                              <span className="text-slate-500">전기사용자</span>
                               <span className="text-white text-right">{r.plant.consumers.join(', ')}</span>
                             </div>
                             <div className="flex justify-between gap-2">
@@ -1449,7 +1449,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
                                         : 'bg-violet-500/[0.15] text-violet-300 ring-violet-500/30',
                                     )}
                                   >
-                                    {obj.from === 'consumer' ? '수용가' : '발전사'}
+                                    {obj.from === 'consumer' ? '전기사용자' : '발전사'}
                                   </span>
                                   <span className="text-xs text-white font-medium">{obj.partyName}</span>
                                 </div>
@@ -1555,7 +1555,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
                               </div>
                             </div>
                             <p className="text-[10px] text-slate-500">
-                              ※ 검토 완료 시 발전사·수용가에 값과 조정사항이 동시 통보됩니다
+                              ※ 검토 완료 시 발전사·전기사용자에 값과 조정사항이 동시 통보됩니다
                             </p>
                             <div className="flex items-center gap-1.5 pt-1">
                               {(() => {
@@ -1564,7 +1564,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
                                 if (isReviewed) {
                                   return (
                                     <div className="flex-1 text-[10px] text-emerald-300/80 text-center py-1.5 rounded bg-emerald-500/[0.06] ring-1 ring-emerald-500/20">
-                                      ✓ 검토 완료 — 발전사·수용가에 통보됨 (변동 불가)
+                                      ✓ 검토 완료 — 발전사·전기사용자에 통보됨 (변동 불가)
                                     </div>
                                   );
                                 }
@@ -1597,7 +1597,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
                                       variant="primary"
                                       className="flex-1 justify-center"
                                       onClick={() => {
-                                        // 검토 완료 = 요금 조정 잠금 + record approval (발전사·수용가에 값 통보)
+                                        // 검토 완료 = 요금 조정 잠금 + record approval (발전사·전기사용자에 값 통보)
                                         updateAdjustment(r.id, { status: 'reviewed' });
                                         setApproval(r.id, 'reviewed');
                                       }}
@@ -1637,7 +1637,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
                                     [
                                       ['기간', r.period],
                                       ['발전사', r.generator],
-                                      ['수용가', r.consumer],
+                                      ['전기사용자', r.consumer],
                                       ['발전량', `${r.genKwh?.toLocaleString()} kWh`],
                                       ['단가', `₩${r.unitPrice}/kWh`],
                                     ],
@@ -1766,7 +1766,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
               <div className="px-5 py-3 border-b border-white/[0.06]">
                 <h3 className="text-md font-semibold text-white">수금 → 지급 흐름</h3>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  계약 단위 연계 — 수용가에서 받아 발전사에 지급, 차액 = SPC 마진
+                  계약 단위 연계 — 전기사용자에서 받아 발전사에 지급, 차액 = SPC 마진
                 </p>
               </div>
               <div className="overflow-x-auto">
@@ -1775,7 +1775,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
                     <tr className="text-[11px] text-slate-500 bg-white/[0.02] border-b border-white/[0.06]">
                       <th className="text-left font-medium px-4 py-3">정산월</th>
                       <th className="text-left font-medium px-4 py-3">유형</th>
-                      <th className="text-left font-medium px-4 py-3 text-emerald-300">수금 (수용가)</th>
+                      <th className="text-left font-medium px-4 py-3 text-emerald-300">수금 (전기사용자)</th>
                       <th className="text-left font-medium px-2 py-3"></th>
                       <th className="text-left font-medium px-4 py-3 text-amber-300">지급 (발전사)</th>
                       <th className="text-left font-medium px-4 py-3">SPC 마진</th>
@@ -1827,7 +1827,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
                               {kindMeta.label}
                             </span>
                           </td>
-                          {/* 수금 — 수용가에서 받는 돈 */}
+                          {/* 수금 — 전기사용자에서 받는 돈 */}
                           <td className="px-4 py-3 align-top">{flowCell(inflow, 'text-emerald-300')}</td>
                           {/* 흐름 화살표 */}
                           <td className="px-2 py-3 align-middle text-center">
@@ -1889,7 +1889,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
                 <Modal
                   open={!!payDoc}
                   onClose={() => setPayDoc(null)}
-                  title={isIn ? '매출 세금계산서 — SPC → 수용가' : '매입 세금계산서 — 발전사 → SPC'}
+                  title={isIn ? '매출 세금계산서 — SPC → 전기사용자' : '매입 세금계산서 — 발전사 → SPC'}
                   size="md"
                   footer={
                     <>
@@ -1905,7 +1905,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
                           ).catch(() =>
                             exportPdf(
                               `세금계산서-${payDoc?.month ?? ''}`,
-                              isIn ? '매출 세금계산서 — SPC → 수용가' : '매입 세금계산서 — 발전사 → SPC',
+                              isIn ? '매출 세금계산서 — SPC → 전기사용자' : '매입 세금계산서 — 발전사 → SPC',
                               ['항목', '값'],
                               [
                                 ['월', payDoc?.month ?? ''],
@@ -2305,7 +2305,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
           const adj = getAdjustment(r.id);
           const adjTotal = adj.amount + adj.vat;
           const isGen = noticePreview.recipient === 'generator';
-          // 발전사 통지서 = 지급금 합계 (실 지급액 + 조정) · 수용가 청구서 = 청구금 합계
+          // 발전사 통지서 = 지급금 합계 (실 지급액 + 조정) · 전기사용자 청구서 = 청구금 합계
           const total = isGen
             ? r.ppaRevenue + r.adjust + r.network - r.tradeFee - r.supplyFee - r.manageFee + r.vat + adjTotal
             : r.ppaRevenue + r.adjust + r.network + r.tradeFee + r.supplyFee + r.manageFee + r.vat + r.fund + adjTotal;
@@ -2360,7 +2360,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
                 <div className="flex rounded-lg bg-white/[0.04] p-0.5 ring-1 ring-white/[0.06] text-xs">
                   {[
                     { v: 'generator' as const, l: '발전사 통지서', sub: '지급금 통지' },
-                    { v: 'consumer' as const, l: '수용가 청구서', sub: 'PPA 사용대금' },
+                    { v: 'consumer' as const, l: '전기사용자 청구서', sub: 'PPA 사용대금' },
                   ].map((opt) => (
                     <button
                       key={opt.v}
@@ -2445,7 +2445,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
                   </div>
                   <div className="border border-slate-300 rounded">
                     <div className="bg-slate-100 px-3.5 font-semibold border-b border-slate-300">
-                      {isGen ? '수신자 (발전사업자)' : '수신자 (수용가)'}
+                      {isGen ? '수신자 (발전사업자)' : '수신자 (전기사용자)'}
                     </div>
                     <div className="px-3 py-2 space-y-1">
                       {isGen ? (
@@ -2472,7 +2472,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
                       ) : (
                         <>
                           <div className="flex gap-2">
-                            <span className="text-slate-500 w-20 shrink-0">수용가</span>
+                            <span className="text-slate-500 w-20 shrink-0">전기사용자</span>
                             <span>{r.plant.consumers.join(', ')}</span>
                           </div>
                           <div className="flex gap-2">
@@ -2496,7 +2496,7 @@ export function PlatformPpaSettlementContent({ defaultTab = 'settlement' }: { de
                 </div>
 
                 <p className="text-sm font-semibold mb-2">
-                  ■ {isGen ? '정산 내역 (발전사 지급분)' : '청구 내역 (수용가 부담분)'}
+                  ■ {isGen ? '정산 내역 (발전사 지급분)' : '청구 내역 (전기사용자 부담분)'}
                 </p>
                 <table className="w-full text-xs border border-slate-300 mb-2">
                   <thead className="text-left">

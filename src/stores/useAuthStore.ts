@@ -90,7 +90,7 @@ export const useAuthStore = create<AuthState>()(
       name: 'ulsan-poc-auth',
       storage: createJSONStorage(() => ssrSafeStorage),
       partialize: (s) => ({ user: s.user, role: s.role, isAuthenticated: s.isAuthenticated }),
-      // 데모 계정의 기업명·기업 주소는 코드 값으로 맞춘다 — 저장본이 예전 값(울산 수용가(주) 등)이어도 다시 로그인 없이 바뀐다
+      // 데모 계정의 기업명·기업 주소는 코드 값으로 맞춘다 — 저장본이 예전 값(울산 전기사용자(주) 등)이어도 다시 로그인 없이 바뀐다
       merge: (persisted, current) => {
         const p = persisted as Partial<AuthState> | undefined;
         if (!p) return current;

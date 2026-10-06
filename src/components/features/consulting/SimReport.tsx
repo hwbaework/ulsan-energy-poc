@@ -18,8 +18,10 @@ import {
   SELF_EXTRA_COST,
   SELF_OM,
   SELF_REMAIN,
+  TARIFF_YEAR_SEED,
   VER_LABEL,
   calc,
+  cagrOf,
   escInput,
   monthlyFor,
   ppaSegs,
@@ -31,7 +33,9 @@ import {
   type PpaResult,
   type SelfResult,
   type SimInput,
+  type TariffYear,
 } from '@/lib/solar-sim';
+import { useIndustrialTariff } from '@/hooks/common/useSettings';
 
 /**
  * 태양광 사업성 검토서 — 울산미포산단 태양광 사업성 시뮬레이터 v1.1 오른쪽 화면을 그대로 옮긴다(실무진 검토 값).
@@ -165,7 +169,10 @@ export function SimReport({ input, companyName, record, autoPdf }: { input: SimI
   const [scen, setScen] = useState(1);
   const [mY, setMY] = useState(1);
   const [showBasis, setShowBasis] = useState(false); // 산정 기준 및 출처 — 참고용, 펼칠 때만
-  const sc = useMemo(() => scenarios(input), [input]);
+  // 실적 CAGR — 관리 › 에너지 설정의 산업용 평균판매단가 표(첫해 → 마지막 해). 못 읽으면 기본값
+  const { data: tariffYears } = useIndustrialTariff();
+  const cg = useMemo(() => cagrOf(tariffYears) ?? { rate: CAGR, from: TARIFF_YEAR_SEED[0]!, to: TARIFF_YEAR_SEED[TARIFF_YEAR_SEED.length - 1]! }, [tariffYears]);
+  const sc = useMemo(() => scenarios(input, cg.rate), [input, cg.rate]);
   const R = sc[scen]!.R;
   const self = R.mode === 'self';
   const ver = R.ver;
@@ -221,7 +228,7 @@ export function SimReport({ input, companyName, record, autoPdf }: { input: SimI
           {sc.map((x, k) => {
             const r = x.R;
             const res = r.mode === 'self' ? `20년 절감 ${EOK(r.cumSave)}억 · 순현금 ${EOK(r.years[19]!.cum)}억` : `20년 절감 ${EOK(r.ets ? r.cumT : r.cumSaveD)}억 · kWh당 ${F1(r.avgKu - r.avgPu)}원`;
-            const sub = k === 0 ? '0%/yr · 최소 기대치' : k === 1 ? `${(escInput(input) * 100).toFixed(1)}%/yr · 입력값` : `${(CAGR * 100).toFixed(1)}%/yr · 2019~2025 산업용 실적`;
+            const sub = k === 0 ? '0%/yr · 최소 기대치' : k === 1 ? `${(escInput(input) * 100).toFixed(1)}%/yr · 입력값` : `${(cg.rate * 100).toFixed(2)}%/yr · ${cg.from.year}~${cg.to.year} 산업용 실적`;
             return (
               <button
                 key={k}
@@ -348,7 +355,7 @@ export function SimReport({ input, companyName, record, autoPdf }: { input: SimI
         {showBasis && (
           <div className="mt-4">
             <p className="mb-3 text-[13px] font-bold tracking-wide text-slate-500">산정 기준 및 출처 (Logic Reference)</p>
-            <Assumptions />
+            <Assumptions cg={cg} years={tariffYears} />
           </div>
         )}
         <Note>
@@ -743,11 +750,13 @@ function EffPanel({ R }: { R: SelfResult | PpaResult }) {
 }
 
 /* ── 산정 기준 및 출처 (원본 그대로, 날짜는 하이픈 양식) ── */
-function Assumptions() {
+function Assumptions({ cg, years }: { cg: { rate: number; from: TariffYear; to: TariffYear }; years?: TariffYear[] }) {
+  const pct = (cg.rate * 100).toFixed(2);
+  const list = [...(years?.length ? years : [cg.from, cg.to])].sort((a, b) => a.year - b.year).map((r) => `${r.year} ${F1(r.price)}`).join(' → ');
   const rows: [string, string][] = [
     ['발전량 산식', '설치용량(kW) × 일평균 발전시간(입력값, 기본 3.82h) × 365일 × 효율감소계수. 월별 배분은 기상청 울산관측소(지점 152) 기후평년값 1991~2020 월별 일조시간(연 2,249.5h) 비중 적용. 기본값 3.82h/일은 일조시간을 시스템 손실 반영 환산한 값으로 전국 태양광 평균 이용률 16.75%(일 4.02h) 대비 보수적 설정. 효율감소는 2차년도부터 매년 0.5%p 반영'],
     ['한전 요금단가', '기본값: 산업용(을) 고압A 선택Ⅰ·Ⅱ, 2025-04-01 시행 확정단가(확인 가능한 최종 고시). 2026-04-16 개편 후 고시표는 미공개 상태로, 개편 모드는 정부 발표 증감폭(최대부하 여름·겨울 -16.9원, 봄가을 -13.2원 / 경부하 +5.1원)을 적용한 참고용 계산값 — 고시 확인 후 갱신 필요. 기후환경요금 9.0원/kWh, 연료비조정 +5.0원/kWh(2026 3분기), 전력산업기반기금 3.7% 가산, 부가세(매입세액공제 대상) 제외'],
-    ['전기요금 상승률', '산업용 평균판매단가 실적: 2019 106.6 → 2025 181.9원/kWh, 6년 연평균(CAGR) 9.3% (한국전력통계·한전 결산 기준). 기본값 2.5%는 최근 급등이 연료비 정상화에 따른 일시적 구간임을 감안한 보수적 설정이며, 민감도 분석에서 0% / 2.5% / 9.3%(실적 CAGR) 시나리오 제공'],
+    ['전기요금 상승률', `산업용 평균판매단가 실적: ${list}원/kWh, ${cg.to.year - cg.from.year}년 연평균(CAGR) ${pct}% (한국전력통계·한전 결산 기준). 기본값 2.5%는 최근 급등이 연료비 정상화에 따른 일시적 구간임을 감안한 보수적 설정이며, 민감도 분석에서 0% / 2.5% / ${pct}%(실적 CAGR) 시나리오 제공`],
     ['O&M 요율', '국내 태양광 O&M 통상 MW당 연 1,000~1,500만원 수준 = 평균 CAPEX(158~164만원/kW, 에너지경제연구원 2025 실증) 대비 약 0.6~1.0%/년. 기본값 1.0%는 보수적 상단 적용'],
     ['모듈 열화율', '주요 제조사 선형 출력보증 기준 — 한화큐셀: 1년차 98%, 이후 연 최대 0.5% 열화, 25년차 86% 보증. 기본값 0.5%/yr는 보증 조건과 동일한 보수적 값'],
     ['절감단가 매칭', '태양광 발전전력의 시간대 분포를 요금 시간대에 매칭 — 개편 후: 중간부하(08~15시) 70% + 최대부하(15~21시) 30% / 개편 전: 여름·봄가을 최대 52%·중간 48%, 겨울 최대 45%·중간 55% (평일 기준 단순화)'],

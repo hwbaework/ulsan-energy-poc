@@ -1,6 +1,6 @@
 /**
  * 관리(ADMIN) 축 목업 — 기업/회원/역할·권한/승인/감사로그.
- * POC 기준: 운영사 1 · 발전사업자 1 · 전기사용자(수용가) 다수.
+ * POC 기준: 운영사 1 · 발전사업자 1 · 전기사용자 다수.
  * 상태 변경(승인·정지 등)과 저장은 메모리에 반영되어 화면 흐름을 그대로 볼 수 있다.
  */
 import { registerMock, pageOf } from './registry';
@@ -30,9 +30,9 @@ interface MockCompany {
 export const COMPANIES: MockCompany[] = [
   { id: 1, name: '울산 에너지 플랫폼', businessNumber: '610-88-00001', representativeName: '김운영', address: '울산 남구 처용로 1', phone: '052-100-1000', email: 'admin@test.com', status: 'ACTIVE', businessTypes: ['SPC', '운영사'], employeeCount: 24, createdAt: daysAgo(400), updatedAt: daysAgo(10) },
   { id: 2, name: '울산 발전(주)', businessNumber: '610-81-20002', representativeName: '박발전', address: '울산 남구 부곡동 273-6', phone: '052-200-2000', email: 'operator@test.com', status: 'ACTIVE', businessTypes: ['발전사업자'], employeeCount: 12, createdAt: daysAgo(320), updatedAt: daysAgo(6) },
-  { id: 3, name: '한길', businessNumber: '610-81-30003', representativeName: '이수용', address: '울산 남구 용연동 490-11', phone: '052-300-3000', email: 'consumer@test.com', status: 'ACTIVE', businessTypes: ['수용가'], employeeCount: 58, createdAt: daysAgo(300), updatedAt: daysAgo(4) },
-  { id: 4, name: '한일튜브', businessNumber: '610-81-40004', representativeName: '최한일', address: '울산 남구 부곡동 273-6', phone: '052-400-4000', email: 'kim@hanil.co.kr', status: 'ACTIVE', businessTypes: ['수용가'], employeeCount: 140, createdAt: daysAgo(90), updatedAt: daysAgo(2) },
-  { id: 5, name: '용인금속', businessNumber: '610-81-50005', representativeName: '정용인', address: '울산 남구 여천동 887-18', phone: '052-500-5000', email: 'park@yongin.co.kr', status: 'PENDING', businessTypes: ['수용가'], employeeCount: 72, createdAt: daysAgo(1), updatedAt: daysAgo(1) },
+  { id: 3, name: '한길', businessNumber: '610-81-30003', representativeName: '이수용', address: '울산 남구 용연동 490-11', phone: '052-300-3000', email: 'consumer@test.com', status: 'ACTIVE', businessTypes: ['전기사용자'], employeeCount: 58, createdAt: daysAgo(300), updatedAt: daysAgo(4) },
+  { id: 4, name: '한일튜브', businessNumber: '610-81-40004', representativeName: '최한일', address: '울산 남구 부곡동 273-6', phone: '052-400-4000', email: 'kim@hanil.co.kr', status: 'ACTIVE', businessTypes: ['전기사용자'], employeeCount: 140, createdAt: daysAgo(90), updatedAt: daysAgo(2) },
+  { id: 5, name: '용인금속', businessNumber: '610-81-50005', representativeName: '정용인', address: '울산 남구 여천동 887-18', phone: '052-500-5000', email: 'park@yongin.co.kr', status: 'PENDING', businessTypes: ['전기사용자'], employeeCount: 72, createdAt: daysAgo(1), updatedAt: daysAgo(1) },
 ];
 
 /* ── 회원 ─────────────────────────────────────────────── */
@@ -76,7 +76,7 @@ interface MockRole {
 export const ROLES: MockRole[] = [
   { id: 1, name: '관리자', code: 'SYSTEM_ADMIN', description: '플랫폼 전체 관리', defaultPath: '/dashboard', system: true },
   { id: 2, name: '발전사업자', code: 'POWER_OPERATOR', description: '발전소 운영·거래', defaultPath: '/dashboard', system: true },
-  { id: 3, name: '전기사용자', code: 'CONSUMER_MANAGER', description: '수용가 에너지·거래', defaultPath: '/dashboard', system: true },
+  { id: 3, name: '전기사용자', code: 'CONSUMER_MANAGER', description: '전기사용자 에너지·거래', defaultPath: '/dashboard', system: true },
   // 추가한 역할 예시 — 수정·삭제 가능
   { id: 4, name: '테스트 권한', code: 'TEST_ROLE', description: '테스트용 역할', defaultPath: '/dashboard', system: false },
 ];
@@ -156,6 +156,7 @@ addMenu('역할·권한', 'ADMIN_ROLES', '/platform/roles', M_ADMIN, 1);
 addMenu('승인 관리', 'ADMIN_APPROVALS', '/platform/approvals', M_ADMIN, 1);
 addMenu('거래 승인', 'ADMIN_TRADING_APPROVALS', '/platform/trading-approvals', M_ADMIN, 1);
 addMenu('알림 설정', 'ADMIN_NOTIFICATIONS', '/platform/notification-settings', M_ADMIN, 1);
+addMenu('에너지 설정', 'ADMIN_ENERGY_SETTINGS', '/platform/energy-settings', M_ADMIN, 1);
 
 function isUnder(menu: MockMenu, rootId: number): boolean {
   let cur: MockMenu | undefined = menu;

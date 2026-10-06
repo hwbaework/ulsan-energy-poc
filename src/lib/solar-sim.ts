@@ -40,7 +40,33 @@ export const SELF_CAPEX_UNIT = 1_350_000;
 export const SELF_EXTRA_COST = 20_000_000;
 export const SELF_OM = 1.0; // %/년, 총사업비 대비
 export const PPA_REMAIN = 2670; // OnSite PPA 배정 잔여용량 kW
-export const CAGR = 0.093; // 산업용 판매단가 실적 CAGR ('19~'25)
+export const CAGR = 0.0932; // 산업용 판매단가 실적 CAGR ('19~'25, 9.32%) — 관리자 표를 못 읽었을 때만 쓰는 기본값
+
+/** 산업용 평균판매단가 실적 — 관리 › 에너지 설정에서 연도별로 관리 */
+export interface TariffYear {
+  year: number;
+  price: number; // 원/kWh
+}
+// 2019~2024: 한국전력공사 「2024년 한국전력통계」(2025-05) 산업용 판매단가 · 2025: 기후에너지환경부·한전 2026-08-26 발표 산업용 평균단가
+export const TARIFF_YEAR_SEED: TariffYear[] = [
+  { year: 2019, price: 106.56 },
+  { year: 2020, price: 107.35 },
+  { year: 2021, price: 105.48 },
+  { year: 2022, price: 118.66 },
+  { year: 2023, price: 153.71 },
+  { year: 2024, price: 168.17 },
+  { year: 2025, price: 181.9 },
+];
+export const TARIFF_YEAR_LIM = { year: [2000, 2100], price: [1, 1000] } as const;
+/** 실적 CAGR — 표의 첫해 → 마지막 해. 2개 미만이거나 값이 이상하면 null */
+export function cagrOf(rows: TariffYear[] | undefined): { rate: number; from: TariffYear; to: TariffYear } | null {
+  const xs = (rows ?? []).filter((r) => Number.isFinite(r.year) && r.price > 0).sort((a, b) => a.year - b.year);
+  if (xs.length < 2) return null;
+  const from = xs[0]!;
+  const to = xs[xs.length - 1]!;
+  if (to.year <= from.year) return null;
+  return { rate: Math.pow(to.price / from.price, 1 / (to.year - from.year)) - 1, from, to };
+}
 export const PLAN_LABEL: Record<Plan, string> = { '1': '고압A 선택Ⅰ', '2': '고압A 선택Ⅱ' };
 export const VER_LABEL: Record<TariffVer, string> = { old: '2025-04 확정단가 (고시)', new: '2026-04 개편 (참고·계산값)' };
 
@@ -107,6 +133,40 @@ export function defaultSimInput(site = '', address = ''): SimInput {
         { linked: false, price: 150 },
       ],
       ppaEsc: 0,
+    },
+  };
+}
+
+/* ── 입력 범위 — 엉터리 값(1e40 등)으로 계산이 깨지지 않게. 실제 기업이 넘을 일 없는 넉넉한 값. 사업 기준(잔여 배정용량)은 막지 않고 검토서 배너로 안내 ── */
+export const LIM = {
+  roof: [0, 1_000_000], areaPerKw: [1, 30], avgH: [0, 8], deg: [0, 5],
+  kau: [0, 1_000_000], kauEsc: [0, 50], co2f: [0, 2],
+  facKw: [0, 100_000], facKwh: [0, 10_000_000_000],
+  cap: [1, 100_000], ctr: [0, 1_000_000], usage: [0, 1_000_000_000], pct: [0, 100], esc: [0, 30],
+  capexUnit: [0, 10_000_000], extraCost: [0, 100_000_000_000], segPrice: [0, 1_000], b: [0, 20],
+} as const satisfies Record<string, readonly [number, number]>;
+export const NAME_MAX = 50;
+export const ADDRESS_MAX = 100;
+const cl = (v: number | undefined, [lo, hi]: readonly [number, number]) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v as number)) : lo);
+const clOpt = (v: number | undefined, r: readonly [number, number]) => (v === undefined ? undefined : cl(v, r));
+/** 저장된 기록·API 값도 범위 안으로 — 계산 전에 한 번 맞춘다 */
+export function clampSimInput(i: SimInput): SimInput {
+  return {
+    ...i,
+    facilities: i.facilities.map((f) => ({ ...f, kw: cl(f.kw, LIM.facKw), genKwh: cl(f.genKwh, LIM.facKwh), useKwh: cl(f.useKwh, LIM.facKwh) })),
+    roof: cl(i.roof, LIM.roof), areaPerKw: cl(i.areaPerKw, LIM.areaPerKw), avgH: cl(i.avgH, LIM.avgH), deg: cl(i.deg, LIM.deg),
+    kau: cl(i.kau, LIM.kau), kauEsc: cl(i.kauEsc, LIM.kauEsc), co2f: cl(i.co2f, LIM.co2f),
+    self: {
+      ...i.self,
+      cap: cl(i.self.cap, LIM.cap), ctr: cl(i.self.ctr, LIM.ctr), usage: cl(i.self.usage, LIM.usage),
+      esc: cl(i.self.esc, LIM.esc), peakR: cl(i.self.peakR, LIM.pct),
+      capexUnit: clOpt(i.self.capexUnit, LIM.capexUnit), extraCost: clOpt(i.self.extraCost, LIM.extraCost), om: clOpt(i.self.om, LIM.pct),
+    },
+    ppa: {
+      ...i.ppa,
+      cap: cl(i.ppa.cap, LIM.cap), esc: cl(i.ppa.esc, LIM.esc), peakR: cl(i.ppa.peakR, LIM.pct), ppaEsc: cl(i.ppa.ppaEsc, LIM.esc),
+      b1: cl(i.ppa.b1, LIM.b), b2: cl(i.ppa.b2, LIM.b),
+      segs: i.ppa.segs.map((g) => ({ ...g, price: cl(g.price, LIM.segPrice) })) as SimInput['ppa']['segs'],
     },
   };
 }
@@ -178,6 +238,7 @@ export type SimResult = SelfResult | PpaResult;
 
 /** escOv: 한전요금 상승률 덮어쓰기(시나리오), 없으면 입력값 */
 export function calc(i: SimInput, escOv?: number): SimResult {
+  i = clampSimInput(i);
   const avgH = i.avgH;
   const degR = i.deg / 100;
   const co2f = i.co2f || 0.4173;
@@ -274,13 +335,13 @@ export function calc(i: SimInput, escOv?: number): SimResult {
 
 export const escInput = (i: SimInput) => (i.mode === 'self' ? i.self.esc : i.ppa.esc) / 100;
 export const SCEN_COLOR = ['#94a3b8', '#3b82f6', '#10b981'];
-/** 한전요금 시나리오 — 동결 0% / 입력값 / 실적 CAGR 9.3% */
-export function scenarios(i: SimInput) {
+/** 한전요금 시나리오 — 동결 0% / 입력값 / 실적 CAGR(관리자 표에서 계산) */
+export function scenarios(i: SimInput, cagr = CAGR) {
   const e = escInput(i);
   return [
     { e: 0, name: '한전요금 동결 (0%)', R: calc(i, 0) },
     { e, name: `상승분 반영 · 입력값 (${(e * 100).toFixed(1)}%)`, R: calc(i, e) },
-    { e: CAGR, name: '실적 CAGR (9.3%)', R: calc(i, CAGR) },
+    { e: cagr, name: `실적 CAGR (${(cagr * 100).toFixed(2)}%)`, R: calc(i, cagr) },
   ];
 }
 

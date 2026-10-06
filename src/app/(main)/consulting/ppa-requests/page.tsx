@@ -117,7 +117,7 @@ export default function ConsultantPpaRequestsPage() {
       <div>
         <h1 className="text-2xl font-bold text-white">PPA 신규 의뢰</h1>
         <p className="mt-1 text-sm text-slate-400">
-          컨설팅 없이 바로 PPA 신청한 수용가 목록입니다. 제안을 작성해서 보내보세요.
+          컨설팅 없이 바로 PPA 신청한 전기사용자 목록입니다. 제안을 작성해서 보내보세요.
         </p>
       </div>
 
@@ -179,7 +179,7 @@ export default function ConsultantPpaRequestsPage() {
               <Zap size={22} className="text-slate-400" />
             </div>
             <h3 className="text-base font-semibold text-white">대기 중인 의뢰가 없습니다</h3>
-            <p className="mt-1.5 text-xs text-slate-400">수용가이 직접 PPA 신청하면 이곳에 표시됩니다.</p>
+            <p className="mt-1.5 text-xs text-slate-400">전기사용자가 직접 PPA 신청하면 이곳에 표시됩니다.</p>
           </div>
         </div>
       )}
@@ -222,7 +222,7 @@ export default function ConsultantPpaRequestsPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-400 mb-1">수용가</p>
+                  <p className="text-xs text-slate-400 mb-1">전기사용자</p>
                   <p className="text-base font-semibold text-white">{viewingRequest.companyName}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">

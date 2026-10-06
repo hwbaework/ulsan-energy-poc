@@ -299,6 +299,7 @@ const GNB_ITEMS: GnbItem[] = [
         { to: '/platform/approvals', icon: ClipboardCheck, label: '승인 관리', section: '운영' }, // 4.3.1
         { to: '/platform/trading-approvals', icon: ShieldCheck, label: '거래 승인', section: '운영' }, // 4.3.2
         { to: '/platform/notification-settings', icon: Bell, label: '알림 설정', section: '시스템' }, // 4.4.1
+        { to: '/platform/energy-settings', icon: Calculator, label: '에너지 설정', section: '시스템' }, // 산업용 평균판매단가 → 무료진단 실적 CAGR
     ],
   },
 ];
@@ -723,7 +724,7 @@ function isOnsiteChild(c: GnbChild): boolean {
 
 // RE100 기둥 '자가발전·PPA' 섹션에서 계약유형별 노출 제어.
 // 온사이트(구 Lease) 항목은 온사이트 계약 보유 시만, 직접 PPA 전용 항목은 직접 계약 보유 시만.
-// 공통·컨설팅·수용가 항목은 항상 노출.
+// 공통·컨설팅·전기사용자 항목은 항상 노출.
 const DIRECT_ONLY_PATH_RE =
   /^\/(ppa\/(status|billing|documents)|platform\/ppa\/(status|billing|documents)|generator\/ppa\/direct)/;
 function filterChildrenByContractType(children: GnbChild[], hasLease: boolean, hasDirect: boolean): GnbChild[] {
@@ -909,7 +910,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         </PageTransition>
       </div>
 
-      <ToastContainer />
+      {/* 헤더 높이 100px 아래로 */}
+      <ToastContainer top="top-[116px]" />
     </div>
   );
 }

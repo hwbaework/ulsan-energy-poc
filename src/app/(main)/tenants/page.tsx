@@ -7,7 +7,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useTenantUsage, useAggregateIndicator } from '@/hooks/performance/usePerformance';
 import EvidencePanel from '../performance/EvidencePanel';
 
-// 수용가 이용현황(지표6) — 09 §3.2.2. tenant-usage 자동값 실소비.
+// 전기사용자 이용현황(지표6) — 09 §3.2.2. tenant-usage 자동값 실소비.
 // 산식·3차 목표 80%는 계획서 캐논(불변). 실적 null → "미연동"(정직). 미이용자 필터 유지.
 
 const YEAR = 2026;
@@ -15,7 +15,7 @@ const TARGET_PCT = 80; // 3차 목표(계획서 상수, 실값 — 불변)
 
 const TABS = [
   { key: 'util', label: '이용률', icon: <Gauge size={14} /> },
-  { key: 'list', label: '수용가 목록', icon: <Users size={14} /> },
+  { key: 'list', label: '전기사용자 목록', icon: <Users size={14} /> },
   { key: 'evidence', label: '증빙', icon: <CheckCircle2 size={14} /> },
 ] as const;
 
@@ -35,9 +35,9 @@ export default function TenantsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <Breadcrumb items={[{ label: '관리' }, { label: '수용가 이용현황' }]} />
+      <Breadcrumb items={[{ label: '관리' }, { label: '전기사용자 이용현황' }]} />
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-white">수용가 이용현황</h1>
+        <h1 className="text-xl font-bold text-white">전기사용자 이용현황</h1>
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-400">지표6 — 이용률(활성/모집)</span>
           <button
@@ -81,8 +81,8 @@ export default function TenantsPage() {
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { label: '모집 수용가', v: data?.recruited },
-              { label: '등록 수용가', v: data?.registered },
+              { label: '모집 전기사용자', v: data?.recruited },
+              { label: '등록 전기사용자', v: data?.registered },
               { label: '1회 이상 이용(활성)', v: data?.active1plus },
               { label: '3차 목표 이용률', v: `${TARGET_PCT} %`, tone: 'text-emerald-400', isTarget: true },
             ].map((s, i) => (
@@ -127,7 +127,7 @@ export default function TenantsPage() {
             <div className="mt-2 text-[11px] text-slate-500">녹색선 = 3차 목표 {TARGET_PCT}% (계획서 상수, 실값)</div>
             <div className="mt-4 rounded-lg border border-white/[0.06] bg-black/20 p-3 text-xs text-slate-300">
               <span className="text-slate-500">산식 </span>
-              이용률 = (등록 + 1회 이상 이용) ÷ 모집 수용가 × 100
+              이용률 = (등록 + 1회 이상 이용) ÷ 모집 전기사용자 × 100
               {utilPct == null && <span className="text-slate-500"> — 집계 도메인 미연동(정직 표시)</span>}
             </div>
           </div>
@@ -137,7 +137,7 @@ export default function TenantsPage() {
       {tab === 'list' && !usageQ.isLoading && (
         <div className="rounded-xl border border-white/[0.06] overflow-hidden">
           <div className="px-4 py-3 text-sm font-semibold text-white bg-white/[0.02] flex items-center justify-between">
-            <span>수용가 목록</span>
+            <span>전기사용자 목록</span>
             <label className="flex items-center gap-1.5 text-xs text-slate-400">
               <input type="checkbox" checked={inactiveOnly} onChange={(e) => setInactiveOnly(e.target.checked)} />
               미이용자만(독려 대상)
@@ -145,13 +145,13 @@ export default function TenantsPage() {
           </div>
           {shown.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-slate-500">
-              {tenants.length === 0 ? '수용가 명부가 아직 없습니다(미연동).' : '조건에 해당하는 수용가가 없습니다.'}
+              {tenants.length === 0 ? '전기사용자 명부가 아직 없습니다(미연동).' : '조건에 해당하는 전기사용자가 없습니다.'}
             </div>
           ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/[0.06] text-left text-xs text-slate-500">
-                  <th className="px-4 py-3">수용가</th>
+                  <th className="px-4 py-3">전기사용자</th>
                   <th className="px-4 py-3">가입일</th>
                   <th className="px-4 py-3">최근 이용일</th>
                   <th className="px-4 py-3 text-right">이용 횟수</th>

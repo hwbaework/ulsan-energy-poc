@@ -101,7 +101,7 @@ const REPORT_STAGES = [
 ];
 
 const ACTOR_META: Record<string, string> = {
-  수용가: 'bg-amber-500/10 text-amber-300 ring-amber-500/30',
+  전기사용자: 'bg-amber-500/10 text-amber-300 ring-amber-500/30',
   컨설턴트: 'bg-blue-500/10 text-blue-300 ring-blue-500/30',
   양측: 'bg-violet-500/10 text-violet-300 ring-violet-500/30',
 };
@@ -248,19 +248,19 @@ function milestoneToStep(m: any) {
     IN_PROGRESS: 'action',
   };
   const actorMap: Record<string, string> = {
-    SURVEY: '수용가',
-    PROSPECT: '수용가',
+    SURVEY: '전기사용자',
+    PROSPECT: '전기사용자',
     SCHEDULE: '양측',
     NAVIGATE: '컨설턴트',
     DOCUMENTS: '컨설턴트',
-    REVIEW: '수용가',
+    REVIEW: '전기사용자',
     CONTRACT: '양측',
   };
   const at = (m.actionType || m.action_type || '').toUpperCase();
   const title = m.title || '';
   const actorByTitle =
     title.includes('설문') || title.includes('사업장')
-      ? '수용가'
+      ? '전기사용자'
       : title.includes('일정')
         ? '양측'
         : title.includes('방문') || title.includes('보고서')
@@ -476,7 +476,7 @@ export default function ConsultingDetailPage() {
     );
   }, [apiConsultation, apiMilestones, apiProposals, apiSites]);
 
-  // 방문 일정 잡기 — 수용가가 직접 날짜·시간 선택 (날짜 picker = < > 화살표 규칙)
+  // 방문 일정 잡기 — 전기사용자가 직접 날짜·시간 선택 (날짜 picker = < > 화살표 규칙)
   const [visitModalOpen, setVisitModalOpen] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
   const tomorrowStr = (() => {
@@ -2597,7 +2597,7 @@ export default function ConsultingDetailPage() {
         />
       )}
 
-      {/* ── 방문 일정 잡기 — 수용가가 날짜·시간 직접 선택 (화살표 네비 + 시간 슬롯) ── */}
+      {/* ── 방문 일정 잡기 — 전기사용자가 날짜·시간 직접 선택 (화살표 네비 + 시간 슬롯) ── */}
       {visitModalOpen && (
         <Modal
           open={visitModalOpen}
@@ -2730,7 +2730,7 @@ export default function ConsultingDetailPage() {
                 onClick={async () => {
                   setSurveyUploading(true);
                   try {
-                    // 첨부 자료를 실제 업로드해 DB에 저장 — 수용가·컨설턴트 모두 문서 확인 가능
+                    // 첨부 자료를 실제 업로드해 DB에 저장 — 전기사용자·컨설턴트 모두 문서 확인 가능
                     for (const f of surveyFiles) {
                       const fd = new FormData();
                       fd.append('file', f);
@@ -2821,7 +2821,7 @@ export default function ConsultingDetailPage() {
         </Modal>
       )}
 
-      {/* ── 사업장 등록 (수용가가 등록) ── */}
+      {/* ── 사업장 등록 (전기사용자가 등록) ── */}
       {siteOpen && (
         <Modal
           open={siteOpen}
@@ -2875,7 +2875,7 @@ export default function ConsultingDetailPage() {
         >
           <div className="space-y-3">
             <p className="text-sm text-slate-300">
-              컨설팅 대상 사업장을 등록합니다. 사업장 등록은 수용가가 직접 진행합니다.
+              컨설팅 대상 사업장을 등록합니다. 사업장 등록은 전기사용자가 직접 진행합니다.
             </p>
             <Input
               label="사업장명 *"
@@ -3150,7 +3150,7 @@ export default function ConsultingDetailPage() {
         </Modal>
       )}
 
-      {/* ── 세금계산서 (정산과 별개 — 컨설턴트가 발행, 수용가 확인) ── */}
+      {/* ── 세금계산서 (정산과 별개 — 컨설턴트가 발행, 전기사용자 확인) ── */}
       {taxOpen && (
         <Modal
           open={taxOpen}

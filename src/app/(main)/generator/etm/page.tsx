@@ -105,7 +105,7 @@ export default function GeneratorEtmPage() {
               <tr>
                 <th className="px-4 py-3 font-medium">계약번호</th>
                 <th className="px-4 py-3 font-medium">유형</th>
-                <th className="px-4 py-3 font-medium">수용가</th>
+                <th className="px-4 py-3 font-medium">전기사용자</th>
                 <th className="px-4 py-3 font-medium">용량(kW)</th>
                 <th className="px-4 py-3 font-medium">단가(원)</th>
                 <th className="px-4 py-3 font-medium">상태</th>

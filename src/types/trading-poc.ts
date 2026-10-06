@@ -1,10 +1,10 @@
 /**
  * 전력거래(RE100 2.1) — 울산 에자자 POC 도메인.
- * 계약 유형은 자가소비 · onsite 두 가지뿐이고, 발전소 1 ↔ 수용가 사업장 1 이다 (매칭 바스켓·Offsite·Lease 없음).
+ * 계약 유형은 자가소비 · onsite 두 가지뿐이고, 발전소 1 ↔ 전기사용자 사업장 1 이다 (매칭 바스켓·Offsite·Lease 없음).
  *
- * 흐름(두 유형 공통): 신청 접수 → SPC 검토 → 승인(계약 생성) → 전자서명(발전사업자·수용가) → 체결 → 월 정산
- *  - onsite  : 발전사업자가 수용가 사업장에 설비를 두고 전력을 공급. 계약 단가(₩/kWh) × 공급량 으로 월 청구
- *  - 자가소비 : 수용가 소유 설비를 발전사업자가 설치·운영 관리. 운영관리 단가(₩/kWh) × 발전량 으로 월 청구
+ * 흐름(두 유형 공통): 신청 접수 → SPC 검토 → 승인(계약 생성) → 전자서명(발전사업자·전기사용자) → 체결 → 월 정산
+ *  - onsite  : 발전사업자가 전기사용자 사업장에 설비를 두고 전력을 공급. 계약 단가(₩/kWh) × 공급량 으로 월 청구
+ *  - 자가소비 : 전기사용자 소유 설비를 발전사업자가 설치·운영 관리. 운영관리 단가(₩/kWh) × 발전량 으로 월 청구
  */
 import type { PlantContractKind } from './monitoring';
 
@@ -76,7 +76,7 @@ export interface TradeRequest extends ContractTerms {
   id: number;
   no: string; // TR-2026-0001
   kind: PlantContractKind;
-  /** 신청자 — onsite 는 발전사업자, 자가소비는 발전사업자(설치·운영) 또는 수용가 */
+  /** 신청자 — onsite 는 발전사업자, 자가소비는 발전사업자(설치·운영) 또는 전기사용자 */
   applicant: Party;
   applicantCompanyId: number;
   applicantCompanyName: string;
@@ -86,7 +86,7 @@ export interface TradeRequest extends ContractTerms {
   /** 발전소(기존 설비) 또는 설치 예정 설비명 */
   plantId?: number;
   plantName: string;
-  /** 공급·설치 대상 수용가 사업장 */
+  /** 공급·설치 대상 전기사용자 사업장 */
   consumerCompanyId: number;
   consumerCompanyName: string;
   siteName: string;

@@ -88,12 +88,12 @@ const useDemoApprovals = () => ({
   setApproval: (_id: string, _status: string) => {},
 });
 
-// SPC가 통보한 요금 조정 — 수용가는 읽기 전용으로만 확인
+// SPC가 통보한 요금 조정 — 전기사용자는 읽기 전용으로만 확인
 interface FeeAdjustmentNotice {
   reason: string;
   amount: number;
   vat: number;
-  status: 'editing' | 'saved' | 'reviewed'; // 'reviewed'만 수용가에 노출
+  status: 'editing' | 'saved' | 'reviewed'; // 'reviewed'만 전기사용자에 노출
 }
 
 interface MonthlyRecord {
@@ -1597,7 +1597,7 @@ function RecordsTableWithDetail({
                       {/* 합계금액 — 강조 */}
                       <div className="px-5 py-3 bg-rose-500/[0.06] border-b border-white/[0.06]">
                         <div className="rounded-md bg-rose-500/[0.10] ring-1 ring-rose-500/30 px-3 py-2 flex items-baseline justify-between">
-                          <span className="text-xs font-semibold text-rose-200">총 청구 (수용가 지불)</span>
+                          <span className="text-xs font-semibold text-rose-200">총 청구 (전기사용자 지불)</span>
                           <span className="text-base font-bold text-rose-300 tabular-nums">
                             {isPending ? '—' : `₩${selectedRecord.total.toLocaleString()}`}
                           </span>
@@ -1848,7 +1848,7 @@ function RecordsTableWithDetail({
                   </div>
                   <div className="border border-slate-300 rounded">
                     <div className="bg-slate-100 px-3 py-1.5 font-semibold border-b border-slate-300">
-                      수신자 (수용가)
+                      수신자 (전기사용자)
                     </div>
                     <div className="px-3 py-2 space-y-1">
                       <div className="flex gap-2">

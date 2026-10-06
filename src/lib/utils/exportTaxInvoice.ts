@@ -598,7 +598,7 @@ function toFormData(inv: TaxInvoiceExportData): FormData {
  * 표준 양식(별지 제11호) — 인보이스 1건당 A4 1페이지에 1부.
  * copyType 으로 보관본을 지정한다.
  *   '공급자'      — 발전사(공급하는 자)용
- *   '공급받는자'  — 수용가(공급받는 자)용
+ *   '공급받는자'  — 전기사용자(공급받는 자)용
  */
 export async function exportTaxInvoicePdf(
   filename: string,

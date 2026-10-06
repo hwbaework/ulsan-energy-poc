@@ -908,7 +908,7 @@ export default function GeneratorTaxInvoicePage() {
             : isDraft
               ? {
                   tone: 'bg-amber-500/[0.06] ring-amber-500/30 text-amber-200',
-                  text: '정산서 (발행 전) — 양측(발전사·수용가) 동의 확정 시 이 내용으로 전자세금계산서가 발행됩니다',
+                  text: '정산서 (발행 전) — 양측(발전사·전기사용자) 동의 확정 시 이 내용으로 전자세금계산서가 발행됩니다',
                 }
               : {
                   tone: 'bg-emerald-500/[0.06] ring-emerald-500/30 text-emerald-200',
@@ -1117,7 +1117,7 @@ export default function GeneratorTaxInvoicePage() {
                           .getState()
                           .add(
                             'success',
-                            `${inv.issueMonth} ${kindMeta.label} 정산서에 동의했습니다 — 수용가 동의 완료 시 세금계산서가 발행됩니다`,
+                            `${inv.issueMonth} ${kindMeta.label} 정산서에 동의했습니다 — 전기사용자 동의 완료 시 세금계산서가 발행됩니다`,
                           );
                         closeConsent();
                       }}
@@ -1186,7 +1186,7 @@ export default function GeneratorTaxInvoicePage() {
                 {mode === 'agree' ? (
                   <div className="rounded-lg bg-emerald-500/[0.06] ring-1 ring-emerald-500/30 px-4 py-3">
                     <p className="text-xs text-emerald-200">
-                      양측(발전사·수용가)이 모두 동의하면 세금계산서가 발행되고 입금 일정이 확정됩니다. 동의 후에는
+                      양측(발전사·전기사용자)이 모두 동의하면 세금계산서가 발행되고 입금 일정이 확정됩니다. 동의 후에는
                       변경할 수 없습니다.
                     </p>
                   </div>

@@ -83,7 +83,7 @@ const MILESTONE_META: Record<string, { title: string; desc: string }> = {
 };
 
 const ACTOR_META: Record<string, string> = {
-  수용가: 'bg-amber-500/10 text-amber-300 ring-amber-500/30',
+  전기사용자: 'bg-amber-500/10 text-amber-300 ring-amber-500/30',
   컨설턴트: 'bg-blue-500/10 text-blue-300 ring-blue-500/30',
   양측: 'bg-violet-500/10 text-violet-300 ring-violet-500/30',
 };
@@ -106,12 +106,12 @@ function milestoneToStep(m: any) {
     IN_PROGRESS: 'action',
   };
   const actorMap: Record<string, string> = {
-    SURVEY: '수용가',
-    PROSPECT: '수용가',
+    SURVEY: '전기사용자',
+    PROSPECT: '전기사용자',
     SCHEDULE: '양측',
     NAVIGATE: '컨설턴트',
     DOCUMENTS: '컨설턴트',
-    REVIEW: '수용가',
+    REVIEW: '전기사용자',
     CONTRACT: '양측',
   };
   const at = (m.actionType || m.action_type || '').toUpperCase() || inferActionType(m.title || '');
@@ -808,7 +808,7 @@ function ProjectHubContent() {
             {/* PROSPECT — 사업장 등록 (통합) */}
             {currentActionType === 'PROSPECT' && (
               <div className="space-y-3">
-                {/* 기존 수용가 사업장이 있으면 선택 UI */}
+                {/* 기존 전기사용자 사업장이 있으면 선택 UI */}
                 {consumerSites.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-[11px] text-slate-400 font-medium">기존 등록 사업장</p>
@@ -859,7 +859,7 @@ function ProjectHubContent() {
                   </div>
                 )}
 
-                {/* 연결된 사업장 (수용가에 없는 컨설팅 전용) */}
+                {/* 연결된 사업장 (전기사용자에 없는 컨설팅 전용) */}
                 {(sites as any[]).filter(
                   (s: any) => !consumerSites.some((cs: any) => cs.name === s.name && cs.address === s.address),
                 ).length > 0 && (

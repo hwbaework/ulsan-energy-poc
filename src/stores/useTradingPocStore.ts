@@ -1417,7 +1417,7 @@ function firstOfNextMonth() {
 type Set = (fn: (s: TradingPocState) => Partial<TradingPocState>) => void;
 type Get = () => TradingPocState;
 
-/** 전자서명 — 발전사업자·수용가 둘 다 서명하면 계약 발효(ACTIVE), 신청은 체결(SIGNED), 서명본 문서 생성 */
+/** 전자서명 — 발전사업자·전기사용자 둘 다 서명하면 계약 발효(ACTIVE), 신청은 체결(SIGNED), 서명본 문서 생성 */
 function sign(set: Set, get: Get, contractId: number, party: 'generator' | 'consumer') {
   const at = nowIso();
   const c0 = get().contracts.find((c) => c.id === contractId)!;
@@ -1432,7 +1432,7 @@ function sign(set: Set, get: Get, contractId: number, party: 'generator' | 'cons
     next.signedAt = at;
   }
   const events = [
-    ev(at, party, '전자서명', party === 'consumer' ? '수용가 서명 확인 (SPC)' : undefined),
+    ev(at, party, '전자서명', party === 'consumer' ? '전기사용자 서명 확인 (SPC)' : undefined),
   ];
   if (done) events.push(ev(at, 'spc', '체결', `계약 ${next.no} 발효 — 시작일 ${next.startDate}`));
   const docs: TradeDocument[] = done

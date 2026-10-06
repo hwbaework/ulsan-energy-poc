@@ -58,7 +58,7 @@ export default function OperationsDashboardPage() {
         />
         <StatCard
           icon={<Building2 size={18} className="text-sky-400" />}
-          label="수용가"
+          label="전기사용자"
           value={`${dashboard?.totalConsumers ?? 0}개사`}
         />
         <StatCard

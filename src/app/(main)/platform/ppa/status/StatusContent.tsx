@@ -155,7 +155,7 @@ type GenRow = {
 const GEN_ROWS: GenRow[] = [];
 
 /* ─────────────────────────────────────────────
-   수용가 거래 데이터
+   전기사용자 거래 데이터
    ───────────────────────────────────────────── */
 type ConRow = {
   id: string;
@@ -174,7 +174,7 @@ type ConRow = {
   settlementStatus: SettlementStatus;
 };
 
-// 직접 PPA 계약 0건 — 수용가 거래 데이터 없음
+// 직접 PPA 계약 0건 — 전기사용자 거래 데이터 없음
 const CON_ROWS: ConRow[] = [];
 
 /* ─────────────────────────────────────────────
@@ -208,7 +208,7 @@ type MarginRow = {
   generator: string;
   consumer: string;
   contractType: ContractType;
-  billed: number; // 수용가 청구액
+  billed: number; // 전기사용자 청구액
   paid: number; // 발전사 지급액
   margin: number; // billed - paid (= SPC 마진)
   marginRate: number; // %
@@ -333,7 +333,7 @@ export function PlatformPpaStatusContent({ defaultTab = 'generators' }: { defaul
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">거래 현황</h1>
-          <p className="mt-1 text-sm text-slate-400">발전사·수용가 거래 이력 · 매칭 감사 · SPC 마진 추적</p>
+          <p className="mt-1 text-sm text-slate-400">발전사·전기사용자 거래 이력 · 매칭 감사 · SPC 마진 추적</p>
         </div>
         <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-500 tabular-nums">
           <Calendar size={12} />
@@ -400,7 +400,7 @@ export function PlatformPpaStatusContent({ defaultTab = 'generators' }: { defaul
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
             <Input
               type="text"
-              placeholder="발전소·수용가·계약번호"
+              placeholder="발전소·전기사용자·계약번호"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -750,14 +750,14 @@ export function PlatformPpaStatusContent({ defaultTab = 'generators' }: { defaul
         </div>
       )}
 
-      {/* ─────────────── 수용가 거래 ─────────────── */}
+      {/* ─────────────── 전기사용자 거래 ─────────────── */}
       {tab === 'consumers' && (
         <div className="space-y-6">
           {CON_ROWS.length === 0 ? (
             <EmptyState
               icon={Building2}
-              title="등록된 수용가 거래가 없습니다"
-              desc="직접 PPA 계약이 체결되면 수용가별 공급·정산 현황이 표시됩니다."
+              title="등록된 전기사용자 거래가 없습니다"
+              desc="직접 PPA 계약이 체결되면 전기사용자별 공급·정산 현황이 표시됩니다."
             />
           ) : (
             <>
@@ -767,7 +767,7 @@ export function PlatformPpaStatusContent({ defaultTab = 'generators' }: { defaul
                   <table className="w-full text-sm">
                     <thead className="text-left">
                       <tr className="text-[11px] text-slate-500 bg-white/[0.02] border-b border-white/[0.06]">
-                        <th className="text-left font-medium px-4 py-3">수용가</th>
+                        <th className="text-left font-medium px-4 py-3">전기사용자</th>
                         <th className="font-medium px-3 py-3">총 공급량</th>
                         <th className="font-medium px-3 py-3">실공급률</th>
                         <th className="font-medium px-3 py-3">평균 단가</th>
@@ -955,7 +955,7 @@ export function PlatformPpaStatusContent({ defaultTab = 'generators' }: { defaul
                         <th className="text-left font-medium px-4 py-3">일시 (시간 단위)</th>
                         <th className="text-left font-medium px-3 py-3">발전소</th>
                         <th className="font-medium px-2 py-3" />
-                        <th className="text-left font-medium px-3 py-3">수용가</th>
+                        <th className="text-left font-medium px-3 py-3">전기사용자</th>
                         <th className="text-left font-medium px-3 py-3">계약번호</th>
                         <th className="font-medium px-3 py-3">매칭량</th>
                         <th className="text-left font-medium px-3 py-3">우선순위</th>
@@ -1092,7 +1092,7 @@ export function PlatformPpaStatusContent({ defaultTab = 'generators' }: { defaul
               <div className="rounded-lg border border-amber-500/[0.20] bg-amber-500/[0.04] px-4 py-2.5 flex items-start gap-2 text-xs">
                 <AlertCircle size={13} className="text-amber-300 mt-0.5" />
                 <span className="text-amber-200">
-                  <span className="font-semibold">관리자 전용 정보</span> · 발전사·수용가 페르소나에는 노출되지 않습니다
+                  <span className="font-semibold">관리자 전용 정보</span> · 발전사·전기사용자 페르소나에는 노출되지 않습니다
                   (협상 정보 보호).
                 </span>
               </div>
@@ -1118,7 +1118,7 @@ export function PlatformPpaStatusContent({ defaultTab = 'generators' }: { defaul
                       <tr className="text-[11px] text-slate-500 bg-white/[0.02] border-b border-white/[0.06]">
                         <th className="text-left font-medium px-4 py-3">거래번호</th>
                         <th className="text-left font-medium px-3 py-3">발전사</th>
-                        <th className="text-left font-medium px-3 py-3">수용가</th>
+                        <th className="text-left font-medium px-3 py-3">전기사용자</th>
                         <th className="text-left font-medium px-3 py-3">계약유형</th>
                         <th className="font-medium px-3 py-3">청구액</th>
                         <th className="font-medium px-3 py-3">지급액</th>
@@ -1193,7 +1193,7 @@ export function PlatformPpaStatusContent({ defaultTab = 'generators' }: { defaul
                   />
                 </div>
                 <div className="rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] p-5">
-                  <h3 className="text-md font-semibold text-white mb-1">수용가별 평균 마진율</h3>
+                  <h3 className="text-md font-semibold text-white mb-1">전기사용자별 평균 마진율</h3>
                   <p className="text-[11px] text-slate-500 mb-3">단위: %</p>
                   <RmsBarChart
                     data={MARGIN_BY_CON}
@@ -1249,7 +1249,7 @@ export function PlatformPpaStatusContent({ defaultTab = 'generators' }: { defaul
             <div className="rounded-lg ring-1 ring-white/[0.06] bg-white/[0.02] divide-y divide-white/[0.04]">
               <DetailRow label="일시" value={matchDetail.datetime} mono />
               <DetailRow label="발전소" value={`${matchDetail.plant} (${matchDetail.generator})`} />
-              <DetailRow label="수용가" value={matchDetail.consumer} />
+              <DetailRow label="전기사용자" value={matchDetail.consumer} />
               <DetailRow label="계약번호" value={matchDetail.contractNo} mono />
               <DetailRow label="매칭량" value={fmtEnergy(matchDetail.kwh)} mono />
               <DetailRow

@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { F, PLAN_LABEL, SELF_CAPEX_UNIT, SELF_EXTRA_COST, SELF_OM, VER_LABEL, avgSaveUnit, segLabel, ppaSegs, selfCost, type Plan, type SimInput, type TariffVer } from '@/lib/solar-sim';
+import { ADDRESS_MAX, F, LIM, NAME_MAX, PLAN_LABEL, SELF_CAPEX_UNIT, SELF_EXTRA_COST, SELF_OM, VER_LABEL, avgSaveUnit, segLabel, ppaSegs, selfCost, type Plan, type SimInput, type TariffVer } from '@/lib/solar-sim';
 
 /**
  * 무료진단 입력 화면 — 울산미포산단 태양광 사업성 시뮬레이터 v1.1 입력값. 한 장의 페이지 안에서
@@ -12,9 +12,11 @@ import { F, PLAN_LABEL, SELF_CAPEX_UNIT, SELF_EXTRA_COST, SELF_OM, VER_LABEL, av
 
 const FIELD = 'h-9 w-full rounded-md bg-white/[0.04] ring-1 ring-white/[0.08] px-2.5 text-sm text-white tabular-nums focus:outline-none focus:ring-primary/60';
 
-/** 천 단위 콤마 숫자 입력 — 입력 중에는 친 그대로, 벗어나면 정리. 단위는 칸 안 오른쪽 */
-function Num({ value, onChange, dec = 0, unit, blankZero }: { value: number; onChange?: (v: number) => void; dec?: number; unit?: string; blankZero?: boolean }) {
+/** 천 단위 콤마 숫자 입력 — 입력 중에는 친 그대로, 벗어나면 정리. 단위는 칸 안 오른쪽.
+ *  숫자와 점 하나만 받는다. 최대값을 넘으면 바로 최대값으로, 최소값 아래는 칸을 벗어날 때 최소값으로 */
+function Num({ value, onChange, dec = 0, unit, blankZero, lim }: { value: number; onChange?: (v: number) => void; dec?: number; unit?: string; blankZero?: boolean; lim: readonly [number, number] }) {
   const [draft, setDraft] = useState<string | null>(null);
+  const [lo, hi] = lim;
   const shown = draft ?? (blankZero && !value ? '' : dec ? value.toLocaleString('ko-KR', { maximumFractionDigits: dec }) : Math.round(value).toLocaleString('ko-KR'));
   return (
     <div className="relative">
@@ -22,11 +24,20 @@ function Num({ value, onChange, dec = 0, unit, blankZero }: { value: number; onC
         inputMode="decimal"
         value={shown}
         onFocus={() => setDraft(String(value))}
-        onBlur={() => setDraft(null)}
+        onBlur={() => {
+          setDraft(null);
+          if (value < lo && !(blankZero && !value)) onChange?.(lo);
+        }}
         onChange={(e) => {
-          const raw = e.target.value.replace(/[^0-9.]/g, '');
+          const [head = '', ...rest] = e.target.value.replace(/[^0-9.]/g, '').split('.');
+          let raw = rest.length ? `${head}.${rest.join('')}` : head;
+          let n = raw === '' || raw === '.' ? 0 : Number(raw);
+          if (n > hi) {
+            n = hi;
+            raw = String(hi);
+          }
           setDraft(raw);
-          onChange?.(raw === '' ? 0 : Number(raw));
+          onChange?.(n);
         }}
         className={cn(FIELD, 'text-right', unit && 'pr-16')}
       />
@@ -154,11 +165,11 @@ export function SimInputPanel({
                   <Sel value={companyEdit.pick} options={[{ value: '', label: '신규 기업 등록' }, ...companyEdit.options]} onChange={companyEdit.onPick} />
                 </Field>
                 <Field label="기업명">
-                  {companyEdit.pick ? <Fixed>{companyEdit.name}</Fixed> : <input value={companyEdit.name} onChange={(e) => companyEdit.onName(e.target.value)} className={FIELD} />}
+                  {companyEdit.pick ? <Fixed>{companyEdit.name}</Fixed> : <input maxLength={NAME_MAX} value={companyEdit.name} onChange={(e) => companyEdit.onName(e.target.value)} className={FIELD} />}
                 </Field>
                 <div className="sm:col-span-2">
                   <Field label="기업 주소">
-                    {companyEdit.pick ? <Fixed>{companyEdit.address}</Fixed> : <input value={companyEdit.address} onChange={(e) => companyEdit.onAddress(e.target.value)} className={FIELD} />}
+                    {companyEdit.pick ? <Fixed>{companyEdit.address}</Fixed> : <input maxLength={ADDRESS_MAX} value={companyEdit.address} onChange={(e) => companyEdit.onAddress(e.target.value)} className={FIELD} />}
                   </Field>
                 </div>
               </div>
@@ -182,10 +193,10 @@ export function SimInputPanel({
           <Sec n={++n} title="지붕 면적 (선택)">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="지붕 가용면적">
-                <Num value={f.roof} onChange={(v) => set({ roof: v })} unit="㎡" />
+                <Num lim={LIM.roof} value={f.roof} onChange={(v) => set({ roof: v })} unit="㎡" />
               </Field>
               <Field label="kW당 소요면적">
-                <Num value={f.areaPerKw} dec={1} onChange={(v) => set({ areaPerKw: v })} unit="㎡/kW" />
+                <Num lim={LIM.areaPerKw} value={f.areaPerKw} dec={1} onChange={(v) => set({ areaPerKw: v })} unit="㎡/kW" />
               </Field>
             </div>
             {f.roof > 0 && <Hint>설치 가능 용량 약 {F(f.roof / (f.areaPerKw || 10))} kW</Hint>}
@@ -197,23 +208,23 @@ export function SimInputPanel({
           <Sec n={++n} title="기상 조건 (울산미포)">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="일평균 발전시간" hl>
-                <Num value={f.avgH} dec={2} onChange={(v) => set({ avgH: v })} unit="h/일" />
+                <Num lim={LIM.avgH} value={f.avgH} dec={2} onChange={(v) => set({ avgH: v })} unit="h/일" />
               </Field>
               <Field label="모듈 효율감소율">
-                <Num value={f.deg} dec={2} onChange={(v) => set({ deg: v })} unit="%/yr" />
+                <Num lim={LIM.deg} value={f.deg} dec={2} onChange={(v) => set({ deg: v })} unit="%/yr" />
               </Field>
             </div>
           </Sec>
           <Sec n={++n} title="탄소배출권 (K-ETS)">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="배출권 시세 (KAU)">
-                <Num value={f.kau} onChange={(v) => set({ kau: v })} unit="원/t" />
+                <Num lim={LIM.kau} value={f.kau} onChange={(v) => set({ kau: v })} unit="원/t" />
               </Field>
               <Field label="가격 상승률">
-                <Num value={f.kauEsc} dec={1} onChange={(v) => set({ kauEsc: v })} unit="%/yr" />
+                <Num lim={LIM.kauEsc} value={f.kauEsc} dec={1} onChange={(v) => set({ kauEsc: v })} unit="%/yr" />
               </Field>
               <Field label="전력 배출계수">
-                <Num value={f.co2f} dec={4} onChange={(v) => set({ co2f: v })} unit="t/MWh" />
+                <Num lim={LIM.co2f} value={f.co2f} dec={4} onChange={(v) => set({ co2f: v })} unit="t/MWh" />
               </Field>
             </div>
             <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-slate-300">
@@ -228,13 +239,13 @@ export function SimInputPanel({
           <Sec n={++n} title="기존 태양광 설비">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Field label="설비 규모">
-                <Num value={fac.kw} dec={2} onChange={(v) => setFac({ kw: v })} unit="kW" blankZero />
+                <Num lim={LIM.facKw} value={fac.kw} dec={2} onChange={(v) => setFac({ kw: v })} unit="kW" blankZero />
               </Field>
               <Field label="연간 발전량">
-                <Num value={fac.genKwh} onChange={(v) => setFac({ genKwh: v })} unit="kWh" blankZero />
+                <Num lim={LIM.facKwh} value={fac.genKwh} onChange={(v) => setFac({ genKwh: v })} unit="kWh" blankZero />
               </Field>
               <Field label="연간 사용량">
-                <Num value={fac.useKwh} onChange={(v) => setFac({ useKwh: v })} unit="kWh" blankZero />
+                <Num lim={LIM.facKwh} value={fac.useKwh} onChange={(v) => setFac({ useKwh: v })} unit="kWh" blankZero />
               </Field>
             </div>
             {facilitySource && <Hint>{facilitySource}</Hint>}
@@ -244,19 +255,19 @@ export function SimInputPanel({
         {/* 6 — 방식별 */}
         {f.mode === 'self' ? (
           <Line>
-            <Sec n={++n} title="자가소비 · 설비 / 수용가">
+            <Sec n={++n} title="자가소비 · 설비 / 전기사용자">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <Field label="태양광 설치용량" hl>
-                  <Num value={f.self.cap} onChange={(v) => setSelf({ cap: v })} unit="kW" />
+                  <Num lim={LIM.cap} value={f.self.cap} onChange={(v) => setSelf({ cap: v })} unit="kW" />
                 </Field>
                 <Field label="계약전력">
-                  <Num value={f.self.ctr} onChange={(v) => setSelf({ ctr: v })} unit="kW" />
+                  <Num lim={LIM.ctr} value={f.self.ctr} onChange={(v) => setSelf({ ctr: v })} unit="kW" />
                 </Field>
                 <Field label="월평균 전기사용량">
-                  <Num value={f.self.usage} onChange={(v) => setSelf({ usage: v })} unit="kWh" />
+                  <Num lim={LIM.usage} value={f.self.usage} onChange={(v) => setSelf({ usage: v })} unit="kWh" />
                 </Field>
                 <Field label="기본요금 피크감축 반영률">
-                  <Num value={f.self.peakR} dec={1} onChange={(v) => setSelf({ peakR: v })} unit="%" />
+                  <Num lim={LIM.pct} value={f.self.peakR} dec={1} onChange={(v) => setSelf({ peakR: v })} unit="%" />
                 </Field>
                 <Field label="요금제">
                   <Sel value={f.self.plan} options={PLANS} onChange={(v) => setSelf({ plan: v })} />
@@ -265,7 +276,7 @@ export function SimInputPanel({
                   <Sel value={f.self.ver} options={VERS} onChange={(v) => setSelf({ ver: v })} />
                 </Field>
                 <Field label="전기요금 상승률">
-                  <Num value={f.self.esc} dec={1} onChange={(v) => setSelf({ esc: v })} unit="%/yr" />
+                  <Num lim={LIM.esc} value={f.self.esc} dec={1} onChange={(v) => setSelf({ esc: v })} unit="%/yr" />
                 </Field>
               </div>
             </Sec>
@@ -276,13 +287,13 @@ export function SimInputPanel({
             <Sec n={++n} title="자가소비 · 사업비">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <Field label="설치단가">
-                  <Num value={f.self.capexUnit ?? SELF_CAPEX_UNIT} onChange={(v) => setSelf({ capexUnit: v })} unit="원/kW" />
+                  <Num lim={LIM.capexUnit} value={f.self.capexUnit ?? SELF_CAPEX_UNIT} onChange={(v) => setSelf({ capexUnit: v })} unit="원/kW" />
                 </Field>
                 <Field label="추가 시공비">
-                  <Num value={f.self.extraCost ?? SELF_EXTRA_COST} onChange={(v) => setSelf({ extraCost: v })} unit="원" />
+                  <Num lim={LIM.extraCost} value={f.self.extraCost ?? SELF_EXTRA_COST} onChange={(v) => setSelf({ extraCost: v })} unit="원" />
                 </Field>
                 <Field label="연간 O&M">
-                  <Num value={f.self.om ?? SELF_OM} dec={1} onChange={(v) => setSelf({ om: v })} unit="%" />
+                  <Num lim={LIM.pct} value={f.self.om ?? SELF_OM} dec={1} onChange={(v) => setSelf({ om: v })} unit="%" />
                 </Field>
               </div>
               {/* 소비자 부담 — 자동 계산, 크게 */}
@@ -303,10 +314,10 @@ export function SimInputPanel({
             <Sec n={++n} title="OnSite PPA · 설비 / 비교 기준">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="태양광 설치용량" hl>
-                  <Num value={f.ppa.cap} onChange={(v) => setPpa({ cap: v })} unit="kW" />
+                  <Num lim={LIM.cap} value={f.ppa.cap} onChange={(v) => setPpa({ cap: v })} unit="kW" />
                 </Field>
                 <Field label="한전요금 상승률">
-                  <Num value={f.ppa.esc} dec={1} onChange={(v) => setPpa({ esc: v })} unit="%/yr" />
+                  <Num lim={LIM.esc} value={f.ppa.esc} dec={1} onChange={(v) => setPpa({ esc: v })} unit="%/yr" />
                 </Field>
                 <Field label="비교 요금제">
                   <Sel value={f.ppa.plan} options={PLANS} onChange={(v) => setPpa({ plan: v })} />
@@ -315,10 +326,10 @@ export function SimInputPanel({
                   <Sel value={f.ppa.ver} options={VERS} onChange={(v) => setPpa({ ver: v })} />
                 </Field>
                 <Field label="기본요금 피크감축 반영률">
-                  <Num value={f.ppa.peakR} dec={1} onChange={(v) => setPpa({ peakR: v })} unit="%" />
+                  <Num lim={LIM.pct} value={f.ppa.peakR} dec={1} onChange={(v) => setPpa({ peakR: v })} unit="%" />
                 </Field>
                 <Field label="PPA 단가 상승률">
-                  <Num value={f.ppa.ppaEsc} dec={1} onChange={(v) => setPpa({ ppaEsc: v })} unit="%/yr" />
+                  <Num lim={LIM.esc} value={f.ppa.ppaEsc} dec={1} onChange={(v) => setPpa({ ppaEsc: v })} unit="%/yr" />
                 </Field>
               </div>
             </Sec>
@@ -355,7 +366,7 @@ export function SimInputPanel({
                       </label>
                     </div>
                     {/* 값을 넣으면 그 구간은 고정단가로 바뀐다 */}
-                    <Num value={sg.linked ? kepcoUnit : sg.price} dec={1} onChange={(v) => setSeg(k, { price: v, linked: false })} unit="원/kWh" />
+                    <Num lim={LIM.segPrice} value={sg.linked ? kepcoUnit : sg.price} dec={1} onChange={(v) => setSeg(k, { price: v, linked: false })} unit="원/kWh" />
                   </div>
                 ))}
               </div>

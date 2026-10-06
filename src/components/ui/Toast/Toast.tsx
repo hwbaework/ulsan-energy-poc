@@ -16,14 +16,15 @@ const styles: Record<ToastType, string> = {
   info: 'border-semantic-blue/40 bg-semantic-blue/10 text-semantic-blue',
 };
 
-export function ToastContainer() {
+/** top — 헤더가 있는 화면은 헤더 아래(top-[116px])로 내려서 알림·계정 영역을 가리지 않게 */
+export function ToastContainer({ top = 'top-4' }: { top?: string }) {
   const toasts = useToastStore((s) => s.toasts);
   const remove = useToastStore((s) => s.remove);
 
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 w-80" role="region" aria-label="알림">
+    <div className={cn('fixed right-4 z-[100] flex flex-col gap-2 w-80', top)} role="region" aria-label="알림">
       {toasts.map((toast) => {
         const Icon = icons[toast.type];
         return (

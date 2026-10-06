@@ -1,8 +1,8 @@
-// 내 컨설팅 (수용가 관점) — 공유 타입 및 유틸리티
+// 내 컨설팅 (전기사용자 관점) — 공유 타입 및 유틸리티
 
 export interface ConsultingStep {
   title: string;
-  actor: '수용가' | '컨설턴트' | '양측';
+  actor: '전기사용자' | '컨설턴트' | '양측';
   state: 'done' | 'action' | 'upcoming';
   date: string;
   desc: string;
@@ -49,7 +49,7 @@ export interface ConsultingItem {
 }
 
 export const ACTOR_META: Record<string, string> = {
-  수용가: 'bg-amber-500/10 text-amber-300 ring-amber-500/30',
+  전기사용자: 'bg-amber-500/10 text-amber-300 ring-amber-500/30',
   컨설턴트: 'bg-blue-500/10 text-blue-300 ring-blue-500/30',
   양측: 'bg-violet-500/10 text-violet-300 ring-violet-500/30',
 };
@@ -95,7 +95,7 @@ export const CONSULTINGS: ConsultingItem[] = [];
 
 export function isMyTurn(c: ConsultingItem): boolean {
   const current = c.steps.find((s) => s.state === 'action');
-  return current != null && (current.actor === '수용가' || current.actor === '양측');
+  return current != null && (current.actor === '전기사용자' || current.actor === '양측');
 }
 
 export function getCurrentStep(c: ConsultingItem): ConsultingStep | undefined {

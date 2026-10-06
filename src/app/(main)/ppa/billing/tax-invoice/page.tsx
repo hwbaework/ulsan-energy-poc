@@ -32,9 +32,9 @@ import { cn, exportTaxInvoicePdf, type TaxInvoiceExportData } from '@/lib/utils'
 import { buildMonthlyChart } from '@/lib/billing/buildMonthlyChart';
 import { usePpaSettlements } from '@/hooks/ppa/usePpa';
 
-/* ───────────────────────── Types & Mock — 수용가 매입 세금계산서 ─────────────────────────
+/* ───────────────────────── Types & Mock — 전기사용자 매입 세금계산서 ─────────────────────────
  * 발전사(/generator/ppa/revenue/tax-invoice)와 동일한 라이프사이클·정산 분해 양식.
- * 차이: 매입(SPC → 수용가) — 공급자가 SPC, 합계 = 수용가가 SPC에 지급해야 할 금액(SPC 수금).
+ * 차이: 매입(SPC → 전기사용자) — 공급자가 SPC, 합계 = 전기사용자가 SPC에 지급해야 할 금액(SPC 수금).
  *      라이프사이클: 정산 통보 → 동의 대기(동의/이의) → 발급 → 납부 */
 
 type PaymentStatus = 'pending' | 'completed' | 'none';
@@ -73,7 +73,7 @@ interface Invoice {
   unitPrice: number; // 단가 (₩/kWh)
   supplyAmount: number; // 공급가액
   vat: number;
-  total: number; // 합계 = 수용가 청구액
+  total: number; // 합계 = 전기사용자 청구액
   paymentDate: string | null;
   paymentScheduled: boolean;
   paymentStatus: PaymentStatus;
@@ -172,7 +172,7 @@ function ScopeTrigger({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** 통합 Invoice → 표준 세금계산서(별지 제11호) 추출 데이터 (매입 — 수용가) */
+/** 통합 Invoice → 표준 세금계산서(별지 제11호) 추출 데이터 (매입 — 전기사용자) */
 function invoiceToExport(inv: Invoice): TaxInvoiceExportData {
   const [yy, mm] = inv.issueMonth.split('.');
   const lastDay = inv.issuePeriodEnd?.split('-')[2] ?? '';
@@ -218,7 +218,7 @@ function invoiceToExport(inv: Invoice): TaxInvoiceExportData {
 }
 
 function downloadInvoicePdf(inv: Invoice) {
-  // 수용가 = 공급받는 자 → 공급받는자 보관본
+  // 전기사용자 = 공급받는 자 → 공급받는자 보관본
   exportTaxInvoicePdf(`세금계산서_${inv.issueMonth}_${inv.plantName}`, [invoiceToExport(inv)], '공급받는자');
 }
 
@@ -458,7 +458,7 @@ export default function PpaTaxInvoicePage() {
                       <span className="text-[10px] font-normal text-slate-500">기반기금</span>
                     </th>
                     <th className="px-3 py-2 font-medium whitespace-nowrap border-r border-white/[0.04] text-blue-300">
-                      수용가 → SPC
+                      전기사용자 → SPC
                       <br />
                       <span className="text-[10px] font-normal text-slate-500">청구액</span>
                     </th>
@@ -777,7 +777,7 @@ export default function PpaTaxInvoicePage() {
             : isDraft
               ? {
                   tone: 'bg-amber-500/[0.06] ring-amber-500/30 text-amber-200',
-                  text: '정산서 (발행 전) — 양측(발전사·수용가) 동의 확정 시 이 내용으로 매입 세금계산서가 발행됩니다',
+                  text: '정산서 (발행 전) — 양측(발전사·전기사용자) 동의 확정 시 이 내용으로 매입 세금계산서가 발행됩니다',
                 }
               : {
                   tone: 'bg-emerald-500/[0.06] ring-emerald-500/30 text-emerald-200',
@@ -1023,7 +1023,7 @@ export default function PpaTaxInvoicePage() {
                 {mode === 'agree' ? (
                   <div className="rounded-lg bg-emerald-500/[0.06] ring-1 ring-emerald-500/30 px-4 py-3">
                     <p className="text-xs text-emerald-200">
-                      양측(발전사·수용가)이 모두 동의하면 매입 세금계산서가 발행되고 납부 일정이 확정됩니다. 동의 후에는
+                      양측(발전사·전기사용자)이 모두 동의하면 매입 세금계산서가 발행되고 납부 일정이 확정됩니다. 동의 후에는
                       변경할 수 없습니다.
                     </p>
                   </div>

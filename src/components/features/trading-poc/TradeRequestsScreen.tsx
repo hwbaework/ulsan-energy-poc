@@ -34,7 +34,7 @@ const SIM_YEARS = 20;
 const won = (n: number) => `₩${Math.round(n).toLocaleString('ko-KR')}`;
 
 /** 계약 유형 카드 — 무엇인지 · 누가 무엇을 하는지 · 어떻게 청구하는지 */
-/** 계약 유형 카드 — 수용가가 얻는 것(장점)과 알고 있어야 할 것(유의) */
+/** 계약 유형 카드 — 전기사용자가 얻는 것(장점)과 알고 있어야 할 것(유의) */
 const KIND_CARDS: { value: PlantContractKind; title: string; headline: string; points: string[]; note: string }[] = [
   {
     value: 'SELF_CONSUMPTION',
@@ -160,7 +160,7 @@ export function TradeRequestsScreen() {
   const set = (patch: Partial<Form>) => setF((prev) => ({ ...prev, ...patch }));
 
   const picked = own ?? COMPANY_OPTIONS.find((c) => c.value === f.consumerPick);
-  // 통합관제 연계 — 기존 수용가의 운영 중 계약
+  // 통합관제 연계 — 기존 전기사용자의 운영 중 계약
   const running = useMemo(
     () => (picked ? contractsAll.filter((c) => c.consumerCompanyId === picked.id && c.status === 'ACTIVE') : []),
     [contractsAll, picked],
@@ -181,7 +181,7 @@ export function TradeRequestsScreen() {
   const chooseKind = (k: PlantContractKind) => {
     setKind(k);
     setBeforeLoad(null);
-    // 유형이 바뀌면 진단·조건은 다시(수용가·연락처는 둔다)
+    // 유형이 바뀌면 진단·조건은 다시(전기사용자·연락처는 둔다)
     setF((prev) => ({
       ...prev,
       pickedDiag: '',
@@ -290,7 +290,7 @@ export function TradeRequestsScreen() {
       applicant: role.isAdmin ? 'spc' : 'generator',
       applicantCompanyId: role.isAdmin ? CO.SPC.id : role.companyId,
       applicantCompanyName: role.isAdmin ? CO.SPC.name : role.companyName,
-      // 상대는 플랫폼(SPC) — 발전사업자가 전력을 공급하는 구조가 아니다(offsite 없음). 자가소비는 수용가가 설치비 부담, onsite 는 EPC 가 설치비 부담
+      // 상대는 플랫폼(SPC) — 발전사업자가 전력을 공급하는 구조가 아니다(offsite 없음). 자가소비는 전기사용자가 설치비 부담, onsite 는 EPC 가 설치비 부담
       generatorCompanyId: CO.SPC.id,
       generatorCompanyName: CO.SPC.name,
       plantName: consumerName,
@@ -381,7 +381,7 @@ export function TradeRequestsScreen() {
                   </li>
                 ))}
               </ul>
-              {/* 유의 — 수용가가 알고 있어야 할 것 */}
+              {/* 유의 — 전기사용자가 알고 있어야 할 것 */}
               <p className="mt-4 flex gap-2 border-t border-white/[0.06] pt-4 text-sm text-amber-300/90">
                 <span className="shrink-0 font-semibold">유의</span>
                 {k.note}

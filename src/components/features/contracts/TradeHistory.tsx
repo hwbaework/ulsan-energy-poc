@@ -45,7 +45,7 @@ export function TradeHistory() {
   })();
   const isGenerator = persona === 'generator';
 
-  // 수용가·SPC: 내 거래 요청 / 발전사: 내가 참여한 매칭
+  // 전기사용자·SPC: 내 거래 요청 / 발전사: 내가 참여한 매칭
   const { data: reqData } = useTradingRequests({}, { enabled: !isGenerator });
   const { data: matchData } = useAllTradingMatches(
     isGenerator && user?.companyId ? { generatorCompanyId: user.companyId } : undefined,
@@ -62,7 +62,7 @@ export function TradeHistory() {
         seen.set(m.requestId, {
           id: m.requestId,
           model: modelLabel(m.dealType, m.ppaSubType),
-          counterparty: m.consumerCompanyName ?? '수용가',
+          counterparty: m.consumerCompanyName ?? '전기사용자',
           kw: m.capacityKw ?? 0,
           price: m.proposedPriceKrw,
           dealType: m.dealType,

@@ -95,10 +95,10 @@ const META: IndicatorMeta[] = [
   },
   {
     no: 6,
-    label: '수용가 이용률',
+    label: '전기사용자 이용률',
     icon: <Users size={14} />,
     target: '80 %',
-    formula: '(등록 + 1회 이상 이용) ÷ 모집 수용가 × 100 (3차 80%)',
+    formula: '(등록 + 1회 이상 이용) ÷ 모집 전기사용자 × 100 (3차 80%)',
     evidenceType: 'BUILD_PROGRESS_REPORT',
   },
   {

@@ -1,5 +1,5 @@
 /**
- * POC 픽스처 — 주요 화면(통합관제 지도·대시보드·수용가)이 비어 보이지 않을 정도의 최소 데이터.
+ * POC 픽스처 — 주요 화면(통합관제 지도·대시보드·전기사용자)이 비어 보이지 않을 정도의 최소 데이터.
  * 나머지 엔드포인트는 라우터의 기본 빈 응답으로 처리된다.
  */
 import { registerMock, pageOf } from './registry';
@@ -10,6 +10,7 @@ import type { MonitoringConsumer, PlantContractKind, PlantAnomalySummary } from 
 import type { PowerStation } from '@/types/power-station';
 import type { ConsumerSite } from '@/types/consumer';
 import type { MarketPrice } from '@/types/trading';
+import { TARIFF_YEAR_SEED, type TariffYear } from '@/lib/solar-sim';
 import './adminFixtures'; // 관리(ADMIN) 축 목업
 
 const NOW = '2026-09-15T10:00:00';
@@ -149,7 +150,7 @@ registerMock(/^\/monitoring\/plants\/(\d+)\/history$/, ({ match, query }) => {
   return points;
 });
 
-/* ── 수용가 (지도 마커) ───────────────────────────────────── */
+/* ── 전기사용자 (지도 마커) ───────────────────────────────────── */
 export const CONSUMERS: MonitoringConsumer[] = [
   { id: 1, companyId: 2, name: '한길', address: '울산 남구 용연동 490-11', latitude: 35.5091, longitude: 129.3402, reTargetPct: 30, reCurrentPct: 18.4, monthlyDemandKwh: 184000, monthlySupplyKwh: 33800, todaySupplyKwh: 1260 },
   { id: 2, companyId: 4, name: '미포 정밀화학', address: '울산 남구 장생포로 55', latitude: 35.5012, longitude: 129.3521, reTargetPct: 20, reCurrentPct: 12.1, monthlyDemandKwh: 96000, monthlySupplyKwh: 11600, todaySupplyKwh: 410 },
@@ -273,6 +274,28 @@ registerMock(/^\/settings\/public\/energy$/, () => ({
   KEPCO_UNIT_PRICE: '152.3', // ₩/kWh — 한전 산업용 단가. 자가소비 절감액 = 발전량 × 이 값
   PPA_UNIT_PRICE: '138.0', // ₩/kWh — 온사이트 PPA 계약 단가. PPA 요금 = 발전량 × 이 값
 }));
+
+// 산업용 평균판매단가 연도별 실적 — 관리 › 에너지 설정. 새로고침해도 남게 브라우저에 저장 (POC)
+const TARIFF_KEY = 'ulsan-industrial-tariff-v2'; // v2 — 2019~2025 공개 실적 7개로 시드 교체
+let TARIFF_YEARS: TariffYear[] = TARIFF_YEAR_SEED.map((r) => ({ ...r }));
+if (typeof window !== 'undefined') {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(TARIFF_KEY) ?? 'null');
+    if (Array.isArray(saved)) TARIFF_YEARS = saved;
+  } catch {
+    /* 저장본이 깨졌으면 시드로 시작 */
+  }
+}
+registerMock(/^\/settings\/public\/industrial-tariff$/, () => TARIFF_YEARS, 'GET');
+registerMock(/^\/settings\/public\/industrial-tariff$/, ({ body }) => {
+  TARIFF_YEARS = (Array.isArray(body) ? (body as TariffYear[]) : []).map((r) => ({ year: Number(r.year), price: Number(r.price) })).sort((a, b) => a.year - b.year);
+  try {
+    window.localStorage.setItem(TARIFF_KEY, JSON.stringify(TARIFF_YEARS));
+  } catch {
+    /* 저장 실패는 무시 — 메모리에는 남는다 */
+  }
+  return TARIFF_YEARS;
+}, 'PUT');
 
 /* ── SMP 시장 정보 (대시보드 최근 30일 일평균) ───────────────── */
 registerMock(/^\/trading\/market-prices$/, ({ query }) => {

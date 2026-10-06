@@ -1,7 +1,7 @@
 'use client';
 
 /* 전력거래 멀티채팅 — SPC 허브형 상대별 스레드.
- * threads 가 2개 이상이면(SPC) 탭으로 분리, 1개면(수용가/발전사) 단일 스레드. */
+ * threads 가 2개 이상이면(SPC) 탭으로 분리, 1개면(전기사용자/발전사) 단일 스레드. */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Client } from '@stomp/stompjs';

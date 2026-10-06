@@ -12,7 +12,7 @@ interface StepState {
   at?: string;
 }
 
-/* 계약 체결 타임라인 — SPC 발행 → 발전사 서명 → 수용가 서명 → 계약 발효
+/* 계약 체결 타임라인 — SPC 발행 → 발전사 서명 → 전기사용자 서명 → 계약 발효
  * useContractDocuments + useSignatureStatus 실데이터 기반. 3 페르소나 공용. */
 export function SigningTimeline({ contractId, contractStatus }: { contractId: number; contractStatus?: string }) {
   const { data: documents } = useContractDocuments(contractId);
@@ -30,7 +30,7 @@ export function SigningTimeline({ contractId, contractStatus }: { contractId: nu
   const steps: StepState[] = [
     { label: 'SPC 계약서 발행', desc: '매칭 조건으로 계약서(PDF) 발행', done: !!doc, at: fmt(doc?.createdAt) },
     { label: '발전사 전자서명', desc: '발전사 계약 동의·서명', done: !!genSig, at: fmt(genSig?.signedAt) },
-    { label: '수용가 전자서명', desc: '수용가 계약 동의·서명', done: !!consSig, at: fmt(consSig?.signedAt) },
+    { label: '전기사용자 전자서명', desc: '전기사용자 계약 동의·서명', done: !!consSig, at: fmt(consSig?.signedAt) },
     { label: '계약 발효', desc: '양측 서명 완료 — 효력 발생', done: active },
   ];
   const currentIdx = steps.findIndex((s) => !s.done);

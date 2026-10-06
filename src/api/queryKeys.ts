@@ -328,6 +328,7 @@ export const settingsKeys = {
   lists: () => [...settingsKeys.all, 'list'] as const,
   byKey: (key: string) => [...settingsKeys.all, 'key', key] as const,
   energy: () => [...settingsKeys.all, 'energy'] as const,
+  industrialTariff: () => [...settingsKeys.all, 'industrial-tariff'] as const,
 };
 
 export const fileKeys = {

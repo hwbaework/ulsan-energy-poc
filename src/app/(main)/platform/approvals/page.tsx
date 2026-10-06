@@ -15,7 +15,7 @@ import { useToastStore } from '@/stores/useToastStore';
 
 // 승인 관리 — 가입 신청 계정을 표에서 바로 승인·반려한다. 상세 화면 없음.
 // 구분: 기업 관리자(기업의 첫 계정, 기업도 함께 승인) / 기업 회원(기존 기업 소속, 기업이 승인돼 있어야 함)
-// 역할은 소속 기업 유형으로 정해진다: 수용가 → 전기사용자, 발전사업자 → 발전사업자, SPC·운영사 → 관리자
+// 역할은 소속 기업 유형으로 정해진다: 전기사용자 → 전기사용자, 발전사업자 → 발전사업자, SPC·운영사 → 관리자
 
 type AccountType = 'COMPANY_ADMIN' | 'COMPANY_MEMBER';
 const TYPE_LABEL: Record<AccountType, string> = { COMPANY_ADMIN: '기업 관리자', COMPANY_MEMBER: '기업 회원' };

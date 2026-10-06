@@ -31,7 +31,7 @@ interface PlatformContract {
   id: string;
   contractNo: string;
   installer: string; // 시공사 (= SPC 또는 SPC 파트너)
-  customer: string; // 수용가 (= 건물주)
+  customer: string; // 전기사용자 (= 건물주)
   siteName: string;
   capacityKw: number;
   contractYears: number;
@@ -73,7 +73,7 @@ export default function PlatformLeaseSavingsSharePage() {
   const { data: _apiSavings } = useSavingsContracts();
   const [_period, _setPeriod] = useState<'month' | 'quarter' | 'year'>('month');
 
-  // 수용가별 정산 — 검색·정렬·페이징
+  // 전기사용자별 정산 — 검색·정렬·페이징
   const [breakdownSearch, _setBreakdownSearch] = useState('');
   const [breakdownSort, _setBreakdownSort] = useState<SortKey>('saved');
   const [breakdownExpanded, _setBreakdownExpanded] = useState(false);
@@ -98,7 +98,7 @@ export default function PlatformLeaseSavingsSharePage() {
     };
   }, []);
 
-  // 수용가별 합산 — "어디가 얼마 절감하고 얼마 셰어 받는지"
+  // 전기사용자별 합산 — "어디가 얼마 절감하고 얼마 셰어 받는지"
   const customerBreakdownAll = useMemo(() => {
     const map = new Map<
       string,
@@ -160,7 +160,7 @@ export default function PlatformLeaseSavingsSharePage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-white">절감 셰어 운영 대시보드</h1>
-        <p className="mt-1 text-sm text-slate-400">수용가(건물주) ↔ SPC(시공) 절감 셰어 계약의 자금 흐름·정산 현황</p>
+        <p className="mt-1 text-sm text-slate-400">전기사용자(건물주) ↔ SPC(시공) 절감 셰어 계약의 자금 흐름·정산 현황</p>
       </div>
 
       {/* KPI cards */}
@@ -179,7 +179,7 @@ export default function PlatformLeaseSavingsSharePage() {
         />
         <StatCard
           icon={<Wallet size={18} className="text-violet-400" />}
-          label="이번달 수용가 절감"
+          label="이번달 전기사용자 절감"
           value={fmtKrw(totals.monthlySaved)}
           sub="건물주 절약 합계"
         />
@@ -191,7 +191,7 @@ export default function PlatformLeaseSavingsSharePage() {
         />
         <StatCard
           icon={<Percent size={18} className="text-rose-400" />}
-          label="수용가 순이익"
+          label="전기사용자 순이익"
           value={fmtKrw(totals.monthlySaved - totals.monthlyShare)}
           sub={
             totals.monthlySaved > 0
@@ -208,7 +208,7 @@ export default function PlatformLeaseSavingsSharePage() {
             data={MONTHLY}
             xKey="period"
             bars={[{ key: 'totalShare', name: 'SPC 셰어 수익', color: '#10B981' }]}
-            lines={[{ key: 'totalSaved', name: '수용가 절감액', color: '#A78BFA' }]}
+            lines={[{ key: 'totalSaved', name: '전기사용자 절감액', color: '#A78BFA' }]}
             height={260}
           />
         </div>
@@ -224,7 +224,7 @@ export default function PlatformLeaseSavingsSharePage() {
             <thead className="text-left">
               <tr className="border-b border-white/[0.06] text-[11px] text-slate-500 bg-white/[0.02]">
                 <th className="px-4 py-2 text-left font-medium">계약번호</th>
-                <th className="px-4 py-2 text-left font-medium">수용가 (건물주)</th>
+                <th className="px-4 py-2 text-left font-medium">전기사용자 (건물주)</th>
                 <th className="px-4 py-2 text-left font-medium">시공 파트너</th>
                 <th className="px-4 py-2 font-medium">용량</th>
                 <th className="px-4 py-2 font-medium">계약</th>
@@ -232,7 +232,7 @@ export default function PlatformLeaseSavingsSharePage() {
                 <th className="px-4 py-2 text-left font-medium">상태</th>
                 <th className="px-4 py-2 font-medium">절감액</th>
                 <th className="px-4 py-2 font-medium">SPC 셰어</th>
-                <th className="px-4 py-2 font-medium">수용가 순이익</th>
+                <th className="px-4 py-2 font-medium">전기사용자 순이익</th>
               </tr>
             </thead>
             <tbody>

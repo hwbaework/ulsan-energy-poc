@@ -617,7 +617,7 @@ export default function DashboardPage() {
             iconColor: 'text-blue-400',
             iconBg: 'bg-blue-500/[0.10]',
             title: 'PPA 계약 매칭',
-            description: '수용가의 계약 요청을 확인하고 거래를 진행합니다.',
+            description: '전기사용자의 계약 요청을 확인하고 거래를 진행합니다.',
             features: [
               { icon: FileText, label: '거래 요청', desc: '매칭 요청 확인' },
               { icon: TrendingUp, label: '이행률 관리', desc: '계약 이행 현황' },

@@ -8,7 +8,7 @@ import { RmsLineChart } from '@/components/ui/Chart';
 import { useMonitoringConsumers } from '@/hooks/monitoring/useMonitoring';
 import { useVppDemandForecast, useVppDemandForecastSummary } from '@/hooks/der/useVpp';
 
-// VPP 포트폴리오(집합) 시드 대상 id — 설계문서 23 §2. 관리 수용가 부하 합산(COMPLEX).
+// VPP 포트폴리오(집합) 시드 대상 id — 설계문서 23 §2. 관리 전기사용자 부하 합산(COMPLEX).
 const PORTFOLIO_TARGET_ID = 9001;
 
 function isoDaysAgo(days: number): string {

@@ -1,7 +1,7 @@
 /* ════════════════════════════════════════════════════════════════════
  * MOCK TRADING STORE — API 미연결 단계 전용 (2026-06-10 지시)
  *
- * /platform/trading (SPC) · /ppa/trading (수용가) · /generator/trading (발전사)
+ * /platform/trading (SPC) · /ppa/trading (전기사용자) · /generator/trading (발전사)
  * 세 페이지가 공유하는 localStorage 기반 mock 데이터.
  * 같은 키를 보고 같은 데이터를 읽으며, 한쪽에서 mutate 하면 storage 이벤트로
  * 다른 탭에도 즉시 반영됨.
@@ -16,8 +16,8 @@
  *
  * ── 매칭 협상 흐름 (발전사 먼저) ──
  *   SPC 매칭(제안단가+메모)   → match: PROPOSED      → 발전사 카드 (수락/거절)
- *   발전사 수락               → match: GEN_ACCEPTED  → 수용가 카드 (수락/거절), 수용가 step 3
- *   수용가 수락               → match: ACCEPTED      → 양측 MATCHED (step 4)
+ *   발전사 수락               → match: GEN_ACCEPTED  → 전기사용자 카드 (수락/거절), 전기사용자 step 3
+ *   전기사용자 수락               → match: ACCEPTED      → 양측 MATCHED (step 4)
  *   어느 쪽이든 거절          → match: DECLINED      → 양측 SUBMITTED 복귀 (SPC 재매칭)
  * ════════════════════════════════════════════════════════════════════ */
 
@@ -42,7 +42,7 @@ export interface MockTradingRequest extends TradingRequest {
 // mock 전용 확장 — 백엔드 TradingMatch 에 없는 필드 (API 연결 시 백엔드 협의 필요)
 export interface MockTradingMatch extends TradingMatch {
   generatorRequestId?: number; // 발전사 본인 신청에서 매칭을 찾기 위한 역참조
-  consumerCompanyName?: string; // 발전사 카드에 수용가 표시용
+  consumerCompanyName?: string; // 발전사 카드에 전기사용자 표시용
   notes?: string; // SPC 협상 메모
   tradeFeeSupplyKwh?: number; // SPC 거래수수료 (전력공급거래 ₩/kWh)
   declinedBy?: 'GENERATOR' | 'CONSUMER'; // 어느 쪽이 거절했는지
@@ -67,7 +67,7 @@ export interface MockTradingState {
 // v10 — 승인 대기 시드를 POC 발전사(울산 발전(주) · 한일튜브)로 교체. 키를 올려 저장된 옛 상태를 버린다
 const STORAGE_KEY = 'energy-frontend:mock-trading-v10';
 
-/* 수용가 신청 12종 — 3개 유형 × 4단계 전부 노출 (mock 뽑아내기 모드)
+/* 전기사용자 신청 12종 — 3개 유형 × 4단계 전부 노출 (mock 뽑아내기 모드)
  *   Offsite PPA: id 1~4 (step 1~4)
  *   Onsite  PPA: id 5~8 (step 1~4)
  *   Lease   PPA: id 9~12 (step 1~4)
@@ -92,7 +92,7 @@ const consumerSeed = (
   desiredUnitPrice,
   region: '울산',
   siteName,
-  // plantName / expectedAnnualKwh / recEligible: 수용가 신청이라 없음
+  // plantName / expectedAnnualKwh / recEligible: 전기사용자 신청이라 없음
   notes: undefined,
   currentStep: step,
   submittedAt: `2026-06-${String(2 + id).padStart(2, '0')}T09:00:00`,
@@ -482,7 +482,7 @@ const SEED: MockTradingState = {
       declinedBy: 'GENERATOR',
       declineReason: '단가가 희망가(₩155) 대비 낮습니다. ₩152 이상으로 재협상 부탁드립니다.',
     },
-    // Onsite — 수용가 거절: 발전사 변경 요청
+    // Onsite — 전기사용자 거절: 발전사 변경 요청
     {
       id: 14,
       requestId: 20,
@@ -521,7 +521,7 @@ const SEED: MockTradingState = {
       declineReason:
         'SPC 제안 단가가 희망가(₩156) 대비 낮습니다. ₩154 이상으로 재협상 부탁드립니다.',
     },
-    // Lease 재매칭 — requestId 11(승인 대기) 의 이전 제안 거절: 수용가가 분배율 과다로 거절 → SPC 재제안(현재 id 8, 30%)
+    // Lease 재매칭 — requestId 11(승인 대기) 의 이전 제안 거절: 전기사용자가 분배율 과다로 거절 → SPC 재제안(현재 id 8, 30%)
     {
       id: 16,
       requestId: 11,
@@ -695,7 +695,7 @@ export function mockCreateMatch(
   return match;
 }
 
-// PATCH /trading/matches/{id}/accept — 발전사 수락 → 수용가 승인 대기 (step 3)
+// PATCH /trading/matches/{id}/accept — 발전사 수락 → 전기사용자 승인 대기 (step 3)
 export function mockGeneratorAcceptMatch(matchId: number) {
   setState((s) => {
     const match = s.matches.find((m) => m.id === matchId);
@@ -704,7 +704,7 @@ export function mockGeneratorAcceptMatch(matchId: number) {
       ...s,
       matches: s.matches.map((m) => (m.id === matchId ? { ...m, status: 'GEN_ACCEPTED' } : m)),
       requests: s.requests.map((r) => {
-        if (r.id === match.requestId) return { ...r, currentStep: 3 }; // 수용가 → 승인 대기
+        if (r.id === match.requestId) return { ...r, currentStep: 3 }; // 전기사용자 → 승인 대기
         if (r.id === match.generatorRequestId) return { ...r, currentStep: 3 }; // 발전사 → 승인 대기
         return r;
       }),
@@ -712,7 +712,7 @@ export function mockGeneratorAcceptMatch(matchId: number) {
   });
 }
 
-// PATCH /trading/matches/{id}/accept — 수용가 최종 수락 → 양측 MATCHED (step 4)
+// PATCH /trading/matches/{id}/accept — 전기사용자 최종 수락 → 양측 MATCHED (step 4)
 export function mockConsumerAcceptMatch(matchId: number) {
   setState((s) => {
     const match = s.matches.find((m) => m.id === matchId);

@@ -60,16 +60,16 @@ const SITE_COLORS = ['#f59e0b', '#0ea5e9', '#10b981', '#a855f7', '#ec4899', '#f4
 // (할 일 섹션 제거 — 정산서 동의·납부 안내는 KPI sub 텍스트 + 세금계산서 페이지에서 처리)
 
 /* ── 직접 PPA 수익 분배 모델 (trading/contracts/매칭 정합) ──
- *   발전 수익 = 자가소비 발전량 × 한전 단가 (수용가가 절약한 한전 요금)
- *   발전사 분배 = 발전 수익 × 분배율(30%) / 수용가 순이익 = 70%
+ *   발전 수익 = 자가소비 발전량 × 한전 단가 (전기사용자가 절약한 한전 요금)
+ *   발전사 분배 = 발전 수익 × 분배율(30%) / 전기사용자 순이익 = 70%
  *   ※ 단가(₩/kWh)가 아니라 분배율(%) 구조 — Lease 도메인 규칙
  */
 const KEPCO_AVG_PRICE = 119.6; // ₩/kWh — 한전 산업용 평균 (자가소비 절감 환산 기준)
-const GEN_SHARE_PCT = 30; // 발전사 분배율 (%) — 수용가 70%
+const GEN_SHARE_PCT = 30; // 발전사 분배율 (%) — 전기사용자 70%
 // 사업장 월 전력 사용량 — 계약 기준값(한일튜브 실사용 규모). 한전 수전량 자동연동 전까지 수기 기준으로 운용.
 const MONTHLY_USAGE_KWH = 180_000;
 
-// 월별 사용·충당·절감 — 계약 2026-01 ~ 운영 중 (수용가 관점)
+// 월별 사용·충당·절감 — 계약 2026-01 ~ 운영 중 (전기사용자 관점)
 //   룰: 계약 이전(1월) = 충당 0·전량 한전, 미래(6~12월) = null, 계약 기간(2~5월) = 실측 발전량 기반
 //   revenue(총 절감)/genShare(SPC 납부)/myNet(순 절감) = 백만원 / pvMwh·gridMwh = 사용 구성 (MWh)
 const toM = (kwh: number, ratio = 1) => Math.round((kwh * KEPCO_AVG_PRICE * ratio) / 1_000) / 1_000; // 백만원, 소수3
@@ -152,7 +152,7 @@ const STATUS_META: Record<PlantStatus, { tone: string; bg: string; ring: string;
   },
 };
 
-// 24시간 시간대별 발전량 — 내 옥상 설비 발전 곡선 (수용가도 내 건물 발전량은 직접 확인)
+// 24시간 시간대별 발전량 — 내 옥상 설비 발전 곡선 (전기사용자도 내 건물 발전량은 직접 확인)
 // 종모양 (6~18시), 사업장별 용량 비례
 function genSolarCurve(peakKw: number) {
   return Array.from({ length: 24 }, (_, h) => {
@@ -320,7 +320,7 @@ export default function LeaseDashboardPage() {
   const dailyGenHours =
     plant?.dailyEnergy != null && plant?.capacity ? plant.dailyEnergy / plant.capacity : DAILY_GEN_HOURS_FALLBACK;
 
-  // 이번 달 수용가 지표 — 커버리지 / 절감 / SPC 납부 / 순 절감 (분배율 모델, trading/매칭 정합)
+  // 이번 달 전기사용자 지표 — 커버리지 / 절감 / SPC 납부 / 순 절감 (분배율 모델, trading/매칭 정합)
   //   5월은 정산 미확정 (익월 15일 이후 확정) → 모두 예상치
   //   총 절감 (한전 대비)   = 발전량 × 한전 단가 = 53,999 × 119.6 = ₩6,458,280
   //   SPC 납부 (분배 30%)   = ₩1,937,484
@@ -328,7 +328,7 @@ export default function LeaseDashboardPage() {
   const MONTHLY_REVENUE_KRW = Math.round(MONTHLY_CUMULATIVE_KWH * KEPCO_AVG_PRICE);
   const MONTHLY_GEN_SHARE_KRW = Math.round((MONTHLY_REVENUE_KRW * GEN_SHARE_PCT) / 100);
   const MONTHLY_MY_NET_KRW = MONTHLY_REVENUE_KRW - MONTHLY_GEN_SHARE_KRW;
-  // 태양광 커버리지 — 내 사업장 사용량 중 자가소비 비율 (수용가 핵심 지표)
+  // 태양광 커버리지 — 내 사업장 사용량 중 자가소비 비율 (전기사용자 핵심 지표)
   const COVERAGE_PCT = Math.round((MONTHLY_CUMULATIVE_KWH / MONTHLY_USAGE_KWH) * 1000) / 10;
 
   return (
@@ -424,7 +424,7 @@ export default function LeaseDashboardPage() {
         </div>
       </div>
 
-      {/* KPI 4 — 수용가 관점: 커버리지 / 절감 / SPC 납부 / 순 절감 (설비·출력 지표는 헤더·설비 상세로) */}
+      {/* KPI 4 — 전기사용자 관점: 커버리지 / 절감 / SPC 납부 / 순 절감 (설비·출력 지표는 헤더·설비 상세로) */}
       <StatsGrid columns={4}>
         <StatCard
           icon={<Sun size={18} className="text-amber-400" />}
@@ -492,7 +492,7 @@ export default function LeaseDashboardPage() {
         </div>
       </SectionCard>
 
-      {/* 월별 전력 사용 구성 — 태양광이 내 사용량을 얼마나 충당하는지 (수용가 1차 질문) */}
+      {/* 월별 전력 사용 구성 — 태양광이 내 사용량을 얼마나 충당하는지 (전기사용자 1차 질문) */}
       <SectionCard
         title="월별 전력 사용 — 태양광 충당 vs 한전 수전"
         description="내 사업장 사용량 중 태양광 자가소비가 충당한 비중 — 한전 수전이 줄수록 절감 효과 큼"
@@ -567,7 +567,7 @@ export default function LeaseDashboardPage() {
         </div>
       </SectionCard>
 
-      {/* 내 옥상 발전 현황 — 수용가도 내 건물 위 발전량은 직접 확인 (시간/일/월) */}
+      {/* 내 옥상 발전 현황 — 전기사용자도 내 건물 위 발전량은 직접 확인 (시간/일/월) */}
       <GenerationTrendCard
         description={(() => {
           const isMulti = !isSingleSelected && selectedSites.size > 1;

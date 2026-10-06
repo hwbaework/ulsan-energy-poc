@@ -310,7 +310,7 @@ export default function SettlementPage() {
     [consultations],
   );
 
-  // 수용가 = 잡코리아 헤드헌터 보수 모델 기반 정산 확인 (SPC/용역사 = 기존 사업비 집행 뷰)
+  // 전기사용자 = 잡코리아 헤드헌터 보수 모델 기반 정산 확인 (SPC/용역사 = 기존 사업비 집행 뷰)
   if (persona === 'consumer') {
     return <ConsumerSettlementView />;
   }

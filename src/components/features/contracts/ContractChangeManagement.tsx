@@ -220,7 +220,7 @@ export function ContractChangeManagement() {
               // 신청자/상대방 — requestedByRole 기준. 상대방이 동의 대상.
               const requesterPersona: Persona = c.requestedByRole === 'GENERATOR' ? 'generator' : 'consumer';
               const counterpartyPersona: Persona = requesterPersona === 'generator' ? 'consumer' : 'generator';
-              const counterpartyLabel = counterpartyPersona === 'generator' ? '발전사' : '수용가';
+              const counterpartyLabel = counterpartyPersona === 'generator' ? '발전사' : '전기사용자';
               // 상대방 동의 액션 (PENDING 일 때 상대방 페르소나만)
               const canCounterpartyAct = persona === counterpartyPersona && consent === 'PENDING' && isOpen;
               // SPC 확정 — 상대방 동의 완료/불필요일 때만. 반려는 진행중이면 언제든.
@@ -240,7 +240,7 @@ export function ContractChangeManagement() {
                         <StatusBadge status={c.status} />
                       </div>
                       <p className="text-[11px] text-slate-500 mt-1">
-                        신청: {requesterPersona === 'generator' ? '발전사' : '수용가'} · {c.generatorCompanyName} ↔{' '}
+                        신청: {requesterPersona === 'generator' ? '발전사' : '전기사용자'} · {c.generatorCompanyName} ↔{' '}
                         {c.consumerCompanyName} · {c.createdAt ? new Date(c.createdAt).toLocaleDateString('ko-KR') : ''}
                       </p>
                       {formatChangeDetail(c) && (

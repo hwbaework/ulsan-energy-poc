@@ -109,7 +109,7 @@ export async function calculateSavings(params: {
   return getApiClient().get(ENDPOINTS.lease.calculateSavings, params);
 }
 
-// --- 수용가 온사이트 PPA 신청 ---
+// --- 전기사용자 온사이트 PPA 신청 ---
 
 export async function createLeaseRequest(params: {
   consumerCompanyId: number;

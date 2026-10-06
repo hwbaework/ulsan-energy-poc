@@ -62,7 +62,7 @@ const STATUS_BADGE: Record<RequestStatus, { variant: 'warning' | 'success' | 'da
 };
 
 /* ─── 컨설턴트 신규 의뢰함 mock ───
-   의뢰는 수용가의 "무료 진단(5단계) → 견적 요청" 흐름에서 생성된다.
+   의뢰는 전기사용자의 "무료 진단(5단계) → 견적 요청" 흐름에서 생성된다.
    따라서 의뢰 1건 = 진단 제출물 전체(DiagnosisForm) + 진단 결과 등급.
    상세 모달은 진단 확인(5단계) 화면을 그대로 미러링 + 도메인별 상세까지 컨설턴트에게 노출.
    includePpaSupport 는 "PPA 도입 자문을 원하는가"의 yes/no 플래그일 뿐, 어떤 PPA 인지는 컨설팅 후 결정. */
@@ -207,7 +207,7 @@ export default function ConsultingRequestsPage() {
       <div>
         <h1 className="text-xl font-bold text-white">신규 의뢰</h1>
         <p className="mt-1 text-sm text-slate-400">
-          수용가이 무료 진단을 통해 신청한 RE100 이행 컨설팅 의뢰입니다. 상세에서 진단 입력 전체를 확인할 수 있습니다.
+          전기사용자가 무료 진단을 통해 신청한 RE100 이행 컨설팅 의뢰입니다. 상세에서 진단 입력 전체를 확인할 수 있습니다.
           어떤 PPA를 도입할지는 진단·전략 수립 이후 결정됩니다.
         </p>
       </div>
@@ -251,7 +251,7 @@ export default function ConsultingRequestsPage() {
             <thead className="text-left text-xs text-slate-400 border-b border-white/[0.06]">
               <tr>
                 <th className="px-4 py-3 font-medium">컨설팅 분야</th>
-                <th className="px-4 py-3 font-medium">수용가</th>
+                <th className="px-4 py-3 font-medium">전기사용자</th>
                 <th className="px-4 py-3 font-medium">지역</th>
                 <th className="px-4 py-3 font-medium">진단 결과</th>
                 <th className="px-4 py-3 font-medium">신청 내용</th>
@@ -297,7 +297,7 @@ export default function ConsultingRequestsPage() {
                           {meta.label}
                         </span>
                       </td>
-                      {/* 수용가 + 업종 */}
+                      {/* 전기사용자 + 업종 */}
                       <td className="px-4 py-3 whitespace-nowrap">
                         <p className="text-white font-medium">{d.companyName}</p>
                         <p className="text-[11px] text-slate-500">{d.industry}</p>
@@ -418,10 +418,10 @@ export default function ConsultingRequestsPage() {
                   </div>
                 </div>
 
-                {/* 수용가 헤드라인 */}
+                {/* 전기사용자 헤드라인 */}
                 <div className="flex items-end justify-between gap-3 flex-wrap">
                   <div>
-                    <p className="text-xs text-slate-400 mb-1">수용가</p>
+                    <p className="text-xs text-slate-400 mb-1">전기사용자</p>
                     <p className="text-base font-semibold text-white">{d.companyName}</p>
                     <p className="mt-0.5 text-xs text-slate-400">
                       {d.industry} · {d.companySize}

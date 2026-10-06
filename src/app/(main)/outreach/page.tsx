@@ -290,7 +290,7 @@ export default function OutreachPage() {
               <input
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                placeholder="예: RE100 이행수단 컨설팅 — 수용가명"
+                placeholder="예: RE100 이행수단 컨설팅 — 전기사용자명"
                 className="w-full rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500"
               />
             </label>

@@ -293,7 +293,7 @@ export default function PlatformLeaseTaxInvoicePage() {
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <Input
             type="text"
-            placeholder="수용가·발전사업자·계산서 번호"
+            placeholder="전기사용자·발전사업자·계산서 번호"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -358,7 +358,7 @@ export default function PlatformLeaseTaxInvoicePage() {
               <thead className="text-left">
                 <tr className="text-[11px] text-slate-500 bg-white/[0.02] border-b border-white/[0.06]">
                   <th className="text-left font-medium px-4 py-3">정산월</th>
-                  <th className="text-left font-medium px-3 py-3">수용가</th>
+                  <th className="text-left font-medium px-3 py-3">전기사용자</th>
                   <th className="text-left font-medium px-3 py-3">발전사업자 · 설비</th>
                   <th className="font-medium px-3 py-3">공급가액</th>
                   <th className="font-medium px-3 py-3">VAT</th>

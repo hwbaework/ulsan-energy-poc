@@ -583,7 +583,7 @@ export default function PlantDetailPage() {
         </SectionCard>
       )}
 
-      {/* 이상감지 + 대상 수용가 (non-LASEE only) */}
+      {/* 이상감지 + 대상 전기사용자 (non-LASEE only) */}
       {!hasLasee && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <SectionCard title="이상감지" description="최근 7일">
@@ -598,7 +598,7 @@ export default function PlantDetailPage() {
             )}
           </SectionCard>
 
-          <SectionCard title="대상 수용가" description={`${plant.consumers.length}개사`}>
+          <SectionCard title="대상 전기사용자" description={`${plant.consumers.length}개사`}>
             <div className="space-y-4">
               <select
                 value={selectedConsumer}
@@ -637,7 +637,7 @@ export default function PlantDetailPage() {
                     className="w-full"
                     onClick={() => router.push(`/monitoring/consumer/${activeConsumer.id}`)}
                   >
-                    수용가 상세보기
+                    전기사용자 상세보기
                   </Button>
                 </div>
               )}

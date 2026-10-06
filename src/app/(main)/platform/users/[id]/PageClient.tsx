@@ -14,7 +14,7 @@ const ROLE_LABEL_MAP: Record<string, string> = {
   SYSTEM_ADMIN: '시스템 관리자',
   COMPANY_ADMIN: '기업 관리자',
   POWER_OPERATOR: '발전사업자',
-  CONSUMER_MANAGER: '수용가 담당자',
+  CONSUMER_MANAGER: '전기사용자 담당자',
   CONSULTANT: '컨설턴트',
   SPC_OPERATOR: 'SPC 운영자',
   FIELD_OPERATOR: '현장 운영자',

@@ -328,7 +328,7 @@ export default function NewProjectPage() {
 
               <FormSection title="대상 정보" description="용역 대상 정보를 입력하세요 (선택)">
                 <Select
-                  label="대상 수용가"
+                  label="대상 전기사용자"
                   placeholder="담당자가 발굴 예정"
                   options={CONSUMER_OPTIONS}
                   value={form.consumerId}

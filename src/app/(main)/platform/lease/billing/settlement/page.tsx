@@ -141,7 +141,7 @@ export default function PlatformLeaseSettlementPage() {
     { key: 'period', header: '정산월', render: (r) => <span className="text-white/80">{r.period}</span> },
     {
       key: 'company',
-      header: '수용가',
+      header: '전기사용자',
       render: (r) => (
         <div>
           <div className="font-medium text-white">{r.company}</div>
@@ -178,7 +178,7 @@ export default function PlatformLeaseSettlementPage() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">정산 (온사이트)</h1>
-          <p className="mt-1 text-sm text-slate-400">전체 직접 PPA 수용가의 정산 현황을 관리합니다</p>
+          <p className="mt-1 text-sm text-slate-400">전체 직접 PPA 전기사용자의 정산 현황을 관리합니다</p>
         </div>
         <div className="flex gap-2">
           <Button
@@ -188,7 +188,7 @@ export default function PlatformLeaseSettlementPage() {
               exportExcel(
                 `리스-정산-${new Date().toISOString().slice(0, 10)}`,
                 '정산',
-                ['기간', '수용가', '사업장', '발전량(kWh)', '단가(원)', 'PPA 요금', 'VAT', '합계', '상태', '청구일'],
+                ['기간', '전기사용자', '사업장', '발전량(kWh)', '단가(원)', 'PPA 요금', 'VAT', '합계', '상태', '청구일'],
                 filtered.map((r) => [
                   r.period,
                   r.company,
@@ -265,7 +265,7 @@ export default function PlatformLeaseSettlementPage() {
         headerRight={
           <div className="flex items-center gap-2 flex-wrap">
             <Input
-              placeholder="수용가 검색..."
+              placeholder="전기사용자 검색..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-40"
@@ -301,7 +301,7 @@ export default function PlatformLeaseSettlementPage() {
             <Dropdown
               trigger={
                 <Button variant="ghost" size="sm">
-                  {companyFilter === 'all' ? '전체 수용가' : companyFilter} <ChevronDown size={12} className="ml-1" />
+                  {companyFilter === 'all' ? '전체 전기사용자' : companyFilter} <ChevronDown size={12} className="ml-1" />
                 </Button>
               }
             >

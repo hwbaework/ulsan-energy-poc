@@ -67,7 +67,7 @@ interface CompanyRow {
 // 사업 유형 → 회원가입 3유형과 동일한 표기
 function companyType(businessTypes: string[] = []): string {
   if (businessTypes.includes('발전사업자')) return '발전사업자';
-  if (businessTypes.includes('수용가')) return '전기사용자';
+  if (businessTypes.includes('전기사용자')) return '전기사용자';
   if (businessTypes.includes('SPC') || businessTypes.includes('운영사')) return '관리자 (SPC)';
   return '-';
 }

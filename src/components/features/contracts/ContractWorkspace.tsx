@@ -50,7 +50,7 @@ const MODEL_META: Record<Model, { label: string; tone: string; bg: string; ring:
     tone: 'text-emerald-300',
     bg: 'bg-emerald-500/[0.10]',
     ring: 'ring-emerald-500/30',
-    desc: '발전사가 수용가 부지에 설치 — 한전망 미사용, 전량 직접 공급',
+    desc: '발전사가 전기사용자 부지에 설치 — 한전망 미사용, 전량 직접 공급',
   },
   offsite: {
     label: 'Offsite PPA',
@@ -87,7 +87,7 @@ const PERSONA = {
     settlement: '/ppa/billing/settlement',
   },
   generator: {
-    counterpartyLabel: '수용가',
+    counterpartyLabel: '전기사용자',
     counterpartyField: 'consumerCompanyName',
     settlement: '/generator/ppa/revenue/analytics',
   },
@@ -165,7 +165,7 @@ function ContractDetail({
   const left = daysLeft(contract.endDate);
   const cap = (contract.totalCapacityKw ?? 0).toLocaleString();
   const generatorName = contract.generatorCompanyName ?? '발전사';
-  const consumerName = contract.consumerCompanyName ?? '수용가';
+  const consumerName = contract.consumerCompanyName ?? '전기사용자';
 
   const TABS: { key: 'doc' | 'terms' | 'settle'; label: string }[] = [
     { key: 'doc', label: '계약서·서명' },
@@ -262,7 +262,7 @@ function ContractDetail({
               <Term label="공급 단가" value={`₩${(contract.unitPriceKrw ?? 0).toLocaleString()}/kWh`} />
             )}
             <Term label="발전사" value={generatorName} />
-            <Term label="수용가" value={consumerName} />
+            <Term label="전기사용자" value={consumerName} />
             <Term label="계약 기간" value={`${start} ~ ${end}`} />
             <Term label="잔여" value={isActive ? `D-${left.toLocaleString()}` : '—'} />
             {model === 'offsite' && <Term label="공급 방식" value="한전망 경유 (망 이용료)" />}
@@ -399,7 +399,7 @@ export function ContractWorkspace({ persona: personaOverride }: { persona?: Pers
   const rows = useMemo(() => ((data as any)?.content ?? data ?? []) as any[], [data]);
   const contracts = useMemo(() => {
     const ppa = rows.map((c) => ({ ...c, model: resolveModel(c), isVolumeLease: false }));
-    // 별도 테이블 volume_lease_contracts(레거시 Lease) 병합 — 발전사·수용가 양쪽 스코프
+    // 별도 테이블 volume_lease_contracts(레거시 Lease) 병합 — 발전사·전기사용자 양쪽 스코프
     const leaseRows = ((leaseData as any)?.content ?? leaseData ?? []) as any[];
     const lease = leaseRows.map((v) => {
       const start = v.startDate?.slice(0, 10);
@@ -416,7 +416,7 @@ export function ContractWorkspace({ persona: personaOverride }: { persona?: Pers
         contractType: 'SAVINGS_SHARE',
         status: v.status ?? 'ACTIVE',
         generatorCompanyName: v.generatorCompanyName ?? '발전사',
-        consumerCompanyName: v.consumerCompanyName ?? v.siteName ?? '수용가',
+        consumerCompanyName: v.consumerCompanyName ?? v.siteName ?? '전기사용자',
         consumerSiteName: v.siteName,
         totalCapacityKw: v.capacityKw ?? 0,
         unitPriceKrw: 0,

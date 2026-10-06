@@ -176,7 +176,7 @@ export default function ConsumerDashboardPage() {
       <div>
         <h1 className="text-2xl font-bold text-white">대시보드</h1>
         <p className="mt-1 text-sm text-slate-400">
-          {companyName || '수용가'} · {activeContracts.length}개 PPA · 절감·RE100·전력 한눈에
+          {companyName || '전기사용자'} · {activeContracts.length}개 PPA · 절감·RE100·전력 한눈에
         </p>
       </div>
 
@@ -384,7 +384,7 @@ export default function ConsumerDashboardPage() {
                 <Activity size={18} className="text-sky-400" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-white">수용가 모니터링</p>
+                <p className="text-sm font-medium text-white">전기사용자 모니터링</p>
                 <p className="truncate text-xs text-slate-400">실시간 PPA 공급 · 발전 추이</p>
               </div>
               <ChevronRight size={16} className="shrink-0 text-slate-500" />

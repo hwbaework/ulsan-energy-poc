@@ -137,7 +137,7 @@ export default function PlatformLeaseDashboardPage() {
   const columns: Column<LeaseConsumer>[] = [
     {
       key: 'company',
-      header: '수용가',
+      header: '전기사용자',
       render: (r) => (
         <div>
           <div className="font-medium text-white">{r.company}</div>
@@ -280,7 +280,7 @@ export default function PlatformLeaseDashboardPage() {
         headerRight={
           <div className="flex items-center gap-2">
             <Input
-              placeholder="수용가 검색..."
+              placeholder="전기사용자 검색..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-48"

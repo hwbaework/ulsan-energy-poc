@@ -35,14 +35,14 @@ import {
 const DR_STEPS = [
   {
     t: '자원 등록',
-    d: '감축 가능 수용가를 DR 자원으로 등록 — 감축용량·기준부하(baseline) 확보로 이행 검증 기준선 마련',
+    d: '감축 가능 전기사용자를 DR 자원으로 등록 — 감축용량·기준부하(baseline) 확보로 이행 검증 기준선 마련',
   },
-  { t: 'DR 발령', d: '수급 갭이 큰 시간대(야간·저녁)에 대상 수용가 부하 감축 발령 — 공급부족 완화' },
+  { t: 'DR 발령', d: '수급 갭이 큰 시간대(야간·저녁)에 대상 전기사용자 부하 감축 발령 — 공급부족 완화' },
   { t: '이행 검증', d: 'DR 감축 이행 실적을 입력·계측(actualReductionKw)해 이행률(fulfillmentPct) 자동 산출' },
   { t: '이행 성과', d: '검증완료 이력을 집계해 누적 피크 감축(효율 성과) 확인 — 재무 정산 아님' },
 ];
 
-// VPP 포트폴리오(집합) 시드 대상 id — 관리 수용가 부하 합산(COMPLEX). 설계문서 23 §2.
+// VPP 포트폴리오(집합) 시드 대상 id — 관리 전기사용자 부하 합산(COMPLEX). 설계문서 23 §2.
 const PORTFOLIO_TARGET_ID = 9001;
 
 function today(): string {
@@ -60,7 +60,7 @@ interface BalanceRow {
   key: string;
   label: string; // 날짜+시 (x축)
   supplyKw: number; // 태양광 공급 예측 합산(kWh/h를 평균 kW로 간주)
-  demandKw: number; // 수용가 부하 예측(kW)
+  demandKw: number; // 전기사용자 부하 예측(kW)
   gapKw: number; // 수요 − 공급 (양수=공급부족)
   hasSupply: boolean; // 이 (date,hour)에 공급 예측이 존재하는가 (갭 산출 대상 한정용)
 }
@@ -106,7 +106,7 @@ export default function VppDrPage() {
     );
   };
 
-  // 수용가 후보 행 클릭 → DR 발령 폼 프리필 (딥링크와 동일 동작)
+  // 전기사용자 후보 행 클릭 → DR 발령 폼 프리필 (딥링크와 동일 동작)
   const prefillFromConsumer = (c: { companyId: number; name: string; suggestedKw: number }) => {
     setTargetType('CONSUMER');
     setTargetRefId(String(c.companyId));
@@ -188,14 +188,14 @@ export default function VppDrPage() {
     '수요(부하)': Math.round(r.demandKw),
   }));
 
-  // ── DR 대상 후보 = 수용가(수요기업). 개념 교정: DR은 부하 감축이 본질. ──
+  // ── DR 대상 후보 = 전기사용자(수요기업). 개념 교정: DR은 부하 감축이 본질. ──
   const consumersQ = useMonitoringConsumers();
   const consumers = consumersQ.data ?? [];
 
   // ── DR 자원(감축 가능 자원 baseline) — 이행 검증의 기준선·감축용량 확보. ──
   const drResourcesQ = useDrResources(companyId);
   const drResources = drResourcesQ.data ?? [];
-  // resourceId(=수용가 companyId) → 등록된 감축용량(kW) 매핑. 제안 감축량 우선 사용.
+  // resourceId(=전기사용자 companyId) → 등록된 감축용량(kW) 매핑. 제안 감축량 우선 사용.
   const drCapByConsumer = useMemo(() => {
     const m = new Map<number, number>();
     for (const r of drResources) {
@@ -240,7 +240,7 @@ export default function VppDrPage() {
       },
       {
         onSuccess: () => {
-          addToast('success', `${picked?.name ?? '수용가'} DR 자원 등록 완료 (${drReductionCapacityKw} kW)`);
+          addToast('success', `${picked?.name ?? '전기사용자'} DR 자원 등록 완료 (${drReductionCapacityKw} kW)`);
           setDrTargetConsumer('');
           setDrReductionCapacityKw('');
           setDrBaselineKwh('');
@@ -336,7 +336,7 @@ export default function VppDrPage() {
           </div>
         </div>
         <p className="mt-1 text-[11px] text-slate-500">
-          공급=회사 태양광 발전소 예측 합산(kW) · 수요=관리 수용가 부하 예측(kW, COMPLEX 포트폴리오). 갭 = 수요 −
+          공급=회사 태양광 발전소 예측 합산(kW) · 수요=관리 전기사용자 부하 예측(kW, COMPLEX 포트폴리오). 갭 = 수요 −
           공급(양수=공급부족).
           <span className="ml-1 text-amber-400/80">
             공급 kWh/h ≈ 평균 kW로 간주해 kW로 통일. 공급 예측이 있는 시간대만 갭 산출.
@@ -394,15 +394,15 @@ export default function VppDrPage() {
           <span className="text-xs text-slate-400">등록 {drResources.length}건</span>
         </div>
         <p className="mt-1 text-[11px] text-slate-500">
-          수용가별 감축용량(kW)과 기준부하(baseline)를 등록하면 이행 검증의 기준선이 되고, 아래 대상 후보의 &apos;제안
+          전기사용자별 감축용량(kW)과 기준부하(baseline)를 등록하면 이행 검증의 기준선이 되고, 아래 대상 후보의 &apos;제안
           감축량&apos;에 우선 반영됩니다. (부하측 DR — 발전소 연계 없음)
         </p>
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-3">
           <label className="text-xs text-slate-400">
-            대상 수용가
+            대상 전기사용자
             <Select
               className="mt-1"
-              placeholder="수용가 선택"
+              placeholder="전기사용자 선택"
               options={consumerOptions}
               value={drTargetConsumer}
               onChange={(e) => setDrTargetConsumer(e.target.value)}
@@ -447,7 +447,7 @@ export default function VppDrPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/[0.06] text-left text-xs text-slate-500">
-                <th className="px-4 py-2.5">대상(수용가 ID)</th>
+                <th className="px-4 py-2.5">대상(전기사용자 ID)</th>
                 <th className="px-4 py-2.5 text-right">감축용량</th>
                 <th className="px-4 py-2.5 text-right">기준부하 baseline</th>
                 <th className="px-4 py-2.5 text-right">계측 연계</th>
@@ -480,7 +480,7 @@ export default function VppDrPage() {
                   <td colSpan={4} className="px-4 py-8 text-center text-xs text-slate-500">
                     {drResourcesQ.isLoading
                       ? '불러오는 중…'
-                      : '등록된 DR 자원이 없습니다. 위에서 수용가를 선택해 등록하세요.'}
+                      : '등록된 DR 자원이 없습니다. 위에서 전기사용자를 선택해 등록하세요.'}
                   </td>
                 </tr>
               )}
@@ -496,7 +496,7 @@ export default function VppDrPage() {
           {label && <span className="ml-2 rounded bg-sky-500/10 px-2 py-0.5 text-xs text-sky-300">대상: {label}</span>}
         </div>
         <p className="mt-1 text-[11px] text-slate-500">
-          위 수급 밸런스의 공급부족 시간대 또는 아래 수용가 표에서 선택하면 대상·감축량이 자동 입력됩니다.
+          위 수급 밸런스의 공급부족 시간대 또는 아래 전기사용자 표에서 선택하면 대상·감축량이 자동 입력됩니다.
         </p>
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-3">
           <label className="text-xs text-slate-400">
@@ -510,7 +510,7 @@ export default function VppDrPage() {
               type="number"
               value={targetRefId}
               onChange={(e) => setTargetRefId(e.target.value)}
-              placeholder="수용가 ID"
+              placeholder="전기사용자 ID"
             />
           </label>
           <label className="text-xs text-slate-400">
@@ -541,22 +541,22 @@ export default function VppDrPage() {
         </div>
       </div>
 
-      {/* DR 대상 후보 — 수용가(수요기업). 클릭 시 폼 프리필. 개념 교정: DR=부하 감축. */}
+      {/* DR 대상 후보 — 전기사용자(수요기업). 클릭 시 폼 프리필. 개념 교정: DR=부하 감축. */}
       <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm font-semibold text-white">
-            <Users size={14} className="text-sky-400" /> DR 대상 후보 (수용가·수요기업)
+            <Users size={14} className="text-sky-400" /> DR 대상 후보 (전기사용자·수요기업)
           </div>
-          <span className="text-xs text-slate-400">{consumerRows.length}개 수용가</span>
+          <span className="text-xs text-slate-400">{consumerRows.length}개 전기사용자</span>
         </div>
         <p className="mt-1 text-[11px] text-slate-500">
-          DR은 수용가 부하 감축이 본질입니다. 행을 &apos;DR 발령&apos; 하면 대상·제안 감축량이 폼에 채워집니다.
+          DR은 전기사용자 부하 감축이 본질입니다. 행을 &apos;DR 발령&apos; 하면 대상·제안 감축량이 폼에 채워집니다.
         </p>
         <div className="mt-3 overflow-hidden rounded-lg border border-white/[0.06]">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/[0.06] text-left text-xs text-slate-500">
-                <th className="px-4 py-2.5">수용가</th>
+                <th className="px-4 py-2.5">전기사용자</th>
                 <th className="px-4 py-2.5 text-right">제안 감축량</th>
                 <th className="px-4 py-2.5 text-right">액션</th>
               </tr>
@@ -589,7 +589,7 @@ export default function VppDrPage() {
               {!consumerRows.length && (
                 <tr>
                   <td colSpan={3} className="px-4 py-8 text-center text-xs text-slate-500">
-                    {consumersQ.isLoading ? '불러오는 중…' : '관리 수용가가 없습니다.'}
+                    {consumersQ.isLoading ? '불러오는 중…' : '관리 전기사용자가 없습니다.'}
                   </td>
                 </tr>
               )}
@@ -721,7 +721,7 @@ export default function VppDrPage() {
           </span>
         </div>
         <p className="mt-1 text-[11px] text-slate-500">
-          발전 자원은 공급측 참고 정보입니다. DR 발령 대상이 아닙니다(발령 대상=수용가 부하).
+          발전 자원은 공급측 참고 정보입니다. DR 발령 대상이 아닙니다(발령 대상=전기사용자 부하).
         </p>
         <div className="mt-3 overflow-hidden rounded-lg border border-white/[0.06]">
           <table className="w-full text-sm">

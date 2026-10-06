@@ -102,7 +102,7 @@ const STATUS_META: Record<PlantStatus, { label: string; tone: string; bg: string
 
 /* ───────────────────────── PPA 설비 (직접 PPA) ─────────────────────────
  * 발전사가 보유한 "PPA 설비" 카탈로그 — 사진 중심
- * 설치 위치·용량은 등록 시점에 알 수 없음 (SPC 가 수용가와 매칭할 때 결정)
+ * 설치 위치·용량은 등록 시점에 알 수 없음 (SPC 가 전기사용자와 매칭할 때 결정)
  * 승인 절차 없음 — 등록하면 SPC 가 Lease 매칭 시 열람
  * TODO(API): PPA 설비 등록/조회 + 사진 업로드 API 연결 */
 // Lease 보상 = 수익 분배율(%) — 단가(₩) 개념 없음

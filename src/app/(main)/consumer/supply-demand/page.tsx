@@ -55,7 +55,7 @@ export default function SupplyDemandPage() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb items={[{ label: '수용가', path: '/consumer' }, { label: '수요-공급 통합 뷰' }]} />
+      <Breadcrumb items={[{ label: '전기사용자', path: '/consumer' }, { label: '수요-공급 통합 뷰' }]} />
       <div>
         <h1 className="text-xl font-bold text-white">수요-공급 통합 뷰</h1>
         <p className="mt-1 text-sm text-slate-400">전력 소비와 재생에너지 공급의 균형 현황</p>

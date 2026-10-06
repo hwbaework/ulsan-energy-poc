@@ -184,6 +184,7 @@ export const ENDPOINTS = {
     byKey: (key: string) => `${V1}/settings/${key}`,
     billingRates: `${V1}/settings/public/billing-rates`,
     energy: `${V1}/settings/public/energy`,
+    industrialTariff: `${V1}/settings/public/industrial-tariff`,
   },
   monitoring: {
     dashboard: `${V1}/monitoring/dashboard`,

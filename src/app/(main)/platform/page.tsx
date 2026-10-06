@@ -22,7 +22,7 @@ const ROLE_LABEL: Record<string, string> = {
   PPA_MANAGER: 'PPA 관리자',
   VPP_TRADER: 'VPP 거래자',
   CONSULTANT: '컨설턴트',
-  CONSUMER_MANAGER: '수용가 관리자',
+  CONSUMER_MANAGER: '전기사용자 관리자',
   SPC_OPERATOR: 'SPC 운영자',
   VIEWER: '조회자',
 };
@@ -166,7 +166,7 @@ export default function PlatformPage() {
           icon={<Building2 size={18} className="text-emerald-400" />}
           label="등록 기업"
           value={`${companyCount}개사`}
-          sub="발전사 6 · 수용가 4 · SPC 1"
+          sub="발전사 6 · 전기사용자 4 · SPC 1"
         />
         <StatCard
           icon={<ShieldCheck size={18} className="text-amber-400" />}
@@ -285,7 +285,7 @@ export default function PlatformPage() {
                   <th className="px-6 py-3 font-medium">계약번호</th>
                   <th className="px-6 py-3 font-medium">유형</th>
                   <th className="px-6 py-3 font-medium">발전사</th>
-                  <th className="px-6 py-3 font-medium">수용가</th>
+                  <th className="px-6 py-3 font-medium">전기사용자</th>
                   <th className="px-6 py-3 font-medium">용량</th>
                   <th className="px-6 py-3 font-medium">단가</th>
                   <th className="px-6 py-3 font-medium">상태</th>

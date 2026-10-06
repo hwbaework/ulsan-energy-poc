@@ -37,3 +37,19 @@ export const useUpdateSetting = () => {
     },
   });
 };
+
+export const useIndustrialTariff = () => {
+  return useQuery({
+    queryKey: settingsKeys.industrialTariff(),
+    queryFn: () => settingsApi.getIndustrialTariff(),
+    staleTime: 5 * 60_000,
+  });
+};
+
+export const useSaveIndustrialTariff = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: settingsApi.saveIndustrialTariff,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: settingsKeys.industrialTariff() }),
+  });
+};
