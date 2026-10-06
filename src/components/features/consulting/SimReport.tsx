@@ -454,7 +454,6 @@ function InputRecord({ input: i, companyName }: { input: SimInput; companyName: 
 
 /* ── KPI ── */
 function SelfKpis({ R }: { R: SelfResult }) {
-  const sur = R.mrows.reduce((a, r) => a + r.surplus, 0);
   return (
     <>
       <Kpi
@@ -463,7 +462,6 @@ function SelfKpis({ R }: { R: SelfResult }) {
         s={
           <>
             일평균 발전시간 {F2(R.annualGen1 / R.cap / 365)}h · 자가소비율 {(R.selfRatio * 100).toFixed(1)}%
-            {sur > 0 && <span className="ml-1 rounded bg-amber-100 px-1.5 font-bold text-amber-700">잉여 {F(sur / 1000)} MWh/년</span>}
           </>
         }
       />
