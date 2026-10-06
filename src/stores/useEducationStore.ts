@@ -4,6 +4,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { ssrSafeStorage } from '@/lib/ssr-storage';
 import type { EduCertificate, EduQuizProgress } from '@/types/education';
 import { roundCourseTitle } from '@/types/education';
+import { MOCK_EDU_REPORTS, getRoundQuiz } from '@/lib/mock-education';
 
 interface GradeRoundInput {
   round: string;
@@ -19,6 +20,9 @@ interface EducationState {
   readReportIds: string[];
   progressByRound: Record<string, EduQuizProgress>;
   certificates: EduCertificate[];
+  /** 데모 — 1차를 이미 이수한 상태로 시작했는지 */
+  demoSeeded: boolean;
+  seedDemo: (userName: string, companyName?: string) => void;
   markRead: (reportId: string) => void;
   /**
    * 라운드 채점 반영. 맞힌 문항은 누적되고, 전 문항을 맞히면 이수 처리 후
@@ -42,6 +46,28 @@ export const useEducationStore = create<EducationState>()(
       readReportIds: [],
       progressByRound: {},
       certificates: [],
+      demoSeeded: false,
+
+      // 데모 — 발전사업자·전기사용자는 1차를 이미 이수(전 문항 정답 · 수료증 발급)한 상태로 시작한다. 한 번만
+      seedDemo: (userName, companyName) => {
+        if (get().demoSeeded) return;
+        const ids = getRoundQuiz(MOCK_EDU_REPORTS, '1').map((q) => q.id);
+        const progress: EduQuizProgress = { round: '1', correctQuestionIds: ids, attemptCount: 1, completedAt: '2026-08-05T10:00:00' };
+        const certificate: EduCertificate = {
+          id: 'cert-demo-1',
+          certificateNo: 'RE100-EDU-2026-0001',
+          round: '1',
+          courseTitle: roundCourseTitle('1'),
+          userName,
+          companyName,
+          issuedAt: '2026-08-05',
+        };
+        set((s) => ({
+          demoSeeded: true,
+          progressByRound: { ...s.progressByRound, '1': progress },
+          certificates: s.certificates.some((c) => c.round === '1') ? s.certificates : [certificate, ...s.certificates],
+        }));
+      },
 
       markRead: (reportId) =>
         set((s) => (s.readReportIds.includes(reportId) ? s : { readReportIds: [...s.readReportIds, reportId] })),
@@ -96,4 +122,17 @@ export function useHydrateEducation() {
   useEffect(() => {
     void useEducationStore.persist.rehydrate();
   }, []);
+}
+
+/** 데모 시작 상태 — 저장본을 올린 뒤에 1차 이수를 채운다(관리자는 제외) */
+export function useSeedEducationDemo(userName: string | undefined, companyName: string | undefined, enabled: boolean) {
+  useEffect(() => {
+    if (!enabled || !userName) return;
+    const run = () => useEducationStore.getState().seedDemo(userName, companyName);
+    if (useEducationStore.persist.hasHydrated()) {
+      run();
+      return;
+    }
+    return useEducationStore.persist.onFinishHydration(run);
+  }, [userName, companyName, enabled]);
 }

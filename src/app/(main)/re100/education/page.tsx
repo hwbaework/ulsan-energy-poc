@@ -11,7 +11,7 @@ import { StatusPill } from '@/components/ui/Design';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { getBasicReports, getEduRounds, getReportsByRound, getRoundQuiz } from '@/lib/mock-education';
-import { useEducationStore, useHydrateEducation } from '@/stores/useEducationStore';
+import { useEducationStore, useHydrateEducation, useSeedEducationDemo } from '@/stores/useEducationStore';
 import { exportCertificatePdf } from '@/lib/utils';
 import { useEducationContentStore } from '@/stores/useEducationContentStore';
 import { useToastStore } from '@/stores/useToastStore';
@@ -36,6 +36,7 @@ function EducationInner() {
   // 관리자(SPC)만 작성·발행·삭제. 전기사용자·발전사업자는 열람·시험·수료증
   const user = useAuthStore((s) => s.user);
   const isAdmin = ['admin', 'spc'].includes(getPersona(user));
+  useSeedEducationDemo(user?.name, user?.companyName, !isAdmin);
 
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [closeTarget, setCloseTarget] = useState<string | null>(null);
