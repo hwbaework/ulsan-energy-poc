@@ -77,6 +77,27 @@ export function cagrOf(rows: TariffYear[] | undefined): { rate: number; from: Ta
 export const PLAN_LABEL: Record<Plan, string> = { '1': '고압A 선택Ⅰ', '2': '고압A 선택Ⅱ' };
 export const VER_LABEL: Record<TariffVer, string> = { old: '2025-04 확정단가 (고시)', new: '2026-04 개편 (참고·계산값)' };
 
+/** 한전 요금표 — 관리 › 시스템 › 에너지 설정에서 관리. 요금 기준 2개(old · new) × 요금제 2개. 원본 값이 시드 */
+export type TariffRow = { base: number; light: number[]; mid: number[]; peak: number[] };
+export type TariffBook = Record<TariffVer, { label: string } & Record<Plan, TariffRow>>;
+export const TARIFF_BOOK_SEED: TariffBook = {
+  old: { label: VER_LABEL.old, ...TARIFF.old },
+  new: { label: VER_LABEL.new, ...TARIFF.new },
+};
+export const TARIFF_LIM = { base: [0, 100_000], unit: [0, 1_000] } as const;
+/** 저장된 요금표가 깨졌으면 시드로 — 숫자는 범위 안으로 */
+export function cleanBook(b: unknown): TariffBook {
+  const src = (b ?? {}) as Partial<TariffBook>;
+  const row = (r: Partial<TariffRow> | undefined, d: TariffRow): TariffRow => {
+    const arr = (a: unknown, da: number[]) => da.map((x, k) => { const n = Number((a as number[] | undefined)?.[k]); return Number.isFinite(n) ? Math.min(TARIFF_LIM.unit[1], Math.max(TARIFF_LIM.unit[0], n)) : x; });
+    const base = Number(r?.base);
+    return { base: Number.isFinite(base) ? Math.min(TARIFF_LIM.base[1], Math.max(TARIFF_LIM.base[0], base)) : d.base, light: arr(r?.light, d.light), mid: arr(r?.mid, d.mid), peak: arr(r?.peak, d.peak) };
+  };
+  const ver = (v: TariffVer) => ({ label: typeof src[v]?.label === 'string' && src[v]!.label.trim() ? src[v]!.label.slice(0, 40) : TARIFF_BOOK_SEED[v].label, '1': row(src[v]?.['1'], TARIFF_BOOK_SEED[v]['1']), '2': row(src[v]?.['2'], TARIFF_BOOK_SEED[v]['2']) });
+  return { old: ver('old'), new: ver('new') };
+}
+export const bookOf = (i: { tariffBook?: TariffBook }): TariffBook => (i.tariffBook ? cleanBook(i.tariffBook) : TARIFF_BOOK_SEED);
+
 /** 기존 태양광 설비 — 이미 설치한 설비(기록용, 계산에는 안 들어감) */
 export interface Facility {
   source: string;
@@ -105,6 +126,7 @@ export interface SimInput {
   co2f: number; // t/MWh
   climateChg?: number; // 기후환경요금 원/kWh — 예전 기록에는 없을 수 있다 → 기본값
   fuelAdj?: number; // 연료비조정요금 원/kWh — 예전 기록에는 없을 수 있다 → 기본값
+  tariffBook?: TariffBook; // 한전 요금표 — 검토 시점 값. 예전 기록에는 없을 수 있다 → 원본 값
   ets: boolean; // 배출권 할당대상업체
   // 자가소비
   // capexUnit·extraCost·om: 예전 기록에는 없을 수 있다 → 기본값
@@ -184,14 +206,14 @@ export function clampSimInput(i: SimInput): SimInput {
 
 /* ── 계산 ── */
 /** 계절별 태양광 대체단가(원/kWh) */
-export function saveUnit(season: number, plan: Plan, ver: TariffVer, adj: TariffAdj = DEFAULT_ADJ) {
-  const t = TARIFF[ver][plan];
+export function saveUnit(season: number, plan: Plan, ver: TariffVer, adj: TariffAdj = DEFAULT_ADJ, book: TariffBook = TARIFF_BOOK_SEED) {
+  const t = book[ver][plan];
   const s = PVSHARE[ver][season]!;
   return (t.mid[season]! * s.mid + t.peak[season]! * s.peak + adj.climate + adj.fuel) * (1 + FUND);
 }
 /** 1차년 한전 태양광 대체단가(원/kWh) — 월별 일조시간 가중 평균. PPA 연동 구간의 기준 단가 */
-export function avgSaveUnit(plan: Plan, ver: TariffVer, adj: TariffAdj = DEFAULT_ADJ) {
-  return SUN.reduce((a, h, m) => a + h * saveUnit(SEASON[m]!, plan, ver, adj), 0) / SUNTOT;
+export function avgSaveUnit(plan: Plan, ver: TariffVer, adj: TariffAdj = DEFAULT_ADJ, book: TariffBook = TARIFF_BOOK_SEED) {
+  return SUN.reduce((a, h, m) => a + h * saveUnit(SEASON[m]!, plan, ver, adj, book), 0) / SUNTOT;
 }
 /** 사업 검토서 번호 — SR-연도-일련번호 */
 export const reviewNo = (id: number, createdAt: string) => `SR-${createdAt.slice(0, 4)}-${String(id).padStart(4, '0')}`;
@@ -237,11 +259,11 @@ export interface SelfResult {
   mode: 'self'; cap: number; plan: Plan; ver: TariffVer; esc: number; degR: number; usage: number; baseSaveM: number; mg: number[];
   mrows: { su: number; self: number; surplus: number }[]; annualGen1: number; selfRatio: number;
   install: number; extra: number; consumer: number; // 설치비 · 추가 시공비 · 소비자 부담(합)
-  ets: boolean; kau: number; co2f: number; adj: TariffAdj; cumCarbon: number; years: SelfYear[]; cumSave: number; cumGen: number; cumCo2: number; payback: number | null;
+  ets: boolean; kau: number; co2f: number; adj: TariffAdj; book: TariffBook; cumCarbon: number; years: SelfYear[]; cumSave: number; cumGen: number; cumCo2: number; payback: number | null;
   save1: number; eSave1: number; bSave1: number; carbon1: number;
 }
 export interface PpaResult {
-  mode: 'ppa'; cap: number; plan: Plan; ver: TariffVer; esc: number; degR: number; baseSaveM: number; segs: PpaSeg[]; ppaEsc: number; ets: boolean; kau: number; co2f: number; adj: TariffAdj;
+  mode: 'ppa'; cap: number; plan: Plan; ver: TariffVer; esc: number; degR: number; baseSaveM: number; segs: PpaSeg[]; ppaEsc: number; ets: boolean; kau: number; co2f: number; adj: TariffAdj; book: TariffBook;
   mg: number[]; mrows: { su: number; kepco: number; ppaCost: number }[]; annualGen1: number; years: PpaYear[]; cumSaveD: number; cumGen: number; cumCo2: number; cumCarbon: number; cumT: number;
   saveD1: number; avgSu: number; avgPu: number; avgKu: number; firstFixed: PpaYear | null; sumKep: number; sumPpa: number;
 }
@@ -257,16 +279,17 @@ export function calc(i: SimInput, escOv?: number): SimResult {
   const kauEsc = i.kauEsc / 100;
   const ets = i.ets;
   const adj = adjOf(i);
+  const book = bookOf(i);
   if (i.mode === 'self') {
     const { cap, usage, plan, ver } = i.self;
     const esc = escOv !== undefined ? escOv : i.self.esc / 100;
     const peakR = i.self.peakR / 100;
-    const base = TARIFF[ver][plan].base;
+    const base = book[ver][plan].base;
     const mg = monthlyGen(cap, avgH);
     const annualGen1 = mg.reduce((a, b) => a + b, 0);
     const baseSaveM = base * cap * peakR * (1 + FUND); // 월 기본요금 절감
     const mrows = mg.map((g, m) => {
-      const su = saveUnit(SEASON[m]!, plan, ver, adj);
+      const su = saveUnit(SEASON[m]!, plan, ver, adj, book);
       return { su, self: Math.min(g, usage), surplus: Math.max(0, g - usage) };
     });
     const selfRatio = annualGen1 > 0 ? mrows.reduce((a, r) => a + r.self, 0) / annualGen1 : 0;
@@ -296,7 +319,7 @@ export function calc(i: SimInput, escOv?: number): SimResult {
       years.push({ y, gen, eSave, bSave, save, om, net, cum, co2, cumCo2, carbon, cumCarbon });
     }
     return {
-      mode: 'self', cap, plan, ver, esc, degR, usage, baseSaveM, mg, mrows, annualGen1, selfRatio, install, extra, consumer, ets, kau, co2f, adj, cumCarbon,
+      mode: 'self', cap, plan, ver, esc, degR, usage, baseSaveM, mg, mrows, annualGen1, selfRatio, install, extra, consumer, ets, kau, co2f, adj, book, cumCarbon,
       years, cumSave, cumGen, cumCo2, payback, save1: years[0]!.save, eSave1: years[0]!.eSave, bSave1: years[0]!.bSave, carbon1: years[0]!.carbon,
     };
   }
@@ -305,13 +328,13 @@ export function calc(i: SimInput, escOv?: number): SimResult {
   const segs = ppaSegs(i);
   const esc = escOv !== undefined ? escOv : i.ppa.esc / 100;
   const peakR = i.ppa.peakR / 100;
-  const base = TARIFF[ver][plan].base;
+  const base = book[ver][plan].base;
   const mg = monthlyGen(cap, avgH);
   const annualGen1 = mg.reduce((a, b) => a + b, 0);
   const baseSaveM = base * cap * peakR * (1 + FUND);
   const u1 = ppaUnitForYear(segOf(segs, 1), 1, ppaEsc);
   const mrows = mg.map((g, m) => {
-    const su = saveUnit(SEASON[m]!, plan, ver, adj);
+    const su = saveUnit(SEASON[m]!, plan, ver, adj, book);
     const pu = u1 === null ? su : u1;
     return { su, kepco: g * su, ppaCost: g * pu };
   });
@@ -340,7 +363,7 @@ export function calc(i: SimInput, escOv?: number): SimResult {
   }
   const avgSu = annualGen1 ? mrows.reduce((a, r) => a + r.kepco, 0) / annualGen1 : 0;
   return {
-    mode: 'ppa', cap, plan, ver, esc, degR, baseSaveM, segs, ppaEsc, ets, kau, co2f, adj, mg, mrows, annualGen1, years, cumSaveD, cumGen, cumCo2, cumCarbon, cumT,
+    mode: 'ppa', cap, plan, ver, esc, degR, baseSaveM, segs, ppaEsc, ets, kau, co2f, adj, book, mg, mrows, annualGen1, years, cumSaveD, cumGen, cumCo2, cumCarbon, cumT,
     saveD1: years[0]!.saveD, avgSu, avgPu: cumGen ? sumPpa / cumGen : 0, avgKu: cumGen ? sumKep / cumGen : 0, firstFixed: years.find((r) => !r.linked) ?? null, sumKep, sumPpa,
   };
 }

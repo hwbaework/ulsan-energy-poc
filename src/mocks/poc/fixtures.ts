@@ -10,7 +10,7 @@ import type { MonitoringConsumer, PlantContractKind, PlantAnomalySummary } from 
 import type { PowerStation } from '@/types/power-station';
 import type { ConsumerSite } from '@/types/consumer';
 import type { MarketPrice } from '@/types/trading';
-import { TARIFF_YEAR_SEED, type TariffYear } from '@/lib/solar-sim';
+import { TARIFF_BOOK_SEED, TARIFF_YEAR_SEED, cleanBook, type TariffBook, type TariffYear } from '@/lib/solar-sim';
 import './adminFixtures'; // 관리(ADMIN) 축 목업
 
 const NOW = '2026-09-15T10:00:00';
@@ -269,7 +269,7 @@ registerMock(/^\/notifications$/, () => pageOf(NOTIFICATIONS));
 
 // 에너지 설정 — 관리 › 시스템 › 에너지 설정에서 관리. 대시보드·RE100·PPA 보고서·무료진단이 같은 값을 읽는다.
 // 새로고침해도 남게 브라우저에 저장 (POC)
-const ENERGY_KEY = 'ulsan-energy-settings-v1';
+const ENERGY_KEY = 'ulsan-energy-settings-v2'; // v2 — 예전 배출계수 0.4594 가 저장된 브라우저도 0.4173 기본값으로 다시 시작
 let ENERGY: Record<string, string> = {
   SMP_PRICE_CAP: '180', // ₩/kWh — SMP 상한제 값(설정)
   CO2_EMISSION_FACTOR: '0.4173', // tCO₂/MWh — 국가 전력배출계수
@@ -322,6 +322,28 @@ registerMock(/^\/settings\/public\/industrial-tariff$/, ({ body }) => {
     /* 저장 실패는 무시 — 메모리에는 남는다 */
   }
   return TARIFF_YEARS;
+}, 'PUT');
+
+// 한전 요금표 — 관리 › 에너지 설정. 새로고침해도 남게 브라우저에 저장 (POC)
+const KEPCO_KEY = 'ulsan-kepco-tariff-v1';
+let KEPCO_BOOK: TariffBook = cleanBook(TARIFF_BOOK_SEED);
+if (typeof window !== 'undefined') {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(KEPCO_KEY) ?? 'null');
+    if (saved) KEPCO_BOOK = cleanBook(saved);
+  } catch {
+    /* 저장본이 깨졌으면 원본 값으로 시작 */
+  }
+}
+registerMock(/^\/settings\/public\/kepco-tariff$/, () => KEPCO_BOOK, 'GET');
+registerMock(/^\/settings\/public\/kepco-tariff$/, ({ body }) => {
+  KEPCO_BOOK = cleanBook(body);
+  try {
+    window.localStorage.setItem(KEPCO_KEY, JSON.stringify(KEPCO_BOOK));
+  } catch {
+    /* 저장 실패는 무시 — 메모리에는 남는다 */
+  }
+  return KEPCO_BOOK;
 }, 'PUT');
 
 /* ── SMP 시장 정보 (대시보드 최근 30일 일평균) ───────────────── */

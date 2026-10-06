@@ -185,6 +185,7 @@ export const ENDPOINTS = {
     billingRates: `${V1}/settings/public/billing-rates`,
     energy: `${V1}/settings/public/energy`,
     industrialTariff: `${V1}/settings/public/industrial-tariff`,
+    kepcoTariff: `${V1}/settings/public/kepco-tariff`,
   },
   monitoring: {
     dashboard: `${V1}/monitoring/dashboard`,

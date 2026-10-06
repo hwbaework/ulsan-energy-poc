@@ -67,3 +67,19 @@ export const energyNum = (es: Record<string, string> | undefined, key: string, f
   const n = Number(es?.[key]);
   return es?.[key] !== undefined && Number.isFinite(n) ? n : fb;
 };
+
+export const useKepcoTariff = () => {
+  return useQuery({
+    queryKey: settingsKeys.kepcoTariff(),
+    queryFn: () => settingsApi.getKepcoTariff(),
+    staleTime: 5 * 60_000,
+  });
+};
+
+export const useSaveKepcoTariff = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: settingsApi.saveKepcoTariff,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: settingsKeys.kepcoTariff() }),
+  });
+};

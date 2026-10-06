@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { ADDRESS_MAX, F, LIM, adjOf, NAME_MAX, PLAN_LABEL, SELF_CAPEX_UNIT, SELF_EXTRA_COST, SELF_OM, VER_LABEL, avgSaveUnit, segLabel, ppaSegs, selfCost, type Plan, type SimInput, type TariffVer } from '@/lib/solar-sim';
+import { ADDRESS_MAX, F, LIM, adjOf, bookOf, NAME_MAX, PLAN_LABEL, SELF_CAPEX_UNIT, SELF_EXTRA_COST, SELF_OM, avgSaveUnit, segLabel, ppaSegs, selfCost, type Plan, type SimInput, type TariffVer } from '@/lib/solar-sim';
 
 /**
  * 무료진단 입력 화면 — 울산미포산단 태양광 사업성 시뮬레이터 v1.1 입력값. 한 장의 페이지 안에서
@@ -86,7 +86,6 @@ const Line = ({ children, pair }: { children: ReactNode; pair?: boolean }) => (
 );
 const Hint = ({ children }: { children: ReactNode }) => <p className="mt-2 text-xs leading-relaxed text-slate-500">{children}</p>;
 const PLANS = (['1', '2'] as Plan[]).map((v) => ({ value: v, label: PLAN_LABEL[v] }));
-const VERS = (['old', 'new'] as TariffVer[]).map((v) => ({ value: v, label: VER_LABEL[v] }));
 const SEG_COLOR = ['#64748b', '#3b82f6', '#06b6d4'];
 
 export function SimInputPanel({
@@ -126,7 +125,10 @@ export function SimInputPanel({
   };
   const segs = ppaSegs(f).filter((sg) => sg.idx <= 2); // 3구간은 쓰지 않는다
   const w = [f.ppa.b1, 20 - f.ppa.b1]; // 1구간 · 2구간
-  const kepcoUnit = Math.round(avgSaveUnit(f.ppa.plan, f.ppa.ver, adjOf(f)) * 10) / 10;
+  const book = bookOf(f);
+  const kepcoUnit = Math.round(avgSaveUnit(f.ppa.plan, f.ppa.ver, adjOf(f), book) * 10) / 10;
+  // 요금 기준 이름 — 관리 › 에너지 설정 한전 요금표
+  const VERS = (['old', 'new'] as TariffVer[]).map((v) => ({ value: v, label: book[v].label }));
   let n = 0;
 
   const cost = selfCost(f);

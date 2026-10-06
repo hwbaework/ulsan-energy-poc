@@ -16,7 +16,7 @@ import { recordOf } from '@/components/features/consulting/SimDiagnosisView';
 import { SimReport, type ReviewRecord } from '@/components/features/consulting/SimReport';
 import { ReviewHistoryList } from '@/components/features/consulting/ReviewHistoryList';
 import { CLIMATE_CHG, FUEL_ADJ, calc, defaultSimInput, type SimInput } from '@/lib/solar-sim';
-import { energyNum, useEnergySettings } from '@/hooks/common/useSettings';
+import { energyNum, useEnergySettings, useKepcoTariff } from '@/hooks/common/useSettings';
 import { cn } from '@/lib/utils';
 import type { Diagnosis } from '@/types/consultation';
 import { getPersona } from '@/lib/persona';
@@ -60,19 +60,22 @@ export default function DiagnosisPage() {
   );
 
   const [f, setF] = useState<SimInput>(() => defaultSimInput());
-  // 배출계수 · 기후환경요금 · 연료비조정요금 기본값 — 관리 › 에너지 설정. 처음 한 번만 채우고 이후는 사용자가 고친 값 유지
+  // 배출계수 · 기후환경요금 · 연료비조정요금 · 한전 요금표 기본값 — 관리 › 에너지 설정. 처음 한 번만 채우고 이후는 사용자가 고친 값 유지
+  // 검토서에는 이 값이 함께 남아, 나중에 설정이 바뀌어도 저장된 검토서 숫자는 그대로
   const { data: energySettings } = useEnergySettings();
+  const { data: kepcoBook } = useKepcoTariff();
   const seeded = useRef(false);
   useEffect(() => {
-    if (seeded.current || !energySettings) return;
+    if (seeded.current || !energySettings || !kepcoBook) return;
     seeded.current = true;
     setF((p) => ({
       ...p,
       co2f: energyNum(energySettings, 'CO2_EMISSION_FACTOR', p.co2f),
       climateChg: energyNum(energySettings, 'CLIMATE_CHG', p.climateChg ?? CLIMATE_CHG),
       fuelAdj: energyNum(energySettings, 'FUEL_ADJ', p.fuelAdj ?? FUEL_ADJ),
+      tariffBook: kepcoBook,
     }));
-  }, [energySettings]);
+  }, [energySettings, kepcoBook]);
   const [view, setView] = useState<View>({ kind: 'input' });
   const [saving, setSaving] = useState(false);
 

@@ -329,6 +329,7 @@ export const settingsKeys = {
   byKey: (key: string) => [...settingsKeys.all, 'key', key] as const,
   energy: () => [...settingsKeys.all, 'energy'] as const,
   industrialTariff: () => [...settingsKeys.all, 'industrial-tariff'] as const,
+  kepcoTariff: () => [...settingsKeys.all, 'kepco-tariff'] as const,
 };
 
 export const fileKeys = {

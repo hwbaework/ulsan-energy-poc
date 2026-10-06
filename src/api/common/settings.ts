@@ -1,7 +1,7 @@
 import { getApiClient } from '@/api/client';
 import { ENDPOINTS } from '@/api/endpoints';
 import type { SystemSetting } from '@/types';
-import type { TariffYear } from '@/lib/solar-sim';
+import type { TariffBook, TariffYear } from '@/lib/solar-sim';
 
 export async function getSettings(): Promise<SystemSetting[]> {
   return getApiClient().get(ENDPOINTS.systemSettings.list);
@@ -31,4 +31,13 @@ export async function getIndustrialTariff(): Promise<TariffYear[]> {
 
 export async function saveIndustrialTariff(rows: TariffYear[]): Promise<TariffYear[]> {
   return getApiClient().put(ENDPOINTS.systemSettings.industrialTariff, rows);
+}
+
+/** 한전 요금표 — 무료진단 태양광 대체단가 · 기본요금 절감 */
+export async function getKepcoTariff(): Promise<TariffBook> {
+  return getApiClient().get(ENDPOINTS.systemSettings.kepcoTariff);
+}
+
+export async function saveKepcoTariff(book: TariffBook): Promise<TariffBook> {
+  return getApiClient().put(ENDPOINTS.systemSettings.kepcoTariff, book);
 }

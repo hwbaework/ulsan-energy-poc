@@ -21,7 +21,7 @@ import {
   SELF_OM,
   SELF_REMAIN,
   TARIFF_YEAR_SEED,
-  VER_LABEL,
+  bookOf,
   calc,
   cagrOf,
   escInput,
@@ -179,8 +179,6 @@ export function SimReport({ input, companyName, record, autoPdf }: { input: SimI
   const es = {
     selfRemain: energyNum(energySettings, 'SELF_REMAIN_KW', SELF_REMAIN),
     ppaRemain: energyNum(energySettings, 'PPA_REMAIN_KW', 2670),
-    co2Year: energySettings?.CO2_FACTOR_YEAR ?? '2023',
-    co2Published: energySettings?.CO2_FACTOR_PUBLISHED ?? '2025-12-17',
   };
   const cg = useMemo(() => cagrOf(tariffYears) ?? { rate: CAGR, from: TARIFF_YEAR_SEED[0]!, to: TARIFF_YEAR_SEED[TARIFF_YEAR_SEED.length - 1]! }, [tariffYears]);
   const sc = useMemo(() => scenarios(input, cg.rate), [input, cg.rate]);
@@ -295,8 +293,8 @@ export function SimReport({ input, companyName, record, autoPdf }: { input: SimI
         </div>
         {!self && (
           <Note>
-            ※ 한전 기준액(회색 점선)은 계절별 단가 차등이 반영되어 발전량과 비례하지 않음 — {mY}차년 태양광 대체단가: 여름 {F1(saveUnit(0, R.plan, ver, R.adj) * Math.pow(1 + R.esc, mY - 1))}원 / 봄가을{' '}
-            {F1(saveUnit(1, R.plan, ver, R.adj) * Math.pow(1 + R.esc, mY - 1))}원 / 겨울 {F1(saveUnit(2, R.plan, ver, R.adj) * Math.pow(1 + R.esc, mY - 1))}원/kWh (상승률 {(R.esc * 100).toFixed(1)}%/yr 누적).{' '}
+            ※ 한전 기준액(회색 점선)은 계절별 단가 차등이 반영되어 발전량과 비례하지 않음 — {mY}차년 태양광 대체단가: 여름 {F1(saveUnit(0, R.plan, ver, R.adj, R.book) * Math.pow(1 + R.esc, mY - 1))}원 / 봄가을{' '}
+            {F1(saveUnit(1, R.plan, ver, R.adj, R.book) * Math.pow(1 + R.esc, mY - 1))}원 / 겨울 {F1(saveUnit(2, R.plan, ver, R.adj, R.book) * Math.pow(1 + R.esc, mY - 1))}원/kWh (상승률 {(R.esc * 100).toFixed(1)}%/yr 누적).{' '}
             {segNow!.linked
               ? `${mY}차년은 ${segNow!.idx}구간 한전 연동으로 PPA 납입료(주황)가 한전 기준액과 동일 — 전력량요금 절감 0, 기본요금 절감만 발생`
               : `PPA 납입료(주황)는 ${segNow!.idx}구간 고정단가 ${F1(rows[0]!.pu)}원/kWh로 발전량에 정비례`}{' '}
@@ -398,7 +396,7 @@ function InputRecord({ input: i, companyName }: { input: SimInput; companyName: 
           ['태양광 설치용량', `${F(i.self.cap)} kW`],
           ['계약전력', i.self.ctr ? `${F(i.self.ctr)} kW` : ''],
           ['월평균 전기사용량', `${F(i.self.usage)} kWh`],
-          ['요금제 · 요금 기준', `${PLAN_LABEL[i.self.plan]} · ${VER_LABEL[i.self.ver]}`],
+          ['요금제 · 요금 기준', `${PLAN_LABEL[i.self.plan]} · ${bookOf(i)[i.self.ver].label}`],
           ['전기요금 상승률', `${i.self.esc} %/yr`],
           ['기본요금 피크감축 반영률', `${i.self.peakR} %`],
           ['설치단가', `${F(i.self.capexUnit ?? SELF_CAPEX_UNIT)} 원/kW`],
@@ -408,7 +406,7 @@ function InputRecord({ input: i, companyName }: { input: SimInput; companyName: 
         ] as [string, string][])
       : ([
           ['태양광 설치용량', `${F(i.ppa.cap)} kW`],
-          ['비교 요금제 · 요금 기준', `${PLAN_LABEL[i.ppa.plan]} · ${VER_LABEL[i.ppa.ver]}`],
+          ['비교 요금제 · 요금 기준', `${PLAN_LABEL[i.ppa.plan]} · ${bookOf(i)[i.ppa.ver].label}`],
           ['한전요금 상승률', `${i.ppa.esc} %/yr`],
           ['기본요금 피크감축 반영률', `${i.ppa.peakR} %`],
           ...ppaSegs(i)
@@ -707,7 +705,6 @@ function OpTable({ R, cur }: { R: SelfResult | PpaResult; cur: number }) {
 
 /* ── 20년 누적 효과 분석 ── */
 function EffPanel({ R }: { R: SelfResult | PpaResult }) {
-  const toe = (R.cumGen / 1000) * 0.229;
   const line = (k: ReactNode, v: ReactNode, opt: { hl?: boolean; dim?: boolean } = {}) => (
     <div className="flex items-center justify-between gap-3 py-1">
       <span className="text-slate-600">{k}</span>
@@ -745,7 +742,6 @@ function EffPanel({ R }: { R: SelfResult | PpaResult }) {
       {/* 환경 편익 — 잘리지 않게 한 줄씩 */}
       <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 text-[13px]">
         {[
-          ['화석에너지 대체 (TOE)', F1(toe)],
           ['온실가스 저감 (tCO₂)', F1(R.cumCo2)],
         ].map(([l, v]) => (
           <div key={l} className="flex items-center justify-between px-4 py-2">
@@ -754,13 +750,13 @@ function EffPanel({ R }: { R: SelfResult | PpaResult }) {
           </div>
         ))}
       </div>
-      <Note>* 산출식: TOE = MWh × 0.229 / tCO₂ = MWh × {R.co2f}</Note>
+      <Note>* 산출식: tCO₂ = MWh × {R.co2f}</Note>
     </>
   );
 }
 
 /* ── 산정 기준 및 출처 (원본 그대로, 날짜는 하이픈 양식) ── */
-function Assumptions({ cg, years, es, adj, co2f }: { cg: { rate: number; from: TariffYear; to: TariffYear }; years?: TariffYear[]; es: { selfRemain: number; ppaRemain: number; co2Year: string; co2Published: string }; adj: TariffAdj; co2f: number }) {
+function Assumptions({ cg, years, es, adj, co2f }: { cg: { rate: number; from: TariffYear; to: TariffYear }; years?: TariffYear[]; es: { selfRemain: number; ppaRemain: number }; adj: TariffAdj; co2f: number }) {
   const pct = (cg.rate * 100).toFixed(2);
   const list = [...(years?.length ? years : [cg.from, cg.to])].sort((a, b) => a.year - b.year).map((r) => `${r.year} ${F1(r.price)}`).join(' → ');
   const rows: [string, string][] = [
@@ -775,7 +771,7 @@ function Assumptions({ cg, years, es, adj, co2f }: { cg: { rate: number; from: T
     ['OnSite PPA 구조', `사업자(컨소시엄)가 설비 투자·설치·운영·유지보수 전액 부담, 소비자는 부지(지붕)만 제공하고 발전전력 사용분을 PPA 단가로 지불. 잉여전력·계통 리스크는 사업자 귀속. 계약기간 20년 기준. 당해연도 PPA 배정 잔여용량 약 ${(es.ppaRemain / 1000).toFixed(2)}MW`],
     ['구간별 PPA 단가', '20년 계약기간을 2구간으로 분할(전환연차 슬라이더). 지붕 보수·주차장형 구조물 등 설치비 과중 현장은 1구간(기본 1~5년차)을 한전 대체단가 연동으로 설정해 소비자 요금을 한전과 동일하게 두고, 2구간(기본 6~20년차)부터 고정 PPA 단가(기본 150원/kWh)를 적용. 연동 구간의 절감은 기본요금(피크감축)분만 발생하며, 고정단가 구간의 상승률은 구간 시작연차 기준으로 누적 적용'],
     ['자가소비 처리', '월 발전량이 월 사용량을 초과하는 잉여전력은 절감액 산정에서 제외(역송 정산 미반영, 보수적). 연속공정 사업장은 통상 전량 자가소비 가능'],
-    ['환경 편익', `온실가스: 전력배출계수 ${co2f} tCO₂eq/MWh(입력 가능, 기본값은 관리 › 에너지 설정) — ${es.co2Year}년 기준 국가 전력배출계수, ${es.co2Published} 공표`],
+    ['환경 편익', `온실가스: 탄소 배출계수(전력 1MWh당 tCO₂) ${co2f} — 국가 전력배출계수, 입력 가능 · 기본값은 관리 › 에너지 설정`],
     ['탄소배출권 가치', '배출권 가치 = 연간 발전량(MWh) × 전력 배출계수 × KAU 시세(입력, 기본 30,000원/t) × (1+상승률)^(연차-1). 시세 근거: 한국거래소 배출권시장 KAU26 2026-09-07 종가 29,950원/t, KAU25 최종 29,450원. 제도 근거: 2022-01-01부터 할당대상업체가 직접 PPA·자가발전 재생에너지 전력을 사용해 간접배출량이 감소하면 감축실적으로 인정. 할당대상업체(체크)일 때만 배출권 매각(또는 구매회피) 가치가 실제 현금흐름으로 절감액에 합산되며, 비할당업체는 참고(잠재가치)로만 표기. 4차 계획기간(2026~2030) 배출허용총량 축소·유상할당 확대로 가격 상승 압력 존재 — 상승률 입력으로 시나리오 검토'],
     ['RE100 관련', '온사이트 PPA·자가발전 전력은 K-RE100 이행수단으로 인정되어 재생에너지 사용확인서 발급 대상 (한국에너지공단 K-RE100 제도)'],
     ['지붕면적 환산', '설치 가능 용량 = 가용면적 ÷ kW당 소요면적(기본 10㎡/kW, 산업시설 평지붕·이격 반영 보수치. 경사·음영에 따라 6.6~13㎡/kW 변동)'],
