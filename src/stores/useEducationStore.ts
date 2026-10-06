@@ -36,6 +36,11 @@ interface EducationState {
 }
 
 let counter = 0;
+/** 다음 수료증 일련번호 — 이미 있는 번호 중 가장 큰 번호 + 1 (데모 1차 등과 겹치지 않게) */
+const nextCertNo = (certs: EduCertificate[], year: number) => {
+  const max = certs.reduce((m, c) => Math.max(m, Number(c.certificateNo.slice(-4)) || 0), 0);
+  return `RE100-EDU-${year}-${String(max + 1).padStart(4, '0')}`;
+};
 // 로컬 시각(한국) 기준 날짜 — toISOString 은 UTC 라 자정 무렵 하루 어긋난다
 const localIso = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 19);
 
@@ -55,7 +60,7 @@ export const useEducationStore = create<EducationState>()(
         const progress: EduQuizProgress = { round: '1', correctQuestionIds: ids, attemptCount: 1, completedAt: '2026-08-05T10:00:00' };
         const certificate: EduCertificate = {
           id: 'cert-demo-1',
-          certificateNo: 'RE100-EDU-2026-0001',
+          certificateNo: nextCertNo(get().certificates, 2026),
           round: '1',
           courseTitle: roundCourseTitle('1'),
           userName,
@@ -89,10 +94,9 @@ export const useEducationStore = create<EducationState>()(
         let certificate: EduCertificate | null = null;
         const alreadyIssued = get().certificates.some((c) => c.round === round);
         if (completed && !alreadyIssued) {
-          const seq = String(get().certificates.length + 1).padStart(4, '0');
           certificate = {
             id: `cert-${Date.now()}-${++counter}`,
-            certificateNo: `RE100-EDU-${now.getFullYear()}-${seq}`,
+            certificateNo: nextCertNo(get().certificates, now.getFullYear()),
             round,
             courseTitle: roundCourseTitle(round),
             userName,
@@ -110,7 +114,7 @@ export const useEducationStore = create<EducationState>()(
       },
     }),
     {
-      name: 'ulsan-education-poc-v2', // v2 — 월별 → 차수별로 바뀌어 예전 이수 기록은 버린다
+      name: 'ulsan-education-poc-v3', // v3 — 수료증 번호 겹침(데모 1차 · 기본 둘 다 0001) 정리. v2 — 월별 → 차수별
       storage: createJSONStorage(() => ssrSafeStorage),
       skipHydration: true,
     },
