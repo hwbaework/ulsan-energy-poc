@@ -124,12 +124,16 @@ export function QuizRunner({ round, embedded = false }: { round: string; embedde
         </>
       )}
 
-      <ProgressBar
-        value={solvedCount}
-        max={questions.length}
-        label={`${solvedCount}/${questions.length} 문항 정복`}
-        variant="success"
-      />
+      {/* 진행 — 맞힌 문항 / 전체 · 남은 문항. 잘 보이게 글자를 키우고 밝게 */}
+      <div className="space-y-2">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="text-base font-semibold text-white tabular-nums">
+            맞힌 문항 <span className="text-emerald-400">{solvedCount}</span> / {questions.length}
+          </p>
+          {!completed && <p className="text-sm font-medium text-slate-200 tabular-nums">남은 {remaining.length}문항</p>}
+        </div>
+        <ProgressBar value={solvedCount} max={questions.length} variant="success" />
+      </div>
 
       {/* 이수 완료 */}
       {completed ? (
@@ -167,7 +171,7 @@ export function QuizRunner({ round, embedded = false }: { round: string; embedde
               </>
             )}
           </div>
-          <p className="text-sm font-semibold text-white leading-6">{revealed.q.question}</p>
+          <p className="text-base font-semibold text-white leading-7">{revealed.q.question}</p>
           <div className="space-y-2">
             {revealed.q.options.map((option, oi) => {
               const isAnswer = oi === revealed.q.answerIndex;
@@ -184,7 +188,7 @@ export function QuizRunner({ round, embedded = false }: { round: string; embedde
                     !revealed.correct && !isPicked && 'bg-white/[0.02] ring-white/[0.06] text-slate-500',
                   )}
                 >
-                  <span className="mr-2 text-slate-500">{oi + 1})</span>
+                  <span className="mr-2 font-semibold text-slate-300">{oi + 1})</span>
                   {option}
                 </div>
               );
@@ -207,10 +211,7 @@ export function QuizRunner({ round, embedded = false }: { round: string; embedde
         // 현재 문제 — 한 문제씩
         currentQ && (
           <div className="rounded-xl bg-[#1a2332] p-6 ring-1 ring-white/[0.06] space-y-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-slate-500">남은 {remaining.length}문항</span>
-            </div>
-            <h2 className="text-sm font-semibold text-white leading-6">{currentQ.question}</h2>
+            <h2 className="text-base font-semibold text-white leading-7">{currentQ.question}</h2>
             <div className="space-y-2">
               {currentQ.options.map((option, oi) => {
                 const isSelected = selected === oi;
@@ -226,7 +227,7 @@ export function QuizRunner({ round, embedded = false }: { round: string; embedde
                         : 'bg-white/[0.03] ring-white/[0.08] text-slate-300 hover:bg-white/[0.06]',
                     )}
                   >
-                    <span className="mr-2 text-slate-500">{oi + 1})</span>
+                    <span className="mr-2 font-semibold text-slate-300">{oi + 1})</span>
                     {option}
                   </button>
                 );

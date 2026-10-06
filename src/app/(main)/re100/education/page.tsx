@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Award, BadgeCheck, CheckCircle2, ChevronRight, Download, Lock, PenLine, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Award, BadgeCheck, CheckCircle2, ChevronRight, Lock, PenLine, Pencil, Plus, Trash2 } from 'lucide-react';
 import { SectionCard } from '@/components/features';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -69,27 +69,6 @@ function EducationInner() {
       {/* 자료 수집 — 관리자만. 소스(API·크롤링)에서 모은 글을 건별로 [초안 만들기] / [발행 안 함] */}
       {isAdmin && <DataSourcePanel />}
 
-      {/* 내 수료증 — 쪽지시험 전 문항을 맞히면 자동 발급(사업계획서 p.142 수료증 발급/관리) */}
-      {!isAdmin && certificates.length > 0 && (
-        <SectionCard title="내 수료증" noPadding>
-          <div className="divide-y divide-white/[0.05]">
-            {certificates.map((cert) => (
-              <div key={cert.id} className="flex items-center gap-4 px-5 py-3">
-                <Award size={16} className="shrink-0 text-violet-400" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white">{cert.courseTitle}</p>
-                  <p className="text-xs text-slate-500 tabular-nums">
-                    {cert.certificateNo} · 발급일 {cert.issuedAt}
-                  </p>
-                </div>
-                <Button size="sm" onClick={() => exportCertificatePdf(cert)}>
-                  <Download size={14} className="mr-1" /> 수료증 PDF
-                </Button>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-      )}
 
       {groups.map((key) => {
         const isBasic = key === BASIC_GROUP;
@@ -100,6 +79,7 @@ function EducationInner() {
         const quizIds = new Set(quiz.map((q) => q.id));
         const solvedCount = (progress?.correctQuestionIds ?? []).filter((id) => quizIds.has(id)).length;
         const completed = quiz.length > 0 && solvedCount >= quiz.length;
+        const cert = certificates.find((c) => c.round === key);
 
         return (
           <SectionCard
@@ -123,8 +103,9 @@ function EducationInner() {
               (completed ? (
                 <span className="flex items-center gap-2">
                   <StatusPill tone="normal" label="이수 완료" />
-                  {!isAdmin && (
-                    <Button size="sm" onClick={() => router.push(`/re100/education/quiz?round=${key}`)}>
+                  {/* 수료증 — 이 차수 카드에서 바로 PDF 로 받는다(사업계획서 p.142 수료증 발급). 따로 모아 두는 카드는 두지 않는다 */}
+                  {!isAdmin && cert && (
+                    <Button size="sm" onClick={() => exportCertificatePdf(cert)}>
                       <Award size={14} className="mr-1" /> 수료증
                     </Button>
                   )}
