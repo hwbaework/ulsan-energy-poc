@@ -134,7 +134,8 @@ const EDATA_CHILDREN: GnbChild[] = [
   { to: '/carbon/voluntary', icon: ClipboardCheck, label: '외부감축사업 보고서', section: '카본 마켓플레이스' }, // 3.2.6
   // 3.3 데이터 마켓플레이스
   { to: '/e-data/catalog', icon: Database, label: '데이터 등록/신청', section: '데이터 마켓플레이스' }, // 3.3.1
-  { to: '/e-data/trading', icon: Receipt, label: '거래 현황', section: '데이터 마켓플레이스', end: true }, // 3.3.2
+  // 거래 현황 상세(/e-data/trading/view)도 이 메뉴 — 정산만 따로
+  { to: '/e-data/trading', icon: Receipt, label: '거래 현황', section: '데이터 마켓플레이스', exclude: ['/e-data/trading/settlement'] }, // 3.3.2
   { to: '/e-data/trading/settlement', icon: Wallet, label: '정산', section: '데이터 마켓플레이스' }, // 3.3.3
   { to: '/e-data/api-hub', icon: KeyRound, label: 'API 허브', section: '데이터 마켓플레이스' }, // 3.3.4
 ];
