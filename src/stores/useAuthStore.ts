@@ -47,7 +47,7 @@ export const POC_USERS: Record<PocRole, User> = {
     department: '발전운영팀',
     status: 'ACTIVE',
     companyId: 3,
-    companyName: '울산 발전(주)',
+    companyName: '한일튜브', // 박발전 = 한일튜브(울산 발전(주)는 없는 회사). id 3 은 다른 메뉴 시드가 써서 유지
     companyAddress: '울산 남구 부곡동 273-6',
     roles: ['POWER_OPERATOR'],
     createdAt: '2026-01-01T00:00:00',

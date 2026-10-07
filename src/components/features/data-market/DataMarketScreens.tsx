@@ -181,6 +181,7 @@ function UsageCard({
   mine,
   value,
   onChange,
+  totalLabel = '전체 호출',
 }: {
   range: Range;
   groups: { key: string; label: string; trades: DataTrade[] }[];
@@ -190,6 +191,8 @@ function UsageCard({
   /** 위 표에서 줄을 눌러 고를 때 — 없으면 카드 안 셀렉트만 */
   value?: string;
   onChange?: (key: string) => void;
+  /** 큰 숫자 이름 — 기본 '전체 호출', 사는 기업 허브는 '내 호출' */
+  totalLabel?: string;
 }) {
   const [own, setOwn] = useState('');
   const which = value ?? own;
@@ -228,7 +231,7 @@ function UsageCard({
       <div className="grid items-center gap-6 lg:grid-cols-4">
         <div className="space-y-5">
           <div>
-            <p className="text-sm text-slate-400">전체 호출</p>
+            <p className="text-sm text-slate-400">{totalLabel}</p>
             {big(all)}
           </div>
           {my && (
@@ -242,7 +245,7 @@ function UsageCard({
           <RmsLineChart
             data={chart}
             xKey="day"
-            lines={[{ key: '전체', name: '전체 호출' }, ...(my ? [{ key: '내호출', name: '내 호출' }] : [])]}
+            lines={[{ key: '전체', name: totalLabel }, ...(my ? [{ key: '내호출', name: '내 호출' }] : [])]}
             height={240}
           />
         </div>
@@ -379,7 +382,7 @@ export function DataCatalogScreen() {
                 d={d}
                 users={usersOf(d.id)}
                 mine={d.ownerCompanyId === role.companyId}
-                using={role.bought.some((t) => t.datasetId === d.id && isActive(t))}
+                using={!role.isAdmin && role.bought.some((t) => t.datasetId === d.id && isActive(t))}
                 onClick={() => router.push(`${CATALOG}/view?id=${d.id}`)}
               />
             ))}
@@ -1118,7 +1121,6 @@ export function DataApiHubScreen() {
   const apis = role.products.filter((d) => d.onSale || tokensOf(d.id).length > 0);
   /** 기업 — 내가 신청(결제)한 API */
   const myApis = role.bought.filter(isActive);
-  const productOf = (t: DataTrade) => role.products.find((d) => d.id === t.datasetId);
 
   const copy = (t: DataTrade) => {
     void navigator.clipboard?.writeText(t.token);
@@ -1174,8 +1176,9 @@ export function DataApiHubScreen() {
         </span>
       ),
     },
-    { key: 'start', header: '신청일', width: '110px', render: (t) => num(day(t.startedAt)) },
     { key: 'updated', header: '최근 수정', width: '110px', render: (t) => num(day(t.tokenUpdatedAt)) },
+    // 허용 URL — 이 주소에서 부를 때만 받는 제한(Mapbox URLs). 아직 정한 곳이 없어 제한 없음
+    { key: 'urls', header: '허용 URL', width: '110px', render: () => cell('제한 없음', 'text-slate-500') },
     {
       key: 'calls',
       header: '호출',
@@ -1228,14 +1231,10 @@ export function DataApiHubScreen() {
         groups={
           role.isAdmin
             ? apis.map((d) => ({ key: String(d.id), label: d.name, trades: tokensOf(d.id) }))
-            : myApis.map((t) => ({
-                key: String(t.id),
-                label: t.datasetName,
-                trades: productOf(t) ? tokensOf(t.datasetId) : [t],
-              }))
+            : myApis.map((t) => ({ key: String(t.id), label: t.sellerCompanyName, trades: [t] }))
         }
-        allLabel={role.isAdmin ? '모든 API' : '내 API 전체'}
-        mine={role.isAdmin ? undefined : myApis}
+        allLabel={role.isAdmin ? '모든 API' : '전체'}
+        totalLabel={role.isAdmin ? '전체 호출' : '내 호출'}
         value={which}
         onChange={setWhich}
       />
