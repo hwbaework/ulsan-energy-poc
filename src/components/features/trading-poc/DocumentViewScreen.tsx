@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/Button';
 import { DOC_CATEGORY_LABEL } from '@/stores/useTradingPocStore';
 import { useTradingRole } from './useTradingRole';
 import { CONTRACT_PDF, docsBase, isContractDoc } from './DocumentsScreen';
-import { DocumentSheet, printSheet } from './DocumentSheet';
+import { DocumentSheet, periodOf, printSheet } from './DocumentSheet';
+import { BillingPaper } from './BillingPaper';
 
 /** 문서 관리 › 문서 보기 — ?id=문서번호(&pdf=1 이면 열리자마자 PDF 저장). 계약서는 원문 PDF, 청구서·세금계산서·합의서는 A4 문서 */
 export function DocumentViewScreen() {
@@ -25,13 +26,15 @@ export function DocumentViewScreen() {
   const contract = doc ? role.contracts.find((c) => c.id === doc.contractId) : undefined;
   // 뒤로 — 그 기업 문서 목록
   const companyHref = contract ? `${base}?company=${contract.consumerCompanyId}` : base;
+  // 청구서 · 세금계산서 — 양식 문서(미리보기 + PDF)
+  const billing = doc && (doc.category === 'TAX' || doc.category === 'INVOICE') ? periodOf(doc) : undefined;
   const change = doc?.category === 'CHANGE' ? role.changes.find((ch) => doc.fileName.startsWith(ch.no)) : undefined;
 
   useEffect(() => {
-    if (!params?.pdf || !doc || isContractDoc(doc)) return;
+    if (!params?.pdf || !doc || isContractDoc(doc) || billing) return;
     const t = setTimeout(() => printSheet(sheet.current, doc.title), 600);
     return () => clearTimeout(t);
-  }, [params, doc]);
+  }, [params, doc, billing]);
 
   return (
     <div className="space-y-6">
@@ -69,7 +72,7 @@ export function DocumentViewScreen() {
                 <Download size={14} className="mr-1.5" /> 다운로드
               </Button>
             </a>
-          ) : (
+          ) : billing ? null : (
             <Button onClick={() => printSheet(sheet.current, doc.title)}>
               <Download size={14} className="mr-1.5" /> PDF 저장
             </Button>
@@ -85,6 +88,14 @@ export function DocumentViewScreen() {
           title={doc.title}
           src={`${CONTRACT_PDF}#view=FitH`}
           className="aspect-[210/297] w-full rounded-xl bg-white"
+        />
+      ) : doc && contract && billing ? (
+        <BillingPaper
+          kind={doc.category === 'TAX' ? 'TAX' : 'INVOICE'}
+          contract={contract}
+          period={billing}
+          admin={role.isAdmin}
+          autoPdf={params?.pdf}
         />
       ) : doc && contract ? (
         <DocumentSheet doc={doc} contract={contract} change={change} sheetRef={sheet} />

@@ -57,7 +57,10 @@ interface CompanyRow {
   name: string;
   representative: string;
   businessNumber: string;
+  bizType: string;
+  bizCategory: string;
   phone: string;
+  address: string;
   type: string;
   status: 'ACTIVE' | 'PENDING' | 'SUSPENDED';
   memberCount: number;
@@ -78,6 +81,8 @@ export default function CompaniesPage() {
   const [formName, setFormName] = useState('');
   const [formBizNum, setFormBizNum] = useState('');
   const [formRep, setFormRep] = useState('');
+  const [formBizType, setFormBizType] = useState('');
+  const [formBizCategory, setFormBizCategory] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formAddress, setFormAddress] = useState('');
   const [detailRow, setDetailRow] = useState<CompanyRow | null>(null);
@@ -87,6 +92,8 @@ export default function CompaniesPage() {
   const [editName, setEditName] = useState('');
   const [editBizNum, setEditBizNum] = useState('');
   const [editRep, setEditRep] = useState('');
+  const [editBizType, setEditBizType] = useState('');
+  const [editBizCategory, setEditBizCategory] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
   const [addLicenseName, setAddLicenseName] = useState<string | null>(null);
@@ -105,8 +112,10 @@ export default function CompaniesPage() {
     setEditName(row.name);
     setEditBizNum(row.businessNumber);
     setEditRep(row.representative);
+    setEditBizType(row.bizType);
+    setEditBizCategory(row.bizCategory);
     setEditPhone(row.phone);
-    setEditAddress('');
+    setEditAddress(row.address);
     setEditLicenseName(null);
   }
 
@@ -119,7 +128,10 @@ export default function CompaniesPage() {
           name: c.name,
           representative: c.representativeName ?? '',
           businessNumber: c.businessNumber,
+          bizType: c.bizType ?? '',
+          bizCategory: c.bizCategory ?? '',
           phone: c.phone ?? '',
+          address: c.address ?? '',
           type: companyType(c.businessTypes),
           status: (c.status as CompanyRow['status']) ?? 'ACTIVE',
           memberCount: 0,
@@ -128,7 +140,6 @@ export default function CompaniesPage() {
       : [];
 
   const filtered = companies.filter((c) => c.name.includes(search) || c.representative.includes(search));
-
 
   const columns: Column<CompanyRow>[] = [
     {
@@ -227,11 +238,7 @@ export default function CompaniesPage() {
         actions={
           <div className="flex items-center gap-2">
             <div className="w-64">
-              <Input
-                placeholder="기업명 또는 대표자 검색"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+              <Input placeholder="기업명 또는 대표자 검색" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
             <Button size="sm" onClick={() => setAddOpen(true)}>
               <Plus size={14} className="mr-1.5" /> 기업 등록
@@ -285,6 +292,20 @@ export default function CompaniesPage() {
                 if (addErrors.representative) setAddErrors((prev) => ({ ...prev, representative: undefined }));
               }}
               error={addErrors.representative}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="업태"
+              placeholder="제조업"
+              value={formBizType}
+              onChange={(e) => setFormBizType(e.target.value)}
+            />
+            <Input
+              label="종목"
+              placeholder="금속 가공"
+              value={formBizCategory}
+              onChange={(e) => setFormBizCategory(e.target.value)}
             />
           </div>
           <Input
@@ -342,6 +363,8 @@ export default function CompaniesPage() {
                     name: formName.trim(),
                     businessNumber: formBizNum.trim(),
                     representativeName: formRep.trim(),
+                    bizType: formBizType.trim() || undefined,
+                    bizCategory: formBizCategory.trim() || undefined,
                     phone: formPhone.trim() || undefined,
                     address: formAddress.trim() || undefined,
                   },
@@ -353,6 +376,8 @@ export default function CompaniesPage() {
                       setFormName('');
                       setFormBizNum('');
                       setFormRep('');
+                      setFormBizType('');
+                      setFormBizCategory('');
                       setFormPhone('');
                       setFormAddress('');
                     },
@@ -382,6 +407,14 @@ export default function CompaniesPage() {
               <div>
                 <p className="text-xs text-slate-500 mb-1">대표자</p>
                 <p className="text-sm text-slate-300">{detailRow.representative || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 mb-1">업태</p>
+                <p className="text-sm text-slate-300">{detailRow.bizType || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 mb-1">종목</p>
+                <p className="text-sm text-slate-300">{detailRow.bizCategory || '-'}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-500 mb-1">기업 연락처</p>
@@ -488,17 +521,17 @@ export default function CompaniesPage() {
                 error={editErrors.representative}
               />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="업태" value={editBizType} onChange={(e) => setEditBizType(e.target.value)} />
+              <Input label="종목" value={editBizCategory} onChange={(e) => setEditBizCategory(e.target.value)} />
+            </div>
             <Input label="기업 연락처" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
             <Input label="기업 주소" value={editAddress} onChange={(e) => setEditAddress(e.target.value)} />
             <div>
               <p className="text-sm font-medium text-accent mb-1.5">사업자등록증</p>
               <div className="flex items-center gap-3">
                 <span className="text-sm text-slate-300">{editLicenseName ?? licenseFileName(editName)}</span>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => downloadLicense(editName, editBizNum, editRep)}
-                >
+                <Button variant="secondary" size="sm" onClick={() => downloadLicense(editName, editBizNum, editRep)}>
                   <Download size={14} className="mr-1.5" /> 다운로드
                 </Button>
               </div>
@@ -545,6 +578,8 @@ export default function CompaniesPage() {
                         name: editName.trim(),
                         businessNumber: editBizNum.trim(),
                         representativeName: editRep.trim(),
+                        bizType: editBizType.trim(),
+                        bizCategory: editBizCategory.trim(),
                         phone: editPhone.trim() || undefined,
                         address: editAddress.trim() || undefined,
                       },

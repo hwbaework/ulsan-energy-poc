@@ -21,7 +21,14 @@ function statusLabel(status?: string): string {
 
 export default function OrgInfoPage() {
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ name: '', representativeName: '', phone: '', address: '' });
+  const [form, setForm] = useState({
+    name: '',
+    representativeName: '',
+    bizType: '',
+    bizCategory: '',
+    phone: '',
+    address: '',
+  });
   const user = useAuthStore((s) => s.user);
   const overrideVal = usePersonaOverride((s) => s.override);
   const persona = overrideVal ?? getPersona(user);
@@ -45,8 +52,20 @@ export default function OrgInfoPage() {
   // 데모용 가데이터 — 실제 소속 회원은 회원 관리에서 추가
   const members: { name: string; department: string; phone: string; email: string; status: string }[] = [
     ...realMembers,
-    { name: '김서연', department: '전력관리팀', phone: '010-1234-5678', email: 'seoyeon.kim@ulsan-energy.co.kr', status: 'ACTIVE' },
-    { name: '박준호', department: '운영지원팀', phone: '010-2345-6789', email: 'junho.park@ulsan-energy.co.kr', status: 'PENDING' },
+    {
+      name: '김서연',
+      department: '전력관리팀',
+      phone: '010-1234-5678',
+      email: 'seoyeon.kim@ulsan-energy.co.kr',
+      status: 'ACTIVE',
+    },
+    {
+      name: '박준호',
+      department: '운영지원팀',
+      phone: '010-2345-6789',
+      email: 'junho.park@ulsan-energy.co.kr',
+      status: 'PENDING',
+    },
   ];
 
   useEffect(() => {
@@ -54,6 +73,8 @@ export default function OrgInfoPage() {
       setForm({
         name: company.name ?? '',
         representativeName: company.representativeName ?? '',
+        bizType: company.bizType ?? '',
+        bizCategory: company.bizCategory ?? '',
         phone: company.phone ?? '',
         address: company.address ?? '',
       });
@@ -111,6 +132,8 @@ export default function OrgInfoPage() {
       setForm({
         name: company.name ?? '',
         representativeName: company.representativeName ?? '',
+        bizType: company.bizType ?? '',
+        bizCategory: company.bizCategory ?? '',
         phone: company.phone ?? '',
         address: company.address ?? '',
       });
@@ -160,6 +183,23 @@ export default function OrgInfoPage() {
               />
             ) : (
               <p className="text-sm text-white">{company?.representativeName ?? '-'}</p>
+            )}
+          </InfoField>
+          <InfoField label="업태">
+            {editing ? (
+              <Input value={form.bizType} onChange={(e) => setForm((f) => ({ ...f, bizType: e.target.value }))} />
+            ) : (
+              <p className="text-sm text-white">{company?.bizType || '-'}</p>
+            )}
+          </InfoField>
+          <InfoField label="종목">
+            {editing ? (
+              <Input
+                value={form.bizCategory}
+                onChange={(e) => setForm((f) => ({ ...f, bizCategory: e.target.value }))}
+              />
+            ) : (
+              <p className="text-sm text-white">{company?.bizCategory || '-'}</p>
             )}
           </InfoField>
           <InfoField icon={<Phone size={14} />} label="연락처">
@@ -212,9 +252,13 @@ export default function OrgInfoPage() {
                       <Upload size={14} className="mr-1.5" /> 등록증 업데이트
                     </Button>
                     {pendingLicense && (
-                      <p className="text-xs text-primary">선택됨: {pendingLicense} · 저장 시 관리자 확인을 요청합니다.</p>
+                      <p className="text-xs text-primary">
+                        선택됨: {pendingLicense} · 저장 시 관리자 확인을 요청합니다.
+                      </p>
                     )}
-                    <p className="text-xs text-slate-500">사업자 등록증 변경은 저장 후 관리자 확인을 거쳐 반영됩니다.</p>
+                    <p className="text-xs text-slate-500">
+                      사업자 등록증 변경은 저장 후 관리자 확인을 거쳐 반영됩니다.
+                    </p>
                   </div>
                 )}
               </div>
@@ -245,7 +289,9 @@ export default function OrgInfoPage() {
                       <td className="px-4 py-2.5 text-slate-400 tabular-nums">{m.phone}</td>
                       <td className="px-4 py-2.5 text-slate-400">{m.email}</td>
                       <td className="px-4 py-2.5">
-                        <Badge variant={m.status === 'ACTIVE' ? 'success' : m.status === 'SUSPENDED' ? 'danger' : 'warning'}>
+                        <Badge
+                          variant={m.status === 'ACTIVE' ? 'success' : m.status === 'SUSPENDED' ? 'danger' : 'warning'}
+                        >
                           {m.status === 'ACTIVE' ? '활성' : m.status === 'SUSPENDED' ? '정지' : '대기'}
                         </Badge>
                       </td>

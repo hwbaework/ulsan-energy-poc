@@ -18,6 +18,8 @@ interface MockCompany {
   name: string;
   businessNumber: string;
   representativeName: string;
+  bizType?: string;
+  bizCategory?: string;
   address: string;
   phone: string;
   email: string;
@@ -28,7 +30,7 @@ interface MockCompany {
   updatedAt: string;
 }
 export const COMPANIES: MockCompany[] = [
-  { id: 1, name: '울산 에너지 플랫폼', businessNumber: '610-88-00001', representativeName: '김운영', address: '울산 남구 처용로 1', phone: '052-100-1000', email: 'admin@test.com', status: 'ACTIVE', businessTypes: ['SPC', '운영사'], employeeCount: 24, createdAt: daysAgo(400), updatedAt: daysAgo(10) },
+  { id: 1, name: '울산 에너지 플랫폼', businessNumber: '610-88-00001', representativeName: '김운영', bizType: '전기업', bizCategory: '태양광 발전', address: '울산 남구 처용로 1', phone: '052-100-1000', email: 'admin@test.com', status: 'ACTIVE', businessTypes: ['SPC', '운영사'], employeeCount: 24, createdAt: daysAgo(400), updatedAt: daysAgo(10) },
   { id: 2, name: '울산 발전(주)', businessNumber: '610-81-20002', representativeName: '박발전', address: '울산 남구 부곡동 273-6', phone: '052-200-2000', email: 'operator@test.com', status: 'ACTIVE', businessTypes: ['발전사업자'], employeeCount: 12, createdAt: daysAgo(320), updatedAt: daysAgo(6) },
   { id: 3, name: '한길', businessNumber: '610-81-30003', representativeName: '이수용', address: '울산 남구 용연동 490-11', phone: '052-300-3000', email: 'consumer@test.com', status: 'ACTIVE', businessTypes: ['전기사용자'], employeeCount: 58, createdAt: daysAgo(300), updatedAt: daysAgo(4) },
   { id: 4, name: '한일튜브', businessNumber: '610-81-40004', representativeName: '최한일', address: '울산 남구 부곡동 273-6', phone: '052-400-4000', email: 'kim@hanil.co.kr', status: 'ACTIVE', businessTypes: ['전기사용자'], employeeCount: 140, createdAt: daysAgo(90), updatedAt: daysAgo(2) },
@@ -218,6 +220,8 @@ function updateCompanyFixture(id: number, body: unknown) {
     if (typeof d.phone === 'string') c.phone = d.phone;
     if (typeof d.address === 'string') c.address = d.address;
     if (typeof d.businessNumber === 'string') c.businessNumber = d.businessNumber;
+    if (typeof d.bizType === 'string') c.bizType = d.bizType;
+    if (typeof d.bizCategory === 'string') c.bizCategory = d.bizCategory;
     c.updatedAt = new Date().toISOString().slice(0, 19);
   }
   return c ?? COMPANIES[0];

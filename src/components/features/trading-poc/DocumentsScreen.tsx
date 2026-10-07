@@ -1,24 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Archive,
-  Building2,
-  ChevronDown,
-  ChevronRight,
-  Download,
-  Eye,
-  FileText,
-  Handshake,
-  Hash,
-  Receipt,
-  Search,
-  Star,
-  Upload,
-  type LucideIcon,
-} from 'lucide-react';
+import { ChevronDown, ChevronRight, Download, Search, Star, Upload } from 'lucide-react';
 import { SectionCard } from '@/components/features/SectionCard';
+import { DataTable, type Column } from '@/components/features/DataList';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
@@ -29,7 +15,7 @@ import { useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { Contract, DocCategory, TradeDocument } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
 import { kindLabel } from './meta';
-import { ModalFooter, PageHeader } from './Bits';
+import { ModalFooter, PageHeader, cell, cellMuted, cellNum } from './Bits';
 import { periodOf } from './DocumentSheet';
 
 /** 계약서 원문(양식) — 계약서는 이 PDF */
@@ -40,10 +26,10 @@ export const docsBase = (admin: boolean) => (admin ? '/platform/ppa/documents' :
 /** 문서 관리에 두는 것 — 발행되고 받은 문서 3가지 */
 const CATEGORIES = ['SIGNED', 'INVOICE', 'TAX'] as const satisfies readonly DocCategory[];
 type Category = (typeof CATEGORIES)[number];
-const CATEGORY_META: Record<Category, { label: string; icon: LucideIcon; tone: string }> = {
-  SIGNED: { label: '계약서', icon: Handshake, tone: 'text-emerald-300 bg-emerald-500/[0.08] ring-emerald-500/30' },
-  INVOICE: { label: '청구서', icon: FileText, tone: 'text-blue-300 bg-blue-500/[0.08] ring-blue-500/30' },
-  TAX: { label: '세금계산서', icon: Receipt, tone: 'text-violet-300 bg-violet-500/[0.08] ring-violet-500/30' },
+const CATEGORY_META: Record<Category, { label: string }> = {
+  SIGNED: { label: '계약서' },
+  INVOICE: { label: '청구서' },
+  TAX: { label: '세금계산서' },
 };
 const isShown = (d: TradeDocument): d is TradeDocument & { category: Category } =>
   (CATEGORIES as readonly string[]).includes(d.category);
@@ -68,7 +54,6 @@ type Row = TradeDocument & {
 function FolderRow({
   label,
   count,
-  icon: Icon,
   active,
   depth = 0,
   expanded,
@@ -76,7 +61,6 @@ function FolderRow({
 }: {
   label: string;
   count?: number;
-  icon?: LucideIcon;
   active?: boolean;
   depth?: number;
   expanded?: boolean;
@@ -95,18 +79,18 @@ function FolderRow({
       <span className="flex h-4 w-4 shrink-0 items-center justify-center text-slate-500">
         {expanded === undefined ? null : expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
       </span>
-      {Icon && <Icon size={14} className="shrink-0" />}
       <span className="flex-1 truncate">{label}</span>
       {count !== undefined && <span className="text-xs tabular-nums text-slate-500">{count}</span>}
     </button>
   );
 }
 
-const iconBtn = 'inline-flex rounded-md p-1.5 text-slate-500 hover:bg-white/[0.06] hover:text-white';
+const iconBtn = 'inline-flex rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-white';
 
 /**
  * 문서 관리 — 전력거래에서 발행되고 받은 문서(계약서 · 청구서 · 세금계산서).
- * 왼쪽 폴더(전체 · 카테고리 · 기업별), 오른쪽 문서 표(즐겨찾기 · 보기 · 다운로드). ?company=기업 번호 로 기업 폴더를 열 수 있다.
+ * 왼쪽 폴더(전체 · 카테고리 · 기업별), 오른쪽 문서 표(다른 화면과 같은 표 · 검색). 줄을 누르면 보기, 오른쪽 끝 PDF.
+ * ?company=기업 번호 로 기업 폴더를 열 수 있다.
  */
 export function DocumentsScreen({ initialCompany }: { initialCompany?: number }) {
   const router = useRouter();
@@ -118,7 +102,6 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
   const [folder, setFolder] = useState<string>('all');
   const [open, setOpen] = useState<Set<string>>(new Set(['cat', 'company']));
   const [query, setQuery] = useState('');
-  const [sort, setSort] = useState<'date' | 'name'>('date');
   const [favs, setFavs] = useState<Set<number>>(new Set());
   const [uploadOpen, setUploadOpen] = useState(false);
   const [up, setUp] = useState<{ title: string; category: Category; contractId: string; fileName: string }>({
@@ -167,10 +150,8 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
       .filter(
         (d) => !q || [d.name, d.company, CATEGORY_META[d.category].label].some((v) => v.toLowerCase().includes(q)),
       )
-      .sort((a, b) =>
-        sort === 'name' ? a.name.localeCompare(b.name, 'ko') : b.issuedAt.localeCompare(a.issuedAt) || b.id - a.id,
-      );
-  }, [docs, folder, query, sort]);
+      .sort((a, b) => b.issuedAt.localeCompare(a.issuedAt) || b.id - a.id);
+  }, [docs, folder, query]);
 
   const toggle = (k: string) =>
     setOpen((s) => (s.has(k) ? new Set([...s].filter((x) => x !== k)) : new Set([...s, k])));
@@ -187,12 +168,12 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
       return next;
     });
   const view = (d: TradeDocument, pdf = false) => router.push(`${base}/view?id=${d.id}${pdf ? '&pdf=1' : ''}`);
-  const crumb: string[] =
+  const folderName =
     folder === 'all'
-      ? ['전체']
+      ? '전체'
       : folder.startsWith('cat:')
-        ? ['카테고리', CATEGORY_META[folder.slice(4) as Category].label]
-        : ['기업별', companies.find((c) => c.id === Number(folder.slice(8)))?.name ?? ''];
+        ? CATEGORY_META[folder.slice(4) as Category].label
+        : (companies.find((c) => c.id === Number(folder.slice(8)))?.name ?? '');
 
   const submitUpload = () => {
     const c = role.contracts.find((x) => String(x.id) === up.contractId);
@@ -212,7 +193,92 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
     setUploadOpen(false);
   };
 
-  const cellHead = (children: ReactNode, cls: string) => <span className={cn('shrink-0', cls)}>{children}</span>;
+  const columns: Column<Row>[] = [
+    {
+      key: 'fav',
+      header: '',
+      width: '44px',
+      align: 'center',
+      render: (d) => {
+        const fav = favs.has(d.id);
+        return (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleFav(d.id);
+            }}
+            aria-label="즐겨찾기"
+            className={cn('inline-flex', fav ? 'text-amber-400' : 'text-slate-600 hover:text-amber-400')}
+          >
+            <Star size={14} className={fav ? 'fill-amber-400' : ''} />
+          </button>
+        );
+      },
+    },
+    {
+      key: 'name',
+      header: '파일',
+      sortable: true,
+      sortValue: (d) => d.name,
+      render: (d) => cell(d.name, 'text-white'),
+    },
+    { key: 'cat', header: '카테고리', width: '120px', render: (d) => cell(CATEGORY_META[d.category].label) },
+    ...(role.isAdmin ? [{ key: 'company', header: '기업', width: '140px', render: (d: Row) => cell(d.company) }] : []),
+    {
+      key: 'kind',
+      header: '계약 유형',
+      width: '110px',
+      render: (d) => cellMuted(d.contract ? kindLabel(d.contract.kind) : '-'),
+    },
+    {
+      key: 'issued',
+      header: '발행일',
+      width: '120px',
+      sortable: true,
+      sortValue: (d) => d.issuedAt,
+      render: (d) => cellNum(d.issuedAt),
+    },
+    {
+      key: 'size',
+      header: '크기',
+      width: '90px',
+      align: 'right',
+      render: (d) => cellMuted(d.sizeKb >= 1024 ? `${(d.sizeKb / 1024).toFixed(1)} MB` : `${d.sizeKb} KB`),
+    },
+    {
+      key: 'pdf',
+      header: 'PDF',
+      width: '70px',
+      align: 'center',
+      render: (d) =>
+        isContractDoc(d) ? (
+          <a
+            href={CONTRACT_PDF}
+            download={d.name}
+            onClick={(e) => e.stopPropagation()}
+            aria-label="다운로드"
+            title="다운로드"
+            className={iconBtn}
+          >
+            <Download size={15} />
+          </a>
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              view(d, true);
+            }}
+            aria-label="다운로드"
+            title="다운로드"
+            className={iconBtn}
+          >
+            <Download size={15} />
+          </button>
+        ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -242,39 +308,26 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
         <div className="xl:col-span-3">
           <SectionCard title="폴더">
             <div className="space-y-1">
-              <FolderRow
-                label="전체"
-                count={docs.length}
-                icon={Archive}
-                active={folder === 'all'}
-                onClick={() => setFolder('all')}
-              />
-              <FolderRow label="카테고리" icon={Hash} expanded={open.has('cat')} onClick={() => toggle('cat')} />
+              <FolderRow label="전체" count={docs.length} active={folder === 'all'} onClick={() => setFolder('all')} />
+              <FolderRow label="카테고리" expanded={open.has('cat')} onClick={() => toggle('cat')} />
               {open.has('cat') &&
                 CATEGORIES.map((c) => (
                   <FolderRow
                     key={c}
                     label={CATEGORY_META[c].label}
                     count={docs.filter((d) => d.category === c).length}
-                    icon={CATEGORY_META[c].icon}
                     depth={1}
                     active={folder === `cat:${c}`}
                     onClick={() => setFolder(`cat:${c}`)}
                   />
                 ))}
-              <FolderRow
-                label="기업별"
-                icon={Building2}
-                expanded={open.has('company')}
-                onClick={() => toggle('company')}
-              />
+              <FolderRow label="기업별" expanded={open.has('company')} onClick={() => toggle('company')} />
               {open.has('company') &&
                 companies.map((c) => (
                   <FolderRow
                     key={c.id}
                     label={c.name}
                     count={docs.filter((d) => d.companyId === c.id).length}
-                    icon={Building2}
                     depth={1}
                     active={folder === `company:${c.id}`}
                     onClick={() => setFolder(`company:${c.id}`)}
@@ -285,18 +338,11 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
         </div>
 
         {/* 문서 */}
-        <div className="overflow-hidden rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] xl:col-span-9">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.06] px-5 py-3">
-            <span className="flex items-center gap-1.5 text-sm">
-              {crumb.map((seg, i) => (
-                <span key={i} className="flex items-center gap-1.5">
-                  <span className={i === crumb.length - 1 ? 'font-semibold text-white' : 'text-slate-500'}>{seg}</span>
-                  {i < crumb.length - 1 && <ChevronRight size={12} className="text-slate-600" />}
-                </span>
-              ))}
-            </span>
-            <div className="flex items-center gap-2">
-              <div className="relative w-60">
+        <div className="min-w-0 xl:col-span-9">
+          <SectionCard
+            title={`${folderName} (${visible.length})`}
+            actions={
+              <div className="relative w-64">
                 <Search
                   size={14}
                   className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500"
@@ -304,103 +350,21 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
                 <Input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="파일명 · 카테고리 · 기업 검색"
+                  placeholder="파일 · 카테고리 · 기업 검색"
                   className="pl-8"
                 />
               </div>
-              <Select
-                options={[
-                  { value: 'date', label: '최신순' },
-                  { value: 'name', label: '이름순' },
-                ]}
-                value={sort}
-                onChange={(e) => setSort(e.target.value as 'date' | 'name')}
-                className="w-28"
-              />
-            </div>
-          </div>
-
-          <div className="divide-y divide-white/[0.04]">
-            <div className="flex items-center gap-3 bg-white/[0.02] px-5 py-2 text-xs text-slate-500">
-              {cellHead('', 'w-4')}
-              {cellHead('', 'w-9')}
-              <span className="flex-1">파일</span>
-              {cellHead('카테고리', 'w-28')}
-              {cellHead('기업', 'w-28')}
-              {cellHead('발행일', 'w-24 text-right')}
-              {cellHead('크기', 'w-16 text-right')}
-              {cellHead('작업', 'w-20 text-right')}
-            </div>
-            {visible.map((d) => {
-              const meta = CATEGORY_META[d.category];
-              const fav = favs.has(d.id);
-              return (
-                <div key={d.id} className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-white/[0.02]">
-                  <button
-                    type="button"
-                    onClick={() => toggleFav(d.id)}
-                    aria-label="즐겨찾기"
-                    className={cn('w-4 shrink-0', fav ? 'text-amber-400' : 'text-slate-600 hover:text-amber-400')}
-                  >
-                    <Star size={14} className={fav ? 'fill-amber-400' : ''} />
-                  </button>
-                  <span
-                    className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-md ring-1', meta.tone)}
-                  >
-                    <meta.icon size={15} />
-                  </span>
-                  <button type="button" onClick={() => view(d)} className="min-w-0 flex-1 text-left">
-                    <p className="truncate text-sm font-medium text-white hover:underline">{d.name}</p>
-                    <p className="truncate text-xs text-slate-500">
-                      {d.company}
-                      {d.contract ? ` · ${kindLabel(d.contract.kind)}` : ''}
-                    </p>
-                  </button>
-                  <span
-                    className={cn(
-                      'inline-flex w-28 shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1',
-                      meta.tone,
-                    )}
-                  >
-                    <meta.icon size={11} />
-                    {meta.label}
-                  </span>
-                  <span className="w-28 shrink-0 truncate text-sm text-slate-400">{d.company}</span>
-                  <span className="w-24 shrink-0 text-right text-sm tabular-nums text-slate-400">{d.issuedAt}</span>
-                  <span className="w-16 shrink-0 text-right text-xs tabular-nums text-slate-500">
-                    {d.sizeKb >= 1024 ? `${(d.sizeKb / 1024).toFixed(1)} MB` : `${d.sizeKb} KB`}
-                  </span>
-                  <span className="flex w-20 shrink-0 items-center justify-end gap-1">
-                    <button type="button" onClick={() => view(d)} aria-label="보기" title="보기" className={iconBtn}>
-                      <Eye size={15} />
-                    </button>
-                    {isContractDoc(d) ? (
-                      <a
-                        href={CONTRACT_PDF}
-                        download={d.name}
-                        aria-label="다운로드"
-                        title="다운로드"
-                        className={iconBtn}
-                      >
-                        <Download size={15} />
-                      </a>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => view(d, true)}
-                        aria-label="다운로드"
-                        title="다운로드"
-                        className={iconBtn}
-                      >
-                        <Download size={15} />
-                      </button>
-                    )}
-                  </span>
-                </div>
-              );
-            })}
-            {visible.length === 0 && <div className="px-5 py-16 text-center text-sm text-slate-500">문서 없음</div>}
-          </div>
+            }
+            noPadding
+          >
+            <DataTable
+              columns={columns}
+              data={visible}
+              rowKey={(d) => d.id}
+              emptyMessage="문서 없음"
+              onRowClick={(d) => view(d)}
+            />
+          </SectionCard>
         </div>
       </div>
 

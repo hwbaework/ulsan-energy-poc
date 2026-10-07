@@ -11,7 +11,7 @@ import {
   writtenDateOf,
 } from '@/stores/useTradingPocStore';
 import type { Contract, ContractChange, TradeDocument } from '@/types/trading-poc';
-import { changeTypeLabel, fmtDateTime, fmtKw, fmtKwh, fmtNum, kindLabel, savingOf } from './meta';
+import { changeTypeLabel, fmtDateTime, fmtKw, fmtKwh, fmtNum, kindLabel } from './meta';
 import { changeText } from './ChangeDetailModal';
 
 const won = (n: number) => `₩${fmtNum(Math.round(n))}`;
@@ -51,7 +51,7 @@ export function printSheet(el: HTMLElement | null, title: string) {
 
 /**
  * A4 문서 — 청구서 · 세금계산서(onsite) · 변경·해지 합의서. 문서 관리 · 세금계산서 · 청구서 화면이 같은 모양을 쓴다.
- * 공급자 = 플랫폼(SPC), 품목 = 전력 사용(사용량 × 그 구간 단가), 한전 요금 대비 할인
+ * 공급자 = 플랫폼(SPC), 품목 = 전력 사용(사용량 × 그 구간 단가)
  */
 export function DocumentSheet({
   doc,
@@ -99,7 +99,6 @@ function SheetBody({ doc, contract: c, change }: { doc: TradeDocument; contract:
   if (doc.category === 'INVOICE' || doc.category === 'TAX') {
     const period = periodOf(doc);
     const s = period ? settlementsOf([c]).find((x) => x.period === period) : undefined;
-    const sv = s ? savingOf(s.generationKwh, s.smpUnitPrice) : undefined;
     return (
       <div className="space-y-10">
         <Rows
@@ -119,7 +118,6 @@ function SheetBody({ doc, contract: c, change }: { doc: TradeDocument; contract:
             ['공급가액', s ? won(s.supplyAmount) : undefined],
             [doc.category === 'TAX' ? '세액 (10%)' : '부가세 (10%)', s ? won(s.vat) : undefined],
             ['합계', s ? won(s.total) : undefined],
-            ['한전 요금 대비 할인', sv ? `${won(sv.saving)} (${sv.rate.toFixed(1)}%)` : undefined],
           ]}
         />
         {period && (

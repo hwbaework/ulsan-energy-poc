@@ -27,9 +27,7 @@ const ENTERPRISE_ROLE_OPTIONS: { value: EnterpriseRole; label: string }[] = [
   { value: 'SPC_OPERATOR', label: '관리자 (SPC)' },
 ];
 
-
 const STEP_LABELS = ['기업 정보', '계정 생성', '약관 동의', '완료'];
-
 
 const signupSchema = z
   .object({
@@ -37,6 +35,8 @@ const signupSchema = z
     companyName: z.string(),
     businessNumber: z.string(),
     representative: z.string(),
+    bizType: z.string(),
+    bizCategory: z.string(),
     companyPhone: z.string(),
     companyAddress: z.string(),
 
@@ -76,7 +76,6 @@ export default function SignupPage() {
   const [signupType] = useState<SignupType>('enterprise');
   const [enterpriseRole, setEnterpriseRole] = useState<EnterpriseRole | null>(null);
 
-
   const stepLabels = STEP_LABELS;
   const progress = ((step - 2) / (stepLabels.length - 1)) * 100;
 
@@ -94,6 +93,8 @@ export default function SignupPage() {
       companyName: '',
       businessNumber: '',
       representative: '',
+      bizType: '',
+      bizCategory: '',
       companyPhone: '',
       companyAddress: '',
       consultantName: '',
@@ -118,7 +119,6 @@ export default function SignupPage() {
   const termsService = watch('termsService');
   const termsPrivacy = watch('termsPrivacy');
   const termsMarketing = watch('termsMarketing');
-
 
   async function handleNext() {
     setServerError('');
@@ -168,6 +168,8 @@ export default function SignupPage() {
                     companyName: vals.companyName || undefined,
                     businessNumber: vals.businessNumber || undefined,
                     representative: vals.representative || undefined,
+                    bizType: vals.bizType || undefined,
+                    bizCategory: vals.bizCategory || undefined,
                     companyPhone: vals.companyPhone || undefined,
                     companyAddress: vals.companyAddress || undefined,
                   }
@@ -285,7 +287,11 @@ export default function SignupPage() {
                 </div>
                 <Input label="기업 연락처" placeholder="02-0000-0000" {...register('companyPhone')} />
                 <Input label="기업 주소" placeholder="서울특별시 강남구" {...register('companyAddress')} />
-                {/* 업태·종목 입력 제거 — 서버 미저장 유령 필드. 업종·규모는 가입 후 조직 관리>프로필에서 수집(가입 마찰 최소화). */}
+                {/* 업태·종목 — 사업자등록증 '사업의 종류'. 세금계산서에 들어간다 */}
+                <div className="grid grid-cols-2 gap-3">
+                  <Input label="업태" placeholder="제조업" {...register('bizType')} />
+                  <Input label="종목" placeholder="금속 가공" {...register('bizCategory')} />
+                </div>
                 <div>
                   <p className="text-sm font-medium text-accent mb-1.5">사업자등록증 (선택)</p>
                   <FileUpload accept=".pdf,.jpg,.png" maxSizeMB={10} onChange={() => {}} />
@@ -439,7 +445,6 @@ export default function SignupPage() {
             </Link>
           </div>
         )}
-
       </div>
 
       <p className="mt-6 text-center text-[11px] text-slate-600">&copy; 2025 에너지 플랫폼. All rights reserved.</p>
