@@ -59,6 +59,15 @@ import {
 /* ── 공통 ── */
 const won = (n: number) => `₩${n.toLocaleString('ko-KR')}`;
 const day = (iso?: string) => (iso ? iso.slice(0, 10) : '');
+/** 얼마 전인지 — Mapbox 'Last modified'처럼. 오늘 · 어제 · n일 전 · n개월 전 · n년 전 */
+const ago = (iso: string) => {
+  const d = Math.floor((Date.now() - new Date(`${iso.slice(0, 10)}T00:00:00`).getTime()) / 86_400_000);
+  if (d <= 0) return '오늘';
+  if (d === 1) return '어제';
+  if (d < 30) return `${d}일 전`;
+  if (d < 365) return `${Math.floor(d / 30)}개월 전`;
+  return `${Math.floor(d / 365)}년 전`;
+};
 const priceText = (d: Pick<Dataset, 'priceType' | 'price'>) =>
   d.priceType === 'MONTHLY' ? `${won(d.price)}/월` : won(d.price);
 const periodText = (d: Pick<Dataset, 'periodFrom' | 'periodTo'>) => `${d.periodFrom} ~ ${d.periodTo}`;
@@ -1176,7 +1185,17 @@ export function DataApiHubScreen() {
         </span>
       ),
     },
-    { key: 'updated', header: '최근 수정', width: '110px', render: (t) => num(day(t.tokenUpdatedAt)) },
+    {
+      key: 'updated',
+      header: '최근 수정',
+      width: '110px',
+      // 마우스를 올리면 정확한 날짜
+      render: (t) => (
+        <span title={day(t.tokenUpdatedAt)} className="whitespace-nowrap text-sm text-slate-300">
+          {ago(t.tokenUpdatedAt)}
+        </span>
+      ),
+    },
     // 허용 URL — 이 주소에서 부를 때만 받는 제한(Mapbox URLs). 아직 정한 곳이 없어 제한 없음
     { key: 'urls', header: '허용 URL', width: '110px', render: () => cell('제한 없음', 'text-slate-500') },
     {
