@@ -76,8 +76,8 @@ export function TradeApprovalsScreen() {
   const count = (st: SignStatus) => approved.filter((r) => signStatusOf(r) === st).length;
 
   const columns: Column<TradeRequest>[] = [
-    { key: 'no', header: '신청번호', width: '140px', render: (r) => cellStrong(r.no) },
-    { key: 'contract', header: '계약번호', width: '130px', render: (r) => cellNum(contractOf(r.contractId)?.no ?? '') },
+    { key: 'no', header: '신청번호', width: '160px', render: (r) => cellStrong(r.no) },
+    { key: 'contract', header: '계약번호', width: '160px', render: (r) => cellNum(contractOf(r.contractId)?.no ?? '') },
     { key: 'consumer', header: '기업명', render: (r) => cell(r.consumerCompanyName, 'text-white') },
     { key: 'kind', header: '계약 유형', width: '100px', render: (r) => cell(kindLabel(r.kind)) },
     { key: 'capacity', header: '용량', width: '100px', render: (r) => cellNum(fmtKw(r.capacityKw)) },
@@ -85,7 +85,7 @@ export function TradeApprovalsScreen() {
     {
       key: 'start',
       header: '시작일',
-      width: '110px',
+      width: '130px',
       render: (r) => cellMuted(contractOf(r.contractId)?.startDate ?? ''),
     },
     {

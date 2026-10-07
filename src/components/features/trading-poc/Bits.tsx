@@ -6,7 +6,15 @@ import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { StatusPill } from '@/components/ui/Design';
 import { cn } from '@/lib/utils';
 import type { ChangeStatus, ContractStatus, TradeEvent, TradeRequest, TradeRequestStatus } from '@/types/trading-poc';
-import { CHANGE_STATUS, CONTRACT_STATUS, PARTY_LABEL, REQUEST_STATUS, fmtDateTime } from './meta';
+import {
+  CHANGE_STATUS,
+  CHANGE_STATE_TONE,
+  changeStateOf,
+  CONTRACT_STATUS,
+  PARTY_LABEL,
+  REQUEST_STATUS,
+  fmtDateTime,
+} from './meta';
 
 /** 제목만 — 부제 없음 (통합관제와 같은 규칙). 브레드크럼은 RE100 › (상위 ›) 화면 */
 export function PageHeader({ title, parent, actions }: { title: string; parent?: string; actions?: ReactNode }) {
@@ -34,6 +42,11 @@ export function ContractStatusPill({ status }: { status: ContractStatus }) {
 export function ChangeStatusPill({ status }: { status: ChangeStatus }) {
   const m = CHANGE_STATUS[status];
   return <StatusPill tone={m.tone} label={m.label} />;
+}
+/** 변경·해지 상태 — 진행 중은 단계, 끝나면 반영 · 해지 · 반려 · 취소 */
+export function ChangeStatePill({ ch }: { ch: Parameters<typeof changeStateOf>[0] }) {
+  const st = changeStateOf(ch);
+  return <StatusPill tone={CHANGE_STATE_TONE[st]} label={st} />;
 }
 
 /** 라벨 14px · 값 16px — 거래 승인 상세와 같은 꼴 */
@@ -93,21 +106,26 @@ export function tradeStepOf(r: TradeRequest): number {
 }
 
 /** 진행 단계 — 번호 원 · 선. 반려 · 취소는 멈춘 자리에 표시 */
-export function TradeStepper({
-  r,
-  signedCount = 0,
+/** 단계 표시줄 — 거래 이력 · 거래 승인 · 변경·해지가 같은 모양. step = 지금 단계(0부터), failed = 그 자리에서 반려 · 취소 */
+export function StepBar({
+  steps,
+  step,
+  failed,
+  labelOf,
   className,
 }: {
-  r: TradeRequest;
-  signedCount?: number;
+  steps: readonly string[];
+  step: number;
+  /** 반려 · 취소 — 그 단계에 빨간 X 와 이 이름 */
+  failed?: string;
+  /** 단계 이름을 바꿔 보일 때(예: 전자서명 1/2) */
+  labelOf?: (label: string, i: number) => string;
   className?: string;
 }) {
-  const step = tradeStepOf(r);
-  const failed = r.status === 'REJECTED' || r.status === 'CANCELLED';
   return (
     <ol className={cn('flex items-start', className)}>
-      {TRADE_STEPS.map((label, i) => {
-        const bad = failed && i === step;
+      {steps.map((label, i) => {
+        const bad = !!failed && i === step;
         const state = bad ? 'bad' : i < step ? 'done' : i === step && !failed ? 'now' : 'next';
         return (
           <li key={label} className="flex flex-1 items-start last:flex-none">
@@ -135,16 +153,10 @@ export function TradeStepper({
                         : 'text-slate-300',
                 )}
               >
-                {bad
-                  ? r.status === 'REJECTED'
-                    ? '반려'
-                    : '취소'
-                  : i === 5 && r.status === 'APPROVED'
-                    ? `전자서명 ${signedCount}/2`
-                    : label}
+                {bad ? failed : labelOf ? labelOf(label, i) : label}
               </span>
             </div>
-            {i < TRADE_STEPS.length - 1 && (
+            {i < steps.length - 1 && (
               <span
                 className={cn('mx-2 mt-[18px] h-px flex-1', i < step && !bad ? 'bg-primary/50' : 'bg-white/[0.08]')}
               />
@@ -153,6 +165,27 @@ export function TradeStepper({
         );
       })}
     </ol>
+  );
+}
+
+export function TradeStepper({
+  r,
+  signedCount = 0,
+  className,
+}: {
+  r: TradeRequest;
+  signedCount?: number;
+  className?: string;
+}) {
+  const failed = r.status === 'REJECTED' ? '반려' : r.status === 'CANCELLED' ? '취소' : undefined;
+  return (
+    <StepBar
+      steps={TRADE_STEPS}
+      step={tradeStepOf(r)}
+      failed={failed}
+      labelOf={(label, i) => (i === 5 && r.status === 'APPROVED' ? `전자서명 ${signedCount}/2` : label)}
+      className={className}
+    />
   );
 }
 

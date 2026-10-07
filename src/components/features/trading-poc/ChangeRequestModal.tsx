@@ -23,13 +23,17 @@ interface Props {
   type?: ChangeType;
   requestedBy: Party;
   requestedByName: string;
+  /** 신청 뒤 — 그 건 상세 화면으로 */
+  onSubmitted?: (changeId: number) => void;
 }
 
 /**
  * 변경·해지 신청 — 계약 조건에 맞춰:
- *  - onsite 단가 변경: 몇 구간(1 · 2)의 단가를 바꾼다
+ *  - onsite 단가 변경: 적용일부터 남은 기간 단가를 바꾼다(구간을 고르지 않는다 — 실제로 구간만 바꾸는 일은 없다)
  *  - 자가소비 O&M 변경: 연간 O&M(총사업비 대비 %)을 바꾼다
  *  - 용량 · 기간 변경, 해지(희망 해지일)
+ * SPC(관리자)와 기업 양쪽 다 신청한다. 위에 누가 → 누구에게(SPC → 한일튜브)를 보인다.
+ * 신청은 팝업(짧은 양식), 그 뒤 승인 · 서명 · 반영은 상세 화면.
  */
 export function ChangeRequestModal({
   open,
@@ -39,12 +43,12 @@ export function ChangeRequestModal({
   type,
   requestedBy,
   requestedByName,
+  onSubmitted,
 }: Props) {
   const request = useTradingPocStore((s) => s.requestChange);
   const addToast = useToastStore((s) => s.add);
   const [cid, setCid] = useState(String(contractId ?? contracts[0]?.id ?? ''));
   const [ctype, setCtype] = useState<ChangeType>(type ?? 'PRICE');
-  const [segment, setSegment] = useState('1');
   const [after, setAfter] = useState('');
   const [effective, setEffective] = useState('');
   const [reason, setReason] = useState('');
@@ -53,7 +57,6 @@ export function ChangeRequestModal({
     if (!open) return;
     setCid(String(contractId ?? contracts[0]?.id ?? ''));
     setCtype(type ?? 'PRICE');
-    setSegment('1');
     setAfter('');
     setEffective('');
     setReason('');
@@ -61,7 +64,8 @@ export function ChangeRequestModal({
 
   const c = contracts.find((x) => String(x.id) === cid);
   const self = c?.kind === 'SELF_CONSUMPTION';
-  const seg = c?.segments?.[Number(segment) - 1];
+  // 지금 적용 중인 단가 — 첫 구간(구간을 나누지 않고 한 단가로 바꾼다)
+  const seg = c?.segments?.[0];
   const before = !c
     ? ''
     : ctype === 'PRICE'
@@ -69,11 +73,15 @@ export function ChangeRequestModal({
         ? c.omRatePct != null
           ? `${c.omRatePct}%`
           : ''
-        : `${c.segments?.length ? `${segment}구간 (${seg?.from}~${seg?.to}년차) ` : ''}₩${fmtNum(seg?.price ?? c.unitPrice, 1)}/kWh`
+        : `₩${fmtNum(seg?.price ?? c.unitPrice, 1)}/kWh`
       : ctype === 'CAPACITY'
         ? fmtKw(c.capacityKw)
         : c.endDate;
-  const valid = !!c && reason.trim().length > 0 && (ctype === 'TERMINATE' ? !!effective : after.trim().length > 0);
+  const needsDate = ctype === 'TERMINATE' || (ctype === 'PRICE' && !self);
+  const valid =
+    !!c &&
+    reason.trim().length > 0 &&
+    (ctype === 'TERMINATE' ? !!effective : after.trim().length > 0 && (!needsDate || !!effective));
   const typeOptions = (['PRICE', 'CAPACITY', 'TERM', 'TERMINATE'] as ChangeType[]).map((t) => ({
     value: t,
     label: changeTypeLabel(t, c?.kind),
@@ -84,20 +92,28 @@ export function ChangeRequestModal({
     const ch = request({
       contractId: c.id,
       type: ctype,
-      segment: ctype === 'PRICE' && !self && c.segments?.length ? Number(segment) : undefined,
       requestedBy,
       requestedByName,
       reason: reason.trim(),
       after: ctype === 'TERMINATE' ? undefined : after.trim(),
-      effectiveDate: ctype === 'TERMINATE' ? effective : undefined,
+      effectiveDate: needsDate ? effective : undefined,
     });
     addToast('success', `${ch.no} ${changeTypeLabel(ctype, c.kind)} 신청 접수`);
     onClose();
+    onSubmitted?.(ch.id);
   };
 
   return (
     <Modal open={open} onClose={onClose} title="변경·해지 신청" size="md">
       <div className="space-y-5">
+        {/* 누가 → 누구에게 */}
+        {c && (
+          <div className="flex items-center gap-2 rounded-lg bg-white/[0.03] px-4 py-2.5 text-base ring-1 ring-white/[0.06]">
+            <span className="font-semibold text-white">{requestedBy === 'spc' ? 'SPC' : c.consumerCompanyName}</span>
+            <span className="text-slate-500">→</span>
+            <span className="font-semibold text-white">{requestedBy === 'spc' ? c.consumerCompanyName : 'SPC'}</span>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
             <Select
@@ -116,19 +132,7 @@ export function ChangeRequestModal({
             value={ctype}
             onChange={(e) => setCtype(e.target.value as ChangeType)}
           />
-          {ctype === 'PRICE' && !self && c?.segments?.length ? (
-            <Select
-              label="구간"
-              options={c.segments.map((g, i) => ({
-                value: String(i + 1),
-                label: `${i + 1}구간 (${g.from}~${g.to}년차)`,
-              }))}
-              value={segment}
-              onChange={(e) => setSegment(e.target.value)}
-            />
-          ) : (
-            <Info label="계약 유형" value={c ? kindLabel(c.kind) : undefined} />
-          )}
+          <Info label="계약 유형" value={c ? kindLabel(c.kind) : undefined} />
           <Info label={ctype === 'TERMINATE' ? '현재 종료일' : '변경 전'} value={before || undefined} />
           {ctype === 'PRICE' &&
             (self ? (
@@ -172,9 +176,9 @@ export function ChangeRequestModal({
               required
             />
           )}
-          {ctype === 'TERMINATE' && (
+          {needsDate && (
             <Input
-              label="희망 해지일"
+              label={ctype === 'TERMINATE' ? '희망 해지일' : '적용일'}
               type="date"
               value={effective}
               onChange={(e) => setEffective(e.target.value)}

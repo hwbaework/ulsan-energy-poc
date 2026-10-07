@@ -159,6 +159,23 @@ export interface ContractChange {
   status: ChangeStatus;
   decidedAt?: string;
   decisionNote?: string;
+  /** 진행 단계(요청 접수 다음) — 관리자 검토 → 협의 → 합의서 서명. 둘 다 서명하면 APPROVED(계약 반영) */
+  stage?: ChangeStage;
+  events?: TradeEvent[];
+  messages?: TradeMessage[];
+  /** 합의서 서명 — 서로 확인했다는 서명. SPC(관리자)와 기업이 각자 */
+  spcSign?: ChangeSign;
+  companySign?: ChangeSign;
+}
+
+/** 승인되면 서명 단계(SIGN). 그 전은 승인 대기 */
+export type ChangeStage = 'SIGN';
+export interface ChangeSign {
+  at: string;
+  /** 서명한 사람(기업명 · SPC) */
+  name: string;
+  /** 손으로 그린 서명 이미지(data URL). 없으면 이름을 서명체로 */
+  image?: string;
 }
 
 /** 전력거래 문서 — 계약서(초안) · 계약서(서명본) · 청구서 · 세금계산서 · 변경·해지 합의서 */

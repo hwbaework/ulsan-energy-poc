@@ -12,6 +12,8 @@ import { ssrSafeStorage } from '@/lib/ssr-storage';
 import type { PlantContractKind } from '@/types/monitoring';
 import type { PpaSettlement } from '@/types/ppa';
 import type {
+  ChangeSign,
+  ChangeStage,
   ChangeType,
   Contract,
   ContractTerms,
@@ -24,7 +26,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 17;
+export const SEED_VERSION = 21; // 계약 기간은 모두 20년 · 변경·해지 단계 · 합의서 서명
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC · 2 전기사용자 · 3 발전사업자) ───────── */
 export const CO = {
@@ -143,7 +145,7 @@ function seedContracts(): Contract[] {
       address: '울산 남구 부곡동 273-6',
       capacityKw: 99.84,
       unitPrice: 28,
-      termYears: 10,
+      termYears: 20,
       startDate: '2025-03-01',
       status: 'ACTIVE',
       signedByGenerator: true,
@@ -165,7 +167,7 @@ function seedContracts(): Contract[] {
       address: '울산 남구 용연동 490-11',
       capacityKw: 90.88,
       unitPrice: 28,
-      termYears: 10,
+      termYears: 20,
       startDate: '2025-05-01',
       status: 'ACTIVE',
       signedByGenerator: true,
@@ -187,7 +189,7 @@ function seedContracts(): Contract[] {
       address: '울산 남구 여천동 887-18',
       capacityKw: 152.32,
       unitPrice: 26,
-      termYears: 10,
+      termYears: 20,
       startDate: '2024-09-01',
       status: 'ACTIVE',
       signedByGenerator: true,
@@ -209,7 +211,7 @@ function seedContracts(): Contract[] {
       address: '울산 남구 여천동 358-8',
       capacityKw: 46.08,
       unitPrice: 26,
-      termYears: 10,
+      termYears: 20,
       startDate: '2024-11-01',
       status: 'ACTIVE',
       signedByGenerator: true,
@@ -231,7 +233,7 @@ function seedContracts(): Contract[] {
       address: '울산 남구 부곡동 22-5',
       capacityKw: 33.92,
       unitPrice: 26,
-      termYears: 10,
+      termYears: 20,
       startDate: '2024-12-01',
       status: 'ACTIVE',
       signedByGenerator: true,
@@ -254,7 +256,7 @@ function seedContracts(): Contract[] {
         address: '울산 남구 부곡동 22-5',
         capacityKw: 33.92,
         unitPrice: 26,
-        termYears: 10,
+        termYears: 20,
         startDate: '2026-11-01',
         status: 'PENDING_SIGN',
         signedByGenerator: false,
@@ -277,7 +279,7 @@ function seedContracts(): Contract[] {
         address: '울산 남구 부곡동 273-6',
         capacityKw: 99.84,
         unitPrice: 28,
-        termYears: 10,
+        termYears: 20,
         startDate: '2026-12-01',
         status: 'PENDING_SIGN',
         signedByGenerator: false,
@@ -363,7 +365,7 @@ function seedRequests(): TradeRequest[] {
       address: '울산 남구 부곡동 273-6',
       capacityKw: 99.84,
       unitPrice: 28,
-      termYears: 10,
+      termYears: 20,
       status: 'SIGNED',
       contractId: 2,
       submittedAt: iso('2025-01-10', '09:20:00'),
@@ -392,7 +394,7 @@ function seedRequests(): TradeRequest[] {
       address: '울산 남구 용연동 490-11',
       capacityKw: 90.88,
       unitPrice: 28,
-      termYears: 10,
+      termYears: 20,
       status: 'SIGNED',
       contractId: 3,
       submittedAt: iso('2025-03-15'),
@@ -418,7 +420,7 @@ function seedRequests(): TradeRequest[] {
       address: '울산 남구 여천동 887-18',
       capacityKw: 152.32,
       unitPrice: 26,
-      termYears: 10,
+      termYears: 20,
       status: 'SIGNED',
       contractId: 4,
       submittedAt: iso('2024-07-15'),
@@ -442,7 +444,7 @@ function seedRequests(): TradeRequest[] {
       address: '울산 남구 여천동 358-8',
       capacityKw: 46.08,
       unitPrice: 26,
-      termYears: 10,
+      termYears: 20,
       status: 'SIGNED',
       contractId: 5,
       submittedAt: iso('2024-09-20'),
@@ -466,7 +468,7 @@ function seedRequests(): TradeRequest[] {
       address: '울산 남구 부곡동 22-5',
       capacityKw: 33.92,
       unitPrice: 26,
-      termYears: 10,
+      termYears: 20,
       status: 'SIGNED',
       contractId: 6,
       submittedAt: iso('2024-10-20'),
@@ -491,7 +493,7 @@ function seedRequests(): TradeRequest[] {
       address: '울산 남구 용연동 490-11',
       capacityKw: 90.88,
       unitPrice: 28,
-      termYears: 10,
+      termYears: 20,
       status: 'SUBMITTED',
       submittedAt: iso('2026-09-29', '15:10:00'),
       surveyRequested: true,
@@ -518,7 +520,7 @@ function seedRequests(): TradeRequest[] {
       address: '울산 남구 여천동 358-8',
       capacityKw: 46.08,
       unitPrice: 26,
-      termYears: 10,
+      termYears: 20,
       status: 'REVIEW',
       submittedAt: iso('2026-09-25', '10:00:00'),
       updatedAt: iso('2026-09-26', '09:30:00'),
@@ -597,7 +599,7 @@ function seedRequests(): TradeRequest[] {
       address: '울산 남구 부곡동 22-5',
       capacityKw: 33.92,
       unitPrice: 26,
-      termYears: 10,
+      termYears: 20,
       status: 'REJECTED',
       rejectReason: '설치 위치 도면 미제출 — 보완 후 재신청',
       submittedAt: iso('2026-08-03'),
@@ -620,7 +622,7 @@ function seedRequests(): TradeRequest[] {
       address: '울산 남구 부곡동 273-6',
       capacityKw: 99.84,
       unitPrice: 28,
-      termYears: 10,
+      termYears: 20,
       status: 'CANCELLED',
       submittedAt: iso('2026-07-08'),
       updatedAt: iso('2026-07-21', '09:00:00'),
@@ -641,7 +643,7 @@ function seedRequests(): TradeRequest[] {
       address: '울산 남구 부곡동 22-5',
       capacityKw: 33.92,
       unitPrice: 26,
-      termYears: 10,
+      termYears: 20,
       status: 'APPROVED',
       contractId: 7,
       submittedAt: iso('2026-09-02'),
@@ -664,7 +666,7 @@ function seedRequests(): TradeRequest[] {
       address: '울산 남구 부곡동 273-6',
       capacityKw: 99.84,
       unitPrice: 28,
-      termYears: 10,
+      termYears: 20,
       status: 'APPROVED',
       contractId: 8,
       submittedAt: iso('2026-09-05'),
@@ -680,35 +682,133 @@ function seedRequests(): TradeRequest[] {
 }
 
 function seedChanges(): ContractChange[] {
+  // 변경·해지 — 상태마다 하나씩: 승인 대기(기업 신청 · SPC 신청 · 해지) · 서명(기업 서명 끝, SPC 남음) · 반영 · 반려 · 취소
+  const HANIL = CO.HANIL.name;
   return [
     {
       id: 1,
       no: 'CH-2026-0001',
       contractId: 1,
       type: 'PRICE',
-      segment: 2,
       requestedBy: 'generator',
-      requestedByName: CO.GENERATOR_LOGIN.name,
+      requestedByName: HANIL,
       requestedAt: iso('2026-09-18', '14:00:00'),
-      reason: '모듈 교체·유지보수 비용 상승분 반영 (2027년 1월 적용 희망)',
+      reason: '모듈 교체·유지보수 비용 상승분 반영',
       before: '138',
       after: '142',
+      effectiveDate: '2027-01-01',
       status: 'REQUESTED',
+      events: [
+        ev(
+          iso('2026-09-18', '14:00:00'),
+          'generator',
+          '요청 접수',
+          '단가 ₩138 → ₩142 · 적용일 2027-01-01',
+        ),
+      ],
+      messages: [
+        {
+          at: iso('2026-09-22', '15:31:00'),
+          by: 'spc',
+          byName: CO.SPC.name,
+          text: '인상 근거(모듈 교체 견적)를 올려 주실 수 있을까요?',
+        },
+        {
+          at: iso('2026-09-23', '09:12:00'),
+          by: 'generator',
+          byName: HANIL,
+          text: '견적서는 문서 관리에 올려 두었습니다. ₩141도 가능합니다.',
+        },
+      ],
     },
     {
-      id: 3,
-      no: 'CH-2026-0003',
-      contractId: 2,
+      id: 8,
+      no: 'CH-2026-0008',
+      contractId: 3,
       type: 'TERM',
+      requestedBy: 'spc',
+      requestedByName: CO.SPC.name,
+      requestedAt: iso('2026-10-01', '11:00:00'),
+      reason: '설비 교체 일정에 맞춰 종료일 조정',
+      before: '2045-04-30',
+      after: '2046-04-30',
+      status: 'REQUESTED',
+      events: [
+        ev(iso('2026-10-01', '11:00:00'), 'spc', '요청 접수', '종료일 2045-04-30 → 2046-04-30'),
+      ],
+    },
+    {
+      id: 9,
+      no: 'CH-2026-0009',
+      contractId: 1,
+      type: 'CAPACITY',
       requestedBy: 'generator',
-      requestedByName: CO.GENERATOR_LOGIN.name,
-      requestedAt: iso('2026-07-01'),
-      reason: '운영관리 기간 5년 연장',
-      before: '2035-02-28',
-      after: '2040-02-28',
-      status: 'REJECTED',
-      decidedAt: iso('2026-07-10', '16:30:00'),
-      decisionNote: '기간 연장은 만료 1년 전부터 신청 가능',
+      requestedByName: HANIL,
+      requestedAt: iso('2026-09-28', '16:20:00'),
+      reason: '지붕 보강 뒤 모듈 추가 설치 검토',
+      before: '329.6',
+      after: '350',
+      status: 'REQUESTED',
+      events: [
+        ev(iso('2026-09-28', '16:20:00'), 'generator', '요청 접수', '용량 329.6 kW → 350 kW'),
+      ],
+    },
+    {
+      id: 10,
+      no: 'CH-2026-0010',
+      contractId: 5,
+      type: 'PRICE',
+      requestedBy: 'spc',
+      requestedByName: CO.SPC.name,
+      requestedAt: iso('2026-09-10', '10:00:00'),
+      reason: '인버터 정기 점검을 O&M 범위에 포함',
+      before: '1',
+      after: '1.2',
+      status: 'REQUESTED',
+      stage: 'SIGN',
+      events: [
+        ev(iso('2026-09-10', '10:00:00'), 'spc', '요청 접수', 'O&M 1% → 1.2%'),
+        ev(iso('2026-09-25', '10:00:00'), 'consumer', '승인'),
+        ev(iso('2026-09-26', '11:20:00'), 'consumer', '합의서 서명', `${CO.TAESUNG.name} 서명`),
+      ],
+      messages: [
+        {
+          at: iso('2026-09-15', '14:05:00'),
+          by: 'spc',
+          byName: CO.SPC.name,
+          text: '점검 범위와 횟수는 연 2회로 정리했습니다.',
+        },
+        {
+          at: iso('2026-09-16', '09:40:00'),
+          by: 'consumer',
+          byName: CO.TAESUNG.name,
+          text: '확인했습니다. 합의서로 진행해 주세요.',
+        },
+      ],
+      companySign: { at: iso('2026-09-26', '11:20:00'), name: CO.TAESUNG.name },
+    },
+    {
+      id: 11,
+      no: 'CH-2026-0011',
+      contractId: 6,
+      type: 'TERMINATE',
+      requestedBy: 'consumer',
+      requestedByName: CO.GUNHO.name,
+      requestedAt: iso('2026-09-24', '10:30:00'),
+      reason: '공장 이전으로 설비 철거 예정',
+      effectiveDate: '2026-12-31',
+      status: 'REQUESTED',
+      events: [
+        ev(iso('2026-09-24', '10:30:00'), 'consumer', '요청 접수', '희망 해지일 2026-12-31'),
+      ],
+      messages: [
+        {
+          at: iso('2026-09-29', '14:02:00'),
+          by: 'spc',
+          byName: CO.SPC.name,
+          text: '철거 일정과 잔여 기간 정산 방식을 확인 부탁드립니다.',
+        },
+      ],
     },
     {
       id: 6,
@@ -716,7 +816,7 @@ function seedChanges(): ContractChange[] {
       contractId: 2,
       type: 'PRICE',
       requestedBy: 'generator',
-      requestedByName: CO.GENERATOR_LOGIN.name,
+      requestedByName: HANIL,
       requestedAt: iso('2026-01-12'),
       reason: '인버터 정기 점검을 O&M 범위에 포함',
       before: '0.8',
@@ -724,6 +824,44 @@ function seedChanges(): ContractChange[] {
       status: 'APPROVED',
       decidedAt: iso('2026-01-28', '15:00:00'),
       decisionNote: '2026-02 정산분부터 적용',
+      events: [
+        ev(iso('2026-01-12', '09:00:00'), 'generator', '요청 접수', 'O&M 0.8% → 1%'),
+        ev(iso('2026-01-26', '10:00:00'), 'spc', '승인'),
+        ev(iso('2026-01-27', '16:00:00'), 'generator', '합의서 서명', `${HANIL} 서명`),
+        ev(iso('2026-01-28', '15:00:00'), 'spc', '합의서 서명', `${CO.SPC.name} 서명`),
+        ev(
+          iso('2026-01-28', '15:00:00'),
+          'spc',
+          '반영',
+          '2026-02 정산분부터 적용 · 합의서(서명본) 문서 관리',
+        ),
+      ],
+      companySign: { at: iso('2026-01-27', '16:00:00'), name: HANIL },
+      spcSign: { at: iso('2026-01-28', '15:00:00'), name: CO.SPC.name },
+    },
+    {
+      id: 3,
+      no: 'CH-2026-0003',
+      contractId: 2,
+      type: 'TERM',
+      requestedBy: 'generator',
+      requestedByName: HANIL,
+      requestedAt: iso('2026-07-01'),
+      reason: '운영관리 기간 5년 연장',
+      before: '2045-02-28',
+      after: '2050-02-28',
+      status: 'REJECTED',
+      decidedAt: iso('2026-07-10', '16:30:00'),
+      decisionNote: '기간 연장은 만료 1년 전부터 신청 가능',
+      events: [
+        ev(
+          iso('2026-07-01', '09:00:00'),
+          'generator',
+          '요청 접수',
+          '종료일 2045-02-28 → 2050-02-28',
+        ),
+        ev(iso('2026-07-10', '16:30:00'), 'spc', '반려', '기간 연장은 만료 1년 전부터 신청 가능'),
+      ],
     },
     {
       id: 7,
@@ -731,13 +869,17 @@ function seedChanges(): ContractChange[] {
       contractId: 1,
       type: 'CAPACITY',
       requestedBy: 'generator',
-      requestedByName: CO.GENERATOR_LOGIN.name,
+      requestedByName: HANIL,
       requestedAt: iso('2026-06-02'),
       reason: '용량 변경 검토',
       before: '329.6',
       after: '429.44',
       status: 'CANCELLED',
       decidedAt: iso('2026-06-20', '09:00:00'),
+      events: [
+        ev(iso('2026-06-02', '09:00:00'), 'generator', '요청 접수', '용량 329.6 kW → 429.44 kW'),
+        ev(iso('2026-06-20', '09:00:00'), 'generator', '신청 취소'),
+      ],
     },
   ];
 }
@@ -997,6 +1139,17 @@ interface TradingPocState {
   confirmConsumerSign: (contractId: number) => void;
   requestChange: (input: NewChangeInput) => ContractChange;
   approveChange: (id: number, note?: string) => void;
+  /** 승인(받는 쪽) — 곧 합의. 서명 단계로 */
+  moveChangeStage: (id: number, stage: ChangeStage, note?: string, by?: Party) => void;
+  addChangeMessage: (id: number, by: Party, byName: string, text: string) => void;
+  /** 협의 중 바뀐 값(관리자) */
+  updateChange: (
+    id: number,
+    patch: { after?: string; effectiveDate?: string },
+    note?: string,
+  ) => void;
+  /** 합의서 서명 — 둘 다 서명하면 계약에 반영 · 서명본 합의서가 문서 관리에 */
+  signChange: (id: number, side: 'spc' | 'company', sign: ChangeSign) => void;
   rejectChange: (id: number, note: string) => void;
   cancelChange: (id: number) => void;
   addDocument: (doc: Omit<TradeDocument, 'id' | 'issuedAt'> & { issuedAt?: string }) => void;
@@ -1013,8 +1166,9 @@ function priceBefore(c: Contract, segment?: number) {
 }
 function applyPrice(c: Contract, after: number, segment?: number): Contract {
   if (c.kind === 'ONSITE' && c.segments?.length) {
-    const i = (segment ?? 1) - 1;
-    const segments = c.segments.map((g, k) => (k === i ? { ...g, price: after } : g));
+    // 구간을 고르지 않으면(새 신청) 모든 구간을 그 단가로
+    const i = segment == null ? -1 : segment - 1;
+    const segments = c.segments.map((g, k) => (i < 0 || k === i ? { ...g, price: after } : g));
     return { ...c, segments, unitPrice: segments[0]!.price };
   }
   if (c.kind === 'SELF_CONSUMPTION' && c.omRatePct != null) return { ...c, omRatePct: after };
@@ -1284,6 +1438,8 @@ export const useTradingPocStore = create<TradingPocState>()(
           after: input.after,
           effectiveDate: input.effectiveDate,
           status: 'REQUESTED',
+          events: [ev(nowIso(), input.requestedBy, '요청 접수')],
+          messages: [],
         };
         set((s) => ({ changes: [ch, ...s.changes] }));
         return ch;
@@ -1308,7 +1464,7 @@ export const useTradingPocStore = create<TradingPocState>()(
         const doc: TradeDocument = {
           id: nextId(get().documents),
           category: 'CHANGE',
-          title: `${ch.type === 'TERMINATE' ? '계약 해지 합의서' : '계약 변경 합의서'} — ${c.plantName}`,
+          title: `${ch.type === 'TERMINATE' ? '계약 해지 합의서' : '계약 변경 합의서'} (서명본) — ${c.plantName}`,
           fileName: `${ch.no}_합의서.pdf`,
           contractId: c.id,
           contractNo: c.no,
@@ -1327,17 +1483,99 @@ export const useTradingPocStore = create<TradingPocState>()(
         }));
       },
 
+      moveChangeStage: (id, stage, note, by) =>
+        set((s) => ({
+          changes: s.changes.map((x) =>
+            x.id === id
+              ? {
+                  ...x,
+                  stage,
+                  events: [...(x.events ?? []), ev(nowIso(), by ?? 'spc', '승인', note)],
+                }
+              : x,
+          ),
+        })),
+      addChangeMessage: (id, by, byName, text) =>
+        set((s) => ({
+          changes: s.changes.map((x) =>
+            x.id === id
+              ? { ...x, messages: [...(x.messages ?? []), { at: nowIso(), by, byName, text }] }
+              : x,
+          ),
+        })),
+      updateChange: (id, patch, note) =>
+        set((s) => ({
+          changes: s.changes.map((x) =>
+            x.id === id
+              ? {
+                  ...x,
+                  ...patch,
+                  events: [...(x.events ?? []), ev(nowIso(), 'spc', '조건 수정', note)],
+                }
+              : x,
+          ),
+        })),
+      signChange: (id, side, sg) => {
+        const ch0 = get().changes.find((x) => x.id === id);
+        if (!ch0) return;
+        const c0 = get().contracts.find((c) => c.id === ch0.contractId);
+        const by: Party =
+          side === 'spc'
+            ? 'spc'
+            : c0?.kind === 'ONSITE' || ch0.requestedBy === 'generator'
+              ? 'generator'
+              : 'consumer';
+        const ch: ContractChange = {
+          ...ch0,
+          ...(side === 'spc' ? { spcSign: sg } : { companySign: sg }),
+          events: [...(ch0.events ?? []), ev(sg.at, by, '합의서 서명', `${sg.name} 서명`)],
+        };
+        set((s) => ({ changes: s.changes.map((x) => (x.id === id ? ch : x)) }));
+        // 둘 다 서명 — 계약 반영 · 서명본 합의서
+        if (ch.spcSign && ch.companySign) {
+          get().approveChange(id, '양쪽 합의서 서명');
+          set((s) => ({
+            changes: s.changes.map((x) =>
+              x.id === id
+                ? {
+                    ...x,
+                    events: [
+                      ...(x.events ?? []),
+                      ev(nowIso(), 'spc', '반영', '합의서(서명본) 문서 관리'),
+                    ],
+                  }
+                : x,
+            ),
+          }));
+        }
+      },
+
       rejectChange: (id, note) =>
         set((s) => ({
           changes: s.changes.map((x) =>
-            x.id === id ? { ...x, status: 'REJECTED', decidedAt: nowIso(), decisionNote: note } : x,
+            x.id === id
+              ? {
+                  ...x,
+                  status: 'REJECTED',
+                  decidedAt: nowIso(),
+                  decisionNote: note,
+                  events: [...(x.events ?? []), ev(nowIso(), 'spc', '반려', note)],
+                }
+              : x,
           ),
         })),
 
       cancelChange: (id) =>
         set((s) => ({
           changes: s.changes.map((x) =>
-            x.id === id ? { ...x, status: 'CANCELLED', decidedAt: nowIso() } : x,
+            x.id === id
+              ? {
+                  ...x,
+                  status: 'CANCELLED',
+                  decidedAt: nowIso(),
+                  events: [...(x.events ?? []), ev(nowIso(), x.requestedBy, '신청 취소')],
+                }
+              : x,
           ),
         })),
 

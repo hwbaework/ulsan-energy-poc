@@ -1,182 +1,110 @@
 'use client';
 
 import { CheckCircle2, Circle } from 'lucide-react';
-import { Modal } from '@/components/ui/Modal';
+import { SectionCard } from '@/components/features/SectionCard';
 import { Button } from '@/components/ui/Button';
-import { DOC_CATEGORY_LABEL, settlementsOf } from '@/stores/useTradingPocStore';
-import type { Contract, ContractChange, TradeDocument } from '@/types/trading-poc';
-import { changeTypeLabel, daysLeft, fmtDate, fmtDateTime, fmtKrw, fmtKwh, fmtNum } from './meta';
-import { ChangeStatusPill, ContractStatusPill, Info, ModalFooter } from './Bits';
+import type { Contract } from '@/types/trading-poc';
+import {
+  KEPCO_UNIT_PRICE,
+  daysLeft,
+  estimateMonthlyKwh,
+  fmtDateTime,
+  fmtKrw,
+  fmtNum,
+  kindLabel,
+  savingOf,
+} from './meta';
+import { ContractStatusPill, Info } from './Bits';
 import { TermsInfo } from './TermsInfo';
-import { changeText } from './ChangeDetailModal';
 
 interface Props {
-  contract: Contract | null;
-  onClose: () => void;
-  changes: ContractChange[];
-  documents: TradeDocument[];
+  contract: Contract;
   /** 운영 중 계약에서만 변경·해지 신청 버튼 */
   canRequestChange: boolean;
   onRequestChange?: (contract: Contract, type?: 'TERMINATE') => void;
 }
 
-/** 계약 상세 — 신청 때 넣은 계약 조건 그대로 · 계약 기간 · 서명 · 최근 정산 · 변경·해지 · 문서 */
-export function ContractDetailModal({
-  contract: c,
-  onClose,
-  changes,
-  documents,
-  canRequestChange,
-  onRequestChange,
-}: Props) {
-  const recent = c
-    ? settlementsOf([c])
-        .filter((s) => s.status === 'CONFIRMED')
-        .slice(-3)
-        .reverse()
-    : [];
-  const myChanges = c ? changes.filter((ch) => ch.contractId === c.id) : [];
-  const myDocs = c ? documents.filter((d) => d.contractId === c.id).slice(0, 6) : [];
-  const left = c ? daysLeft(c.endDate) : 0;
-  const self = c?.kind === 'SELF_CONSUMPTION';
+/** 한 달 — 예상 발전량 · 절감액(자가소비: 한전으로 냈을 요금, onsite: 한전 요금 − 반납 금액) · 반납 금액(onsite) */
+export function monthOfContract(c: Contract) {
+  const kwh = estimateMonthlyKwh(c.capacityKw);
+  const price = c.segments?.[0]?.price ?? c.unitPrice;
+  const onsite = c.kind === 'ONSITE';
+  return {
+    kwh,
+    saving: onsite ? savingOf(kwh, price).saving : Math.round(kwh * KEPCO_UNIT_PRICE),
+    payback: onsite ? Math.round(kwh * price) : 0,
+  };
+}
+
+/**
+ * 계약 상세 — 팝업이 아니라 화면 안의 카드. 신청 때 넣은 계약 조건 · 기간 · 한 달 금액 · 서명.
+ * 정산은 수익·정산, 문서는 문서 관리, 변경·해지 진행은 변경·해지 메뉴에서 본다.
+ * 변경 · 해지 신청은 카드 제목 오른쪽.
+ */
+export function ContractDetailCard({ contract: c, canRequestChange, onRequestChange }: Props) {
+  const onsite = c.kind === 'ONSITE';
+  const left = daysLeft(c.endDate);
+  const m = monthOfContract(c);
 
   return (
-    <Modal open={!!c} onClose={onClose} title="계약 상세" size="lg">
-      {c && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-lg font-semibold text-white">
-              {c.no} · {c.consumerCompanyName}
-            </p>
-            <ContractStatusPill status={c.status} />
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <TermsInfo x={c} />
-            <Info label="시작일" value={c.startDate} />
-            <Info
-              label="종료일"
-              value={
-                c.status === 'TERMINATED'
-                  ? `${c.terminatedAt ?? ''} (해지)`
-                  : `${c.endDate} (${left > 0 ? `${left.toLocaleString()}일 남음` : '만료'})`
-              }
-            />
-            <Info label="체결일" value={fmtDateTime(c.signedAt)} />
-          </div>
-
-          {/* 서명 현황 */}
-          <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.06] px-4 py-3">
-            <p className="text-sm text-slate-400 mb-2">전자서명</p>
-            <div className="flex flex-wrap gap-6">
-              {[
-                { label: `계약 상대 · ${c.generatorCompanyName}`, done: c.signedByGenerator },
-                { label: `기업 · ${c.consumerCompanyName}`, done: c.signedByConsumer },
-              ].map((s) => (
-                <span
-                  key={s.label}
-                  className={`inline-flex items-center gap-1.5 text-sm ${s.done ? 'text-emerald-400' : 'text-slate-500'}`}
-                >
-                  {s.done ? <CheckCircle2 size={15} /> : <Circle size={15} />}
-                  {s.label} {s.done ? '서명 완료' : '서명 대기'}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* 최근 정산 3개월 — 자가소비: 월 O&M(연간 O&M ÷ 12) / onsite: 사용량 × 그 구간 단가 */}
-          <div>
-            <p className="text-sm text-slate-400 mb-2">최근 정산</p>
-            {recent.length === 0 ? (
-              <p className="text-sm text-slate-500">정산 없음</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-slate-500 border-b border-white/[0.06]">
-                    <th className="py-1.5 text-left font-medium">월</th>
-                    <th className="py-1.5 text-left font-medium">{self ? '발전량' : '사용량'}</th>
-                    <th className="py-1.5 text-left font-medium">{self ? '기준' : '적용 단가'}</th>
-                    <th className="py-1.5 text-left font-medium">{self ? 'O&M 비용' : '사용료'}</th>
-                    <th className="py-1.5 text-left font-medium">부가세</th>
-                    <th className="py-1.5 text-left font-medium">합계</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recent.map((s) => (
-                    <tr key={s.id} className="border-b border-white/[0.04] text-slate-300 tabular-nums">
-                      <td className="py-1.5">{s.period}</td>
-                      <td className="py-1.5">{fmtKwh(s.generationKwh)}</td>
-                      <td className="py-1.5">
-                        {self
-                          ? s.omRatePct
-                            ? `연 ${s.omRatePct}% ÷ 12`
-                            : ''
-                          : `${s.segment ? `${s.segment}구간 ` : ''}₩${fmtNum(s.smpUnitPrice, 1)}/kWh`}
-                      </td>
-                      <td className="py-1.5">{fmtKrw(s.supplyAmount)}</td>
-                      <td className="py-1.5">{fmtKrw(s.vat)}</td>
-                      <td className="py-1.5 text-white">{fmtKrw(s.total)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {/* 변경·해지 이력 */}
-          <div>
-            <p className="text-sm text-slate-400 mb-2">변경·해지</p>
-            {myChanges.length === 0 ? (
-              <p className="text-sm text-slate-500">신청 없음</p>
-            ) : (
-              <ul className="space-y-1.5">
-                {myChanges.map((ch) => (
-                  <li key={ch.id} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-slate-300">
-                      {ch.no} · {changeTypeLabel(ch.type, c.kind)} · {changeText(ch, c.kind)}
-                      <span className="text-slate-500"> · {fmtDate(ch.requestedAt)}</span>
-                    </span>
-                    <ChangeStatusPill status={ch.status} />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* 문서 */}
-          <div>
-            <p className="text-sm text-slate-400 mb-2">문서</p>
-            {myDocs.length === 0 ? (
-              <p className="text-sm text-slate-500">문서 없음</p>
-            ) : (
-              <ul className="space-y-1.5">
-                {myDocs.map((d) => (
-                  <li key={d.id} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-slate-300 truncate">
-                      {d.title} <span className="text-slate-500">· {DOC_CATEGORY_LABEL[d.category]}</span>
-                    </span>
-                    <span className="text-slate-500 tabular-nums shrink-0">{d.issuedAt}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <ModalFooter>
-            <Button variant="secondary" onClick={onClose}>
-              닫기
+    <SectionCard
+      title={
+        <span className="flex items-center gap-3">
+          {kindLabel(c.kind)} · {c.no}
+          <ContractStatusPill status={c.status} />
+        </span>
+      }
+      actions={
+        canRequestChange && c.status === 'ACTIVE' ? (
+          <>
+            <Button size="sm" variant="danger" onClick={() => onRequestChange?.(c, 'TERMINATE')}>
+              해지 신청
             </Button>
-            {canRequestChange && c.status === 'ACTIVE' && (
-              <>
-                <Button variant="danger" onClick={() => onRequestChange?.(c, 'TERMINATE')}>
-                  해지 신청
-                </Button>
-                <Button onClick={() => onRequestChange?.(c)}>변경 신청</Button>
-              </>
-            )}
-          </ModalFooter>
+            <Button size="sm" onClick={() => onRequestChange?.(c)}>
+              변경 신청
+            </Button>
+          </>
+        ) : undefined
+      }
+    >
+      <div className="space-y-6">
+        <div className="grid grid-cols-3 gap-4">
+          <TermsInfo x={c} />
+          <Info label="시작일" value={c.startDate} />
+          <Info
+            label="종료일"
+            value={
+              c.status === 'TERMINATED'
+                ? `${c.terminatedAt ?? ''} (해지)`
+                : `${c.endDate} (${left > 0 ? `${left.toLocaleString()}일 남음` : '만료'})`
+            }
+          />
+          <Info label="체결일" value={fmtDateTime(c.signedAt)} />
         </div>
-      )}
-    </Modal>
+
+        {/* 한 달 — 예상 */}
+        <div className="grid grid-cols-3 gap-4 rounded-lg bg-white/[0.03] px-4 py-3 ring-1 ring-white/[0.06]">
+          <Info label="예상 월 발전량" value={`${fmtNum(m.kwh)} kWh`} />
+          <Info label="예상 월 절감액" value={fmtKrw(m.saving)} />
+          <Info label="월 반납 금액" value={onsite ? fmtKrw(m.payback) : '-'} />
+        </div>
+
+        {/* 서명 */}
+        <div className="flex flex-wrap gap-6">
+          {[
+            { label: `계약 상대 · ${c.generatorCompanyName}`, done: c.signedByGenerator },
+            { label: `기업 · ${c.consumerCompanyName}`, done: c.signedByConsumer },
+          ].map((s) => (
+            <span
+              key={s.label}
+              className={`inline-flex items-center gap-1.5 text-sm ${s.done ? 'text-emerald-400' : 'text-slate-500'}`}
+            >
+              {s.done ? <CheckCircle2 size={15} /> : <Circle size={15} />}
+              {s.label} {s.done ? '서명 완료' : '서명 대기'}
+            </span>
+          ))}
+        </div>
+      </div>
+    </SectionCard>
   );
 }

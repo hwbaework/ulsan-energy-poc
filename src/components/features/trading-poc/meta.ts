@@ -53,6 +53,28 @@ export const CHANGE_STATUS: Record<ChangeStatus, { label: string; tone: StatusTo
   CANCELLED: { label: '취소', tone: 'muted' },
 };
 
+/** 변경·해지 한 건의 상태 — 신청 → 승인(받는 쪽, 곧 합의) → 서명(양쪽) → 반영. 끝나면 반영(변경) · 해지(해지) · 반려 · 취소 */
+export type ChangeState = '승인 대기' | '서명' | '반영' | '해지' | '반려' | '취소';
+export const CHANGE_STATES: ChangeState[] = ['승인 대기', '서명', '반영', '해지', '반려', '취소'];
+export const changeStateOf = (ch: {
+  status: ChangeStatus;
+  type: ChangeType;
+  stage?: string;
+}): ChangeState => {
+  if (ch.status === 'REJECTED') return '반려';
+  if (ch.status === 'CANCELLED') return '취소';
+  if (ch.status === 'APPROVED') return ch.type === 'TERMINATE' ? '해지' : '반영';
+  return ch.stage === 'SIGN' ? '서명' : '승인 대기';
+};
+export const CHANGE_STATE_TONE: Record<ChangeState, StatusTone> = {
+  '승인 대기': 'warning',
+  서명: 'warning',
+  반영: 'normal',
+  해지: 'danger',
+  반려: 'danger',
+  취소: 'muted',
+};
+
 export const PARTY_LABEL: Record<Party, string> = {
   generator: '발전사업자',
   consumer: '기업',

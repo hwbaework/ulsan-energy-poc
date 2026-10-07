@@ -103,7 +103,7 @@ export function TradeHistoryScreen() {
   };
 
   const columns: Column<TradeRequest>[] = [
-    { key: 'no', header: '신청번호', width: '140px', render: (r) => cellStrong(r.no) },
+    { key: 'no', header: '신청번호', width: '160px', render: (r) => cellStrong(r.no) },
     { key: 'consumer', header: '기업명', render: (r) => cell(r.consumerCompanyName, 'text-white') },
     { key: 'kind', header: '계약 유형', width: '100px', render: (r) => cell(kindLabel(r.kind)) },
     { key: 'capacity', header: '용량', width: '130px', render: (r) => cellNum(fmtKw(r.capacityKw)) },

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import {
   ResponsiveContainer,
   LineChart,
@@ -16,6 +16,7 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  ReferenceLine,
 } from 'recharts';
 import { cn } from '@/lib/utils';
 
@@ -426,6 +427,90 @@ export function RmsBarLineChart({
             strokeDasharray={l.dashed ? '6 4' : undefined}
             dot={false}
             activeDot={{ r: 4, strokeWidth: 0 }}
+          />
+        ))}
+      </ComposedChart>
+    </ChartWrapper>
+  );
+}
+
+// ── 투자 회수(누적) 선 그래프 — 선과 0 사이만 칠한다: 0 위(흑자)는 초록, 아래(적자)는 빨강. 점 없음 ──
+
+interface RmsPaybackChartProps {
+  data: LineChartData[];
+  xKey: string;
+  lines: { key: string; name: string; color?: string }[];
+  height?: number;
+  className?: string;
+}
+
+/** 축 글자 — 잘 보이게 흰색 · 12px */
+const paybackAxis = { fontSize: 12, fill: '#e2e8f0' };
+const LOSS = '#EF4444';
+const GAIN = '#10B981';
+
+export function RmsPaybackChart({ data, xKey, lines, height, className }: RmsPaybackChartProps) {
+  const uid = useId().replace(/:/g, '');
+  // 선이 끝난 해(값 없음)는 빼고 범위를 잡는다
+  const values = data.flatMap((d) => lines.filter((l) => d[l.key] != null).map((l) => Number(d[l.key])));
+  const min = Math.min(0, ...values);
+  const max = Math.max(0, ...values);
+  // 깔끔한 눈금 — 1 · 2 · 5 × 10ⁿ 간격, 0 은 늘 눈금에
+  const raw = (max - min || 1) / 5;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const step = ([1, 2, 5, 10].find((m) => m * mag >= raw) ?? 10) * mag;
+  const lo = Math.floor(min / step) * step;
+  const hi = Math.ceil(max / step) * step;
+  const ticks = Array.from({ length: Math.round((hi - lo) / step) + 1 }, (_, i) => lo + i * step);
+  /** 선과 0 사이 면의 위아래 — 0 이 면의 어디쯤인지(그 위는 흑자 초록, 아래는 적자 빨강) */
+  const zeroAt = (key: string) => {
+    const vs = data.filter((d) => d[key] != null).map((d) => Number(d[key]));
+    const top = Math.max(0, ...vs);
+    const bottom = Math.min(0, ...vs);
+    return top - bottom > 0 ? top / (top - bottom) : 1;
+  };
+  return (
+    <ChartWrapper height={height} className={className}>
+      <ComposedChart data={data} margin={{ left: 8, right: 16 }}>
+        <defs>
+          {lines.map((l) => {
+            const z = zeroAt(l.key);
+            return (
+              <linearGradient key={l.key} id={`${uid}-${l.key}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset={0} stopColor={GAIN} stopOpacity={0.28} />
+                <stop offset={z} stopColor={GAIN} stopOpacity={0.12} />
+                <stop offset={z} stopColor={LOSS} stopOpacity={0.12} />
+                <stop offset={1} stopColor={LOSS} stopOpacity={0.28} />
+              </linearGradient>
+            );
+          })}
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" {...gridStyle} />
+        <ReferenceLine y={0} stroke="rgba(255,255,255,0.45)" />
+        <XAxis dataKey={xKey} tick={paybackAxis} axisLine={false} tickLine={false} />
+        <YAxis
+          tick={paybackAxis}
+          axisLine={false}
+          tickLine={false}
+          domain={[lo, hi]}
+          ticks={ticks}
+          width={64}
+          tickFormatter={(v: number) => v.toLocaleString('ko-KR')}
+        />
+        <Tooltip content={<CustomTooltip />} />
+        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 13, color: '#e2e8f0' }} />
+        {lines.map((line, i) => (
+          <Area
+            key={line.key}
+            type="linear"
+            dataKey={line.key}
+            name={line.name}
+            baseValue={0}
+            stroke={line.color ?? CHART_COLORS[i % CHART_COLORS.length]}
+            strokeWidth={2}
+            fill={`url(#${uid}-${line.key})`}
+            dot={false}
+            activeDot={{ r: 4 }}
           />
         ))}
       </ComposedChart>

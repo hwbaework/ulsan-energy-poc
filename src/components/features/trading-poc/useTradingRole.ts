@@ -3,7 +3,12 @@
 import { useMemo } from 'react';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { getPersona } from '@/lib/persona';
-import { CO, isPartyOf, useHydrateTradingPoc, useTradingPocStore } from '@/stores/useTradingPocStore';
+import {
+  CO,
+  isPartyOf,
+  useHydrateTradingPoc,
+  useTradingPocStore,
+} from '@/stores/useTradingPocStore';
 import type { Contract, ContractChange, TradeDocument, TradeRequest } from '@/types/trading-poc';
 
 /**
@@ -15,9 +20,15 @@ export function useTradingRole() {
   const user = useAuthStore((s) => s.user);
   const persona = getPersona(user);
   const isAdmin = persona === 'admin' || persona === 'spc';
-  const companyId = isAdmin ? CO.SPC.id : (user?.companyId ?? 0);
-  const companyName = isAdmin ? CO.SPC.name : (user?.companyName ?? '');
-  const party = isAdmin ? ('spc' as const) : persona === 'consumer' ? ('consumer' as const) : ('generator' as const);
+  // 발전사업자 데모 계정(박발전, companyId 3)은 한일튜브 — '울산 발전(주)'는 실제로 없는 회사
+  const demo = user?.companyId === CO.GENERATOR_LOGIN.id ? CO.HANIL : undefined;
+  const companyId = isAdmin ? CO.SPC.id : (demo?.id ?? user?.companyId ?? 0);
+  const companyName = isAdmin ? CO.SPC.name : (demo?.name ?? user?.companyName ?? '');
+  const party = isAdmin
+    ? ('spc' as const)
+    : persona === 'consumer'
+      ? ('consumer' as const)
+      : ('generator' as const);
 
   const requestsAll = useTradingPocStore((s) => s.requests);
   const contractsAll = useTradingPocStore((s) => s.contracts);
@@ -25,15 +36,36 @@ export function useTradingRole() {
   const documentsAll = useTradingPocStore((s) => s.documents);
 
   const requests = useMemo<TradeRequest[]>(
-    () => (isAdmin ? requestsAll : requestsAll.filter((r) => isPartyOf(companyId, r) || r.applicantCompanyId === companyId)),
+    () =>
+      isAdmin
+        ? requestsAll
+        : requestsAll.filter((r) => isPartyOf(companyId, r) || r.applicantCompanyId === companyId),
     [isAdmin, requestsAll, companyId],
   );
-  const contracts = useMemo<Contract[]>(() => (isAdmin ? contractsAll : contractsAll.filter((c) => isPartyOf(companyId, c))), [isAdmin, contractsAll, companyId]);
+  const contracts = useMemo<Contract[]>(
+    () => (isAdmin ? contractsAll : contractsAll.filter((c) => isPartyOf(companyId, c))),
+    [isAdmin, contractsAll, companyId],
+  );
   const changes = useMemo<ContractChange[]>(() => {
     const ids = new Set(contracts.map((c) => c.id));
     return isAdmin ? changesAll : changesAll.filter((ch) => ids.has(ch.contractId));
   }, [isAdmin, changesAll, contracts]);
-  const documents = useMemo<TradeDocument[]>(() => (isAdmin ? documentsAll : documentsAll.filter((d) => d.partyCompanyIds.includes(companyId))), [isAdmin, documentsAll, companyId]);
+  const documents = useMemo<TradeDocument[]>(
+    () =>
+      isAdmin ? documentsAll : documentsAll.filter((d) => d.partyCompanyIds.includes(companyId)),
+    [isAdmin, documentsAll, companyId],
+  );
 
-  return { user, persona, isAdmin, party, companyId, companyName, requests, contracts, changes, documents };
+  return {
+    user,
+    persona,
+    isAdmin,
+    party,
+    companyId,
+    companyName,
+    requests,
+    contracts,
+    changes,
+    documents,
+  };
 }
