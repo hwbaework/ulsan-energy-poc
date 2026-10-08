@@ -57,7 +57,7 @@ const KIND_CARDS: { value: PlantContractKind; title: string; headline: string; p
       '사용분은 PPA 단가로 지급 — 한전보다 낮은 단가로 절감',
       '발전량 · 절감액을 플랫폼에서 실시간 확인',
     ],
-    note: '절감액의 일부는 매월 반환 · 20년 장기 계약',
+    note: '쓴 만큼 사용료(한전보다 낮은 단가) · 20년 장기 계약',
   },
 ];
 

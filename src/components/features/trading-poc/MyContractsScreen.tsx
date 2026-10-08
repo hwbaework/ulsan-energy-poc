@@ -24,7 +24,7 @@ const arrow = {
   render: () => <ChevronRight size={15} className="text-slate-600" />,
 };
 
-/** 내 계약 — 용량 요약 · 월별 반납 그래프(onsite 있을 때) · 계약마다 상세 카드(팝업 없음). 관리자는 기업을 골라 보고, 전체일 때만 표(줄 → 그 기업) */
+/** 내 계약 — 용량 요약 · 월별 사용료 그래프(onsite 있을 때) · 계약마다 상세 카드(팝업 없음). 관리자는 기업을 골라 보고, 전체일 때만 표(줄 → 그 기업) */
 export function MyContractsScreen() {
   const router = useRouter();
   const role = useTradingRole();
@@ -60,7 +60,7 @@ export function MyContractsScreen() {
   }, [active]);
   /**
    * 누적 금액 — 기업 입장에서 언제부터 이득인지. 계약 시작부터 지난 해(0년 = 투자 시점, 1년, 2년 …)마다 값, 만원 단위.
-   * 자가소비: −설치비에서 시작해 매달 절감액(한전에 안 낸 요금)만큼, onsite: 0에서 매달 (한전 요금 − 반납 금액)만큼. 계약 기간이 끝나면 그대로.
+   * 자가소비: −설치비에서 시작해 매달 절감액(한전에 안 낸 요금)만큼, onsite: 0에서 매달 (한전 요금 − 사용료)만큼. 계약 기간이 끝나면 그대로.
    * 발전량은 울산 연 1,385 kWh/kW, 한전 단가는 에너지 설정 값으로 계약 기간 내내 같다고 본다.
    */
   /** onsite 그 해(k년차) 구간 단가 — 1구간 · 2구간 */
@@ -74,7 +74,7 @@ export function MyContractsScreen() {
   const kwhYear = (c: Contract) => monthOfContract(c).kwh * 12;
 
   /**
-   * SPC 가 받는 돈 — 관리자 전체. onsite 반납 금액만(자가소비는 SPC 수입이 없다) 0년 ~ 20년 누적, 만원 단위.
+   * SPC 가 받는 돈 — 관리자 전체. onsite 사용료만(자가소비는 SPC 수입이 없다) 0년 ~ 20년 누적, 만원 단위.
    * 에스에너지(EPC)에 줄 몫은 아직 정하지 않아 빼지 않는다.
    */
   const income = useMemo(() => {
@@ -86,7 +86,7 @@ export function MyContractsScreen() {
       has: onsite.length > 0,
       data: Array.from({ length: years + 1 }, (_, k) => ({
         year: k === 0 ? '0년' : `${k}년`,
-        반납: Math.round(at(k) / 10_000),
+        사용료: Math.round(at(k) / 10_000),
       })),
       total: at(years),
     };
@@ -125,7 +125,7 @@ export function MyContractsScreen() {
     return { data, breakEven, total };
   }, [active]);
 
-  // 계약별 올해 반납 금액(확정) — onsite 만
+  // 계약별 올해 사용료(확정) — onsite 만
   const yearOf = (id: number) =>
     settlements
       .filter((s) => s.contractId === id && s.status === 'CONFIRMED' && s.period.startsWith(YEAR))
@@ -159,7 +159,7 @@ export function MyContractsScreen() {
     { key: 'term', header: '계약 기간', width: '100px', render: (c) => cellNum(`${c.termYears}년`) },
     {
       key: 'year',
-      header: '올해 반납 금액',
+      header: '올해 사용료',
       width: '140px',
       sortable: true,
       sortValue: (c) => yearOf(c.id),
@@ -195,12 +195,12 @@ export function MyContractsScreen() {
         <StatCard label="onsite 용량" value={stats.onsite} />
       </StatsGrid>
       {role.isAdmin && !company ? (
-        // 관리자 전체 — SPC 가 받는 돈(onsite 반납 금액 누적)
-        <SectionCard title="받는 반납 금액 누적 (만원, onsite)">
+        // 관리자 전체 — SPC 가 받는 돈(onsite 사용료 누적)
+        <SectionCard title="받는 사용료 누적 (만원, onsite)">
           <RmsPaybackChart
             data={income.data}
             xKey="year"
-            lines={[{ key: '반납', name: 'onsite 반납 금액' }]}
+            lines={[{ key: '사용료', name: 'onsite 사용료' }]}
             height={260}
           />
         </SectionCard>

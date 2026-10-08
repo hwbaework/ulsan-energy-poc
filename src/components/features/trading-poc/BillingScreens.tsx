@@ -53,7 +53,7 @@ const StatePill = ({ s }: { s: TradeSettlement }) => (
 /**
  * 세금계산서 · 청구서 — 위에 연도 · 월, KPI(금액), 표.
  * 관리자는 왼쪽 표 + 검색, 오른쪽 문서 미리보기 + PDF(통합관제 보고서와 같은 방식). 기업은 표 → 줄을 누르면 상세.
- * 공급자 = SPC(울산 에너지 플랫폼), 공급받는자 = onsite 계약 기업. 반납 금액(공급가액) + 부가세 10%.
+ * 공급자 = SPC(울산 에너지 플랫폼), 공급받는자 = onsite 계약 기업. 사용료(사용량 × 단가 = 공급가액) + 부가세 10%.
  */
 function BillingScreen({ kind }: { kind: Kind }) {
   const router = useRouter();
@@ -384,7 +384,7 @@ function BillingDetailScreen({ kind }: { kind: Kind }) {
   );
 }
 
-/** 수익·정산 › 세금계산서 — onsite 반납 금액, 달이 끝나면 발행. 공급자 = SPC, 공급받는자 = 기업 */
+/** 수익·정산 › 세금계산서 — onsite 사용료, 달이 끝나면 발행. 공급자 = SPC, 공급받는자 = 기업 */
 export function TaxInvoiceScreen() {
   return <BillingScreen kind="TAX" />;
 }
@@ -392,7 +392,7 @@ export function TaxInvoiceDetailScreen() {
   return <BillingDetailScreen kind="TAX" />;
 }
 
-/** 수익·정산 › 청구서 — onsite 반납 금액, 달이 끝나면 청구(다음 달 1일), 납부 기한 다음 달 25일 */
+/** 수익·정산 › 청구서 — onsite 사용료, 달이 끝나면 청구(다음 달 1일), 납부 기한 다음 달 25일 */
 export function InvoiceScreen() {
   return <BillingScreen kind="INVOICE" />;
 }

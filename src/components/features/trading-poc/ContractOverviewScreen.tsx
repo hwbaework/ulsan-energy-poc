@@ -14,7 +14,7 @@ import { estimateMonthlyKwh, fmtKrw, fmtKw, kindLabel } from './meta';
 import { PageHeader, cell, cellMuted, cellNum, cellStrong } from './Bits';
 
 const kw = (xs: Contract[]) => xs.reduce((s, c) => s + c.capacityKw, 0);
-/** 월 반납 금액 — onsite 만(예상 월 사용량 × 1구간 단가). 자가소비는 매달 내는 돈이 없다 */
+/** 월 사용료 — onsite 만(예상 월 사용량 × 1구간 단가). 자가소비는 매달 내는 돈이 없다 */
 const returnOf = (c: Contract) =>
   c.kind === 'ONSITE' ? estimateMonthlyKwh(c.capacityKw) * (c.segments?.[0]?.price ?? c.unitPrice) : 0;
 const arrow = {
@@ -67,7 +67,7 @@ export function ContractOverviewScreen() {
     { key: 'start', header: '첫 시작일', width: '130px', render: (c) => cellMuted(c.start || '-') },
     {
       key: 'monthly',
-      header: '월 반납 금액',
+      header: '월 사용료',
       width: '140px',
       sortable: true,
       sortValue: (c) => c.monthly,
@@ -86,7 +86,7 @@ export function ContractOverviewScreen() {
     { key: 'end', header: '종료일', width: '130px', render: (c) => cellMuted(c.endDate) },
     {
       key: 'monthly',
-      header: '월 반납 금액',
+      header: '월 사용료',
       width: '140px',
       render: (c) => cellNum(returnOf(c) ? fmtKrw(returnOf(c)) : '-'),
     },
@@ -101,7 +101,7 @@ export function ContractOverviewScreen() {
       <StatsGrid columns={3}>
         <StatCard label="자가소비 용량" value={fmtKw(kw(self))} />
         <StatCard label="onsite 용량" value={fmtKw(kw(onsite))} />
-        <StatCard label="월 반납 금액 (onsite)" value={fmtKrw(monthly)} />
+        <StatCard label="월 사용료 (onsite)" value={fmtKrw(monthly)} />
       </StatsGrid>
 
       {role.isAdmin ? (

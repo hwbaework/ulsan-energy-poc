@@ -24,7 +24,7 @@ interface Props {
   onRequestChange?: (contract: Contract, type?: 'TERMINATE') => void;
 }
 
-/** 한 달 — 예상 발전량 · 절감액(자가소비: 한전으로 냈을 요금, onsite: 한전 요금 − 반납 금액) · 반납 금액(onsite) */
+/** 한 달 — 예상 발전량 · 절감액(자가소비: 한전으로 냈을 요금, onsite: 한전 요금 − 사용료) · 사용료(onsite) */
 export function monthOfContract(c: Contract) {
   const kwh = estimateMonthlyKwh(c.capacityKw);
   const price = c.segments?.[0]?.price ?? c.unitPrice;
@@ -86,7 +86,7 @@ export function ContractDetailCard({ contract: c, canRequestChange, onRequestCha
         <div className="grid grid-cols-3 gap-4 rounded-lg bg-white/[0.03] px-4 py-3 ring-1 ring-white/[0.06]">
           <Info label="예상 월 발전량" value={`${fmtNum(m.kwh)} kWh`} />
           <Info label="예상 월 절감액" value={fmtKrw(m.saving)} />
-          <Info label="월 반납 금액" value={onsite ? fmtKrw(m.payback) : '-'} />
+          <Info label="월 사용료" value={onsite ? fmtKrw(m.payback) : '-'} />
         </div>
 
         {/* 서명 */}
