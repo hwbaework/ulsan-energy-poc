@@ -142,10 +142,10 @@ const diag = (id: number, sim: SimInput, createdAt: string): Diagnosis => {
   };
 };
 
-/* 발전사업자 계정(울산 발전(주) · companyId 3) 기록 — 한일튜브 부지 */
-const GEN = { companyId: 3, companyName: '울산 발전(주)', contactName: '박발전', contactEmail: 'operator@test.com', contactPhone: '010-2000-0002' };
+/* 발전사업자 계정(박발전 = 한일튜브 · companyId 4) 기록 */
+const GEN = { companyId: 4, companyName: '한일튜브', contactName: '박발전', contactEmail: 'operator@test.com', contactPhone: '010-2000-0002' };
 const SIM_GEN_PPA: SimInput = (() => {
-  const x = defaultSimInput('울산 발전(주)', '울산 남구 부곡동 273-6');
+  const x = defaultSimInput('한일튜브', '울산 남구 부곡동 273-6');
   x.mode = 'ppa';
   x.roof = 2400;
   x.facilities = [{ source: '태양광', kw: 429.44, genKwh: 0, useKwh: 0 }];
@@ -153,7 +153,7 @@ const SIM_GEN_PPA: SimInput = (() => {
   return x;
 })();
 const SIM_GEN_SELF: SimInput = (() => {
-  const x = defaultSimInput('울산 발전(주)', '울산 남구 부곡동 273-6');
+  const x = defaultSimInput('한일튜브', '울산 남구 부곡동 273-6');
   x.mode = 'self';
   x.facilities = [{ source: '태양광', kw: 429.44, genKwh: 0, useKwh: 0 }];
   x.self = { ...x.self, cap: 100, ctr: 600, usage: 52_000 };
@@ -173,7 +173,7 @@ const DIAGNOSES: Diagnosis[] = [
 ];
 
 /* 새로고침해도 신청·진단이 남게 — 브라우저에 저장 (POC) */
-const STORE_KEY = 'ulsan-consulting-poc-v7';
+const STORE_KEY = 'ulsan-consulting-poc-v8'; // v8 — 발전사업자 기록 회사를 한일튜브(id 4)로
 if (typeof window !== 'undefined') {
   try {
     const saved = JSON.parse(window.localStorage.getItem(STORE_KEY) ?? 'null');

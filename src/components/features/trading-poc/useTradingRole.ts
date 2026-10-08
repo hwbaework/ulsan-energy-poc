@@ -20,10 +20,8 @@ export function useTradingRole() {
   const user = useAuthStore((s) => s.user);
   const persona = getPersona(user);
   const isAdmin = persona === 'admin' || persona === 'spc';
-  // 발전사업자 데모 계정(박발전, companyId 3)은 한일튜브 — '울산 발전(주)'는 실제로 없는 회사
-  const demo = user?.companyId === CO.GENERATOR_LOGIN.id ? CO.HANIL : undefined;
-  const companyId = isAdmin ? CO.SPC.id : (demo?.id ?? user?.companyId ?? 0);
-  const companyName = isAdmin ? CO.SPC.name : (demo?.name ?? user?.companyName ?? '');
+  const companyId = isAdmin ? CO.SPC.id : (user?.companyId ?? 0);
+  const companyName = isAdmin ? CO.SPC.name : (user?.companyName ?? '');
   const party = isAdmin
     ? ('spc' as const)
     : persona === 'consumer'

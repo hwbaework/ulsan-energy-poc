@@ -6,6 +6,8 @@
  *   (exportDiagnosisReport 등 다른 export 유틸과 동일 방식).
  * ────────────────────────────────────────────────────────────────────────── */
 
+import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
+
 export interface DerConsultingReportScenario {
   name: string;
   costSavingKrw: number;
@@ -177,7 +179,7 @@ export async function exportDerConsultingReport(data: DerConsultingReportData): 
     doc.setFontSize(9);
     doc.setTextColor(80);
     doc.text(
-      '절감률 = 절감량 ÷ 기준사용량 × 100 · TOE = 절감량 × 0.229×10⁻³ · 탄소 = 절감량 × 0.4173×10⁻³',
+      `절감률 = 절감량 ÷ 기준사용량 × 100 · TOE = 절감량 × 0.229×10⁻³ · 탄소 = 절감량 × ${ELEC_FACTOR}×10⁻³`,
       margin,
       y,
     );

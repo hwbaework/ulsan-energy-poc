@@ -14,6 +14,7 @@ import { useRoadmap } from '@/hooks/trading/useRe100';
 import { useConsumerSupplyDemand } from '@/hooks/monitoring/useMonitoring';
 import { useUnreadCount } from '@/hooks/platform/useNotifications';
 import { useAllMonthlyRecords, useAllLeaseInvoices } from '@/hooks/lease/useLease';
+import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
 
 export default function ConsumerDashboardPage() {
   const router = useRouter();
@@ -163,9 +164,9 @@ export default function ConsumerDashboardPage() {
   const totalUsageKwh = usageList.reduce((s: number, u: any) => s + (u.totalUsageKwh ?? 0), 0);
   const peakKw = usageList.reduce((max: number, u: any) => Math.max(max, u.peakDemandKw ?? 0), 0);
 
-  // ── CO₂ 추정 (kWh × 0.4168 tCO₂/MWh) ──
+  // ── CO₂ 추정 (kWh × 국가 전력배출계수) ──
   const monthlySupplyKwh = supply?.monthlySupplyKwh ?? 0;
-  const co2ReducedT = +(monthlySupplyKwh * 0.0004168).toFixed(1);
+  const co2ReducedT = +((monthlySupplyKwh * ELEC_FACTOR) / 1000).toFixed(1);
 
   const isLoading = billingQuery.isLoading || roadmapQuery.isLoading || supplyQuery.isLoading;
 

@@ -9,7 +9,7 @@ import { CONSULTING_DOCS } from '@/lib/consulting-docs';
 /**
  * 볼 수 있는 컨설팅 결과보고서 — 관리자는 전체, 그 밖에는 보고서 회사이거나
  * 보고서 발전소가 내 계정에 연결된 발전소(대시보드와 같은 power-stations/by-company)일 때.
- * 예) 한일튜브 보고서 → 한일튜브 발전소를 가진 발전사업자(울산 발전)도 본다.
+ * 예) 한일튜브 보고서 → 한일튜브 발전소를 가진 발전사업자 계정(박발전 = 한일튜브)도 본다.
  */
 export function useConsultingDocs() {
   const user = useAuthStore((s) => s.user);

@@ -69,10 +69,13 @@ export default function VerifyPage() {
 
   // ── QA/QC 체크리스트 실계산 (설계: mock 고정 → 실데이터) ──
   const evidenceCount = activities.filter((a) => a.evidence && a.evidence.trim() !== '').length;
-  // 계수 최신성: 사용 계수(factors) 중 validFrom 연도 >= 2021 여부. 계수 미로딩 시 판정 불가 → false.
+  // 계수 최신성: 코드별 최신 validFrom(= 사용 계수) 연도 >= 2021 여부. 지난 연도 전력계수 행은 제외. 계수 미로딩 시 판정 불가 → false.
+  const usedFactors = factors.filter(
+    (f) => !factors.some((o) => o.code === f.code && (o.validFrom ?? '') > (f.validFrom ?? '')),
+  );
   const factorsFresh =
-    factors.length > 0 &&
-    factors.every((f) => {
+    usedFactors.length > 0 &&
+    usedFactors.every((f) => {
       const y = Number((f.validFrom ?? '').slice(0, 4));
       return Number.isFinite(y) && y >= 2021;
     });

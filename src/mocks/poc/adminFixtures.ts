@@ -31,9 +31,8 @@ interface MockCompany {
 }
 export const COMPANIES: MockCompany[] = [
   { id: 1, name: '울산 에너지 플랫폼', businessNumber: '610-88-00001', representativeName: '김운영', bizType: '전기업', bizCategory: '태양광 발전', address: '울산 남구 처용로 1', phone: '052-100-1000', email: 'admin@test.com', status: 'ACTIVE', businessTypes: ['SPC', '운영사'], employeeCount: 24, createdAt: daysAgo(400), updatedAt: daysAgo(10) },
-  { id: 2, name: '울산 발전(주)', businessNumber: '610-81-20002', representativeName: '박발전', address: '울산 남구 부곡동 273-6', phone: '052-200-2000', email: 'operator@test.com', status: 'ACTIVE', businessTypes: ['발전사업자'], employeeCount: 12, createdAt: daysAgo(320), updatedAt: daysAgo(6) },
   { id: 3, name: '한길', businessNumber: '610-81-30003', representativeName: '이수용', address: '울산 남구 용연동 490-11', phone: '052-300-3000', email: 'consumer@test.com', status: 'ACTIVE', businessTypes: ['전기사용자'], employeeCount: 58, createdAt: daysAgo(300), updatedAt: daysAgo(4) },
-  { id: 4, name: '한일튜브', businessNumber: '610-81-40004', representativeName: '최한일', address: '울산 남구 부곡동 273-6', phone: '052-400-4000', email: 'kim@hanil.co.kr', status: 'ACTIVE', businessTypes: ['전기사용자'], employeeCount: 140, createdAt: daysAgo(90), updatedAt: daysAgo(2) },
+  { id: 4, name: '한일튜브', businessNumber: '610-81-40004', representativeName: '최한일', address: '울산 남구 부곡동 273-6', phone: '052-400-4000', email: 'kim@hanil.co.kr', status: 'ACTIVE', businessTypes: ['전기사용자', '발전사업자'], employeeCount: 140, createdAt: daysAgo(320), updatedAt: daysAgo(2) },
   { id: 5, name: '용인금속', businessNumber: '610-81-50005', representativeName: '정용인', address: '울산 남구 여천동 887-18', phone: '052-500-5000', email: 'park@yongin.co.kr', status: 'PENDING', businessTypes: ['전기사용자'], employeeCount: 72, createdAt: daysAgo(1), updatedAt: daysAgo(1) },
 ];
 
@@ -58,9 +57,9 @@ interface MockUser {
 }
 export const USERS: MockUser[] = [
   { id: 1, email: 'admin@test.com', name: '김관리', phone: '010-1000-0001', status: 'ACTIVE', companyId: 1, companyName: '울산 에너지 플랫폼', roles: ['SYSTEM_ADMIN'], isActive: true, department: '운영팀', position: '팀장', accountType: 'COMPANY_ADMIN', lastLoginAt: daysAgo(0), createdAt: daysAgo(400), updatedAt: daysAgo(0) },
-  { id: 2, email: 'operator@test.com', name: '박발전', phone: '010-2000-0002', status: 'ACTIVE', companyId: 2, companyName: '울산 발전(주)', roles: ['POWER_OPERATOR'], isActive: true, department: '발전운영팀', position: '과장', accountType: 'COMPANY_ADMIN', lastLoginAt: daysAgo(1), createdAt: daysAgo(320), updatedAt: daysAgo(1) },
+  { id: 2, email: 'operator@test.com', name: '박발전', phone: '010-2000-0002', status: 'ACTIVE', companyId: 4, companyName: '한일튜브', roles: ['POWER_OPERATOR'], isActive: true, department: '발전운영팀', position: '과장', accountType: 'COMPANY_ADMIN', lastLoginAt: daysAgo(1), createdAt: daysAgo(320), updatedAt: daysAgo(1) },
   { id: 3, email: 'consumer@test.com', name: '이수용', phone: '010-3000-0003', status: 'ACTIVE', companyId: 3, companyName: '한길', roles: ['CONSUMER_MANAGER'], isActive: true, department: '시설관리팀', position: '대리', accountType: 'COMPANY_ADMIN', lastLoginAt: daysAgo(2), createdAt: daysAgo(300), updatedAt: daysAgo(2) },
-  { id: 4, email: 'kim@hanil.co.kr', name: '김한일', phone: '010-4000-0004', status: 'ACTIVE', companyId: 4, companyName: '한일튜브', roles: ['CONSUMER_MANAGER'], isActive: true, department: '설비팀', position: '차장', accountType: 'COMPANY_ADMIN', lastLoginAt: daysAgo(3), createdAt: daysAgo(90), updatedAt: daysAgo(3) },
+  { id: 4, email: 'kim@hanil.co.kr', name: '김한일', phone: '010-4000-0004', status: 'ACTIVE', companyId: 4, companyName: '한일튜브', roles: ['CONSUMER_MANAGER'], isActive: true, department: '설비팀', position: '차장', accountType: 'COMPANY_MEMBER', lastLoginAt: daysAgo(3), createdAt: daysAgo(90), updatedAt: daysAgo(3) },
   // 승인 대기 — 기업 관리자(용인금속 첫 가입) · 기업 회원(한일튜브 소속 추가 가입)
   { id: 5, email: 'park@yongin.co.kr', name: '박용인', phone: '010-5000-0005', status: 'PENDING', companyId: 5, companyName: '용인금속', roles: ['CONSUMER_MANAGER'], isActive: false, department: '관리부', position: '과장', accountType: 'COMPANY_ADMIN', lastLoginAt: null, createdAt: daysAgo(1), updatedAt: daysAgo(1) },
   { id: 6, email: 'lee@hanil.co.kr', name: '이설비', phone: '010-6000-0006', status: 'PENDING', companyId: 4, companyName: '한일튜브', roles: ['CONSUMER_MANAGER'], isActive: false, department: '설비팀', position: '사원', accountType: 'COMPANY_MEMBER', lastLoginAt: null, createdAt: daysAgo(0), updatedAt: daysAgo(0) },
@@ -192,7 +191,7 @@ function roleMenusOf(roleId: number) {
 export const AUDIT_LOGS = [
   { id: 1, userId: 1, userName: '김관리', action: 'LOGIN', entityType: 'AUTH', detail: '김관리 로그인', ipAddress: '10.0.0.12', createdAt: daysAgo(0) },
   { id: 2, userId: 1, userName: '김관리', action: 'APPROVE', entityType: 'COMPANY', entityId: 4, detail: '한일튜브 가입 승인', ipAddress: '10.0.0.12', createdAt: daysAgo(2) },
-  { id: 3, userId: 2, userName: '박발전', action: 'CREATE', entityType: 'TRADE', entityId: 101, detail: '공급 신청 등록', ipAddress: '10.0.1.33', createdAt: daysAgo(2) },
+  { id: 3, userId: 2, userName: '박발전', action: 'CREATE', entityType: 'TRADE', entityId: 101, detail: '거래 신청 등록', ipAddress: '10.0.1.33', createdAt: daysAgo(2) },
   { id: 4, userId: 1, userName: '김관리', action: 'UPDATE', entityType: 'ROLE', entityId: 3, detail: '전기사용자 메뉴 권한 변경', ipAddress: '10.0.0.12', createdAt: daysAgo(5) },
   { id: 5, userId: 3, userName: '이수용', action: 'LOGIN', entityType: 'AUTH', detail: '이수용 로그인', ipAddress: '10.0.2.51', createdAt: daysAgo(6) },
 ];

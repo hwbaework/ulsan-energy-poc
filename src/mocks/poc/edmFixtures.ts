@@ -8,7 +8,7 @@
  */
 import { registerMock } from './registry';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { ELEC_FACTOR } from '@/mocks/edm/ghg';
+import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
 import { VOLUNTARY_MARKETS } from '@/mocks/edm/carbon';
 import type {
   Bulletin,
@@ -62,7 +62,7 @@ const solarReduction = (capacityKw: number, days: number) => round1(((capacityKw
  * ══════════════════════════════════════════════════════════ */
 const GHG_SITE = '한길'; // 사업장 마스터(/consumer/sites) 이름과 같게
 
-/* ── 배출계수 ── (검증 체크리스트 "validFrom ≥ 2021" 통과하도록 전부 2021 이후) */
+/* ── 배출계수 ── (같은 코드는 최신 validFrom 이 사용 계수 · 전력은 산정 연도별 국가 전력배출계수) */
 interface ApiFactor {
   id: number;
   code: string;
@@ -75,7 +75,9 @@ interface ApiFactor {
   version: string;
 }
 const FACTORS: ApiFactor[] = [
-  { id: 1, code: 'GHG_ELEC', name: '구매전력 (Scope 2)', factor: ELEC_FACTOR, unit: 'tCO₂eq/MWh', tier: 1, source: 'NATIONAL', validFrom: '2021-01-01', version: 'v2021.1' },
+  { id: 1, code: 'GHG_ELEC', name: '구매전력 (Scope 2) · 2023년 이후', factor: 0.4173, unit: 'tCO₂eq/MWh', tier: 1, source: 'NATIONAL', validFrom: '2023-01-01', version: 'v2025.1' },
+  { id: 7, code: 'GHG_ELEC', name: '구매전력 (Scope 2) · 2020~2022년', factor: 0.4541, unit: 'tCO₂eq/MWh', tier: 1, source: 'NATIONAL', validFrom: '2020-01-01', version: 'v2020-2022' },
+  { id: 8, code: 'GHG_ELEC', name: '구매전력 (Scope 2) · 2019년 이전', factor: 0.4781, unit: 'tCO₂eq/MWh', tier: 1, source: 'NATIONAL', validFrom: '2017-01-01', version: 'v2021.1' },
   { id: 2, code: 'FUEL_LNG', name: '고정연소 LNG', factor: 56.1, unit: 'tCO₂/TJ', tier: 2, source: 'IPCC', validFrom: '2021-01-01', version: 'v2021.1' },
   { id: 3, code: 'FUEL_DIESEL', name: '이동연소 경유', factor: 2.582, unit: 'tCO₂/kL', tier: 1, source: 'IPCC', validFrom: '2021-01-01', version: 'v2021.1' },
   { id: 4, code: 'FUEL_HEAVYOIL', name: '고정연소 중유(B-C유)', factor: 3.1, unit: 'tCO₂/kL', tier: 1, source: 'IPCC', validFrom: '2021-01-01', version: 'v2021.1' },

@@ -5,10 +5,11 @@ import { Leaf, Zap, Info } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout';
 import { useGhgFactors } from '@/hooks/edm/useGhgExt';
 import { useGenerationAggregate } from '@/hooks/edm/useGenerationAggregate';
+import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
 
 // 감축량·자립률 산정 — doc 04 §3 `/reduction`(감축량 대사 ▸ 자립률 기여). 지표3·8.
-// 발전량 × 배출계수(0.4781 기본) → 감축량 대사, 자립률 = 자체 발전량 ÷ 산단 총소비 × 100.
-// 계수는 useGhgFactors의 GHG_ELEC(실값) 소비. 미조회 시 국가 기본계수 0.4781(참조상수).
+// 발전량 × 배출계수(국가 전력배출계수) → 감축량 대사, 자립률 = 자체 발전량 ÷ 산단 총소비 × 100.
+// 계수는 useGhgFactors의 GHG_ELEC(실값) 소비. 미조회 시 국가 전력배출계수(ELEC_FACTOR).
 // 발전량은 monitoring/plants/compare(발전 실적 집계) 실데이터 소비 — 하드코딩·"예시" 제거.
 // ghg 테이블 직접 조인 금지(ghg 도메인 API).
 
@@ -25,8 +26,8 @@ export default function ReductionPage() {
   const { data: factors, isLive, isError } = useGhgFactors();
   const generation = useGenerationAggregate();
 
-  // 배출계수 — useGhgFactors의 GHG_ELEC(실값) 소비. 미조회 시 국가 기본계수 0.4781(참조상수) 적용.
-  const elecFactor = factors.find((f) => f.code === 'GHG_ELEC')?.factor ?? 0.4781;
+  // 배출계수 — useGhgFactors의 GHG_ELEC(실값) 소비. 미조회 시 국가 전력배출계수(ELEC_FACTOR) 적용.
+  const elecFactor = factors.find((f) => f.code === 'GHG_ELEC')?.factor ?? ELEC_FACTOR;
 
   // 발전 실적(실데이터) × 계수 = 감축량(tCO₂eq)
   const rows = generation.data.rows.map((g) => ({

@@ -9,12 +9,12 @@ import { Breadcrumb } from '@/components/edm/layout/Breadcrumb';
 import { Modal } from '@/components/ui/Modal';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useGhgCbam, useCreateCbam, useEstimateCbam, type CbamRow, type CbamReq } from '@/hooks/edm/useGhgExt';
+import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
 
 // CBAM 제품배출 — 설계 docs/기획/01 rev.2 §3 (수출 제품단위 내재배출량, EU 신고. 산단 수출 제조업 특화)
 // /api/v1/ghg/cbam 배선 (미가동 시 폴백)
 // 제품 등록 배선: 설계 11 §2.6 (제품 추가 모달 + useCreateCbam). method=DEFAULT 시 §5.3 기본값 제안.
 
-const ELEC_FACTOR = 0.4781; // tCO₂eq/MWh — CBAM 간접배출 산식(설계 11 §4.4)
 const inputCls = 'mt-1 w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-sm text-slate-200';
 const labelCls = 'block text-xs text-slate-400';
 

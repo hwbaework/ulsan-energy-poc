@@ -5,10 +5,10 @@ import { Badge } from '@/components/edm/ui/Badge';
 import { Breadcrumb } from '@/components/edm/layout/Breadcrumb';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useGhgCalculation } from '@/hooks/edm/useGhg';
+import { elecFactorFor } from '@/lib/constants/emission-factor';
 
 // 배출량 산정 — 설계 docs/기획/01 rev.2 §3 (Tier별 산정 + 불확도, ISO 14064 근거)
-// 전력 배출계수(참조상수) — 목표관리제 지침 국가 기본계수. mock 아님.
-const ELEC_FACTOR = 0.4781; // tCO₂eq/MWh (소비단, 2021 승인)
+const ELEC_FACTOR = elecFactorFor(2026); // 산정 연도 국가 전력배출계수
 // 불확도(%): Scope 2 구매전력=계량 기반 낮음, Scope 1 연료·공정=계수 기반 높음
 const uncertainty = (scope: number): number => (scope === 2 ? 2.0 : 5.0);
 
@@ -29,7 +29,7 @@ export default function CalculationPage() {
       <Breadcrumb items={[{ label: '온실가스 인벤토리', path: '/e-data/inventory' }, { label: '배출량 산정' }]} />
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-white">배출량 산정 (2026)</h1>
-        <Badge variant="info">계수 버전: 2021 승인 국가계수</Badge>
+        <Badge variant="info">계수 버전: 2025 공표 국가계수</Badge>
       </div>
       {guardReason && <p className="text-xs text-amber-400">산정 불가: {guardReason}</p>}
 

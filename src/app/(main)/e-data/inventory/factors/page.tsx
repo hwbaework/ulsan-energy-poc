@@ -10,7 +10,7 @@ import { Modal } from '@/components/ui/Modal';
 import { useGhgFactors, useCreateFactor, type FactorRow, type FactorReq } from '@/hooks/edm/useGhgExt';
 
 // 배출계수 관리 — 설계 docs/기획/01 rev.2 §3·§4 (IPCC/국가고유/사업장고유, Tier 1→3, 버전·유효기간)
-// 인벤토리 전력계수(0.4781, 2021 승인) ≠ 감축 계수(0.4594) 분리 관리. /api/v1/ghg/factors 배선.
+// 인벤토리 전력계수(산정 연도별 국가 전력배출계수, src/lib/constants/emission-factor) ≠ 감축 계수(0.4594) 분리 관리. /api/v1/ghg/factors 배선.
 // 계수 추가 배선: 설계 11 §2.3 (계수 추가 모달 + useCreateFactor). 기존 행 수정 금지·신규 version 추가.
 
 type Tier = 1 | 2 | 3;
@@ -143,7 +143,7 @@ export default function FactorsPage() {
         </table>
       </Card>
       <p className="text-xs text-slate-500">
-        계수 정밀도: Tier 1(IPCC 기본) → Tier 2(국가고유) → Tier 3(사업장 실측). 인벤토리 전력계수 0.4781(2021 승인)은
+        계수 정밀도: Tier 1(IPCC 기본) → Tier 2(국가고유) → Tier 3(사업장 실측). 인벤토리 전력계수(산정 연도별 국가 전력배출계수)는
         감축 산정 계수 0.4594와 분리 관리하며, 변경 시 버전 이력을 보존해 재산정을 추적한다.
       </p>
 

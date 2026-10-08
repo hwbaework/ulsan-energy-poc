@@ -9,6 +9,7 @@ import { useEffect } from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { ssrSafeStorage } from '@/lib/ssr-storage';
+import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
 
 export const DM_SEED_VERSION = 13;
 
@@ -105,8 +106,7 @@ const randomToken = () => tokenOf(Math.floor(Math.random() * 1_000_000) + 1000);
 const nowIso = () => new Date().toISOString().slice(0, 19);
 
 /* ── 계산 — 배출량 = 활동자료 × 배출계수 ── */
-/** 국가 전력 배출계수 — 2023년 기준(2025-12 공표), 2023년 이후 배출량에 적용. 매년 12월 갱신 */
-export const ELEC_FACTOR = 0.4173;
+export { ELEC_FACTOR };
 /** LNG 배출계수(tCO₂eq/TJ) — IPCC 기본(CO₂ 56,100 · CH₄ 1 · N₂O 0.1 kg/TJ) × 지침 GWP(21 · 310) */
 export const LNG_FACTOR = 56.152;
 /** 울산 월별 하루 평균 발전시간(h) — 1월 ~ 12월 */

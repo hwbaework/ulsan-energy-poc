@@ -12,6 +12,7 @@ import type { ConsumerSite } from '@/types/consumer';
 import type { MarketPrice } from '@/types/trading';
 import { TARIFF_TABLE_SEED, TARIFF_YEAR_SEED, cleanTable, type TariffTable, type TariffYear } from '@/lib/solar-sim';
 import './adminFixtures'; // 관리(ADMIN) 축 목업
+import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
 
 const NOW = '2026-09-15T10:00:00';
 
@@ -182,13 +183,13 @@ function stationOf(plant: LaseeMonitoringPlant, id: number, ownerCompanyId: numb
 // 계약 유형 2가지에 역할을 하나씩 — 발전사업자 = 온사이트 PPA(한일튜브) / 전기사용자 = 자가소비(한길)
 const HANIL = PLANTS.find((p) => p.plantId === 17514) ?? PLANTS[0]!;
 const HANGIL = PLANTS.find((p) => p.plantId === 17515) ?? PLANTS[0]!;
-/** 발전사업자(회사 3) 소유 발전소 — 한일튜브 1개 (온사이트 PPA) */
-export const POWER_STATIONS: PowerStation[] = [stationOf(HANIL, 1, 3, '울산 발전(주)')];
+/** 발전사업자(한일튜브, 회사 4) 발전소 — 한일튜브 1개 (온사이트 PPA) */
+export const POWER_STATIONS: PowerStation[] = [stationOf(HANIL, 1, 4, '한일튜브')];
 /** 전기사용자(회사 2) 자가소비 발전소 — 한길 1개 */
 export const CONSUMER_STATIONS: PowerStation[] = [stationOf(HANGIL, 101, 2, '한길')];
 registerMock(/^\/power-stations\/by-company\/(\d+)$/, ({ match }) => {
   const companyId = Number(match[1]);
-  if (companyId === 3) return POWER_STATIONS;
+  if (companyId === 4) return POWER_STATIONS;
   if (companyId === 2) return CONSUMER_STATIONS;
   return [];
 });
@@ -249,7 +250,7 @@ const NOTIFICATIONS = [
   { id: 1, type: 'ANOMALY', title: '이상감지 관리', message: '태성산업 RTU 통신오류 — 3분간 응답 없음', isRead: false, createdAt: '2026-09-18T17:40:00' },
   { id: 2, type: 'ANOMALY', title: '이상감지 관리', message: '건호이엔씨 인버터 #2 통신 끊김', isRead: false, createdAt: '2026-09-18T16:20:00' },
   { id: 3, type: 'APPROVAL', title: '승인 관리', message: '용인금속 박용인 가입 신청 (기업 관리자)', isRead: false, createdAt: '2026-09-18T14:05:00' },
-  { id: 4, type: 'TRADING_APPROVAL', title: '거래 승인', message: '울산 발전(주) 한일튜브 공급 신청', isRead: true, createdAt: '2026-09-18T09:00:00' },
+  { id: 4, type: 'TRADING_APPROVAL', title: '거래 승인', message: '한일튜브 자가소비 99.84 kW 거래 신청', isRead: true, createdAt: '2026-09-18T09:00:00' },
   { id: 5, type: 'SETTLEMENT', title: '수익·정산 › 정산', message: '8월분 정산이 확정되었습니다.', isRead: true, createdAt: '2026-09-17T18:30:00' },
   { id: 6, type: 'EDATA_CATALOG', title: '데이터 마켓플레이스 › 데이터 등록/신청', message: '새 데이터 이용 신청이 접수되었습니다.', isRead: true, createdAt: '2026-09-17T11:10:00' },
   { id: 7, type: 'TRADING_REQUEST', title: '거래 신청', message: '신규 전력 거래 신청이 등록되었습니다.', isRead: true, createdAt: '2026-09-16T15:45:00' },
@@ -272,7 +273,7 @@ registerMock(/^\/notifications$/, () => pageOf(NOTIFICATIONS));
 const ENERGY_KEY = 'ulsan-energy-settings-v2'; // v2 — 예전 배출계수 0.4594 가 저장된 브라우저도 0.4173 기본값으로 다시 시작
 let ENERGY: Record<string, string> = {
   SMP_PRICE_CAP: '180', // ₩/kWh — SMP 상한제 값(설정)
-  CO2_EMISSION_FACTOR: '0.4173', // tCO₂/MWh — 국가 전력배출계수
+  CO2_EMISSION_FACTOR: String(ELEC_FACTOR), // tCO₂/MWh — 국가 전력배출계수
   CO2_FACTOR_YEAR: '2023', // 배출계수 기준 연도
   CO2_FACTOR_PUBLISHED: '2025-12-17', // 기후에너지환경부 공표일
   CLIMATE_CHG: '9.0', // ₩/kWh — 기후환경요금

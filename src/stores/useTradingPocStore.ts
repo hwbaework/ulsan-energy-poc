@@ -26,21 +26,20 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 21; // 계약 기간은 모두 20년 · 변경·해지 단계 · 합의서 서명
+export const SEED_VERSION = 22; // 발전사업자 계정 = 한일튜브(id 4) · 계약 상대는 모두 SPC
 
-/* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC · 2 전기사용자 · 3 발전사업자) ───────── */
+/* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
   SPC: { id: 1, name: '울산 에너지 플랫폼' },
   CONSUMER_LOGIN: { id: 2, name: '한길' }, // 데모 전기사용자 계정 = 한길
-  GENERATOR_LOGIN: { id: 3, name: '울산 발전(주)' },
-  HANIL: { id: 4, name: '한일튜브' },
+  HANIL: { id: 4, name: '한일튜브' }, // 데모 발전사업자 계정 = 한일튜브
   YONGIN: { id: 5, name: '용인금속' },
   TAESUNG: { id: 6, name: '태성산업' },
   GUNHO: { id: 7, name: '건호이엔씨' },
 } as const;
 
 /** 발전사업자 선택지 (관리자 대리 등록용) — 에스에너지는 EPC(시공)라 발전사업자가 아니다 */
-export const GENERATOR_COMPANIES = [CO.GENERATOR_LOGIN, CO.SPC];
+export const GENERATOR_COMPANIES = [CO.HANIL, CO.SPC];
 
 /** 기존 기업 — 거래 신청 '기존 기업 선택'. 실제 대상 5곳, 주소는 통합관제 발전소 주소와 같다 */
 export const CONSUMERS: { id: number; name: string; address: string }[] = [
@@ -115,8 +114,8 @@ function seedContracts(): Contract[] {
       kind: 'ONSITE',
       plantId: 17514,
       plantName: '한일튜브(onsite)',
-      generatorCompanyId: 3,
-      generatorCompanyName: CO.GENERATOR_LOGIN.name,
+      generatorCompanyId: CO.SPC.id,
+      generatorCompanyName: CO.SPC.name,
       consumerCompanyId: 4,
       consumerCompanyName: CO.HANIL.name,
       siteName: '한일튜브 울산공장',
@@ -137,8 +136,8 @@ function seedContracts(): Contract[] {
       kind: 'SELF_CONSUMPTION',
       plantId: 17514,
       plantName: '한일튜브(자가소비)',
-      generatorCompanyId: 3,
-      generatorCompanyName: CO.GENERATOR_LOGIN.name,
+      generatorCompanyId: CO.SPC.id,
+      generatorCompanyName: CO.SPC.name,
       consumerCompanyId: 4,
       consumerCompanyName: CO.HANIL.name,
       siteName: '한일튜브 울산공장',
@@ -248,8 +247,8 @@ function seedContracts(): Contract[] {
         requestId: 4,
         kind: 'SELF_CONSUMPTION',
         plantName: '건호이엔씨',
-        generatorCompanyId: 3,
-        generatorCompanyName: CO.GENERATOR_LOGIN.name,
+        generatorCompanyId: CO.SPC.id,
+        generatorCompanyName: CO.SPC.name,
         consumerCompanyId: 7,
         consumerCompanyName: CO.GUNHO.name,
         siteName: '건호이엔씨 공장',
@@ -271,8 +270,8 @@ function seedContracts(): Contract[] {
         requestId: 17,
         kind: 'SELF_CONSUMPTION',
         plantName: '한일튜브(자가소비)',
-        generatorCompanyId: 3,
-        generatorCompanyName: CO.GENERATOR_LOGIN.name,
+        generatorCompanyId: CO.SPC.id,
+        generatorCompanyName: CO.SPC.name,
         consumerCompanyId: 4,
         consumerCompanyName: CO.HANIL.name,
         siteName: '한일튜브 울산공장',
@@ -312,12 +311,13 @@ function seedRequests(): TradeRequest[] {
     ev(signed, 'consumer', '전자서명'),
     ev(signed, 'spc', '체결'),
   ];
+  // 발전사업자 계정(한일튜브)이 신청한 건 — 계약 상대는 SPC
   const gen = {
     applicant: 'generator' as Party,
-    applicantCompanyId: 3,
-    applicantCompanyName: CO.GENERATOR_LOGIN.name,
-    generatorCompanyId: 3,
-    generatorCompanyName: CO.GENERATOR_LOGIN.name,
+    applicantCompanyId: CO.HANIL.id,
+    applicantCompanyName: CO.HANIL.name,
+    generatorCompanyId: CO.SPC.id,
+    generatorCompanyName: CO.SPC.name,
   };
   const spc = {
     applicant: 'spc' as Party,
@@ -484,7 +484,11 @@ function seedRequests(): TradeRequest[] {
     // 관리자 검토 (신청하면 바로)
     mk({
       id: 6,
-      ...gen,
+      applicant: 'consumer',
+      applicantCompanyId: 2,
+      applicantCompanyName: CO.CONSUMER_LOGIN.name,
+      generatorCompanyId: CO.SPC.id,
+      generatorCompanyName: CO.SPC.name,
       kind: 'SELF_CONSUMPTION',
       consumerCompanyId: 2,
       consumerCompanyName: CO.CONSUMER_LOGIN.name,
@@ -502,8 +506,8 @@ function seedRequests(): TradeRequest[] {
       messages: [
         {
           at: iso('2026-09-29', '15:12:00'),
-          by: 'generator',
-          byName: CO.GENERATOR_LOGIN.name,
+          by: 'consumer',
+          byName: CO.CONSUMER_LOGIN.name,
           text: '한길 자가소비 90.88kW 신청합니다. 실측 일정 조율 부탁드립니다.',
         },
       ],
@@ -576,7 +580,7 @@ function seedRequests(): TradeRequest[] {
         {
           at: iso('2026-09-22', '15:30:00'),
           by: 'generator',
-          byName: CO.GENERATOR_LOGIN.name,
+          byName: CO.HANIL.name,
           text: '네, 26일 10시로 하겠습니다.',
         },
         {
@@ -590,7 +594,7 @@ function seedRequests(): TradeRequest[] {
     // 반려
     mk({
       id: 8,
-      ...gen,
+      ...spc,
       kind: 'SELF_CONSUMPTION',
       consumerCompanyId: 7,
       consumerCompanyName: CO.GUNHO.name,
@@ -605,7 +609,7 @@ function seedRequests(): TradeRequest[] {
       submittedAt: iso('2026-08-03'),
       updatedAt: iso('2026-08-12', '17:20:00'),
       events: [
-        ev(iso('2026-08-03'), 'generator', '신청 접수'),
+        ev(iso('2026-08-03'), 'spc', '신청 접수', '전화 문의 대리 접수'),
         ev(iso('2026-08-05'), 'spc', '검토 시작'),
         ev(iso('2026-08-12', '17:20:00'), 'spc', '반려', '설치 위치 도면 미제출 — 보완 후 재신청'),
       ],
@@ -634,7 +638,7 @@ function seedRequests(): TradeRequest[] {
     // 승인 — 서명 전(거래 승인)
     mk({
       id: 4,
-      ...gen,
+      ...spc,
       kind: 'SELF_CONSUMPTION',
       consumerCompanyId: 7,
       consumerCompanyName: CO.GUNHO.name,
@@ -649,7 +653,7 @@ function seedRequests(): TradeRequest[] {
       submittedAt: iso('2026-09-02'),
       updatedAt: iso('2026-09-15', '16:00:00'),
       events: [
-        ev(iso('2026-09-02'), 'generator', '신청 접수'),
+        ev(iso('2026-09-02'), 'spc', '신청 접수', '전화 문의 대리 접수'),
         ev(iso('2026-09-04'), 'spc', '검토 시작'),
         ev(iso('2026-09-15', '16:00:00'), 'spc', '승인', '계약서 초안 생성 — 양측 전자서명 대기'),
       ],

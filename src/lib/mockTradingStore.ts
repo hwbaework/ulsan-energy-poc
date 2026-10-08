@@ -64,7 +64,7 @@ export interface MockTradingState {
 
 // v3 — showcase 모드 (버튼 상태변경 제거 이전에 localStorage 에 저장된 v1/v2 데이터 무시)
 // 현재는 어떤 버튼도 mutation 을 호출하지 않으므로 이 키에 데이터가 쓰일 일 없음 = 항상 seed 고정
-// v10 — 승인 대기 시드를 POC 발전사(울산 발전(주) · 한일튜브)로 교체. 키를 올려 저장된 옛 상태를 버린다
+// v10 — 승인 대기 시드를 POC 발전사업자(한일튜브)로 교체. 키를 올려 저장된 옛 상태를 버린다
 const STORAGE_KEY = 'energy-frontend:mock-trading-v10';
 
 /* 전기사용자 신청 12종 — 3개 유형 × 4단계 전부 노출 (mock 뽑아내기 모드)
@@ -159,11 +159,11 @@ const SEED: MockTradingState = {
      *   MATCHING = 희망가 기입 완료·매칭 풀 / MATCHED = 계약 체결
      * desiredUnitPrice 0 = 희망가 미기입 (승인 후 발전사가 기입) */
     {
-      // 승인 대기 — POC 발전사업자(울산 발전(주))의 한일튜브 추가 공급 신청
+      // 승인 대기 — POC 발전사업자(한일튜브) 신청
       id: 13,
       requesterType: 'GENERATOR',
-      companyId: 3,
-      companyName: '울산 발전(주)',
+      companyId: 4,
+      companyName: '한일튜브',
       dealType: 'PPA',
       contractKind: 'ONSITE', // 계약 유형: 자가소비 / 온사이트 PPA (PlantContractKind)
       status: 'SUBMITTED', // 승인 대기 — 희망가는 승인 후 기입
@@ -174,7 +174,7 @@ const SEED: MockTradingState = {
       plantName: '한일튜브',
       expectedAnnualKwh: 560_000,
       recEligible: true,
-      notes: '자원: 태양광 / 사업자번호: 610-81-20002',
+      notes: '자원: 태양광 / 사업자번호: 610-81-40004',
       currentStep: 2,
       submittedAt: '2026-09-20T10:00:00',
       createdAt: '2026-09-20T10:00:00',

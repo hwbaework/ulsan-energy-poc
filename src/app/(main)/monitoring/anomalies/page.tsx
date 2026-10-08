@@ -15,6 +15,7 @@ import type { AnomalyEvent, PlantContractKind } from '@/types/monitoring';
 import { useAnomalies } from '@/hooks/monitoring/useAnomalies';
 import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
 import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
+import { PlantCommStatusTable, type CommOutage } from '@/components/features/monitoring/PlantCommStatusTable';
 
 interface AnomalyRow extends AnomalyEvent {
   plantType?: string;
@@ -88,6 +89,18 @@ export default function AnomaliesPage() {
     updatedAt: a.updatedAt ?? '',
       };
     });
+
+  // 전체 상태 — 내 발전소 전부(정상 포함) + 통신오류 건
+  const myPlants = filterPlantsByOwnership(plantList ?? [], myPlantMatcher);
+  const commOutages: CommOutage[] = rawList
+    .filter((a: any) => a.status === 'COMM_ERROR')
+    .map((a: any) => ({
+      plantId: a.plantId,
+      contractKind: a.contractKind,
+      title: a.title ?? '',
+      detectedAt: a.detectedAt ?? a.createdAt ?? '',
+      resolvedAt: a.resolvedAt,
+    }));
 
   const q = query.trim().toLowerCase();
   const filtered = anomalies.filter((a) => {
@@ -222,6 +235,8 @@ export default function AnomaliesPage() {
           emptyMessage={q || severity !== 'all' || status !== 'all' ? '검색 결과가 없습니다' : '이상 감지 내역이 없습니다'}
         />
       </SectionCard>
+
+      <PlantCommStatusTable plants={myPlants} outages={commOutages} />
     </div>
   );
 }

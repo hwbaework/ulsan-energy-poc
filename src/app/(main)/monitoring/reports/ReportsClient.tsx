@@ -209,7 +209,12 @@ export default function ReportsClient() {
         }
       });
     });
-    return selected.days.map((d) => ({ day: d, ...total.get(d)! })).filter((r) => r.energy > 0);
+    // 누적 — 1일부터 그날까지 더한 값. 발전이 없는 날은 표에서 뺀다
+    let cumulative = 0;
+    return selected.days
+      .map((d) => ({ day: d, ...total.get(d)! }))
+      .filter((r) => r.energy > 0)
+      .map((r) => ({ ...r, cumulative: (cumulative += r.energy) }));
   }, [historyQueries, selected]);
 
   /* 이상감지 집계 — 요약 건수만 */
@@ -330,8 +335,8 @@ export default function ReportsClient() {
     }
     sections.push({
       heading: '일별 발전량',
-      headers: ['일자', '발전량', '발전시간'],
-      rows: dailyRows.map((r) => [r.day.replace(/-/g, '.'), `${Math.round(r.energy).toLocaleString()} kWh`, `${r.hours} h`]),
+      headers: ['일자', '발전량', '누적 발전량', '발전시간'],
+      rows: dailyRows.map((r) => [r.day.replace(/-/g, '.'), `${Math.round(r.energy).toLocaleString()} kWh`, `${Math.round(r.cumulative).toLocaleString()} kWh`, `${r.hours} h`]),
     });
 
     return {

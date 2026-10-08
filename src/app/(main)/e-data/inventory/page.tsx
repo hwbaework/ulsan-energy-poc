@@ -12,6 +12,7 @@ import { QuickEmissionWizard } from '@/components/edm/ghg/QuickEmissionWizard';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useGhgCalculation, useGhgStatements, useGhgSources } from '@/hooks/edm/useGhg';
 import { useGhgReductionActuals } from '@/hooks/edm/useGhgExt';
+import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
 
 // 온실가스 인벤토리 대시보드 — 설계 docs/기획/02 §2.1
 // 간편 배출 입력 진입 CTA — 기획 17 §4 (활동 중심 통합 위저드)
@@ -48,7 +49,7 @@ export default function GhgDashboardPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">온실가스 인벤토리</h1>
         <div className="flex items-center gap-3">
-          <span className="hidden text-xs text-slate-400 sm:inline">목표관리제 기준 · 전력계수 0.4781 tCO₂eq/MWh</span>
+          <span className="hidden text-xs text-slate-400 sm:inline">목표관리제 기준 · 전력계수 {ELEC_FACTOR} tCO₂eq/MWh</span>
           <Button variant="primary" size="sm" onClick={() => setWizardOpen(true)}>
             <Plus size={15} /> 배출 입력 시작
           </Button>

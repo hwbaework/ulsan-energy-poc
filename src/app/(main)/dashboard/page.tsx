@@ -32,6 +32,7 @@ import { useEnergySettings } from '@/hooks/common/useSettings';
 import * as monitoringApi from '@/api/monitoring';
 import type { PlantHistoryPoint } from '@/api/monitoring/monitoring';
 import { monitoringKeys } from '@/api/queryKeys';
+import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
 
 // ── Mock Data ──
 
@@ -65,7 +66,7 @@ function withForecast(rows: Array<Record<string, unknown> & { x: string }>, tu: 
   });
 }
 
-const DEFAULT_CO2_EMISSION_FACTOR = 0.4173; // 관리 › 에너지 설정 값이 없을 때만
+const DEFAULT_CO2_EMISSION_FACTOR = ELEC_FACTOR; // 관리 › 에너지 설정 값이 없을 때만
 const EMPTY_IDS: number[] = [];
 const PLANT_COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#EAB308'] as const;
 const shortPlantName = (name: string) => name.replace(/^울산\s*/, '');
@@ -340,8 +341,21 @@ export default function DashboardPage() {
     return Math.round(total * 10) / 10;
   }, [yesterdayHistory, yesterdayByPlant]);
 
-  const PPA_UNIT_PRICE = 92.6;
-  const yesterdayAmount = yesterdayEnergy * PPA_UNIT_PRICE;
+  // PPA 계약 단가 — 관리자 설정 › 에너지 설정 PPA_UNIT_PRICE (없으면 예전 기본값)
+  const ppaUnitPrice = Number(energySettings?.PPA_UNIT_PRICE ?? 0) || 92.6;
+  // 금액 — onsite 계약 몫의 전일 발전량 × 계약 단가. 자가소비는 판매가 아니라 금액이 생기지 않고, 연료전지·ORC 는 계약이 없다
+  //        (한일튜브는 설비 전체 이력에 onsite 몫 329.6/429.44 를 곱한다)
+  const yesterdayAmount = useMemo(
+    () =>
+      allContractPlants
+        .filter((p) => p.contractKind === 'ONSITE')
+        .reduce((sum, p) => {
+          const hist = yesterdayByPlant[p.plantId];
+          const energy = hist?.length ? Math.max(...hist.map((h) => h.dailyEnergy ?? 0)) : 0;
+          return sum + energy * p.share * ppaUnitPrice;
+        }, 0),
+    [allContractPlants, yesterdayByPlant, ppaUnitPrice],
+  );
 
   // ── CO₂ 저감 — 역할 공통: 월·년 + ‹ 연도 › 피커. 관리자는 회사 셀렉트로 한 회사, 그 외는 자사 계약 발전소(전체 + 발전소별 선)
   const co2Plants = allContractPlants;

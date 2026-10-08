@@ -1,7 +1,9 @@
-// 온실가스 인벤토리 mock — 설계 docs/기획/02. 계수 0.4781(2021 승인 국가계수).
+// 온실가스 인벤토리 mock — 설계 docs/기획/02. 전력계수는 산정 연도 국가 전력배출계수.
 // 목표관리제 지침 기반. 실제 백엔드 연계 전 화면 우선 구현용.
 
-export const ELEC_FACTOR = 0.4781; // tCO₂eq/MWh (소비단, 2021 승인)
+import { ELEC_FACTOR, elecFactorFor } from '@/lib/constants/emission-factor';
+
+export { ELEC_FACTOR };
 
 export type Scope = 1 | 2;
 export type ActivityType = 'ELEC' | 'FUEL' | 'STEAM';
@@ -116,7 +118,7 @@ const FUEL_FACTOR: Record<string, number> = { S2: 56, S3: 56, S5: 74 };
 export function calcRows(year = 2026): CalcRow[] {
   return MOCK_ACTIVITY.filter((a) => a.year === year).map((a) => {
     const src = MOCK_SOURCES.find((s) => s.id === a.sourceId)!;
-    const factor = a.type === 'ELEC' ? ELEC_FACTOR : (FUEL_FACTOR[a.sourceId] ?? 56);
+    const factor = a.type === 'ELEC' ? elecFactorFor(a.year) : (FUEL_FACTOR[a.sourceId] ?? 56);
     return {
       sourceId: a.sourceId,
       facility: src.facility,
@@ -177,6 +179,6 @@ export const YEARLY_TREND = [
 export const QC_CHECKS = [
   { key: 'no_missing_source', label: '누락 배출원 없음', passed: true },
   { key: 'unit_valid', label: '활동자료 단위 정합', passed: true },
-  { key: 'factor_version', label: '계수 버전 확정(2021 승인)', passed: true },
+  { key: 'factor_version', label: '계수 버전 확정(2025 공표)', passed: true },
   { key: 'evidence', label: 'Scope1 증빙 첨부', passed: false },
 ];

@@ -27,6 +27,7 @@
 //   단일 계수를 노출하지 않고 Tier3 직접입력만 허용한다(placeholder 값 노출 금지).
 
 import type { ActivityType } from '@/mocks/edm/ghg';
+import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
 
 // ── 불확실 환산 상수 (확정 필요) ─────────────────────────────────────────────
 // 도시가스 표준 발열량. 국내 도시가스(LNG) 총발열량 약 42.7 MJ/Nm³ ≒ 0.0427 GJ/Nm³ 근사.
@@ -92,7 +93,7 @@ export const BUILDING_BLOCKS = {
     inputUnit: 'kWh',
     toStd: 1 / 1000, // kWh → MWh
     stdUnit: 'MWh',
-    fallbackFactor: 0.4781,
+    fallbackFactor: ELEC_FACTOR,
     fallbackFactorUnit: 'tCO₂eq/MWh',
     defaultTier: 1,
     allowFactorOverride: false,

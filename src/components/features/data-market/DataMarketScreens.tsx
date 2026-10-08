@@ -119,19 +119,14 @@ function Info({ label, value, className }: { label: string; value?: ReactNode; c
   );
 }
 
-/** 데모 로그인 계정 → 실제 기업. 발전사업자 계정(companyId 3, 박발전)은 한일튜브 */
-const DEMO_COMPANY: Record<number, { id: number; name: string }> = { 3: { id: 4, name: '한일튜브' } };
-
 /** 역할 — 관리자(플랫폼)는 전체, 발전사업자 · 전기사용자는 자기 것 */
 function useDataRole() {
   useHydrateDataMarket();
   const user = useAuthStore((s) => s.user);
   const persona = getPersona(user);
   const isAdmin = persona === 'admin' || persona === 'spc';
-  // 발전사업자 데모 계정(박발전)은 한일튜브 — 로그인 정보의 '울산 발전(주)'는 실제로 없는 회사
-  const demo = DEMO_COMPANY[user?.companyId ?? 0];
-  const companyId = demo?.id ?? user?.companyId ?? 0;
-  const companyName = demo?.name ?? user?.companyName ?? '';
+  const companyId = user?.companyId ?? 0;
+  const companyName = user?.companyName ?? '';
   const consents = useDataMarketStore((s) => s.consents);
   const tradesAll = useDataMarketStore((s) => s.trades);
   /** 상품 전체(공개 안 된 것 포함) — 동의에서 만들어진다 */

@@ -13,6 +13,7 @@ import { useSearchParams } from 'next/navigation';
 import { Breadcrumb } from '@/components/layout';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useAchievements, type Measure } from '@/hooks/re100/useAchievements';
+import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
 
 type Kind = 'ALL' | 'TRADE' | 'SELF';
 
@@ -50,7 +51,7 @@ const TABS: { key: Kind; label: string }[] = [
 export default function Re100GenerationPage() {
   // tCO₂ 산정 계수 — 관리 › 에너지 설정의 전력 배출계수
   const { data: energySettings } = useEnergySettings();
-  const CO2_FACTOR_TON_PER_MWH = energyNum(energySettings, 'CO2_EMISSION_FACTOR', 0.4173);
+  const CO2_FACTOR_TON_PER_MWH = energyNum(energySettings, 'CO2_EMISSION_FACTOR', ELEC_FACTOR);
   const companyId = useAuthStore((s) => s.user?.companyId ?? undefined);
   const currentYear = new Date().getFullYear();
   const searchParams = useSearchParams();
