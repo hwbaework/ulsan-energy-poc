@@ -86,7 +86,7 @@ const CATALOG = '/e-data/catalog';
 const CONSENT = `${CATALOG}/consent`;
 const API_HUB = '/e-data/api-hub';
 const TRADING = '/e-data/trading';
-const endpointOf = (d: Pick<Dataset, 'ownerCompanyId'>) => `/api/v1/emissions/${d.ownerCompanyId}`;
+const endpointOf = (d: Pick<Dataset, 'ownerCompanyId'>) => `/api/v1/solar-generation/${d.ownerCompanyId}`;
 /** 제공 방식 — 모든 데이터가 같다 */
 const DELIVERY = 'API · CSV 다운로드';
 const sumPrice = (xs: DataTrade[]) => xs.reduce((a, t) => a + t.price, 0);
@@ -293,7 +293,7 @@ function SheetTable({ sheet }: { sheet: DataSheet }) {
   );
 }
 
-/* ══ 3.3.1 데이터 등록/신청 — 목록 카드(SectionCard) 안에 기업별 배출량 카드. 검색 · 판매 동의는 카드 헤더 ══ */
+/* ══ 3.3.1 데이터 등록/신청 — 목록 카드(SectionCard) 안에 기업별 태양광 발전량 카드. 검색 · 판매 동의는 카드 헤더 ══ */
 
 /** 데이터 카드 — 종류 · 이름 · 내용 · 제공 기업 · 수집 주기 · 이용 기업 · 가격 */
 function DatasetCard({

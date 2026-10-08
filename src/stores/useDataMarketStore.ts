@@ -1,7 +1,8 @@
 /**
  * 데이터 마켓플레이스(WBS 3.3) POC 스토어 — 내 정보를 판다.
  * 기업이 판매에 동의하면 그 기업의 데이터가 바로 상품으로 공개된다(등록 · 승인 없음). 동의 = 등록.
- * 상품은 기업별 Scope 1·2 배출량 하나. 태양광 효과는 그 안의 태양광 사용 · 줄인 배출 칸으로 들어간다.
+ * 상품은 기업별 태양광 발전량 하나 — 계산한 값(배출량 · 탄소 감축 · 소나무 등)이 아니라 발전 정보 그대로.
+ * 탄소 · 온실가스 · 소나무 환산은 사는 쪽이 각자 계산식으로 한다.
  * 제공은 모두 API(토큰) + CSV 다운로드. 가격은 모두 월 1,000원.
  * 브라우저 localStorage 에 저장(데모). 시드가 바뀌면 SEED_VERSION 을 올린다.
  */
@@ -9,11 +10,10 @@ import { useEffect } from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { ssrSafeStorage } from '@/lib/ssr-storage';
-import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
 
-export const DM_SEED_VERSION = 13;
+export const DM_SEED_VERSION = 14;
 
-export const DATA_KINDS = ['Scope 1·2 배출량'] as const;
+export const DATA_KINDS = ['태양광 발전량'] as const;
 export type DataKind = (typeof DATA_KINDS)[number];
 /** 가격 방식 — 월 이용료 / 1회 구매 */
 export type PriceType = 'MONTHLY' | 'ONCE';
@@ -30,23 +30,19 @@ export const DM_TODAY = '2026-10-02';
 export const THIS_MONTH = DM_TODAY.slice(0, 7);
 const LAST_MONTH = '2026-09';
 const PERIOD_FROM = '2025-03';
-/* ── 판매 기업 — 실제 기업만. 설비 용량은 실제 값, 수전량 · LNG 사용량 기준치는 데모 시드 ── */
+/* ── 판매 기업 — 실제 기업만. 태양광 설비 용량은 실제 값 ── */
 export interface SellerCompany {
   id: number;
   name: string;
-  /** Scope 2 에서 수전을 줄이는 태양광 사용(kW) — 자가소비 + onsite */
-  solarUseKw: number;
-  /** 월 한전 수전량 기준(MWh, 데모 시드) */
-  gridBase: number;
-  /** 월 LNG 사용량 기준(TJ, 데모 시드) */
-  lngBase: number;
+  /** 태양광 설비 용량(kW) — 자가소비 + onsite */
+  solarKw: number;
 }
 export const DM_SELLERS: SellerCompany[] = [
-  { id: 2, name: '한길', solarUseKw: 90.88, gridBase: 318, lngBase: 1.8 },
-  { id: 4, name: '한일튜브', solarUseKw: 429.44, gridBase: 0, lngBase: 6.4 },
-  { id: 5, name: '용인금속', solarUseKw: 152.32, gridBase: 562, lngBase: 3.6 },
-  { id: 6, name: '태성산업', solarUseKw: 46.08, gridBase: 176, lngBase: 0.9 },
-  { id: 7, name: '건호이엔씨', solarUseKw: 33.92, gridBase: 131, lngBase: 0.7 },
+  { id: 2, name: '한길', solarKw: 90.88 },
+  { id: 4, name: '한일튜브', solarKw: 429.44 },
+  { id: 5, name: '용인금속', solarKw: 152.32 },
+  { id: 6, name: '태성산업', solarKw: 46.08 },
+  { id: 7, name: '건호이엔씨', solarKw: 33.92 },
 ];
 
 /** 판매 동의 — 기업 × 종류. 있으면 공개 중 */
@@ -105,23 +101,10 @@ const tokenOf = (seed: number) => {
 const randomToken = () => tokenOf(Math.floor(Math.random() * 1_000_000) + 1000);
 const nowIso = () => new Date().toISOString().slice(0, 19);
 
-/* ── 계산 — 배출량 = 활동자료 × 배출계수 ── */
-export { ELEC_FACTOR };
-/** LNG 배출계수(tCO₂eq/TJ) — IPCC 기본(CO₂ 56,100 · CH₄ 1 · N₂O 0.1 kg/TJ) × 지침 GWP(21 · 310) */
-export const LNG_FACTOR = 56.152;
+/* ── 발전 정보 — 발전량 = 설비 용량 × 그 달 하루 평균 발전시간 × 날수 (일조시간 아님) ── */
 /** 울산 월별 하루 평균 발전시간(h) — 1월 ~ 12월 */
 const GEN_HOURS = [3.0, 3.5, 3.9, 4.3, 4.4, 3.8, 3.4, 3.7, 3.4, 3.5, 3.0, 2.8];
-/** 월별 전력 사용 비율 — 여름 냉방 · 겨울 난방에 높다 */
-const ELEC_SEASON = [1.06, 0.98, 1.0, 0.96, 0.95, 1.02, 1.1, 1.09, 1.0, 0.97, 1.0, 1.06];
-/** 월별 LNG 사용 비율 — 겨울에 높다 */
-const LNG_SEASON = [1.25, 1.2, 1.05, 0.95, 0.9, 0.85, 0.85, 0.85, 0.9, 0.95, 1.05, 1.2];
-/** 한일튜브 한전 수전량(MWh) — 2025-03 ~ 2026-09 고지서 (데모 시드) */
-const HANIL_GRID_MWH = [
-  1182.4, 1124.7, 1098.3, 1156.9, 1248.6, 1231.2, 1139.5, 1117.8, 1152.3, 1214.6, 1236.1, 1108.9,
-  1169.2, 1111.5, 1086.7, 1143.0, 1239.4, 1226.8, 1131.6,
-];
 const r1 = (v: number) => Math.round(v * 10) / 10;
-const r3 = (v: number) => Math.round(v * 1000) / 1000;
 
 /** 2025-03 ~ 2026-09 */
 function months(): { month: string; m: number; days: number; i: number }[] {
@@ -142,32 +125,17 @@ function months(): { month: string; m: number; days: number; i: number }[] {
 /** 같은 기업 · 같은 달이면 늘 같은 작은 흔들림(±3%) */
 const wiggle = (id: number, i: number) => 1 + (((id * 7 + i * 5) % 13) - 6) / 200;
 
-function scope2(c: SellerCompany) {
+/** 달마다 발전시간 · 발전량 — 같은 기업 · 같은 달이면 늘 같은 흔들림(±3%) */
+function generation(c: SellerCompany) {
   return months().map(({ month, m, days, i }) => {
-    const grid =
-      c.id === 4
-        ? (HANIL_GRID_MWH[i] ?? 0)
-        : r1(c.gridBase * (ELEC_SEASON[m - 1] ?? 1) * wiggle(c.id, i));
-    const solar = r1((c.solarUseKw * (GEN_HOURS[m - 1] ?? 0) * days) / 1000);
-    return {
-      month,
-      grid,
-      solar,
-      emission: r1(grid * ELEC_FACTOR),
-      avoided: r1(solar * ELEC_FACTOR),
-    };
-  });
-}
-function scope1(c: SellerCompany) {
-  return months().map(({ month, m, i }) => {
-    const lng = r3(c.lngBase * (LNG_SEASON[m - 1] ?? 1) * wiggle(c.id + 3, i));
-    return { month, lng, emission: r1(lng * LNG_FACTOR) };
+    const hours = r1((GEN_HOURS[m - 1] ?? 0) * wiggle(c.id, i));
+    return { month, hours, kwh: Math.round(c.solarKw * hours * days) };
   });
 }
 /* ── 상품 — 기업 × 종류. id = 기업 id × 10 + 종류 번호 ── */
 const kindNo = (k: DataKind) => DATA_KINDS.indexOf(k) + 1;
 function describe(c: SellerCompany): string {
-  return `${c.name} 온실가스 배출량(tCO₂eq) — Scope 1 = LNG 사용량 × ${LNG_FACTOR}, Scope 2 = 한전 수전량 × 국가 전력 배출계수 ${ELEC_FACTOR}(태양광 ${c.solarUseKw} kW 사용분 반영)`;
+  return `${c.name} 태양광 ${c.solarKw} kW 월별 발전량(kWh) · 하루 평균 발전시간`;
 }
 
 export function productsOf(consents: Consent[]): Dataset[] {
@@ -203,45 +171,22 @@ export interface DataSheet {
 const fmt1 = (v: number) =>
   v.toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-/** Scope 1 · Scope 2 를 달마다 합친다 */
-function emissions(c: SellerCompany) {
-  const s1 = scope1(c);
-  return scope2(c).map((r, i) => {
-    const one = s1[i]?.emission ?? 0;
-    return {
-      ...r,
-      lng: s1[i]?.lng ?? 0,
-      scope1: one,
-      scope2: r.emission,
-      total: r1(one + r.emission),
-    };
-  });
-}
-
-/** 상품 데이터 전체(2025-03 ~ 2026-09, 월별) */
+/** 상품 데이터 전체(2025-03 ~ 2026-09, 월별) — 발전 정보 그대로 */
 export function sheetOf(d: Dataset): DataSheet {
   const c = DM_SELLERS.find((x) => x.id === d.ownerCompanyId);
   if (!c) return { columns: [], rows: [] };
   return {
     columns: [
       { key: 'month', label: '월' },
-      { key: 'lng', label: 'LNG 사용량 (TJ)' },
-      { key: 'scope1', label: 'Scope 1 (tCO₂eq)' },
-      { key: 'grid', label: '한전 수전량 (MWh)' },
-      { key: 'solar', label: '태양광 사용 (MWh)' },
-      { key: 'scope2', label: 'Scope 2 (tCO₂eq)' },
-      { key: 'total', label: '합계 (tCO₂eq)', strong: true },
-      { key: 'avoided', label: '태양광으로 줄인 배출 (tCO₂eq)' },
+      { key: 'kw', label: '설비 용량 (kW)' },
+      { key: 'hours', label: '하루 평균 발전시간 (h)' },
+      { key: 'kwh', label: '발전량 (kWh)', strong: true },
     ],
-    rows: emissions(c).map((r) => ({
+    rows: generation(c).map((r) => ({
       month: r.month,
-      lng: r.lng.toFixed(3),
-      scope1: fmt1(r.scope1),
-      grid: fmt1(r.grid),
-      solar: fmt1(r.solar),
-      scope2: fmt1(r.scope2),
-      total: fmt1(r.total),
-      avoided: fmt1(r.avoided),
+      kw: c.solarKw.toFixed(2),
+      hours: fmt1(r.hours),
+      kwh: r.kwh.toLocaleString('ko-KR'),
     })),
   };
 }
@@ -260,10 +205,10 @@ export function csvOf(t: DataSheet): string {
  *  사는 쪽: 한길 이용 중 2 + 취소 1(다시 신청 가능), 한일튜브(발전사업자 데모 계정 박발전) 이용 중 2 ── */
 function seed(): { consents: Consent[]; trades: DataTrade[] } {
   const consents: Consent[] = [
-    { companyId: 7, kind: 'Scope 1·2 배출량', consentedAt: '2026-06-02T10:00:00' },
-    { companyId: 5, kind: 'Scope 1·2 배출량', consentedAt: '2026-06-18T11:00:00' },
-    { companyId: 6, kind: 'Scope 1·2 배출량', consentedAt: '2026-06-25T10:00:00' },
-    { companyId: 4, kind: 'Scope 1·2 배출량', consentedAt: '2026-08-28T09:00:00' },
+    { companyId: 7, kind: '태양광 발전량', consentedAt: '2026-06-02T10:00:00' },
+    { companyId: 5, kind: '태양광 발전량', consentedAt: '2026-06-18T11:00:00' },
+    { companyId: 6, kind: '태양광 발전량', consentedAt: '2026-06-25T10:00:00' },
+    { companyId: 4, kind: '태양광 발전량', consentedAt: '2026-08-28T09:00:00' },
   ];
   const products = productsOf(consents);
   const by = (id: number) => products.find((d) => d.id === id)!;
