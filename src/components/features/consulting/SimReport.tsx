@@ -1,10 +1,25 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Area, Bar, CartesianGrid, ComposedChart, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import {
+  Area,
+  Bar,
+  CartesianGrid,
+  ComposedChart,
+  Legend,
+  Line,
+  LineChart,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
+import { energyNum, useEnergySettings } from '@/hooks/common/useSettings';
+import { PINE_PER_TCO2, TOE_PER_MWH } from '@/lib/constants/env-benefit';
 import {
   CAGR,
   CLIMATE_CHG,
@@ -64,9 +79,22 @@ const NO_ANIM = { isAnimationActive: false } as const; // 그리다 만 선이 �
 
 /* ── 조각 ── */
 /** 원본 .card — 흰 카드 + 회색 소제목 */
-function Card({ title, right, children, className }: { title: ReactNode; right?: ReactNode; children: ReactNode; className?: string }) {
+function Card({
+  title,
+  right,
+  children,
+  className,
+}: {
+  title: ReactNode;
+  right?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className={cn('min-w-0 rounded-xl border border-slate-200 bg-white px-5 pb-4 pt-5', className)} style={{ breakInside: 'avoid' }}>
+    <div
+      className={cn('min-w-0 rounded-xl border border-slate-200 bg-white px-5 pb-4 pt-5', className)}
+      style={{ breakInside: 'avoid' }}
+    >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <p className="text-[13px] font-bold tracking-wide text-slate-500">{title}</p>
         {right}
@@ -75,15 +103,33 @@ function Card({ title, right, children, className }: { title: ReactNode; right?:
     </div>
   );
 }
-const Note = ({ children }: { children: ReactNode }) => <p className="mt-2.5 text-xs leading-relaxed text-slate-500">{children}</p>;
+const Note = ({ children }: { children: ReactNode }) => (
+  <p className="mt-2.5 text-xs leading-relaxed text-slate-500">{children}</p>
+);
 /** 숫자 표 — 첫 열 가운데, 나머지 오른쪽 */
-function T({ head, rows, total, cur }: { head: ReactNode[]; rows: ReactNode[][]; total?: ReactNode[][]; cur?: number }) {
+function T({
+  head,
+  rows,
+  total,
+  cur,
+}: {
+  head: ReactNode[];
+  rows: ReactNode[][];
+  total?: ReactNode[][];
+  cur?: number;
+}) {
   return (
     <table className="w-full border-collapse text-xs">
       <thead>
         <tr className="bg-slate-50 text-slate-500">
           {head.map((h, i) => (
-            <th key={i} className={cn('whitespace-nowrap border-b border-slate-200 px-3 py-2 font-bold', i === 0 ? 'text-center' : 'text-right')}>
+            <th
+              key={i}
+              className={cn(
+                'whitespace-nowrap border-b border-slate-200 px-3 py-2 font-bold',
+                i === 0 ? 'text-center' : 'text-right',
+              )}
+            >
               {h}
             </th>
           ))}
@@ -93,7 +139,13 @@ function T({ head, rows, total, cur }: { head: ReactNode[]; rows: ReactNode[][];
         {rows.map((r, ri) => (
           <tr key={ri} className={cn('border-b border-slate-100', ri === cur && 'bg-blue-50')}>
             {r.map((c, i) => (
-              <td key={i} className={cn('whitespace-nowrap px-3 py-2 tabular-nums', i === 0 ? 'text-center font-bold text-slate-500' : 'text-right text-slate-700')}>
+              <td
+                key={i}
+                className={cn(
+                  'whitespace-nowrap px-3 py-2 tabular-nums',
+                  i === 0 ? 'text-center font-bold text-slate-500' : 'text-right text-slate-700',
+                )}
+              >
                 {c}
               </td>
             ))}
@@ -102,7 +154,13 @@ function T({ head, rows, total, cur }: { head: ReactNode[]; rows: ReactNode[][];
         {total?.map((r, ri) => (
           <tr key={`t${ri}`} className="border-t-2 border-slate-200 bg-slate-100 font-bold">
             {r.map((c, i) => (
-              <td key={i} className={cn('whitespace-nowrap px-3 py-2 tabular-nums text-slate-900', i === 0 ? 'text-center' : 'text-right')}>
+              <td
+                key={i}
+                className={cn(
+                  'whitespace-nowrap px-3 py-2 tabular-nums text-slate-900',
+                  i === 0 ? 'text-center' : 'text-right',
+                )}
+              >
                 {c}
               </td>
             ))}
@@ -125,15 +183,22 @@ function SumItem({ k, v, s, dim }: { k: string; v: ReactNode; s?: ReactNode; dim
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-center">
       <p className="text-xs font-bold text-slate-500">{k}</p>
-      <p className={cn('mt-1.5 text-base font-extrabold tabular-nums', dim ? 'text-slate-400' : 'text-slate-900')}>{v}</p>
+      <p className={cn('mt-1.5 text-base font-extrabold tabular-nums', dim ? 'text-slate-400' : 'text-slate-900')}>
+        {v}
+      </p>
       {s && <p className="mt-0.5 text-xs leading-snug text-slate-500">{s}</p>}
     </div>
   );
 }
 const Blue = ({ children }: { children: ReactNode }) => <span className="text-blue-700">{children}</span>;
-const Dim = ({ on, children }: { on: boolean; children: ReactNode }) => <span className={on ? 'text-blue-700' : 'text-slate-400'}>{children}</span>;
+const Dim = ({ on, children }: { on: boolean; children: ReactNode }) => (
+  <span className={on ? 'text-blue-700' : 'text-slate-400'}>{children}</span>
+);
 const SegTag = ({ idx, children }: { idx: number; children: ReactNode }) => (
-  <span className="inline-block rounded px-1.5 py-0.5 text-[11px] font-bold text-white" style={{ background: SEG_COLOR[idx - 1] }}>
+  <span
+    className="inline-block rounded px-1.5 py-0.5 text-[11px] font-bold text-white"
+    style={{ background: SEG_COLOR[idx - 1] }}
+  >
     {children}
   </span>
 );
@@ -143,7 +208,10 @@ function YearSel({ value, onChange, esc }: { value: number; onChange: (v: number
   const step = (d: number) => onChange(Math.min(20, Math.max(1, value + d)));
   const btn = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-600 text-white hover:bg-blue-700';
   return (
-    <div data-noprint className="mb-3 flex items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+    <div
+      data-noprint
+      className="mb-3 flex items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+    >
       <span className="whitespace-nowrap text-xs font-bold text-slate-500">연차 선택</span>
       <button type="button" className={btn} onClick={() => step(-1)} aria-label="이전 연차">
         <ChevronLeft size={14} />
@@ -168,7 +236,17 @@ function YearSel({ value, onChange, esc }: { value: number; onChange: (v: number
   );
 }
 
-export function SimReport({ input, companyName, record, autoPdf }: { input: SimInput; companyName: string; record?: ReviewRecord; autoPdf?: boolean }) {
+export function SimReport({
+  input,
+  companyName,
+  record,
+  autoPdf,
+}: {
+  input: SimInput;
+  companyName: string;
+  record?: ReviewRecord;
+  autoPdf?: boolean;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [scen, setScen] = useState(1);
   const [mY, setMY] = useState(1);
@@ -180,7 +258,15 @@ export function SimReport({ input, companyName, record, autoPdf }: { input: SimI
     selfRemain: SELF_REMAIN,
     ppaRemain: PPA_REMAIN,
   };
-  const cg = useMemo(() => cagrOf(tariffYears) ?? { rate: CAGR, from: TARIFF_YEAR_SEED[0]!, to: TARIFF_YEAR_SEED[TARIFF_YEAR_SEED.length - 1]! }, [tariffYears]);
+  const cg = useMemo(
+    () =>
+      cagrOf(tariffYears) ?? {
+        rate: CAGR,
+        from: TARIFF_YEAR_SEED[0]!,
+        to: TARIFF_YEAR_SEED[TARIFF_YEAR_SEED.length - 1]!,
+      },
+    [tariffYears],
+  );
   const sc = useMemo(() => scenarios(input, cg.rate), [input, cg.rate]);
   const R = sc[scen]!.R;
   const self = R.mode === 'self';
@@ -210,13 +296,18 @@ export function SimReport({ input, companyName, record, autoPdf }: { input: SimI
   const segNow = self ? null : segOfYear(R, mY);
 
   return (
-    <div ref={ref} className="mx-auto w-full max-w-[1100px] space-y-5 rounded-sm bg-[#f4f7fb] px-6 py-8 text-slate-900 shadow-2xl sm:px-9">
+    <div
+      ref={ref}
+      className="mx-auto w-full max-w-[1100px] space-y-5 rounded-sm bg-[#f4f7fb] px-6 py-8 text-slate-900 shadow-2xl sm:px-9"
+    >
       {/* 머리 — 제목 · 작성일, 오른쪽 PDF */}
       <div className="flex items-end justify-between gap-4 border-b-2 border-slate-900 pb-3.5">
         <div>
           <h1 className="text-[22px] font-extrabold tracking-tight">
             울산미포산단 태양광 사업성 검토
-            <span className="ml-2 rounded bg-blue-100 px-2 py-0.5 align-middle text-[11px] font-extrabold text-blue-700">{self ? '자가소비용' : 'OnSite PPA (리스형)'}</span>
+            <span className="ml-2 rounded bg-blue-100 px-2 py-0.5 align-middle text-[11px] font-extrabold text-blue-700">
+              {self ? '자가소비용' : 'OnSite PPA (리스형)'}
+            </span>
           </h1>
           <p className="mt-1.5 text-xs text-slate-500 tabular-nums">작성일 {written}</p>
         </div>
@@ -235,18 +326,38 @@ export function SimReport({ input, companyName, record, autoPdf }: { input: SimI
         <div className="flex flex-1 gap-1.5 rounded-lg bg-slate-100 p-1">
           {sc.map((x, k) => {
             const r = x.R;
-            const res = r.mode === 'self' ? `20년 절감 ${EOK(r.cumSave)}억 · 순현금 ${EOK(r.years[19]!.cum)}억` : `20년 절감 ${EOK(r.ets ? r.cumT : r.cumSaveD)}억 · kWh당 ${F1(r.avgKu - r.avgPu)}원`;
-            const sub = k === 0 ? '0%/yr · 최소 기대치' : k === 1 ? `${(escInput(input) * 100).toFixed(1)}%/yr · 입력값` : `${(cg.rate * 100).toFixed(2)}%/yr · ${cg.from.year}~${cg.to.year} 산업용 실적`;
+            const res =
+              r.mode === 'self'
+                ? `20년 절감 ${EOK(r.cumSave)}억 · 순현금 ${EOK(r.years[19]!.cum)}억`
+                : `20년 절감 ${EOK(r.ets ? r.cumT : r.cumSaveD)}억 · kWh당 ${F1(r.avgKu - r.avgPu)}원`;
+            const sub =
+              k === 0
+                ? '0%/yr · 최소 기대치'
+                : k === 1
+                  ? `${(escInput(input) * 100).toFixed(1)}%/yr · 입력값`
+                  : `${(cg.rate * 100).toFixed(2)}%/yr · ${cg.from.year}~${cg.to.year} 산업용 실적`;
             return (
               <button
                 key={k}
                 type="button"
                 onClick={() => setScen(k)}
-                className={cn('flex flex-1 flex-col items-center gap-0.5 rounded-md px-2 py-2 text-[12.5px] font-bold transition-colors', scen === k ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:bg-slate-200')}
+                className={cn(
+                  'flex flex-1 flex-col items-center gap-0.5 rounded-md px-2 py-2 text-[12.5px] font-bold transition-colors',
+                  scen === k ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:bg-slate-200',
+                )}
               >
                 <span>{['한전요금 동결', '상승분 반영 (입력값)', '실적 CAGR 반영'][k]}</span>
-                <small className={cn('text-[10.5px] font-semibold', scen === k ? 'text-blue-700' : 'text-slate-400')}>{sub}</small>
-                <span className={cn('text-[11px] font-extrabold tabular-nums', scen === k ? 'text-blue-700' : 'text-slate-700')}>{res}</span>
+                <small className={cn('text-[10.5px] font-semibold', scen === k ? 'text-blue-700' : 'text-slate-400')}>
+                  {sub}
+                </small>
+                <span
+                  className={cn(
+                    'text-[11px] font-extrabold tabular-nums',
+                    scen === k ? 'text-blue-700' : 'text-slate-700',
+                  )}
+                >
+                  {res}
+                </span>
               </button>
             );
           })}
@@ -257,8 +368,13 @@ export function SimReport({ input, companyName, record, autoPdf }: { input: SimI
       {self && R.cap > es.selfRemain && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-[12.5px] leading-relaxed text-amber-900">
           <p className="mb-1.5 text-[13px] font-extrabold">자가소비 배정 잔여용량 초과</p>
-          울산 에너지자급자족 사업의 자가소비형 잔여 배정용량은 약 <b>{F(es.selfRemain)}kW({(es.selfRemain / 1000).toFixed(2)}MW)</b>입니다. 입력 용량 {F(R.cap)}kW 중 초과분은 자가소비 배정에서 제외될 수 있어, 초과 용량은{' '}
-          <b>OnSite PPA(리스형)</b> 검토를 권장합니다 — 초기투자 0원, 구간별 PPA 단가 적용(초기 구간 한전요금 연동 가능).
+          울산 에너지자급자족 사업의 자가소비형 잔여 배정용량은 약{' '}
+          <b>
+            {F(es.selfRemain)}kW({(es.selfRemain / 1000).toFixed(2)}MW)
+          </b>
+          입니다. 입력 용량 {F(R.cap)}kW 중 초과분은 자가소비 배정에서 제외될 수 있어, 초과 용량은{' '}
+          <b>OnSite PPA(리스형)</b> 검토를 권장합니다 — 초기투자 0원, 구간별 PPA 단가 적용(초기 구간 한전요금 연동
+          가능).
         </div>
       )}
 
@@ -276,23 +392,78 @@ export function SimReport({ input, companyName, record, autoPdf }: { input: SimI
         <YearSel value={mY} onChange={setMY} esc={R.esc} />
         <div className="h-[280px]">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={rows.map((r, m) => ({ m: MNAME[m], gen: Math.round(r.g), kep: Math.round(r.kepco / 1e4), pay: Math.round(r.ppaCost / 1e4) }))}>
+            <ComposedChart
+              data={rows.map((r, m) => ({
+                m: MNAME[m],
+                gen: Math.round(r.g),
+                kep: Math.round(r.kepco / 1e4),
+                pay: Math.round(r.ppaCost / 1e4),
+              }))}
+            >
               <CartesianGrid stroke={GRID} vertical={false} />
               <XAxis dataKey="m" tick={AXIS} axisLine={false} tickLine={false} />
-              <YAxis yAxisId="g" tick={AXIS} axisLine={false} tickLine={false} tickFormatter={(v: number) => v.toLocaleString()} width={60} />
-              {!self && <YAxis yAxisId="w" orientation="right" tick={AXIS} axisLine={false} tickLine={false} tickFormatter={(v: number) => v.toLocaleString()} width={52} />}
+              <YAxis
+                yAxisId="g"
+                tick={AXIS}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v: number) => v.toLocaleString()}
+                width={60}
+              />
+              {!self && (
+                <YAxis
+                  yAxisId="w"
+                  orientation="right"
+                  tick={AXIS}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v: number) => v.toLocaleString()}
+                  width={52}
+                />
+              )}
               <Tooltip {...TIP} formatter={(v) => Number(v).toLocaleString()} />
               {!self && <Legend verticalAlign="top" wrapperStyle={{ fontSize: 10 }} />}
-              <Bar yAxisId="g" dataKey="gen" name="발전량 (kWh)" fill="rgba(37,99,235,.55)" radius={[4, 4, 0, 0]} {...NO_ANIM} />
-              {!self && <Line yAxisId="w" dataKey="kep" name="한전요금 기준액 (만원)" stroke="#94a3b8" strokeWidth={2} strokeDasharray="6 4" dot={{ r: 2.5 }} {...NO_ANIM} />}
-              {!self && <Line yAxisId="w" dataKey="pay" name="PPA 납입료 (만원)" stroke="#ea580c" strokeWidth={2.5} dot={{ r: 3 }} {...NO_ANIM} />}
+              <Bar
+                yAxisId="g"
+                dataKey="gen"
+                name="발전량 (kWh)"
+                fill="rgba(37,99,235,.55)"
+                radius={[4, 4, 0, 0]}
+                {...NO_ANIM}
+              />
+              {!self && (
+                <Line
+                  yAxisId="w"
+                  dataKey="kep"
+                  name="한전요금 기준액 (만원)"
+                  stroke="#94a3b8"
+                  strokeWidth={2}
+                  strokeDasharray="6 4"
+                  dot={{ r: 2.5 }}
+                  {...NO_ANIM}
+                />
+              )}
+              {!self && (
+                <Line
+                  yAxisId="w"
+                  dataKey="pay"
+                  name="PPA 납입료 (만원)"
+                  stroke="#ea580c"
+                  strokeWidth={2.5}
+                  dot={{ r: 3 }}
+                  {...NO_ANIM}
+                />
+              )}
             </ComposedChart>
           </ResponsiveContainer>
         </div>
         {!self && (
           <Note>
-            ※ 한전 기준액(회색 점선)은 계절별 단가 차등이 반영되어 발전량과 비례하지 않음 — {mY}차년 태양광 대체단가: 여름 {F1(saveUnit(0, R.plan, R.table, R.adj) * Math.pow(1 + R.esc, mY - 1))}원 / 봄가을{' '}
-            {F1(saveUnit(1, R.plan, R.table, R.adj) * Math.pow(1 + R.esc, mY - 1))}원 / 겨울 {F1(saveUnit(2, R.plan, R.table, R.adj) * Math.pow(1 + R.esc, mY - 1))}원/kWh (상승률 {(R.esc * 100).toFixed(1)}%/yr 누적).{' '}
+            ※ 한전 기준액(회색 점선)은 계절별 단가 차등이 반영되어 발전량과 비례하지 않음 — {mY}차년 태양광 대체단가:
+            여름 {F1(saveUnit(0, R.plan, R.table, R.adj) * Math.pow(1 + R.esc, mY - 1))}원 / 봄가을{' '}
+            {F1(saveUnit(1, R.plan, R.table, R.adj) * Math.pow(1 + R.esc, mY - 1))}원 / 겨울{' '}
+            {F1(saveUnit(2, R.plan, R.table, R.adj) * Math.pow(1 + R.esc, mY - 1))}원/kWh (상승률{' '}
+            {(R.esc * 100).toFixed(1)}%/yr 누적).{' '}
             {segNow!.linked
               ? `${mY}차년은 ${segNow!.idx}구간 한전 연동으로 PPA 납입료(주황)가 한전 기준액과 동일 — 전력량요금 절감 0, 기본요금 절감만 발생`
               : `PPA 납입료(주황)는 ${segNow!.idx}구간 고정단가 ${F1(rows[0]!.pu)}원/kWh로 발전량에 정비례`}{' '}
@@ -309,7 +480,9 @@ export function SimReport({ input, companyName, record, autoPdf }: { input: SimI
 
       {/* 20년 종합 요약 */}
       <Card title="20년 종합 요약 (Summary)">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">{self ? <SelfSummary R={R} /> : <PpaSummary R={R} />}</div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          {self ? <SelfSummary R={R} /> : <PpaSummary R={R} />}
+        </div>
       </Card>
 
       {/* 민감도 */}
@@ -321,25 +494,41 @@ export function SimReport({ input, companyName, record, autoPdf }: { input: SimI
                 const o: Record<string, number | string> = { x: `${k + 1}년` };
                 sc.forEach((s, j) => {
                   const r = s.R;
-                  o[`s${j}`] = Math.round((r.mode === 'self' ? r.years[k]!.cum : r.ets ? r.years[k]!.cumT : r.years[k]!.cumD) / 1e6);
+                  o[`s${j}`] = Math.round(
+                    (r.mode === 'self' ? r.years[k]!.cum : r.ets ? r.years[k]!.cumT : r.years[k]!.cumD) / 1e6,
+                  );
                 });
                 return o;
               })}
             >
               <CartesianGrid stroke={GRID} vertical={false} />
               <XAxis dataKey="x" tick={AXIS} axisLine={false} tickLine={false} />
-              <YAxis tick={AXIS} axisLine={false} tickLine={false} tickFormatter={(v: number) => v.toLocaleString()} width={56} />
+              <YAxis
+                tick={AXIS}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v: number) => v.toLocaleString()}
+                width={56}
+              />
               <Tooltip {...TIP} formatter={(v) => Number(v).toLocaleString()} />
               <Legend verticalAlign="top" wrapperStyle={{ fontSize: 10 }} />
               <ReferenceLine y={0} stroke="#cbd5e1" />
               {sc.map((s, j) => (
-                <Line key={j} dataKey={`s${j}`} name={s.name} stroke={SCEN_COLOR[j]} strokeWidth={j === scen ? 3 : 1.8} strokeDasharray={j === scen ? undefined : '5 4'} dot={false} {...NO_ANIM} />
+                <Line
+                  key={j}
+                  dataKey={`s${j}`}
+                  name={s.name}
+                  stroke={SCEN_COLOR[j]}
+                  strokeWidth={j === scen ? 3 : 1.8}
+                  strokeDasharray={j === scen ? undefined : '5 4'}
+                  dot={false}
+                  {...NO_ANIM}
+                />
               ))}
             </LineChart>
           </ResponsiveContainer>
         </div>
       </Card>
-
 
       {/* 20년간 운영 분석 · 20년 누적 효과 분석 */}
       {/* PDF 로 뽑으니 스크롤 없이 20년 전부 — 운영 분석 한 칸, 누적 효과는 따로 */}
@@ -361,12 +550,15 @@ export function SimReport({ input, companyName, record, autoPdf }: { input: SimI
         </div>
         {showBasis && (
           <div className="mt-4">
-            <p className="mb-3 text-[13px] font-bold tracking-wide text-slate-500">산정 기준 및 출처 (Logic Reference)</p>
+            <p className="mb-3 text-[13px] font-bold tracking-wide text-slate-500">
+              산정 기준 및 출처 (Logic Reference)
+            </p>
             <Assumptions cg={cg} years={tariffYears} es={es} adj={R.adj} co2f={R.co2f} />
           </div>
         )}
         <Note>
-          본 시뮬레이터는 초기 사업성 개략 검토(Pre-Feasibility)용으로 작성되었으며, 실제 사업 조건은 현장 실사·계통 검토·계약 협의에 따라 달라질 수 있습니다. — RMS Platform 분산에너지사업부
+          본 시뮬레이터는 초기 사업성 개략 검토(Pre-Feasibility)용으로 작성되었으며, 실제 사업 조건은 현장 실사·계통
+          검토·계약 협의에 따라 달라질 수 있습니다. — RMS Platform 분산에너지사업부
         </Note>
       </div>
     </div>
@@ -409,7 +601,10 @@ function InputRecord({ input: i, companyName }: { input: SimInput; companyName: 
           ['기본요금 피크감축 반영률', `${i.ppa.peakR} %`],
           ...ppaSegs(i)
             .filter((sg) => sg.idx <= 2 && sg.end >= sg.start)
-            .map((sg): [string, string] => [`${sg.idx}구간 (${segLabel(sg)})`, sg.linked ? '한전 대체단가 연동' : `${F1(sg.price)} 원/kWh 고정`]),
+            .map((sg): [string, string] => [
+              `${sg.idx}구간 (${segLabel(sg)})`,
+              sg.linked ? '한전 대체단가 연동' : `${F1(sg.price)} 원/kWh 고정`,
+            ]),
           ['PPA 단가 상승률', `${i.ppa.ppaEsc} %/yr`],
         ] as [string, string][])),
   ];
@@ -422,9 +617,13 @@ function InputRecord({ input: i, companyName }: { input: SimInput; companyName: 
         <tbody>
           {pairs.map((p, k) => (
             <tr key={k}>
-              <th className="w-[170px] border border-slate-200 bg-slate-50 px-3 py-1.5 text-left font-bold text-slate-500">{p[0]![0]}</th>
+              <th className="w-[170px] border border-slate-200 bg-slate-50 px-3 py-1.5 text-left font-bold text-slate-500">
+                {p[0]![0]}
+              </th>
               <td className="border border-slate-200 px-3 py-1.5 tabular-nums text-slate-900">{p[0]![1]}</td>
-              <th className="w-[170px] border border-slate-200 bg-slate-50 px-3 py-1.5 text-left font-bold text-slate-500">{p[1]?.[0]}</th>
+              <th className="w-[170px] border border-slate-200 bg-slate-50 px-3 py-1.5 text-left font-bold text-slate-500">
+                {p[1]?.[0]}
+              </th>
               <td className="border border-slate-200 px-3 py-1.5 tabular-nums text-slate-900">{p[1]?.[1]}</td>
             </tr>
           ))}
@@ -437,7 +636,13 @@ function InputRecord({ input: i, companyName }: { input: SimInput; companyName: 
             <thead>
               <tr className="bg-slate-50 text-slate-500">
                 {['No.', '설비 규모(kW)', '연간 발전량 (kWh)', '연간 사용량 (kWh)'].map((h, k) => (
-                  <th key={h} className={cn('border border-slate-200 px-3 py-1.5 font-bold', k === 0 ? 'text-center' : 'text-right')}>
+                  <th
+                    key={h}
+                    className={cn(
+                      'border border-slate-200 px-3 py-1.5 font-bold',
+                      k === 0 ? 'text-center' : 'text-right',
+                    )}
+                  >
                     {h}
                   </th>
                 ))}
@@ -447,9 +652,15 @@ function InputRecord({ input: i, companyName }: { input: SimInput; companyName: 
               {fac.map((f, k) => (
                 <tr key={k}>
                   <td className="border border-slate-200 px-3 py-1.5 text-center text-slate-500">{k + 1}</td>
-                  <td className="border border-slate-200 px-3 py-1.5 text-right tabular-nums">{f.kw ? F2(f.kw) : ''}</td>
-                  <td className="border border-slate-200 px-3 py-1.5 text-right tabular-nums">{f.genKwh ? F(f.genKwh) : ''}</td>
-                  <td className="border border-slate-200 px-3 py-1.5 text-right tabular-nums">{f.useKwh ? F(f.useKwh) : ''}</td>
+                  <td className="border border-slate-200 px-3 py-1.5 text-right tabular-nums">
+                    {f.kw ? F2(f.kw) : ''}
+                  </td>
+                  <td className="border border-slate-200 px-3 py-1.5 text-right tabular-nums">
+                    {f.genKwh ? F(f.genKwh) : ''}
+                  </td>
+                  <td className="border border-slate-200 px-3 py-1.5 text-right tabular-nums">
+                    {f.useKwh ? F(f.useKwh) : ''}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -473,7 +684,11 @@ function SelfKpis({ R }: { R: SelfResult }) {
           </>
         }
       />
-      <Kpi k="연간 절감액 (1차년)" v={`${EOK(R.save1)} 억원`} s={`전력량 ${F(R.eSave1 / 1e4)}만원 + 기본요금 ${F(R.bSave1 / 1e4)}만원${R.ets ? ` + 배출권 ${F(R.carbon1 / 1e4)}만원` : ''}`} />
+      <Kpi
+        k="연간 절감액 (1차년)"
+        v={`${EOK(R.save1)} 억원`}
+        s={`전력량 ${F(R.eSave1 / 1e4)}만원 + 기본요금 ${F(R.bSave1 / 1e4)}만원${R.ets ? ` + 배출권 ${F(R.carbon1 / 1e4)}만원` : ''}`}
+      />
       <Kpi
         k="소비자 부담 / 회수기간"
         v={`${EOK(R.consumer)} 억원`}
@@ -491,7 +706,11 @@ function SelfKpis({ R }: { R: SelfResult }) {
           </>
         }
       />
-      <Kpi k="20년 누적 효과" v={`${EOK(R.cumSave)} 억원`} s={`발전 ${F(R.cumGen / 1000)} MWh · CO₂ ${F(R.cumCo2)} tCO₂ 감축 · 배출권 ${EOK(R.cumCarbon)}억${R.ets ? ' 합산' : ' (참고)'}`} />
+      <Kpi
+        k="20년 누적 효과"
+        v={`${EOK(R.cumSave)} 억원`}
+        s={`발전 ${F(R.cumGen / 1000)} MWh · CO₂ ${F(R.cumCo2)} tCO₂ 감축 · 배출권 ${EOK(R.cumCarbon)}억${R.ets ? ' 합산' : ' (참고)'}`}
+      />
     </>
   );
 }
@@ -500,7 +719,11 @@ function PpaKpis({ R }: { R: PpaResult }) {
   const y1 = R.years[0]!;
   return (
     <>
-      <Kpi k="연간 예상 발전량 (1차년)" v={`${F1(R.annualGen1 / 1000)} MWh`} s={`일평균 발전시간 ${F2(R.annualGen1 / R.cap / 365)}h · 설치용량 ${F(R.cap)}kW`} />
+      <Kpi
+        k="연간 예상 발전량 (1차년)"
+        v={`${F1(R.annualGen1 / 1000)} MWh`}
+        s={`일평균 발전시간 ${F2(R.annualGen1 / R.cap / 365)}h · 설치용량 ${F(R.cap)}kW`}
+      />
       <Kpi
         k="PPA 단가 구조 (20년)"
         v={
@@ -510,7 +733,8 @@ function PpaKpis({ R }: { R: PpaResult }) {
               .map((s, k) => (
                 <span key={s.idx} className="flex items-center gap-1">
                   {k > 0 && <span className="text-slate-400">→</span>}
-                  <SegTag idx={s.idx}>{s.idx}구간</SegTag> {segLabel(s)} · {s.linked ? '한전 연동' : `${F1(s.price)}원/kWh`}
+                  <SegTag idx={s.idx}>{s.idx}구간</SegTag> {segLabel(s)} ·{' '}
+                  {s.linked ? '한전 연동' : `${F1(s.price)}원/kWh`}
                   {!s.linked && R.ppaEsc > 0 ? ` (+${(R.ppaEsc * 100).toFixed(1)}%/yr)` : ''}
                 </span>
               ))}
@@ -547,7 +771,10 @@ function PpaKpis({ R }: { R: PpaResult }) {
 function CumChart({ R }: { R: SelfResult | PpaResult }) {
   const self = R.mode === 'self';
   const data = self
-    ? [{ x: '0년(투자)', a: Math.round(-R.consumer / 1e6) }, ...R.years.map((r) => ({ x: `${r.y}년`, a: Math.round(r.cum / 1e6) }))]
+    ? [
+        { x: '0년(투자)', a: Math.round(-R.consumer / 1e6) },
+        ...R.years.map((r) => ({ x: `${r.y}년`, a: Math.round(r.cum / 1e6) })),
+      ]
     : R.years.map((r) => ({ x: `${r.y}년`, a: Math.round(r.cumD / 1e6), b: Math.round(r.cumT / 1e6) }));
   const vals = data.map((d) => d.a);
   const max = Math.max(...vals, 0);
@@ -568,11 +795,25 @@ function CumChart({ R }: { R: SelfResult | PpaResult }) {
             </defs>
             <CartesianGrid stroke={GRID} vertical={false} />
             <XAxis dataKey="x" tick={AXIS} axisLine={false} tickLine={false} interval={0} />
-            <YAxis tick={AXIS} axisLine={false} tickLine={false} tickFormatter={(v: number) => v.toLocaleString()} width={56} />
+            <YAxis
+              tick={AXIS}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v: number) => v.toLocaleString()}
+              width={56}
+            />
             <Tooltip {...TIP} formatter={(v) => Number(v).toLocaleString()} />
             <Legend verticalAlign="top" wrapperStyle={{ fontSize: 10 }} />
             <ReferenceLine y={0} stroke="#94a3b8" />
-            <Area dataKey="a" stroke="none" fill="url(#cumFill)" legendType="none" tooltipType="none" baseValue={0} {...NO_ANIM} />
+            <Area
+              dataKey="a"
+              stroke="none"
+              fill="url(#cumFill)"
+              legendType="none"
+              tooltipType="none"
+              baseValue={0}
+              {...NO_ANIM}
+            />
             <Line
               dataKey="a"
               name={self ? '누적 현금 (소비자 부담 차감)' : '누적 절감액 (전기요금)'}
@@ -583,7 +824,17 @@ function CumChart({ R }: { R: SelfResult | PpaResult }) {
                 <circle key={p.index} cx={p.cx} cy={p.cy} r={3} fill={(p.value ?? 0) >= 0 ? '#059669' : '#dc2626'} />
               )}
             />
-            {!self && R.ets && <Line dataKey="b" name="누적 절감액 (배출권 합산)" stroke="#0891b2" strokeWidth={2} strokeDasharray="5 4" dot={false} {...NO_ANIM} />}
+            {!self && R.ets && (
+              <Line
+                dataKey="b"
+                name="누적 절감액 (배출권 합산)"
+                stroke="#0891b2"
+                strokeWidth={2}
+                strokeDasharray="5 4"
+                dot={false}
+                {...NO_ANIM}
+              />
+            )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -602,7 +853,15 @@ function UnitCard({ R }: { R: PpaResult }) {
             <YAxis tick={AXIS} axisLine={false} tickLine={false} width={48} domain={['auto', 'auto']} />
             <Tooltip {...TIP} />
             <Legend verticalAlign="top" wrapperStyle={{ fontSize: 10 }} />
-            <Line dataKey="ku" name="한전 태양광 대체단가 (가중, 상승률 반영)" stroke="#94a3b8" strokeWidth={2} strokeDasharray="6 4" dot={{ r: 2 }} {...NO_ANIM} />
+            <Line
+              dataKey="ku"
+              name="한전 태양광 대체단가 (가중, 상승률 반영)"
+              stroke="#94a3b8"
+              strokeWidth={2}
+              strokeDasharray="6 4"
+              dot={{ r: 2 }}
+              {...NO_ANIM}
+            />
             <Line dataKey="pu" name="PPA 적용단가" stroke="#ea580c" strokeWidth={2.5} dot={{ r: 3 }} {...NO_ANIM} />
           </LineChart>
         </ResponsiveContainer>
@@ -611,7 +870,10 @@ function UnitCard({ R }: { R: PpaResult }) {
         ※ 두 선 사이 = kWh당 절감폭.{' '}
         {R.segs
           .filter((s) => s.end >= s.start)
-          .map((s) => `${s.idx}구간 ${segLabel(s)} ${s.linked ? '한전 연동(절감 0, 기본요금 절감만)' : `${F1(s.price)}원/kWh 고정`}`)
+          .map(
+            (s) =>
+              `${s.idx}구간 ${segLabel(s)} ${s.linked ? '한전 연동(절감 0, 기본요금 절감만)' : `${F1(s.price)}원/kWh 고정`}`,
+          )
           .join(' · ')}
       </Note>
     </Card>
@@ -627,7 +889,10 @@ function SelfSummary({ R }: { R: SelfResult }) {
       <SumItem k="20년 총 발전량" v={`${F(R.cumGen / 1000)} MWh`} />
       <SumItem k="20년 총 절감액" v={`${EOK(R.cumSave)} 억원`} />
       <SumItem k="연평균 절감 (O&M 차감 전)" v={`${EOK(R.cumSave / 20)} 억원`} />
-      <SumItem k={`소비자 부담 (${R.payback ? `${R.payback}년차 회수` : '20년 내 미회수'})`} v={`${EOK(R.consumer)} 억원`} />
+      <SumItem
+        k={`소비자 부담 (${R.payback ? `${R.payback}년차 회수` : '20년 내 미회수'})`}
+        v={`${EOK(R.consumer)} 억원`}
+      />
       <SumItem k="20년 순현금 (소비자 부담 차감)" v={`${EOK(last.cum)} 억원`} />
       <SumItem k="CO₂ 총감축" v={`${F(R.cumCo2)} t`} />
     </>
@@ -658,7 +923,14 @@ function OpTable({ R, cur }: { R: SelfResult | PpaResult; cur: number }) {
         head={['년차', '발전량 (MWh)', '절감수익 (천원)', '누적수익 (천원)']}
         rows={R.years.map((r) => {
           run += r.save;
-          return [`${r.y}년차`, F1(r.gen / 1000), F(r.save / 1e3), <b key="c" className="text-slate-900">{F(run / 1e3)}</b>];
+          return [
+            `${r.y}년차`,
+            F1(r.gen / 1000),
+            F(r.save / 1e3),
+            <b key="c" className="text-slate-900">
+              {F(run / 1e3)}
+            </b>,
+          ];
         })}
       />
     );
@@ -666,15 +938,27 @@ function OpTable({ R, cur }: { R: SelfResult | PpaResult; cur: number }) {
   return (
     <T
       cur={cur}
-      head={['년차', '구간', '발전량 (MWh)', '월평균 납입료 (천원)', '전기요금 절감 (천원)', '배출권 (천원)', '누적절감 (천원)']}
+      head={[
+        '년차',
+        '구간',
+        '발전량 (MWh)',
+        '월평균 납입료 (천원)',
+        '전기요금 절감 (천원)',
+        '배출권 (천원)',
+        '누적절감 (천원)',
+      ]}
       rows={R.years.map((r) => [
         `${r.y}년차`,
         <SegTag key="s" idx={r.seg}>{`${r.seg}구간`}</SegTag>,
         F1(r.gen / 1000),
         <Blue key="p">{F(r.ppaAmt / 12 / 1e3)}</Blue>,
         F(r.saveD / 1e3),
-        <Dim key="d" on={R.ets}>{F(r.carbon / 1e3)}</Dim>,
-        <b key="c" className="text-slate-900">{F(r.cumT / 1e3)}</b>,
+        <Dim key="d" on={R.ets}>
+          {F(r.carbon / 1e3)}
+        </Dim>,
+        <b key="c" className="text-slate-900">
+          {F(r.cumT / 1e3)}
+        </b>,
       ])}
     />
   );
@@ -682,10 +966,21 @@ function OpTable({ R, cur }: { R: SelfResult | PpaResult; cur: number }) {
 
 /* ── 20년 누적 효과 분석 ── */
 function EffPanel({ R }: { R: SelfResult | PpaResult }) {
+  // 환산 계수 — 관리 › 에너지 설정
+  const { data: es } = useEnergySettings();
+  const toeF = energyNum(es, 'TOE_PER_MWH', TOE_PER_MWH);
+  const pineF = energyNum(es, 'PINE_PER_TCO2', PINE_PER_TCO2);
   const line = (k: ReactNode, v: ReactNode, opt: { hl?: boolean; dim?: boolean } = {}) => (
     <div className="flex items-center justify-between gap-3 py-1">
       <span className="text-slate-600">{k}</span>
-      <b className={cn('tabular-nums', opt.hl ? 'text-[15px] text-orange-600' : opt.dim ? 'text-slate-400' : 'text-slate-900')}>{v}</b>
+      <b
+        className={cn(
+          'tabular-nums',
+          opt.hl ? 'text-[15px] text-orange-600' : opt.dim ? 'text-slate-400' : 'text-slate-900',
+        )}
+      >
+        {v}
+      </b>
     </div>
   );
   return (
@@ -695,10 +990,16 @@ function EffPanel({ R }: { R: SelfResult | PpaResult }) {
         {R.mode === 'self' ? (
           <>
             {line(`20년 총 절감액${R.ets ? ' (배출권 합산)' : ''}`, `${F(R.cumSave)} 원`)}
-            {line(`배출권 가치 20년 (${F(R.kau)}원/t)${R.ets ? '' : ' — 참고'}`, `${F(R.cumCarbon)} 원`, { dim: !R.ets })}
+            {line(`배출권 가치 20년 (${F(R.kau)}원/t)${R.ets ? '' : ' — 참고'}`, `${F(R.cumCarbon)} 원`, {
+              dim: !R.ets,
+            })}
             <div className="my-2 h-px bg-slate-200" />
             {line('소비자 부담 (설치비 + 추가 시공비)', `${F(R.consumer)} 원`)}
-            {line(<b className="text-slate-900">20년 순수익 (소비자 부담·O&amp;M 차감)</b>, `${F(R.years[19]!.cum)} 원`, { hl: true })}
+            {line(
+              <b className="text-slate-900">20년 순수익 (소비자 부담·O&amp;M 차감)</b>,
+              `${F(R.years[19]!.cum)} 원`,
+              { hl: true },
+            )}
           </>
         ) : (
           <>
@@ -710,8 +1011,14 @@ function EffPanel({ R }: { R: SelfResult | PpaResult }) {
             )}
             <div className="my-2 h-px bg-slate-200" />
             {line('20년 전기요금 절감 (투자 0원)', `${F(R.cumSaveD)} 원`)}
-            {line(`배출권 가치 20년 (${F(R.kau)}원/t${R.ets ? '' : ' · 참고'})`, `${F(R.cumCarbon)} 원`, { dim: !R.ets })}
-            {line(<b className="text-slate-900">20년 총 절감액{R.ets ? ' (배출권 합산)' : ''}</b>, `${F(R.ets ? R.cumT : R.cumSaveD)} 원`, { hl: true })}
+            {line(`배출권 가치 20년 (${F(R.kau)}원/t${R.ets ? '' : ' · 참고'})`, `${F(R.cumCarbon)} 원`, {
+              dim: !R.ets,
+            })}
+            {line(
+              <b className="text-slate-900">20년 총 절감액{R.ets ? ' (배출권 합산)' : ''}</b>,
+              `${F(R.ets ? R.cumT : R.cumSaveD)} 원`,
+              { hl: true },
+            )}
             {line('RE100 재생에너지 실적', `${F1(R.cumGen / 1000)} MWh`)}
           </>
         )}
@@ -719,7 +1026,9 @@ function EffPanel({ R }: { R: SelfResult | PpaResult }) {
       {/* 환경 편익 — 잘리지 않게 한 줄씩 */}
       <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 text-[13px]">
         {[
+          ['화석에너지 대체 (TOE)', F1((R.cumGen / 1000) * toeF)],
           ['온실가스 저감 (tCO₂)', F1(R.cumCo2)],
+          ['소나무 식재 (그루)', F(R.cumCo2 * pineF)],
         ].map(([l, v]) => (
           <div key={l} className="flex items-center justify-between px-4 py-2">
             <span className="text-slate-600">{l}</span>
@@ -727,32 +1036,97 @@ function EffPanel({ R }: { R: SelfResult | PpaResult }) {
           </div>
         ))}
       </div>
-      <Note>* 산출식: tCO₂ = MWh × {R.co2f}</Note>
+      <Note>
+        * 산출식: TOE = MWh × {toeF} / tCO₂ = MWh × {R.co2f} / 식재 = tCO₂ × {pineF} (20년생 소나무)
+      </Note>
     </>
   );
 }
 
 /* ── 산정 기준 및 출처 (원본 그대로, 날짜는 하이픈 양식) ── */
-function Assumptions({ cg, years, es, adj, co2f }: { cg: { rate: number; from: TariffYear; to: TariffYear }; years?: TariffYear[]; es: { selfRemain: number; ppaRemain: number }; adj: TariffAdj; co2f: number }) {
+function Assumptions({
+  cg,
+  years,
+  es,
+  adj,
+  co2f,
+}: {
+  cg: { rate: number; from: TariffYear; to: TariffYear };
+  years?: TariffYear[];
+  es: { selfRemain: number; ppaRemain: number };
+  adj: TariffAdj;
+  co2f: number;
+}) {
   const pct = (cg.rate * 100).toFixed(2);
-  const list = [...(years?.length ? years : [cg.from, cg.to])].sort((a, b) => a.year - b.year).map((r) => `${r.year} ${F1(r.price)}`).join(' → ');
+  const list = [...(years?.length ? years : [cg.from, cg.to])]
+    .sort((a, b) => a.year - b.year)
+    .map((r) => `${r.year} ${F1(r.price)}`)
+    .join(' → ');
   const rows: [string, string][] = [
-    ['발전량 산식', '설치용량(kW) × 일평균 발전시간(입력값, 기본 3.82h) × 365일 × 효율감소계수. 월별 배분은 기상청 울산관측소(지점 152) 기후평년값 1991~2020 월별 일조시간(연 2,249.5h) 비중 적용. 기본값 3.82h/일은 일조시간을 시스템 손실 반영 환산한 값으로 전국 태양광 평균 이용률 16.75%(일 4.02h) 대비 보수적 설정. 효율감소는 2차년도부터 매년 0.5%p 반영'],
-    ['한전 요금단가', `기본값: 산업용(을) 고압A 선택Ⅰ·Ⅱ, 2025-04-01 시행 확정단가(확인 가능한 최종 고시). 2026-04-16 개편 후 고시표는 미공개 상태로, 개편 모드는 정부 발표 증감폭(최대부하 여름·겨울 -16.9원, 봄가을 -13.2원 / 경부하 +5.1원)을 적용한 참고용 계산값 — 고시 확인 후 갱신 필요. 기후환경요금 ${F1(adj.climate)}원/kWh, 연료비조정 ${adj.fuel >= 0 ? '+' : ''}${F1(adj.fuel)}원/kWh(관리 › 에너지 설정), 전력산업기반기금 3.7% 가산, 부가세(매입세액공제 대상) 제외`],
-    ['전기요금 상승률', `산업용 평균판매단가 실적: ${list}원/kWh, ${cg.to.year - cg.from.year}년 연평균(CAGR) ${pct}% (한국전력통계·한전 결산 기준). 기본값 2.5%는 최근 급등이 연료비 정상화에 따른 일시적 구간임을 감안한 보수적 설정이며, 민감도 분석에서 0% / 2.5% / ${pct}%(실적 CAGR) 시나리오 제공`],
-    ['O&M 요율', '국내 태양광 O&M 통상 MW당 연 1,000~1,500만원 수준 = 평균 CAPEX(158~164만원/kW, 에너지경제연구원 2025 실증) 대비 약 0.6~1.0%/년. 기본값 1.0%는 보수적 상단 적용'],
-    ['모듈 열화율', '주요 제조사 선형 출력보증 기준 — 한화큐셀: 1년차 98%, 이후 연 최대 0.5% 열화, 25년차 86% 보증. 기본값 0.5%/yr는 보증 조건과 동일한 보수적 값'],
-    ['절감단가 매칭', '태양광 발전전력의 시간대 분포를 요금 시간대에 매칭 — 개편 후: 중간부하(08~15시) 70% + 최대부하(15~21시) 30% / 개편 전: 여름·봄가을 최대 52%·중간 48%, 겨울 최대 45%·중간 55% (평일 기준 단순화)'],
-    ['기본요금 절감', '한전 기본요금은 요금적용전력(당월 및 직전 12개월 동·하계 최대수요전력 중 최댓값, 15분 단위 계량) 기준 부과 (한전 기본공급약관 제8장). 태양광은 피크 발생 시점의 출력을 보장하지 못하므로 「기본요금 단가 × 설치용량 × 피크감축 반영률(기본 30%)」로 보수적 반영 — 흐린 날 피크 발생 시 절감 축소 가능'],
-    ['자가소비 사업구조', `국비 지원 없음 — 소비자 부담 = 설치용량 × 설치단가(기본 135만원/kW) + 변압기 등 추가 시공비(기본 2천만원, 컨소시엄 EPC 회신 기준) 전액. O&M 은 사업비 대비 연 요율(기본 1.0%). 회수기간·누적현금은 소비자 부담 기준. 자가소비 배정 잔여용량 약 ${(es.selfRemain / 1000).toFixed(2)}MW`],
-    ['OnSite PPA 구조', `사업자(컨소시엄)가 설비 투자·설치·운영·유지보수 전액 부담, 소비자는 부지(지붕)만 제공하고 발전전력 사용분을 PPA 단가로 지불. 잉여전력·계통 리스크는 사업자 귀속. 계약기간 20년 기준. 당해연도 PPA 배정 잔여용량 약 ${(es.ppaRemain / 1000).toFixed(2)}MW`],
-    ['구간별 PPA 단가', '20년 계약기간을 2구간으로 분할(전환연차 슬라이더). 지붕 보수·주차장형 구조물 등 설치비 과중 현장은 1구간(기본 1~5년차)을 한전 대체단가 연동으로 설정해 소비자 요금을 한전과 동일하게 두고, 2구간(기본 6~20년차)부터 고정 PPA 단가(기본 150원/kWh)를 적용. 연동 구간의 절감은 기본요금(피크감축)분만 발생하며, 고정단가 구간의 상승률은 구간 시작연차 기준으로 누적 적용'],
-    ['자가소비 처리', '월 발전량이 월 사용량을 초과하는 잉여전력은 절감액 산정에서 제외(역송 정산 미반영, 보수적). 연속공정 사업장은 통상 전량 자가소비 가능'],
-    ['환경 편익', `온실가스: 탄소 배출계수(전력 1MWh당 tCO₂) ${co2f} — 국가 전력배출계수, 입력 가능 · 기본값은 관리 › 에너지 설정`],
-    ['탄소배출권 가치', '배출권 가치 = 연간 발전량(MWh) × 전력 배출계수 × KAU 시세(입력, 기본 30,000원/t) × (1+상승률)^(연차-1). 시세 근거: 한국거래소 배출권시장 KAU26 2026-09-07 종가 29,950원/t, KAU25 최종 29,450원. 제도 근거: 2022-01-01부터 할당대상업체가 직접 PPA·자가발전 재생에너지 전력을 사용해 간접배출량이 감소하면 감축실적으로 인정. 할당대상업체(체크)일 때만 배출권 매각(또는 구매회피) 가치가 실제 현금흐름으로 절감액에 합산되며, 비할당업체는 참고(잠재가치)로만 표기. 4차 계획기간(2026~2030) 배출허용총량 축소·유상할당 확대로 가격 상승 압력 존재 — 상승률 입력으로 시나리오 검토'],
-    ['RE100 관련', '온사이트 PPA·자가발전 전력은 K-RE100 이행수단으로 인정되어 재생에너지 사용확인서 발급 대상 (한국에너지공단 K-RE100 제도)'],
-    ['지붕면적 환산', '설치 가능 용량 = 가용면적 ÷ kW당 소요면적(기본 10㎡/kW, 산업시설 평지붕·이격 반영 보수치. 경사·음영에 따라 6.6~13㎡/kW 변동)'],
-    ['미반영 항목', '잉여전력 판매(상계·현물), REC·자발적 탄소시장(VCM) 수익, 금융조달 구조, 법인세 효과, 배출권 거래 수수료·세금 — 정밀 검토 단계에서 반영'],
+    [
+      '발전량 산식',
+      '설치용량(kW) × 일평균 발전시간(입력값, 기본 3.82h) × 365일 × 효율감소계수. 월별 배분은 기상청 울산관측소(지점 152) 기후평년값 1991~2020 월별 일조시간(연 2,249.5h) 비중 적용. 기본값 3.82h/일은 일조시간을 시스템 손실 반영 환산한 값으로 전국 태양광 평균 이용률 16.75%(일 4.02h) 대비 보수적 설정. 효율감소는 2차년도부터 매년 0.5%p 반영',
+    ],
+    [
+      '한전 요금단가',
+      `기본값: 산업용(을) 고압A 선택Ⅰ·Ⅱ, 2025-04-01 시행 확정단가(확인 가능한 최종 고시). 2026-04-16 개편 후 고시표는 미공개 상태로, 개편 모드는 정부 발표 증감폭(최대부하 여름·겨울 -16.9원, 봄가을 -13.2원 / 경부하 +5.1원)을 적용한 참고용 계산값 — 고시 확인 후 갱신 필요. 기후환경요금 ${F1(adj.climate)}원/kWh, 연료비조정 ${adj.fuel >= 0 ? '+' : ''}${F1(adj.fuel)}원/kWh(관리 › 에너지 설정), 전력산업기반기금 3.7% 가산, 부가세(매입세액공제 대상) 제외`,
+    ],
+    [
+      '전기요금 상승률',
+      `산업용 평균판매단가 실적: ${list}원/kWh, ${cg.to.year - cg.from.year}년 연평균(CAGR) ${pct}% (한국전력통계·한전 결산 기준). 기본값 2.5%는 최근 급등이 연료비 정상화에 따른 일시적 구간임을 감안한 보수적 설정이며, 민감도 분석에서 0% / 2.5% / ${pct}%(실적 CAGR) 시나리오 제공`,
+    ],
+    [
+      'O&M 요율',
+      '국내 태양광 O&M 통상 MW당 연 1,000~1,500만원 수준 = 평균 CAPEX(158~164만원/kW, 에너지경제연구원 2025 실증) 대비 약 0.6~1.0%/년. 기본값 1.0%는 보수적 상단 적용',
+    ],
+    [
+      '모듈 열화율',
+      '주요 제조사 선형 출력보증 기준 — 한화큐셀: 1년차 98%, 이후 연 최대 0.5% 열화, 25년차 86% 보증. 기본값 0.5%/yr는 보증 조건과 동일한 보수적 값',
+    ],
+    [
+      '절감단가 매칭',
+      '태양광 발전전력의 시간대 분포를 요금 시간대에 매칭 — 개편 후: 중간부하(08~15시) 70% + 최대부하(15~21시) 30% / 개편 전: 여름·봄가을 최대 52%·중간 48%, 겨울 최대 45%·중간 55% (평일 기준 단순화)',
+    ],
+    [
+      '기본요금 절감',
+      '한전 기본요금은 요금적용전력(당월 및 직전 12개월 동·하계 최대수요전력 중 최댓값, 15분 단위 계량) 기준 부과 (한전 기본공급약관 제8장). 태양광은 피크 발생 시점의 출력을 보장하지 못하므로 「기본요금 단가 × 설치용량 × 피크감축 반영률(기본 30%)」로 보수적 반영 — 흐린 날 피크 발생 시 절감 축소 가능',
+    ],
+    [
+      '자가소비 사업구조',
+      `국비 지원 없음 — 소비자 부담 = 설치용량 × 설치단가(기본 135만원/kW) + 변압기 등 추가 시공비(기본 2천만원, 컨소시엄 EPC 회신 기준) 전액. O&M 은 사업비 대비 연 요율(기본 1.0%). 회수기간·누적현금은 소비자 부담 기준. 자가소비 배정 잔여용량 약 ${(es.selfRemain / 1000).toFixed(2)}MW`,
+    ],
+    [
+      'OnSite PPA 구조',
+      `사업자(컨소시엄)가 설비 투자·설치·운영·유지보수 전액 부담, 소비자는 부지(지붕)만 제공하고 발전전력 사용분을 PPA 단가로 지불. 잉여전력·계통 리스크는 사업자 귀속. 계약기간 20년 기준. 당해연도 PPA 배정 잔여용량 약 ${(es.ppaRemain / 1000).toFixed(2)}MW`,
+    ],
+    [
+      '구간별 PPA 단가',
+      '20년 계약기간을 2구간으로 분할(전환연차 슬라이더). 지붕 보수·주차장형 구조물 등 설치비 과중 현장은 1구간(기본 1~5년차)을 한전 대체단가 연동으로 설정해 소비자 요금을 한전과 동일하게 두고, 2구간(기본 6~20년차)부터 고정 PPA 단가(기본 150원/kWh)를 적용. 연동 구간의 절감은 기본요금(피크감축)분만 발생하며, 고정단가 구간의 상승률은 구간 시작연차 기준으로 누적 적용',
+    ],
+    [
+      '자가소비 처리',
+      '월 발전량이 월 사용량을 초과하는 잉여전력은 절감액 산정에서 제외(역송 정산 미반영, 보수적). 연속공정 사업장은 통상 전량 자가소비 가능',
+    ],
+    [
+      '환경 편익',
+      `온실가스: 탄소 배출계수(전력 1MWh당 tCO₂) ${co2f} — 국가 전력배출계수, 입력 가능 · 기본값은 관리 › 에너지 설정`,
+    ],
+    [
+      '탄소배출권 가치',
+      '배출권 가치 = 연간 발전량(MWh) × 전력 배출계수 × KAU 시세(입력, 기본 30,000원/t) × (1+상승률)^(연차-1). 시세 근거: 한국거래소 배출권시장 KAU26 2026-09-07 종가 29,950원/t, KAU25 최종 29,450원. 제도 근거: 2022-01-01부터 할당대상업체가 직접 PPA·자가발전 재생에너지 전력을 사용해 간접배출량이 감소하면 감축실적으로 인정. 할당대상업체(체크)일 때만 배출권 매각(또는 구매회피) 가치가 실제 현금흐름으로 절감액에 합산되며, 비할당업체는 참고(잠재가치)로만 표기. 4차 계획기간(2026~2030) 배출허용총량 축소·유상할당 확대로 가격 상승 압력 존재 — 상승률 입력으로 시나리오 검토',
+    ],
+    [
+      'RE100 관련',
+      '온사이트 PPA·자가발전 전력은 K-RE100 이행수단으로 인정되어 재생에너지 사용확인서 발급 대상 (한국에너지공단 K-RE100 제도)',
+    ],
+    [
+      '지붕면적 환산',
+      '설치 가능 용량 = 가용면적 ÷ kW당 소요면적(기본 10㎡/kW, 산업시설 평지붕·이격 반영 보수치. 경사·음영에 따라 6.6~13㎡/kW 변동)',
+    ],
+    [
+      '미반영 항목',
+      '잉여전력 판매(상계·현물), REC·자발적 탄소시장(VCM) 수익, 금융조달 구조, 법인세 효과, 배출권 거래 수수료·세금 — 정밀 검토 단계에서 반영',
+    ],
   ];
   return (
     <table className="w-full border-collapse text-xs">
