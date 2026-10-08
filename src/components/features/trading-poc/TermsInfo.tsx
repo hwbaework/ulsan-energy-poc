@@ -9,7 +9,10 @@ const won = (n: number) => `₩${fmtNum(Math.round(n))}`;
 
 /** 조건 협의에서 그 자리에서 고치는 칸 — 주면 그 칸은 입력으로 바뀐다 */
 export type TermsEdit = Partial<
-  Record<'capacity' | 'term' | 'installUnit' | 'extraCost' | 'omRatePct' | 'segments', ReactNode>
+  Record<
+    'capacity' | 'term' | 'installUnit' | 'extraCost' | 'omRatePct' | 'segments' | 'tariffPlan' | 'tariffBasis',
+    ReactNode
+  >
 >;
 
 /**
@@ -34,8 +37,8 @@ export function TermsInfo({ x, edit }: { x: TradeRequest | Contract; edit?: Term
       {edit?.capacity ?? <Info label="설치 용량" value={fmtKw(x.capacityKw)} />}
       {edit?.term ?? <Info label="계약 기간" value={`${x.termYears}년`} />}
       <Info label="O&M" value={x.omIncluded ? '포함 (필수)' : undefined} />
-      <Info label="요금제" value={x.tariffPlan} />
-      <Info label="요금 기준" value={x.tariffBasis} />
+      {edit?.tariffPlan ?? <Info label="요금제" value={x.tariffPlan} />}
+      {edit?.tariffBasis ?? <Info label="요금 기준" value={x.tariffBasis} />}
       <Info label="무료진단" value={x.reviewNo} />
       {self ? (
         <>

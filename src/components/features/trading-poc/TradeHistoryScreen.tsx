@@ -16,6 +16,7 @@ import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { StatusPill, type StatusTone } from '@/components/ui/Design';
 import { cn } from '@/lib/utils';
+import { PLAN_LABEL, VER_LABEL } from '@/lib/solar-sim';
 import { useToastStore } from '@/stores/useToastStore';
 import { useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { TradeRequest } from '@/types/trading-poc';
@@ -197,9 +198,23 @@ export function TradeHistoryDetailScreen() {
 
 /* ── 조건 — 신청 내용 칸을 그 자리에서 고친다(조건 협의 · 관리자) ── */
 type Draft = Record<
-  'capacityKw' | 'termYears' | 'installUnit' | 'extraCost' | 'omRatePct' | 'seg1End' | 'seg1Price' | 'seg2Price',
+  | 'capacityKw'
+  | 'termYears'
+  | 'installUnit'
+  | 'extraCost'
+  | 'omRatePct'
+  | 'seg1End'
+  | 'seg1Price'
+  | 'seg2Price'
+  | 'tariffPlan'
+  | 'tariffBasis',
   string
 >;
+/** 글자 칸 — 숫자로 비교하지 않는다 */
+const TEXT_KEYS: (keyof Draft)[] = ['tariffPlan', 'tariffBasis'];
+/** 요금제 · 요금 기준 고르기 — 지금 값이 목록에 없어도 남긴다 */
+const optionsOf = (labels: string[], cur: string) =>
+  [...new Set([...labels, ...(cur ? [cur] : [])])].map((l) => ({ value: l, label: l }));
 const draftOf = (r: TradeRequest): Draft => ({
   capacityKw: String(r.capacityKw),
   termYears: String(r.termYears),
@@ -209,10 +224,18 @@ const draftOf = (r: TradeRequest): Draft => ({
   seg1End: String(r.segments?.[0]?.to ?? 3),
   seg1Price: String(r.segments?.[0]?.price ?? r.unitPrice),
   seg2Price: String(r.segments?.[1]?.price ?? r.unitPrice),
+  tariffPlan: r.tariffPlan ?? '',
+  tariffBasis: r.tariffBasis ?? '',
 });
 function termsOfDraft(d: Draft, r: TradeRequest) {
   const n = (k: keyof Draft) => Number(d[k]) || 0;
-  const common = { capacityKw: n('capacityKw'), termYears: n('termYears') };
+  // 요금제 · 요금 기준 — 승인 단계에서 바뀔 수 있다(한전 요금제 변경 등)
+  const common = {
+    capacityKw: n('capacityKw'),
+    termYears: n('termYears'),
+    tariffPlan: d.tariffPlan || undefined,
+    tariffBasis: d.tariffBasis || undefined,
+  };
   return r.kind === 'SELF_CONSUMPTION'
     ? { ...common, installUnit: n('installUnit'), extraCost: n('extraCost'), omRatePct: n('omRatePct') }
     : {
@@ -228,6 +251,9 @@ function changeNote(r: TradeRequest, t: ReturnType<typeof termsOfDraft>) {
   const out: string[] = [];
   if (t.capacityKw !== r.capacityKw) out.push(`설치 용량 ${fmtKw(r.capacityKw)} → ${fmtKw(t.capacityKw)}`);
   if (t.termYears !== r.termYears) out.push(`계약 기간 ${r.termYears}년 → ${t.termYears}년`);
+  if ((t.tariffPlan ?? '') !== (r.tariffPlan ?? '')) out.push(`요금제 ${r.tariffPlan ?? '-'} → ${t.tariffPlan ?? '-'}`);
+  if ((t.tariffBasis ?? '') !== (r.tariffBasis ?? ''))
+    out.push(`요금 기준 ${r.tariffBasis ?? '-'} → ${t.tariffBasis ?? '-'}`);
   if ('installUnit' in t) {
     if (t.installUnit !== r.installUnit)
       out.push(`설치 가능 단가 ₩${fmtNum(r.installUnit ?? 0)} → ₩${fmtNum(t.installUnit)}/kW`);
@@ -266,8 +292,8 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
 
   const [draft, setDraft] = useState<Draft>(() => draftOf(r));
   const saved = draftOf(r);
-  const dirty = (Object.keys(saved) as (keyof Draft)[]).some(
-    (k) => (Number(draft[k]) || 0) !== (Number(saved[k]) || 0),
+  const dirty = (Object.keys(saved) as (keyof Draft)[]).some((k) =>
+    TEXT_KEYS.includes(k) ? draft[k] !== saved[k] : (Number(draft[k]) || 0) !== (Number(saved[k]) || 0),
   );
   const n = (k: keyof Draft) => Number(draft[k]) || 0;
   const self = r.kind === 'SELF_CONSUMPTION';
@@ -313,6 +339,22 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
             max={25}
             value={draft.termYears}
             onChange={set('termYears')}
+          />
+        ),
+        tariffPlan: (
+          <Select
+            label="요금제"
+            options={optionsOf(Object.values(PLAN_LABEL), draft.tariffPlan)}
+            value={draft.tariffPlan}
+            onChange={(e) => setDraft((d) => ({ ...d, tariffPlan: e.target.value }))}
+          />
+        ),
+        tariffBasis: (
+          <Select
+            label="요금 기준"
+            options={optionsOf(Object.values(VER_LABEL), draft.tariffBasis)}
+            value={draft.tariffBasis}
+            onChange={(e) => setDraft((d) => ({ ...d, tariffBasis: e.target.value }))}
           />
         ),
         installUnit: money('installUnit', '설치 가능 단가 (원/kW)'),

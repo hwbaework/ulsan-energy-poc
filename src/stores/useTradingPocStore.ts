@@ -1182,7 +1182,14 @@ interface TradingPocState {
     terms: Partial<
       Pick<
         TradeRequest,
-        'capacityKw' | 'termYears' | 'installUnit' | 'extraCost' | 'omRatePct' | 'segments'
+        | 'capacityKw'
+        | 'termYears'
+        | 'installUnit'
+        | 'extraCost'
+        | 'omRatePct'
+        | 'segments'
+        | 'tariffPlan'
+        | 'tariffBasis'
       >
     >,
     note?: string,
