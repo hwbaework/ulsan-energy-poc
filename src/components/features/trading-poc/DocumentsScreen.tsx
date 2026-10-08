@@ -15,7 +15,7 @@ import { useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { Contract, DocCategory, TradeDocument } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
 import { kindLabel } from './meta';
-import { ModalFooter, PageHeader, cell, cellMuted, cellNum } from './Bits';
+import { ModalFooter, PageHeader, cell, cellNum } from './Bits';
 import { periodOf } from './DocumentSheet';
 
 /** 계약서 원문(양식) — 계약서는 이 PDF */
@@ -197,7 +197,7 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
     {
       key: 'fav',
       header: '',
-      width: '44px',
+      width: '56px',
       align: 'center',
       render: (d) => {
         const fav = favs.has(d.id);
@@ -221,35 +221,27 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
       header: '파일',
       sortable: true,
       sortValue: (d) => d.name,
-      render: (d) => cell(d.name, 'text-white'),
+      render: (d) => (
+        <div className="min-w-0">
+          <p className="whitespace-nowrap text-sm text-white">{d.name}</p>
+          {d.contract && <p className="truncate text-xs text-slate-500">{kindLabel(d.contract.kind)}</p>}
+        </div>
+      ),
     },
-    { key: 'cat', header: '카테고리', width: '120px', render: (d) => cell(CATEGORY_META[d.category].label) },
-    ...(role.isAdmin ? [{ key: 'company', header: '기업', width: '140px', render: (d: Row) => cell(d.company) }] : []),
-    {
-      key: 'kind',
-      header: '계약 유형',
-      width: '110px',
-      render: (d) => cellMuted(d.contract ? kindLabel(d.contract.kind) : '-'),
-    },
+    { key: 'cat', header: '카테고리', width: '100px', render: (d) => cell(CATEGORY_META[d.category].label) },
+    ...(role.isAdmin ? [{ key: 'company', header: '기업', width: '110px', render: (d: Row) => cell(d.company) }] : []),
     {
       key: 'issued',
       header: '발행일',
-      width: '120px',
+      width: '130px',
       sortable: true,
       sortValue: (d) => d.issuedAt,
       render: (d) => cellNum(d.issuedAt),
     },
     {
-      key: 'size',
-      header: '크기',
-      width: '90px',
-      align: 'right',
-      render: (d) => cellMuted(d.sizeKb >= 1024 ? `${(d.sizeKb / 1024).toFixed(1)} MB` : `${d.sizeKb} KB`),
-    },
-    {
       key: 'pdf',
       header: 'PDF',
-      width: '70px',
+      width: '64px',
       align: 'center',
       render: (d) =>
         isContractDoc(d) ? (
@@ -303,9 +295,9 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
         }
       />
 
-      <div className="grid items-start gap-6 xl:grid-cols-12">
+      <div className="grid items-start gap-6 xl:grid-cols-[220px_minmax(0,1fr)]">
         {/* 폴더 */}
-        <div className="xl:col-span-3">
+        <div>
           <SectionCard title="폴더">
             <div className="space-y-1">
               <FolderRow label="전체" count={docs.length} active={folder === 'all'} onClick={() => setFolder('all')} />
@@ -338,7 +330,7 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
         </div>
 
         {/* 문서 */}
-        <div className="min-w-0 xl:col-span-9">
+        <div className="min-w-0">
           <SectionCard
             title={`${folderName} (${visible.length})`}
             actions={
