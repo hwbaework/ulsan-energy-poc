@@ -22,6 +22,7 @@ import {
 } from '@/stores/useTradingPocStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { periodOf } from './DocumentSheet';
+import { useTradingRole } from './useTradingRole';
 import type { Contract } from '@/types/trading-poc';
 import type { Company } from '@/types/company';
 
@@ -30,7 +31,8 @@ import type { Company } from '@/types/company';
  *   세금계산서 = 별지 제11호 서식(관리자 = 공급자 보관용, 기업 = 공급받는자 보관용)
  *   청구서 = 청구서 견본 모양
  * 공급자 = SPC, 공급받는자 = 계약 기업. 등록번호 · 대표자 · 주소 · 업태 · 종목은 기업 정보에서 가져온다.
- * 세금계산서는 전자세금계산서 업체에서 발행한 원본을 관리자가 올리면 그 원본을 보여 준다(없으면 작성본).
+ * 세금계산서는 전자세금계산서 업체에서 발행한 원본을 발전사업자(기업 계정)가 올리면 그 원본을 보여 준다(없으면 작성본).
+ * 관리자는 조회만 한다.
  */
 export function BillingPaper({
   kind,
@@ -49,6 +51,7 @@ export function BillingPaper({
   const { data: spc } = useCompany(CO.SPC.id);
   const { data: buyer } = useCompany(c.consumerCompanyId);
   const addToast = useToastStore((s) => s.add);
+  const role = useTradingRole();
   const attach = useTradingPocStore((s) => s.attachOriginal);
   // 그 달 세금계산서 문서 — 올린 원본이 붙는 곳(문서 관리와 같은 문서)
   const taxDoc = useTradingPocStore((s) =>
@@ -68,7 +71,7 @@ export function BillingPaper({
         name: f.name,
         url: String(r.result),
         sizeKb: Math.round(f.size / 1024),
-        by: CO.SPC.name,
+        by: role.companyName,
         at: new Date().toLocaleString('sv-SE').slice(0, 16),
       });
       addToast('success', `${period} 세금계산서 원본을 올렸습니다`);
@@ -180,7 +183,7 @@ export function BillingPaper({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {kind === 'TAX' && admin && taxDoc && (
+          {kind === 'TAX' && !admin && taxDoc && (
             <>
               <input
                 ref={fileRef}
