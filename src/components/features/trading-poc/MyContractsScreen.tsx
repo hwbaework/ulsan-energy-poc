@@ -206,9 +206,9 @@ export function MyContractsScreen() {
         </SectionCard>
       ) : (
         active.length > 0 && (
-          // 기업 — 언제부터 이득인지
+          // 기업 — 언제부터 이득인지(ROI = 누적 금액)
           <SectionCard
-            title="누적 금액 (만원)"
+            title="ROI · 누적 금액 (만원)"
             actions={
               <div className="flex items-center gap-4 text-sm">
                 {payback.breakEven && (
