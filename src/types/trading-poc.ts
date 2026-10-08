@@ -195,4 +195,9 @@ export interface TradeDocument {
   fileType: 'PDF' | 'XLSX';
   sizeKb: number;
   uploadedBy?: string;
+  /**
+   * 올린 원본 — 전자세금계산서 업체(ASP)에서 발행해 내려받은 파일을 사용자가 직접 올린다.
+   * (나중에 ASP API 로 바로 가져오는 건 고도화. 지금은 파일 원본을 그대로 보관)
+   */
+  original?: { name: string; url: string; sizeKb: number; by: string; at: string };
 }

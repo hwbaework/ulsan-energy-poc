@@ -1158,6 +1158,8 @@ interface TradingPocState {
   rejectChange: (id: number, note: string) => void;
   cancelChange: (id: number) => void;
   addDocument: (doc: Omit<TradeDocument, 'id' | 'issuedAt'> & { issuedAt?: string }) => void;
+  /** 원본 올리기 — 발행된 전자세금계산서 파일을 그 달 문서에 붙인다(다시 올리면 바꾼다) */
+  attachOriginal: (id: number, original: NonNullable<TradeDocument['original']>) => void;
   resetDemo: () => void;
 }
 
@@ -1588,6 +1590,9 @@ export const useTradingPocStore = create<TradingPocState>()(
         set((s) => ({
           documents: [{ id: nextId(s.documents), issuedAt: today(), ...doc }, ...s.documents],
         })),
+
+      attachOriginal: (id, original) =>
+        set((s) => ({ documents: s.documents.map((d) => (d.id === id ? { ...d, original } : d)) })),
 
       resetDemo: () => set(buildSeed()),
     }),

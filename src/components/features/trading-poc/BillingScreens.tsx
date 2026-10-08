@@ -23,7 +23,7 @@ import {
 import { useTradingRole } from './useTradingRole';
 import { fmtKrw, fmtKwh, fmtNum } from './meta';
 import { Info, PageHeader, cell, cellMuted, cellNum, cellStrong } from './Bits';
-import { BILLING_LABEL } from './DocumentSheet';
+import { BILLING_LABEL, periodOf } from './DocumentSheet';
 import { BillingPaper } from './BillingPaper';
 
 type Kind = 'TAX' | 'INVOICE';
@@ -107,6 +107,18 @@ function BillingScreen({ kind }: { kind: Kind }) {
           },
         ];
 
+  // 세금계산서 원본 — 전자세금계산서 업체에서 발행한 파일을 올렸는지
+  const hasOriginal = (s: TradeSettlement) =>
+    role.documents.some(
+      (d) => d.category === 'TAX' && d.contractId === s.contractId && periodOf(d) === s.period && d.original,
+    );
+  const originalCol: Column<TradeSettlement> = {
+    key: 'original',
+    header: '원본',
+    width: '100px',
+    render: (s) =>
+      hasOriginal(s) ? <StatusPill tone="normal" label="등록" /> : <StatusPill tone="muted" label="미등록" />,
+  };
   // 기업 계정 — 한 달 한 줄이라 표에 다 보이고, 줄을 누르면 상세(문서 · PDF)
   const fullColumns: Column<TradeSettlement>[] = [
     {
@@ -144,6 +156,7 @@ function BillingScreen({ kind }: { kind: Kind }) {
             width: '120px',
             render: (s: TradeSettlement) => cellMuted(issueDateOf(s.period)),
           },
+          originalCol,
         ]
       : [
           {
@@ -191,6 +204,7 @@ function BillingScreen({ kind }: { kind: Kind }) {
     kind === 'TAX'
       ? { key: 'issue', header: '발행일', width: '120px', render: (s) => cellMuted(issueDateOf(s.period)) }
       : { key: 'status', header: '상태', width: '110px', render: (s) => <StatePill s={s} /> },
+    ...(kind === 'TAX' ? [originalCol] : []),
   ];
   const columns = role.isAdmin ? sideColumns : fullColumns;
   const sel = list.find((s) => s.id === selId) ?? list[0];
