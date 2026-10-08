@@ -131,12 +131,13 @@ export function BillingPaper({
   );
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06]">
+    <div className="min-w-0 overflow-hidden rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] md:sticky md:top-4">
       <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-3">
         <div className="min-w-0">
           <p className="text-xs text-slate-400">미리보기</p>
           <p className="truncate text-sm font-semibold text-white">
-            {kind === 'TAX' ? `세금계산서 (${copy} 보관용)` : '청구서'}
+            {period} {kind === 'TAX' ? '세금계산서' : '청구서'} · {c.consumerCompanyName}
+            {kind === 'TAX' && <span className="ml-1.5 font-normal text-slate-400">({copy} 보관용)</span>}
           </p>
         </div>
         <Button size="sm" variant="secondary" onClick={onPdf}>

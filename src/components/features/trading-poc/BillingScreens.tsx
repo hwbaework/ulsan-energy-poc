@@ -51,7 +51,8 @@ const StatePill = ({ s }: { s: TradeSettlement }) => (
 );
 
 /**
- * 세금계산서 · 청구서 — 위에 연도 · 월, KPI(금액), 표 하나 + 검색. 줄을 누르면 상세(문서 · PDF 저장).
+ * 세금계산서 · 청구서 — 위에 연도 · 월, KPI(금액), 표.
+ * 관리자는 왼쪽 표 + 검색, 오른쪽 문서 미리보기 + PDF(통합관제 보고서와 같은 방식). 기업은 표 → 줄을 누르면 상세.
  * 공급자 = SPC(울산 에너지 플랫폼), 공급받는자 = onsite 계약 기업. 반납 금액(공급가액) + 부가세 10%.
  */
 function BillingScreen({ kind }: { kind: Kind }) {
@@ -61,6 +62,7 @@ function BillingScreen({ kind }: { kind: Kind }) {
   const [year, setYear] = useState('');
   const [month, setMonth] = useState('');
   const [q, setQ] = useState('');
+  const [selId, setSelId] = useState<number | null>(null);
   useEffect(() => {
     if (!year && years.length) setYear(years[years.length - 1]!);
   }, [year, years]);
@@ -105,7 +107,8 @@ function BillingScreen({ kind }: { kind: Kind }) {
           },
         ];
 
-  const columns: Column<TradeSettlement>[] = [
+  // 기업 계정 — 한 달 한 줄이라 표에 다 보이고, 줄을 누르면 상세(문서 · PDF)
+  const fullColumns: Column<TradeSettlement>[] = [
     {
       key: 'period',
       header: '기간',
@@ -159,6 +162,40 @@ function BillingScreen({ kind }: { kind: Kind }) {
         ]),
   ];
 
+  // 관리자 — 기업마다 매달 확인하니 옆에 문서를 띄운다. 표는 줄이고 세부 숫자는 옆 문서에서
+  const sideColumns: Column<TradeSettlement>[] = [
+    {
+      key: 'period',
+      header: '기간',
+      width: '100px',
+      sortable: true,
+      sortValue: (s) => s.period,
+      render: (s) => cellStrong(s.period),
+    },
+    ...(role.isAdmin
+      ? [
+          {
+            key: 'consumer',
+            header: kind === 'TAX' ? '공급받는자' : '청구 대상',
+            render: (s: TradeSettlement) => cell(s.consumerCompanyName, 'text-white'),
+          },
+        ]
+      : []),
+    {
+      key: 'total',
+      header: kind === 'TAX' ? '합계' : '청구 금액',
+      width: '140px',
+      align: 'right',
+      render: (s) => cellNum(fmtKrw(s.total)),
+    },
+    kind === 'TAX'
+      ? { key: 'issue', header: '발행일', width: '120px', render: (s) => cellMuted(issueDateOf(s.period)) }
+      : { key: 'status', header: '상태', width: '110px', render: (s) => <StatePill s={s} /> },
+  ];
+  const columns = role.isAdmin ? sideColumns : fullColumns;
+  const sel = list.find((s) => s.id === selId) ?? list[0];
+  const selContract = sel ? role.contracts.find((c) => c.id === sel.contractId) : undefined;
+
   const arrowBtn =
     'flex h-8 w-8 items-center justify-center rounded-md bg-white/[0.04] text-slate-400 ring-1 ring-white/[0.06] hover:bg-white/[0.08] hover:text-white disabled:opacity-30';
 
@@ -206,31 +243,47 @@ function BillingScreen({ kind }: { kind: Kind }) {
         ))}
       </StatsGrid>
 
-      <SectionCard
-        title={`${NAME[kind]} (${list.length})`}
-        actions={
-          role.isAdmin ? (
-            <div className="relative w-64">
-              <Search
-                size={14}
-                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500"
-              />
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="기업 검색" className="pl-8" />
-            </div>
-          ) : undefined
+      {/* 관리자 — 목록 왼쪽 · 문서 오른쪽(통합관제 보고서처럼). 줄을 누르면 오른쪽 문서가 바뀌어 하나씩 들어가 보지 않아도 된다 */}
+      <div
+        className={
+          role.isAdmin
+            ? 'grid grid-cols-1 items-start gap-6 md:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] xl:grid-cols-[minmax(0,1fr)_560px]'
+            : undefined
         }
-        noPadding
       >
-        <DataTable
-          columns={columns}
-          data={list}
-          rowKey={(s) => s.id}
-          emptyMessage={`${NAME[kind]} 없음`}
-          onRowClick={(s) =>
-            router.push(`${baseOf(kind, role.isAdmin)}/view?contract=${s.contractId}&period=${s.period}`)
+        <SectionCard
+          title={`${NAME[kind]} (${list.length})`}
+          actions={
+            role.isAdmin ? (
+              <div className="relative w-64">
+                <Search
+                  size={14}
+                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500"
+                />
+                <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="기업 검색" className="pl-8" />
+              </div>
+            ) : undefined
           }
-        />
-      </SectionCard>
+          noPadding
+          className="min-w-0 !h-auto"
+        >
+          <DataTable
+            columns={columns}
+            data={list}
+            rowKey={(s) => s.id}
+            emptyMessage={`${NAME[kind]} 없음`}
+            onRowClick={(s) =>
+              role.isAdmin
+                ? setSelId(s.id)
+                : router.push(`${baseOf(kind, false)}/view?contract=${s.contractId}&period=${s.period}`)
+            }
+            rowClassName={(s) => (role.isAdmin && s.id === sel?.id ? '!bg-primary/10' : '')}
+          />
+        </SectionCard>
+        {role.isAdmin && sel && selContract && (
+          <BillingPaper kind={kind} contract={selContract} period={sel.period} admin={role.isAdmin} />
+        )}
+      </div>
     </div>
   );
 }
