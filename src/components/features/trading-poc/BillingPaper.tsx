@@ -5,14 +5,7 @@ import { Download, FileText, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useCompany } from '@/hooks/platform/useCompanies';
 import { exportBillingInvoicePdf, generateBillingInvoiceHtml, type BillingInvoiceData } from '@/lib/utils';
-import {
-  CO,
-  dueDateOf,
-  issueDateOf,
-  settlementsOf,
-  useTradingPocStore,
-  writtenDateOf,
-} from '@/stores/useTradingPocStore';
+import { CO, billOf, invoiceKey, settlementsOf, useTradingPocStore, writtenDateOf } from '@/stores/useTradingPocStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { periodOf } from './DocumentSheet';
 import { useTradingRole } from './useTradingRole';
@@ -154,15 +147,20 @@ export function BillingPaper({
 function InvoicePaper({ contract: c, period, autoPdf }: { contract: Contract; period: string; autoPdf?: boolean }) {
   const { data: spc } = useCompany(CO.SPC.id);
   const { data: buyer } = useCompany(c.consumerCompanyId);
-  const s = useMemo(() => settlementsOf([c]).find((x) => x.period === period), [c, period]);
+  // 관리자가 작성한 값(사용량 · 청구일 · 납부 기한 · 결제 계좌)을 얹은 청구서
+  const rec = useTradingPocStore((st) => st.invoices[invoiceKey(c.id, period)]);
+  const s = useMemo(() => {
+    const base = settlementsOf([c]).find((x) => x.period === period);
+    return base ? billOf(base, rec) : undefined;
+  }, [c, period, rec]);
 
   const doc = useMemo(() => {
     if (!s) return null;
     const end = writtenDateOf(period);
     const inv: BillingInvoiceData = {
       no: `INV-${period}-${c.no}`,
-      issueDate: issueDateOf(period),
-      dueDate: dueDateOf(period),
+      issueDate: s.issueDate,
+      dueDate: s.dueDate,
       supplier: {
         name: spc?.name ?? CO.SPC.name,
         bizNo: spc?.businessNumber ?? '',
@@ -185,7 +183,7 @@ function InvoicePaper({ contract: c, period, autoPdf }: { contract: Contract; pe
       supplyTotal: s.supplyAmount,
       vatTotal: s.vat,
       grandTotal: s.total,
-      bankAccount: '',
+      bankAccount: s.bankAccount,
     };
     return { title: `청구서_${period}_${inv.receiverName}`, inv };
   }, [s, spc, buyer, c, period]);

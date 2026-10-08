@@ -26,7 +26,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 23; // 발전사업자 계정 = 한일튜브(id 4) · 계약 상대는 모두 SPC
+export const SEED_VERSION = 24; // 발전사업자 계정 = 한일튜브(id 4) · 계약 상대는 모두 SPC
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -933,9 +933,53 @@ export function termsAmount(
 }
 
 /** 청구 상태 — 달이 끝나야 발행되므로 예정은 없다. 마지막 달은 납부 대기, 그 전은 납부 완료 */
-export type BillingStatus = 'PAID' | 'BILLED';
+/**
+ * 청구서 상태 — 작성 중(관리자만 보임) → [발행] → 납부 대기 → [납부 완료](관리자가 입금 확인).
+ * 데모: 2026-09 작성 중 · 2026-08 납부 대기(미납) · 그 전은 납부 완료
+ */
+export type BillingStatus = 'DRAFT' | 'BILLED' | 'PAID';
 export const billingStatusOf = (period: string): BillingStatus =>
-  period === LAST_CONFIRMED ? 'BILLED' : 'PAID';
+  period === LAST_CONFIRMED ? 'DRAFT' : period === '2026-08' ? 'BILLED' : 'PAID';
+/** 청구서 작성 값 — 관리자가 고친 것만 저장한다(없으면 기본값). 키 = 계약 id : 달 */
+export interface InvoiceRecord {
+  /** 사용량 — 기본은 그 달 발전량(onsite 몫) */
+  kwh?: number;
+  issueDate?: string;
+  dueDate?: string;
+  bankAccount?: string;
+  status?: BillingStatus;
+  issuedAt?: string;
+  paidAt?: string;
+}
+export const invoiceKey = (contractId: number, period: string) => `${contractId}:${period}`;
+/** 청구서 — 그 달 정산에 작성 값을 얹는다. 사용량을 고치면 금액도 다시 계산 */
+export type Bill = TradeSettlement & {
+  billStatus: BillingStatus;
+  issueDate: string;
+  dueDate: string;
+  bankAccount: string;
+  meterKwh: number;
+  paidAt?: string;
+};
+export function billOf(s: TradeSettlement, r?: InvoiceRecord): Bill {
+  const kwh = r?.kwh ?? s.generationKwh;
+  const supply = Math.round(kwh * s.smpUnitPrice);
+  const vat = Math.round(supply * 0.1);
+  return {
+    ...s,
+    meterKwh: s.generationKwh,
+    generationKwh: kwh,
+    supplyAmount: supply,
+    vatBase: supply,
+    vat,
+    total: supply + vat,
+    billStatus: r?.status ?? billingStatusOf(s.period),
+    issueDate: r?.issueDate ?? issueDateOf(s.period),
+    dueDate: r?.dueDate ?? dueDateOf(s.period),
+    bankAccount: r?.bankAccount ?? '',
+    paidAt: r?.paidAt,
+  };
+}
 /** 작성일 — 그 달 말일 · 발행일 — 다음 달 1일(달이 끝나고 사용량 확정) · 납부 기한 — 다음 달 25일 */
 export const writtenDateOf = (period: string) => {
   const [y = 2026, m = 1] = period.split('-').map(Number);
@@ -1064,6 +1108,7 @@ function buildSeed() {
     contracts,
     changes,
     documents: seedDocuments(contracts),
+    invoices: {} as Record<string, InvoiceRecord>,
   };
 }
 
@@ -1117,6 +1162,12 @@ interface TradingPocState {
   contracts: Contract[];
   changes: ContractChange[];
   documents: TradeDocument[];
+  /** 청구서 작성 값 — invoiceKey(계약, 달) */
+  invoices: Record<string, InvoiceRecord>;
+  /** 청구서 작성(작성 중일 때만) · 발행 · 납부 완료 */
+  saveInvoice: (key: string, patch: InvoiceRecord) => void;
+  issueInvoice: (key: string) => void;
+  payInvoice: (key: string) => void;
   submitRequest: (input: NewRequestInput) => TradeRequest;
   startReview: (id: number, note?: string) => void;
   approveRequest: (id: number, note?: string) => void;
@@ -1594,6 +1645,23 @@ export const useTradingPocStore = create<TradingPocState>()(
       attachOriginal: (id, original) =>
         set((s) => ({ documents: s.documents.map((d) => (d.id === id ? { ...d, original } : d)) })),
 
+      saveInvoice: (key, patch) =>
+        set((s) => ({ invoices: { ...s.invoices, [key]: { ...s.invoices[key], ...patch } } })),
+      issueInvoice: (key) =>
+        set((s) => ({
+          invoices: {
+            ...s.invoices,
+            [key]: { ...s.invoices[key], status: 'BILLED', issuedAt: nowIso() },
+          },
+        })),
+      payInvoice: (key) =>
+        set((s) => ({
+          invoices: {
+            ...s.invoices,
+            [key]: { ...s.invoices[key], status: 'PAID', paidAt: today() },
+          },
+        })),
+
       resetDemo: () => set(buildSeed()),
     }),
     {
@@ -1606,6 +1674,7 @@ export const useTradingPocStore = create<TradingPocState>()(
         contracts: s.contracts,
         changes: s.changes,
         documents: s.documents,
+        invoices: s.invoices,
       }),
       // 시드 버전이 다르면 저장본을 버린다
       merge: (persisted, current) => {

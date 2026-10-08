@@ -17,7 +17,7 @@ import { changeText } from './ChangeDetailModal';
 const won = (n: number) => `₩${fmtNum(Math.round(n))}`;
 /** 파일명에서 정산월(YYYY-MM) — INV-2026-08-… · TX-2026-08-… */
 export const periodOf = (d: Pick<TradeDocument, 'fileName'>) => d.fileName.match(/^(?:INV|TX)-(\d{4}-\d{2})-/)?.[1];
-export const BILLING_LABEL = { PAID: '납부 완료', BILLED: '납부 대기' } as const;
+export const BILLING_LABEL = { DRAFT: '작성 중', BILLED: '납부 대기', PAID: '납부 완료' } as const;
 
 /** 정산월 문서(청구서·세금계산서)를 화면에서 바로 만든다 — 달이 끝나고 발행된 달만 */
 export function billingDoc(category: 'INVOICE' | 'TAX', c: Contract, period: string): TradeDocument {

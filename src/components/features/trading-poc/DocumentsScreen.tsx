@@ -11,7 +11,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { cn } from '@/lib/utils';
 import { useToastStore } from '@/stores/useToastStore';
-import { useTradingPocStore } from '@/stores/useTradingPocStore';
+import { billingStatusOf, invoiceKey, useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { Contract, DocCategory, TradeDocument } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
 import { kindLabel } from './meta';
@@ -97,6 +97,7 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
   const role = useTradingRole();
   const addToast = useToastStore((s) => s.add);
   const addDocument = useTradingPocStore((s) => s.addDocument);
+  const invoices = useTradingPocStore((s) => s.invoices);
   const base = docsBase(role.isAdmin);
 
   const [folder, setFolder] = useState<string>('all');
@@ -122,6 +123,12 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
       // 세금계산서는 플랫폼이 만들지 않는다 — 기업이 원본을 올린 달만 문서
       role.documents.filter(isShown).flatMap((d) => {
         if (d.category === 'TAX' && !d.original) return [];
+        // 청구서는 발행된 것부터 기업에 보인다(작성 중은 관리자만)
+        if (d.category === 'INVOICE' && !role.isAdmin && d.contractId) {
+          const p = periodOf(d) ?? '';
+          const st = invoices[invoiceKey(d.contractId, p)]?.status ?? billingStatusOf(p);
+          if (st === 'DRAFT') return [];
+        }
         const c = role.contracts.find((x) => x.id === d.contractId);
         if (!c) return [];
         const p = periodOf(d);
@@ -133,7 +140,7 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
             : `${label}_${p}_${c.consumerCompanyName}.pdf`;
         return [{ ...d, company: c.consumerCompanyName, companyId: c.consumerCompanyId, contract: c, name }];
       }),
-    [role.documents, role.contracts],
+    [role.documents, role.contracts, role.isAdmin, invoices],
   );
   const companies = useMemo(() => {
     const m = new Map<number, string>();
