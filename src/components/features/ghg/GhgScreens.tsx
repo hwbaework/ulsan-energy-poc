@@ -70,7 +70,7 @@ function Header({ title, actions }: { title: string; actions?: ReactNode }) {
   );
 }
 
-function Info({ label, value }: { label: string; value?: ReactNode }) {
+export function Info({ label, value }: { label: string; value?: ReactNode }) {
   return (
     <div>
       <p className="mb-1 text-sm text-slate-400">{label}</p>
@@ -80,7 +80,7 @@ function Info({ label, value }: { label: string; value?: ReactNode }) {
 }
 
 /** 역할 — 관리자(플랫폼 · SPC)는 전체 기업, 그 밖의 계정은 자기 회사만 */
-function useGhgRole() {
+export function useGhgRole() {
   const user = useAuthStore((s) => s.user);
   const persona = getPersona(user);
   const isAdmin = persona === 'admin' || persona === 'spc';
@@ -89,10 +89,10 @@ function useGhgRole() {
   const companies = isAdmin ? COMPANIES : COMPANIES.filter((c) => c.id === myId);
   return { isAdmin, myId, companies, myName: user?.companyName ?? '' };
 }
-type Role = ReturnType<typeof useGhgRole>;
+export type Role = ReturnType<typeof useGhgRole>;
 
 /** 산정 줄 전체 — 계수가 바뀌면(에너지 설정) 다시 계산 */
-function useRows() {
+export function useRows() {
   const fx = useGhgFactorValues();
   const rows = useMemo(() => reductionRows(fx), [fx.co2, fx.toe, fx.pine]); // eslint-disable-line react-hooks/exhaustive-deps
   return { fx, rows };
@@ -113,7 +113,7 @@ function CompanySelect({ role, value, onChange }: { role: Role; value: number | 
 }
 
 /** 기간 — 시작 달 ~ 종료 달을 직접 고른다 */
-function MonthRange({
+export function MonthRange({
   from,
   to,
   setFrom,
@@ -139,7 +139,7 @@ function MonthRange({
 }
 
 /** 처음 기간 — 올해 첫 달 ~ 마지막 달 */
-function useMonthRange() {
+export function useMonthRange() {
   const [y0, y1] = yearRange(LAST_MONTH.slice(0, 4));
   const [from, setFrom] = useState(y0);
   const [to, setTo] = useState(y1);
