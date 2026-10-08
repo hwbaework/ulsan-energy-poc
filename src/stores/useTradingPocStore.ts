@@ -26,7 +26,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 22; // 발전사업자 계정 = 한일튜브(id 4) · 계약 상대는 모두 SPC
+export const SEED_VERSION = 23; // 발전사업자 계정 = 한일튜브(id 4) · 계약 상대는 모두 SPC
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -90,8 +90,9 @@ export function seedTermsOf(x: {
         ...TARIFF,
         omIncluded: true,
         segments: [
-          { from: 1, to: 3, price: x.unitPrice },
-          { from: 4, to: x.termYears, price: x.unitPrice },
+          // 1구간 1~5년차 · 2구간 6년차~ (무료진단 기본값과 같다). 사용료는 구간 단가로 SPC 가 받는다
+          { from: 1, to: 5, price: x.unitPrice },
+          { from: 6, to: x.termYears, price: x.unitPrice },
         ],
       };
 }

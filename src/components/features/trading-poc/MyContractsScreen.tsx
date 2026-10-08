@@ -75,7 +75,7 @@ export function MyContractsScreen() {
 
   /**
    * SPC 가 받는 돈 — 관리자 전체. onsite 사용료만(자가소비는 SPC 수입이 없다) 0년 ~ 20년 누적, 만원 단위.
-   * 에스에너지(EPC)에 줄 몫은 아직 정하지 않아 빼지 않는다.
+   * 계약 기간 내내 사용료 전액을 받는다 — 1구간(기본 1~5년차) 단가, 그 뒤 2구간 단가.
    */
   const income = useMemo(() => {
     const onsite = active.filter((c) => c.kind === 'ONSITE');
