@@ -591,8 +591,10 @@ function InputRecord({ input: i, companyName }: { input: SimInput; companyName: 
           ['기본요금 피크감축 반영률', `${i.self.peakR} %`],
           ['설치단가', `${F(i.self.capexUnit ?? SELF_CAPEX_UNIT)} 원/kW`],
           ['추가 시공비 (변압기 등)', `${F(i.self.extraCost ?? SELF_EXTRA_COST)} 원`],
-          ['소비자 부담 (설치비 + 추가 시공비)', `${F(cost.consumer)} 원`],
-          ['연간 O&M (사업비 대비)', `${i.self.om ?? SELF_OM} %`],
+          ['총사업비 (설치비 + 추가 시공비)', `${F(cost.total)} 원`],
+          [`국비 지원 (설치비의 ${cost.govRate}%)`, `${F(cost.gov)} 원`],
+          ['소비자 부담 (총사업비 − 국비)', `${F(cost.consumer)} 원`],
+          ['연간 O&M (총사업비 대비)', `${i.self.om ?? SELF_OM} %`],
         ] as [string, string][])
       : ([
           ['태양광 설치용량', `${F(i.ppa.cap)} kW`],
@@ -694,7 +696,7 @@ function SelfKpis({ R }: { R: SelfResult }) {
         v={`${EOK(R.consumer)} 억원`}
         s={
           <>
-            설치비 {EOK(R.install)}억 + 추가 시공비 {EOK(R.extra)}억
+            총사업비 {EOK(R.total)}억 = 국비 {EOK(R.gov)}억({R.govRate}%) + 자부담 {EOK(R.consumer)}억
             <br />
             {R.payback ? (
               <>
@@ -994,7 +996,9 @@ function EffPanel({ R }: { R: SelfResult | PpaResult }) {
               dim: !R.ets,
             })}
             <div className="my-2 h-px bg-slate-200" />
-            {line('소비자 부담 (설치비 + 추가 시공비)', `${F(R.consumer)} 원`)}
+            {line('총사업비 (설치비 + 추가 시공비)', `${F(R.total)} 원`)}
+            {line(`국비 지원 (설치비의 ${R.govRate}%)`, `${F(R.gov)} 원`)}
+            {line('소비자 부담 (총사업비 − 국비)', `${F(R.consumer)} 원`)}
             {line(
               <b className="text-slate-900">20년 순수익 (소비자 부담·O&amp;M 차감)</b>,
               `${F(R.years[19]!.cum)} 원`,
@@ -1093,7 +1097,7 @@ function Assumptions({
     ],
     [
       '자가소비 사업구조',
-      `국비 지원 없음 — 소비자 부담 = 설치용량 × 설치단가(기본 135만원/kW) + 변압기 등 추가 시공비(기본 2천만원, 컨소시엄 EPC 회신 기준) 전액. O&M 은 사업비 대비 연 요율(기본 1.0%). 회수기간·누적현금은 소비자 부담 기준. 자가소비 배정 잔여용량 약 ${(es.selfRemain / 1000).toFixed(2)}MW`,
+      `총사업비 = 설치용량 × 설치단가(기본 135만원/kW) + 변압기 등 추가 시공비(기본 2천만원, 컨소시엄 EPC 회신 기준). 국비는 순수 설치비 × 국비 비율(입력값, 기본 70%, 백만원 미만 절삭)만 지원하며 추가 시공비는 국비 제외 — 소비자 부담 = 총사업비 − 국비(국비 0%면 전액 기업 부담). O&M 은 총사업비 대비 연 요율(기본 1.0%). 회수기간·누적현금은 소비자 부담 기준. 자가소비 배정 잔여용량 약 ${(es.selfRemain / 1000).toFixed(2)}MW`,
     ],
     [
       'OnSite PPA 구조',

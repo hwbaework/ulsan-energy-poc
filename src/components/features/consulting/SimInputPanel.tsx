@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { ADDRESS_MAX, F, LIM, adjOf, tableOf, NAME_MAX, PLAN_LABEL, SELF_CAPEX_UNIT, SELF_EXTRA_COST, SELF_OM, avgSaveUnit, segLabel, ppaSegs, selfCost, type Plan, type SimInput } from '@/lib/solar-sim';
+import { ADDRESS_MAX, F, LIM, adjOf, tableOf, NAME_MAX, PLAN_LABEL, SELF_CAPEX_UNIT, SELF_EXTRA_COST, SELF_GOV_RATE, SELF_OM, avgSaveUnit, segLabel, ppaSegs, selfCost, type Plan, type SimInput } from '@/lib/solar-sim';
 
 /**
  * 무료진단 입력 화면 — 울산미포산단 태양광 사업성 시뮬레이터 v1.1 입력값. 한 장의 페이지 안에서
@@ -281,14 +281,17 @@ export function SimInputPanel({
         {f.mode === 'self' ? (
           <Line>
             <Sec n={++n} title="자가소비 · 사업비">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="설치단가">
                   <Num lim={LIM.capexUnit} value={f.self.capexUnit ?? SELF_CAPEX_UNIT} onChange={(v) => setSelf({ capexUnit: v })} unit="원/kW" />
                 </Field>
                 <Field label="추가 시공비">
                   <Num lim={LIM.extraCost} value={f.self.extraCost ?? SELF_EXTRA_COST} onChange={(v) => setSelf({ extraCost: v })} unit="원" />
                 </Field>
-                <Field label="연간 O&M">
+                <Field label="국비 지원 (설치비 대비)">
+                  <Num lim={LIM.pct} value={f.self.govRate ?? SELF_GOV_RATE} dec={1} onChange={(v) => setSelf({ govRate: v })} unit="%" />
+                </Field>
+                <Field label="연간 O&M (총사업비 대비)">
                   <Num lim={LIM.pct} value={f.self.om ?? SELF_OM} dec={1} onChange={(v) => setSelf({ om: v })} unit="%" />
                 </Field>
               </div>
@@ -297,7 +300,7 @@ export function SimInputPanel({
                 <div>
                   <p className="text-sm font-semibold text-sky-300">소비자 부담</p>
                   <p className="mt-0.5 text-xs text-slate-400 tabular-nums">
-                    설치비 {F(cost.install)}원 ({F(f.self.cap)} kW × {F(f.self.capexUnit ?? SELF_CAPEX_UNIT)}원) + 추가 시공비 {F(cost.extra)}원
+                    총사업비 {F(cost.total)}원 (설치비 {F(cost.install)} + 추가 시공비 {F(cost.extra)}) − 국비 {F(cost.gov)}원 (설치비의 {cost.govRate}%)
                   </p>
                 </div>
                 <p className="text-2xl font-bold text-white tabular-nums">{F(cost.consumer)} 원</p>
