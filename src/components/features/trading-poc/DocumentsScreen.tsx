@@ -277,21 +277,20 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
       <PageHeader
         title="문서 관리"
         actions={
-          role.isAdmin && (
-            <Button
-              onClick={() => {
-                setUp({
-                  title: '',
-                  category: 'SIGNED',
-                  contractId: String(role.contracts.find((c) => c.status === 'ACTIVE')?.id ?? ''),
-                  fileName: '',
-                });
-                setUploadOpen(true);
-              }}
-            >
-              <Upload size={16} className="mr-1" /> 문서 등록
-            </Button>
-          )
+          // 거래 신청을 할 수 있는 계정(관리자 · 발전사업자)은 문서도 등록한다 — 계약은 자기 계약만 고른다
+          <Button
+            onClick={() => {
+              setUp({
+                title: '',
+                category: 'SIGNED',
+                contractId: String(role.contracts.find((c) => c.status === 'ACTIVE')?.id ?? ''),
+                fileName: '',
+              });
+              setUploadOpen(true);
+            }}
+          >
+            <Upload size={16} className="mr-1" /> 문서 등록
+          </Button>
         }
       />
 
@@ -360,7 +359,7 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
         </div>
       </div>
 
-      {/* 문서 등록 (관리자) */}
+      {/* 문서 등록 — 계약은 그 계정의 계약만, 올린 쪽(uploadedBy)을 남긴다 */}
       <Modal open={uploadOpen} onClose={() => setUploadOpen(false)} title="문서 등록" size="md">
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-4">
