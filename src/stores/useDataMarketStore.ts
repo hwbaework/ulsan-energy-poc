@@ -125,8 +125,8 @@ function months(): { month: string; m: number; days: number; i: number }[] {
 /** 같은 기업 · 같은 달이면 늘 같은 작은 흔들림(±3%) */
 const wiggle = (id: number, i: number) => 1 + (((id * 7 + i * 5) % 13) - 6) / 200;
 
-/** 달마다 발전시간 · 발전량 — 같은 기업 · 같은 달이면 늘 같은 흔들림(±3%) */
-function generation(c: SellerCompany) {
+/** 달마다 발전시간 · 발전량 — 같은 기업 · 같은 달이면 늘 같은 흔들림(±3%). 온실가스 인벤토리 감축량도 이 값을 쓴다 */
+export function generationOf(c: SellerCompany) {
   return months().map(({ month, m, days, i }) => {
     const hours = r1((GEN_HOURS[m - 1] ?? 0) * wiggle(c.id, i));
     return { month, hours, kwh: Math.round(c.solarKw * hours * days) };
@@ -182,7 +182,7 @@ export function sheetOf(d: Dataset): DataSheet {
       { key: 'hours', label: '하루 평균 발전시간 (h)' },
       { key: 'kwh', label: '발전량 (kWh)', strong: true },
     ],
-    rows: generation(c).map((r) => ({
+    rows: generationOf(c).map((r) => ({
       month: r.month,
       kw: c.solarKw.toFixed(2),
       hours: fmt1(r.hours),
