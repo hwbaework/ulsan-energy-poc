@@ -1,4 +1,5 @@
 import { saveAs } from 'file-saver';
+import type { jsPDF as jsPDFType } from 'jspdf';
 
 // 온실가스 감축 실적 — 명세서(PDF/Excel) · 보고서(PDF).
 // 화면과 같은 산정값(lib/ghg-reduction.ts)만 받아 그대로 찍는다. 한글 폰트는 /fonts/NotoSansKR-Regular.ttf.
@@ -85,7 +86,7 @@ const stmtBody = (d: GhgDocData) =>
 const factorLine = (f: GhgFactorText) =>
   `전력 배출계수 ${f.co2} tCO2eq/MWh (${f.year}년 기준 · ${f.published} 공표) · 화석에너지 대체 ${f.toe} TOE/MWh · 소나무 식재 ${f.pine} 그루/tCO2 (20년생)`;
 
-type Doc = InstanceType<typeof import('jspdf').default>;
+type Doc = jsPDFType;
 const lastY = (doc: Doc) => (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
 /** 합계 줄 — 첫 칸 말고 오른쪽 정렬 */
 const foot = (cells: string[]) => [
