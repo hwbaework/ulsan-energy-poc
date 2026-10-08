@@ -23,8 +23,8 @@ import {
 import { useTradingRole } from './useTradingRole';
 import { fmtKrw, fmtKwh, fmtNum } from './meta';
 import { Info, PageHeader, cell, cellMuted, cellNum, cellStrong } from './Bits';
-import { BILLING_LABEL, periodOf } from './DocumentSheet';
-import { BillingPaper } from './BillingPaper';
+import { BILLING_LABEL } from './DocumentSheet';
+import { BillingPaper, UploadButton, useTaxOriginal } from './BillingPaper';
 
 type Kind = 'TAX' | 'INVOICE';
 const NAME: Record<Kind, string> = { TAX: '세금계산서', INVOICE: '청구서' };
@@ -41,6 +41,14 @@ function useBilling() {
     [role.contracts],
   );
   return { role, rows };
+}
+
+/** 원본 칸 — 올렸으면 등록, 아니면 기업 계정은 [올리기] · 관리자는 미등록 */
+function OriginalCell({ s }: { s: TradeSettlement }) {
+  const { original, upload, canUpload } = useTaxOriginal(s.contractId, s.period);
+  if (original) return <StatusPill tone="normal" label="등록" />;
+  if (canUpload) return <UploadButton onFile={upload} label="올리기" />;
+  return <StatusPill tone="muted" label="미등록" />;
 }
 
 const StatePill = ({ s }: { s: TradeSettlement }) => (
@@ -107,17 +115,12 @@ function BillingScreen({ kind }: { kind: Kind }) {
           },
         ];
 
-  // 세금계산서 원본 — 전자세금계산서 업체에서 발행한 파일을 올렸는지
-  const hasOriginal = (s: TradeSettlement) =>
-    role.documents.some(
-      (d) => d.category === 'TAX' && d.contractId === s.contractId && periodOf(d) === s.period && d.original,
-    );
+  // 세금계산서 원본 — 전자세금계산서 업체에서 발행한 파일을 올렸는지. 기업은 여기서 바로 올린다
   const originalCol: Column<TradeSettlement> = {
     key: 'original',
     header: '원본',
-    width: '100px',
-    render: (s) =>
-      hasOriginal(s) ? <StatusPill tone="normal" label="등록" /> : <StatusPill tone="muted" label="미등록" />,
+    width: '110px',
+    render: (s) => <OriginalCell s={s} />,
   };
   // 기업 계정 — 한 달 한 줄이라 표에 다 보이고, 줄을 누르면 상세(문서 · PDF)
   const fullColumns: Column<TradeSettlement>[] = [

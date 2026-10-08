@@ -119,7 +119,9 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
 
   const docs = useMemo<Row[]>(
     () =>
+      // 세금계산서는 플랫폼이 만들지 않는다 — 기업이 원본을 올린 달만 문서
       role.documents.filter(isShown).flatMap((d) => {
+        if (d.category === 'TAX' && !d.original) return [];
         const c = role.contracts.find((x) => x.id === d.contractId);
         if (!c) return [];
         const p = periodOf(d);
@@ -244,10 +246,10 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
       width: '64px',
       align: 'center',
       render: (d) =>
-        isContractDoc(d) ? (
+        isContractDoc(d) || d.original ? (
           <a
-            href={CONTRACT_PDF}
-            download={d.name}
+            href={d.original?.url ?? CONTRACT_PDF}
+            download={d.original?.name ?? d.name}
             onClick={(e) => e.stopPropagation()}
             aria-label="다운로드"
             title="다운로드"
