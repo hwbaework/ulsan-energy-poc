@@ -145,7 +145,7 @@ export function TradeRequestsScreen() {
       siteName: consumerName,
       address: f.address.trim(),
       capacityKw: cap,
-      // 단가는 미팅 뒤 관리자가 넣는다. 계약 기간은 유형 기본값(미팅에서 고칠 수 있음)
+      // 단가 · 계약 기간은 미팅 뒤 관리자가 넣는다(기간은 유형 기본값으로 시작)
       unitPrice: 0,
       termYears: defaultTermYears(kind),
       note: f.note.trim() || undefined,
@@ -273,7 +273,6 @@ export function TradeRequestsScreen() {
                   required
                 />
                 <Input label="미팅 희망일" type="date" value={f.surveyDate} onChange={(e) => set({ surveyDate: e.target.value })} />
-                <ReadOnly label="계약 기간" value={`${defaultTermYears(kind)}년 (미팅에서 확정)`} />
               </div>
             </Section>
 
