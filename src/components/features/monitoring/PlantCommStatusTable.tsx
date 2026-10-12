@@ -67,7 +67,7 @@ export function PlantCommStatusTable({
         return {
           key: p.key,
           type: p.type,
-          name: p.displayName,
+          name: p.baseName, // 계약 유형은 옆 칸
           contractKind: p.contractKind,
           status: ongoing.length ? 'COMM_ERROR' : 'NORMAL',
           lastAt: ongoing.length ? Math.min(...ongoing) : received.length ? Math.max(...received) : null,

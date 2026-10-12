@@ -149,16 +149,26 @@ function StatusHud({ plants }: { plants: MonitoringPlant[] }) {
     <div className="w-full">
       <div className="rounded-xl border border-white/10 bg-[#000C17]/95 px-5 py-3">
         <div className="flex items-center gap-6 flex-wrap">
-          {/* 설비 용량 — 자가소비 + PPA */}
-          <div className="flex-1 min-w-[260px]">
-            <div className="mb-1">
+          {/* 설비 용량 — 합계 하나 + 그 아래 구성 막대(자가소비 + PPA = 합계). 계약 유형은 색이 아니라 명암 · 글자로(design.ts 규칙) */}
+          <div className="flex-1 min-w-[300px] max-w-[420px]">
+            <div className="mb-1 flex items-baseline justify-between gap-3">
               <span className="text-sm text-slate-300">설비 용량</span>
-            </div>
-            <div className="flex items-baseline gap-3 flex-wrap">
               <span className="text-xl font-bold text-white tabular-nums">{kwText(capTotal)}</span>
-              {caps.map((c) => (
-                <span key={c.k} className="text-sm text-slate-400 tabular-nums">
-                  {CONTRACT_KIND_LABEL[c.k]} {kwText(c.kw)}
+            </div>
+            <div className="flex h-2 overflow-hidden rounded-full bg-white/10">
+              {caps.map((c, i) => (
+                <div
+                  key={c.k}
+                  className={i === 0 ? 'bg-white/70' : 'bg-white/30'}
+                  style={{ width: `${capTotal > 0 ? (c.kw / capTotal) * 100 : 0}%` }}
+                />
+              ))}
+            </div>
+            <div className="mt-1.5 flex items-center justify-between gap-3 text-xs text-slate-400 tabular-nums">
+              {caps.map((c, i) => (
+                <span key={c.k} className="flex items-center gap-1.5">
+                  <span className={cn('h-2 w-2 rounded-full', i === 0 ? 'bg-white/70' : 'bg-white/30')} />
+                  {CONTRACT_KIND_LABEL[c.k]} <span className="font-semibold text-white">{kwText(c.kw)}</span>
                 </span>
               ))}
             </div>
@@ -289,7 +299,8 @@ function SidePanel({
         <div>
           <div className="flex items-center gap-2">
             <BackButton onClick={onBack} label="목록으로" />
-            <h3 className="text-base font-bold text-white truncate">{picked?.displayName ?? plant.name}</h3>
+            {/* 이름은 괄호 없이 — 계약 유형은 옆 뱃지 */}
+            <h3 className="text-base font-bold text-white truncate">{plant.name}</h3>
             {/* 계약 사업장 목록과 같은 발전원 칩 */}
             <span className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-xs font-semibold text-white">
               <SrcIcon size={13} style={{ color: src.color }} />
@@ -510,7 +521,7 @@ function SidePanel({
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <StatusDot status={plant.status} pulse />
-                  <span className="text-sm font-medium text-white">{row.displayName}</span>
+                  <span className="text-sm font-medium text-white">{plant.name}</span>
                   {(() => {
                     const src = SOURCE[plant.type as EnergySource];
                     const Icon = src.icon;

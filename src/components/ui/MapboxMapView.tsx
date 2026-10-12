@@ -280,7 +280,8 @@ export function MapboxMapView({
 
   return (
     <div className={`relative ${className}`} style={{ minHeight: 400 }}>
-      <div ref={containerRef} className="absolute inset-0" />
+      {/* 크기는 인라인으로 — mapbox-gl.css 의 .mapboxgl-map { position: relative } 가 absolute 클래스를 덮어 높이가 0 이 되던 문제 */}
+      <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
       {mapError && (
         <div className="absolute inset-0 flex items-center justify-center bg-[#0d1520] px-6 text-center text-sm text-slate-400">
           {mapError}

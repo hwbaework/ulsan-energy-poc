@@ -157,7 +157,8 @@ export default function AnomaliesPage() {
       key: 'plantName',
       header: '발전소',
       width: '130px',
-      render: (r) => <span className="text-sm font-medium text-white truncate block">{r.displayName}</span>,
+      // 이름은 괄호 없이 — 계약 유형은 옆 칸
+      render: (r) => <span className="text-sm font-medium text-white truncate block">{r.plantName}</span>,
     },
     {
       key: 'plantType',

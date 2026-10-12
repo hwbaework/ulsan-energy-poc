@@ -57,10 +57,11 @@ export default function MonitoringPlantListPage() {
       key: 'name',
       header: '발전소명',
       width: '220px',
-      render: (row) => <PlantNameCell type={row.type} name={row.displayName} />,
+      // 이름은 괄호 없이 — 계약 유형은 옆 칸에(혼합 계약 한일튜브는 같은 이름 두 줄, 계약 유형으로 구분)
+      render: (row) => <PlantNameCell type={row.type} name={row.baseName} />,
     },
     {
-      // 계약 유형 — 행 하나가 계약 하나. 혼합 계약 발전소는 자가소비·onsite 행이 따로 있다
+      // 계약 유형 — 행 하나가 계약 하나. 혼합 계약 발전소는 자가소비·PPA 행이 따로 있다
       key: 'contractKind',
       header: '계약 유형',
       width: '120px',
