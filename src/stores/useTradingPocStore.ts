@@ -284,7 +284,7 @@ function seedRequests(): TradeRequest[] {
   });
   const signedEvents = (submitted: string, review: string, approved: string, signed: string) => [
     ev(submitted, 'generator', '신청 접수'),
-    ev(review, 'spc', '미팅 일정'),
+    ev(review, 'spc', '미팅 확정'),
     ev(approved, 'spc', '승인', '계약서 초안 생성'),
     ev(signed, 'generator', '전자서명'),
     ev(signed, 'consumer', '전자서명'),
@@ -380,7 +380,7 @@ function seedRequests(): TradeRequest[] {
       updatedAt: iso('2025-04-18', '11:00:00'),
       events: [
         ev(iso('2025-03-15'), 'consumer', '신청 접수'),
-        ev(iso('2025-03-17'), 'spc', '미팅 일정'),
+        ev(iso('2025-03-17'), 'spc', '미팅 확정'),
         ev(iso('2025-03-28'), 'spc', '승인', '계약서 초안 생성'),
         ev(iso('2025-04-18', '10:40:00'), 'generator', '전자서명'),
         ev(iso('2025-04-18', '11:00:00'), 'consumer', '전자서명'),
@@ -510,7 +510,7 @@ function seedRequests(): TradeRequest[] {
       contact: { name: '설비 담당', phone: '052-000-0000' },
       events: [
         ev(iso('2026-09-25', '10:00:00'), 'spc', '신청 접수', '전화 문의 대리 접수'),
-        ev(iso('2026-09-26', '09:30:00'), 'spc', '미팅 일정'),
+        ev(iso('2026-09-26', '09:30:00'), 'spc', '미팅 확정'),
         ev(iso('2026-09-26', '09:40:00'), 'spc', '미팅', '2026-10-08 예정'),
       ],
       messages: [
@@ -543,7 +543,7 @@ function seedRequests(): TradeRequest[] {
       contact: { name: '시설 담당', phone: '052-000-0000' },
       events: [
         ev(iso('2026-09-20'), 'generator', '신청 접수'),
-        ev(iso('2026-09-23', '10:30:00'), 'spc', '미팅 일정'),
+        ev(iso('2026-09-23', '10:30:00'), 'spc', '미팅 확정'),
         ev(iso('2026-09-26', '12:00:00'), 'spc', '미팅 완료', '2026-09-26'),
       ],
       messages: [
@@ -586,7 +586,7 @@ function seedRequests(): TradeRequest[] {
       updatedAt: iso('2026-08-12', '17:20:00'),
       events: [
         ev(iso('2026-08-03'), 'spc', '신청 접수', '전화 문의 대리 접수'),
-        ev(iso('2026-08-05'), 'spc', '미팅 일정'),
+        ev(iso('2026-08-05'), 'spc', '미팅 확정'),
         ev(iso('2026-08-12', '17:20:00'), 'spc', '반려', '설치 위치 도면 미제출 — 보완 후 재신청'),
       ],
     }),
@@ -631,7 +631,7 @@ function seedRequests(): TradeRequest[] {
       contact: { name: '박발전', phone: '010-2000-0002', email: 'operator@test.com' },
       events: [
         ev(iso('2026-10-02', '09:30:00'), 'generator', '신청 접수'),
-        ev(iso('2026-10-06', '14:00:00'), 'spc', '미팅 일정', '2026-10-14 예정'),
+        ev(iso('2026-10-06', '14:00:00'), 'spc', '미팅 확정', '2026-10-14 예정'),
       ],
       messages: [
         { at: iso('2026-10-02', '09:35:00'), by: 'generator', byName: CO.HANIL.name, text: '제2공장 지붕 50kW 자가소비 추가 설치 검토 요청드립니다.' },
@@ -678,7 +678,7 @@ function seedRequests(): TradeRequest[] {
       updatedAt: iso('2026-09-15', '16:00:00'),
       events: [
         ev(iso('2026-09-02'), 'spc', '신청 접수', '전화 문의 대리 접수'),
-        ev(iso('2026-09-04'), 'spc', '미팅 일정'),
+        ev(iso('2026-09-04'), 'spc', '미팅 확정'),
         ev(iso('2026-09-15', '16:00:00'), 'spc', '승인', '계약서 초안 생성 — 양측 전자서명 대기'),
       ],
     }),
@@ -701,7 +701,7 @@ function seedRequests(): TradeRequest[] {
       updatedAt: iso('2026-09-23', '11:00:00'),
       events: [
         ev(iso('2026-09-05'), 'generator', '신청 접수'),
-        ev(iso('2026-09-08'), 'spc', '미팅 일정'),
+        ev(iso('2026-09-08'), 'spc', '미팅 확정'),
         ev(iso('2026-09-22', '15:00:00'), 'spc', '승인', '계약서 초안 생성 — 양측 전자서명 대기'),
         ev(iso('2026-09-23', '11:00:00'), 'consumer', '전자서명'),
       ],
@@ -1161,6 +1161,8 @@ interface TradingPocState {
   approveRequest: (id: number, note?: string) => void;
   /** 계약 현황 — 메시지 · 미팅 완료 */
   addMessage: (id: number, by: Party, byName: string, text: string) => void;
+  /** 미팅 확정(관리자) — 접수 → 미팅. 이때부터 양쪽이 조건을 넣는다 */
+  confirmMeeting: (id: number, date: string) => void;
   markSurveyDone: (id: number, date: string) => void;
   /** 미팅 뒤 조건 입력 — 신청 내용에 그 자리에서 저장(접수 상태면 미팅 상태로) */
   updateTerms: (
@@ -1243,6 +1245,21 @@ export const useTradingPocStore = create<TradingPocState>()(
                   ...r,
                   updatedAt: nowIso(),
                   messages: [...(r.messages ?? []), { at: nowIso(), by, byName, text }],
+                }
+              : r,
+          ),
+        })),
+
+      confirmMeeting: (id, date) =>
+        set((s) => ({
+          requests: s.requests.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  status: 'REVIEW',
+                  surveyDate: date,
+                  updatedAt: nowIso(),
+                  events: [...r.events, ev(nowIso(), 'spc', '미팅 확정', date)],
                 }
               : r,
           ),

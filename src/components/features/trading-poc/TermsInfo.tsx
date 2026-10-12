@@ -41,7 +41,7 @@ export function TermsInfo({ x, edit }: { x: TradeRequest | Contract; edit?: Term
       {cell(edit?.omRatePct, '연간 O&M (설치비 대비)', x.omRatePct ? `${x.omRatePct}%` : undefined)}
       {cell(edit?.tariffPlan, '요금제', x.tariffPlan)}
       {(edit || hasTerms) && <Info label="O&M 포함" value={<Checkbox label="포함 (필수)" checked={!!x.omIncluded} onChange={() => {}} />} />}
-      <Info label="미팅 희망일" value={x.surveyDate} />
+      <Info label={'status' in x && x.status === 'SUBMITTED' ? '미팅 희망일' : '미팅일'} value={x.surveyDate} />
       <Info
         label="담당자"
         value={x.contact ? [x.contact.name, x.contact.phone, x.contact.email].filter(Boolean).join(' · ') : undefined}

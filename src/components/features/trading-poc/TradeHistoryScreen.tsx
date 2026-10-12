@@ -241,8 +241,12 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   const active = IN_TALK.includes(r.status);
   const isMine = isMineOf(role, r);
   const admin = role.isAdmin && active;
-  // 미팅 단계 — 관리자와 신청한 쪽이 같은 칸을 보고 넣는다(채팅으로 맞추면서). 승인 · 반려는 관리자, 신청 취소는 신청한 쪽
-  const editing = active && (role.isAdmin || isMine);
+  // 접수(SUBMITTED): 조건 칸 없음 — 신청한 쪽은 신청 취소, 관리자는 미팅 확정 / 반려
+  // 미팅(REVIEW): 관리자와 신청한 쪽이 같은 칸을 보고 조건을 넣는다(채팅으로 맞추면서). 승인 · 반려는 관리자. 신청 취소는 없다
+  const received = r.status === 'SUBMITTED';
+  const editing = r.status === 'REVIEW' && (role.isAdmin || isMine);
+  const confirmMeeting = useTradingPocStore((s) => s.confirmMeeting);
+  const [meetDate, setMeetDate] = useState(r.surveyDate ?? '');
 
   const [draft, setDraft] = useState<Draft>(() => draftOf(r));
   const saved = draftOf(r);
@@ -303,6 +307,29 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   // 단계별 처리 — 신청 내용 위에 고정
   const actions = (
     <>
+      {admin && received && (
+        <>
+          <label className="flex items-center gap-2 text-sm text-slate-400">
+            미팅일
+            <input
+              type="date"
+              value={meetDate}
+              onChange={(e) => setMeetDate(e.target.value)}
+              className="h-8 rounded-md bg-white/[0.04] px-2 text-sm text-white ring-1 ring-white/[0.08] [color-scheme:dark] focus:outline-none focus:ring-primary/60"
+            />
+          </label>
+          <Button
+            size="sm"
+            disabled={!meetDate}
+            onClick={() => {
+              confirmMeeting(r.id, meetDate);
+              addToast('success', `${r.no} 미팅 확정 ${meetDate}`);
+            }}
+          >
+            미팅 확정
+          </Button>
+        </>
+      )}
       {editing && (
         <>
           <Button size="sm" variant="secondary" disabled={!dirty} onClick={() => setDraft(saved)}>
@@ -330,7 +357,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
           반려
         </Button>
       )}
-      {!role.isAdmin && isMine && active && (
+      {!role.isAdmin && isMine && received && (
         <Button size="sm" variant="danger" onClick={() => setConfirm('cancel')}>
           신청 취소
         </Button>
