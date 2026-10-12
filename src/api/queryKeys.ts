@@ -330,6 +330,7 @@ export const settingsKeys = {
   energy: () => [...settingsKeys.all, 'energy'] as const,
   industrialTariff: () => [...settingsKeys.all, 'industrial-tariff'] as const,
   kepcoTariff: () => [...settingsKeys.all, 'kepco-tariff'] as const,
+  holidays: (year: number) => [...settingsKeys.all, 'holidays', year] as const,
 };
 
 export const fileKeys = {

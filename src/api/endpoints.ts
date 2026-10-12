@@ -186,6 +186,8 @@ export const ENDPOINTS = {
     energy: `${V1}/settings/public/energy`,
     industrialTariff: `${V1}/settings/public/industrial-tariff`,
     kepcoTariff: `${V1}/settings/public/kepco-tariff`,
+    // 공휴일 — 서버가 공공데이터포털 한국천문연구원 특일 정보(getRestDeInfo)를 해마다 받아 둔다
+    holidays: `${V1}/settings/public/holidays`,
   },
   monitoring: {
     dashboard: `${V1}/monitoring/dashboard`,

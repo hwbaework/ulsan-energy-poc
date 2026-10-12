@@ -8,6 +8,7 @@ import { SectionCard } from '@/components/features/SectionCard';
 import { PageTitle } from '@/components/layout/PageTitle';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { useToastStore } from '@/stores/useToastStore';
+import { PpaScheduleCard } from '@/components/features/monitoring/PpaSchedule';
 
 const LANGUAGE_OPTIONS = [
   { value: 'ko', label: '한국어' },
@@ -40,6 +41,9 @@ export default function OrgSettingsPage() {
           />
         </div>
       </SectionCard>
+
+      {/* PPA 운전 일정 — 발전사업자 자기 발전소만. 관리자 · 전기사용자는 안 보인다 */}
+      <PpaScheduleCard />
     </div>
   );
 }

@@ -83,3 +83,20 @@ export const useSaveKepcoTariff = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: settingsKeys.kepcoTariff() }),
   });
 };
+
+/** 공휴일 — 해마다 바뀌지 않으니 길게 둔다 */
+export const useHolidays = (year: number) => {
+  return useQuery({
+    queryKey: settingsKeys.holidays(year),
+    queryFn: () => settingsApi.getHolidays(year),
+    staleTime: 60 * 60_000,
+  });
+};
+
+export const useSaveHolidays = (year: number) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (list: Parameters<typeof settingsApi.saveHolidays>[1]) => settingsApi.saveHolidays(year, list),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: settingsKeys.holidays(year) }),
+  });
+};

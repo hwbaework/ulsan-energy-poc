@@ -22,6 +22,8 @@ import { useMonitoringPlantDetail, useMonitoringPlantHistory, useMonitoringPlant
 import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
 import { contractDisplayName, expandByContract } from '@/lib/contract-plants';
 import { ConnectionBanner, InverterDetailSection } from '@/components/features/monitoring/InverterPanels';
+import { PpaOpInfo, RemoteControlCard } from '@/components/features/monitoring/PpaSchedule';
+import { useHydrateTradingPoc, useTradingPocStore } from '@/stores/useTradingPocStore';
 
 
 interface MockPlantDetail {
@@ -156,6 +158,9 @@ export default function PlantDetailPage() {
   // 계약 단위 항목이 2개 이상이면 돌아갈 목록이 있다 (한일튜브는 자가소비·onsite 두 항목)
   const hasPlantList = useMemo(() => expandByContract(filterPlantsByOwnership(allPlants ?? [], myPlantMatcher)).length > 1, [allPlants, myPlantMatcher]);
   const realtimeSeries = useRealtimeAccumulator((apiPlant as any)?.inverters);
+  // PPA 계약 기업 — 인버터 원격 운전(쉬는 날 자동 OFF)
+  useHydrateTradingPoc();
+  const ppaCompanyId = useTradingPocStore((s) => s.contracts.find((c) => c.kind === 'ONSITE' && c.status === 'ACTIVE' && c.plantId === numId)?.consumerCompanyId);
 
   const historyRange = useMemo(() => {
     const now = new Date();
@@ -567,6 +572,14 @@ export default function PlantDetailPage() {
         <div className="rounded-lg border border-accent/20 bg-surface-card p-8 text-center">
           <p className="text-sm text-slate-500">출력 이력 데이터를 수집 중입니다. 잠시 후 차트가 표시됩니다.</p>
         </div>
+      )}
+
+      {/* PPA — 발전사업자는 인버터 원격 운전, 그 밖(관리자 · 전기사용자)은 운전 안내만 */}
+      {ppaCompanyId !== undefined && (!selectedContract || selectedContract === 'ONSITE') && (
+        <>
+          <RemoteControlCard companyId={ppaCompanyId} />
+          <PpaOpInfo companyId={ppaCompanyId} />
+        </>
       )}
 
       {/* 인버터 상세 (LASEE plants) */}

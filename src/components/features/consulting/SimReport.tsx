@@ -18,7 +18,7 @@ import {
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
-import { energyNum, useEnergySettings } from '@/hooks/common/useSettings';
+import { energyNum, useEnergySettings, useKepcoTariff } from '@/hooks/common/useSettings';
 import { PINE_PER_TCO2, TOE_PER_MWH } from '@/lib/constants/env-benefit';
 import {
   EOK,
@@ -26,7 +26,12 @@ import {
   F1,
   F2,
   MNAME,
-  SCEN_COLOR,
+  SENS_COLOR,
+  TARIFF_YEAR_SEED,
+  CAGR,
+  bookCagr,
+  cumSaveAt,
+  sensitivity,
   calc,
   escInput,
   monthlyFor,
@@ -225,8 +230,17 @@ export function SimReport({
   const [scen, setScen] = useState(1);
   const [mY, setMY] = useState(1);
   const [showBasis, setShowBasis] = useState(false); // 산정 기준 및 출처 — 참고용, 펼칠 때만
-  // 한전요금 시나리오 — 동결 / 입력값. 단가는 관리 › 에너지 설정 한전 요금표
-  const sc = useMemo(() => scenarios(input), [input]);
+  // 실적 CAGR — 관리 › 에너지 설정 연도별 한전 요금표 평균(첫해 → 마지막 해, 고른 요금제). 못 읽으면 기본값
+  const { data: book } = useKepcoTariff();
+  const plan = input.mode === 'self' ? input.self.plan : input.ppa.plan;
+  const cg = useMemo(
+    () => bookCagr(book, plan) ?? { rate: CAGR, from: TARIFF_YEAR_SEED[0]!, to: TARIFF_YEAR_SEED[TARIFF_YEAR_SEED.length - 1]! },
+    [book, plan],
+  );
+  // 한전요금 시나리오 — 동결 / 입력값 / 실적 CAGR
+  const sc = useMemo(() => scenarios(input, cg.rate), [input, cg.rate]);
+  // 민감도 — 동결 · 입력값 ±1%p · 실적 CAGR
+  const sens = useMemo(() => sensitivity(input, cg.rate), [input, cg.rate]);
   const R = sc[scen]!.R;
   const self = R.mode === 'self';
   const written = (record?.at ?? new Date().toISOString()).slice(0, 10);
@@ -289,7 +303,12 @@ export function SimReport({
               r.mode === 'self'
                 ? `20년 절감 ${EOK(r.cumSave)}억`
                 : `20년 절감 ${EOK(r.ets ? r.cumT : r.cumSaveD)}억 · kWh당 ${F1(r.avgKu - r.avgPu)}원`;
-            const sub = k === 0 ? '0%/yr · 최소 기대치' : `${(escInput(input) * 100).toFixed(1)}%/yr · 입력값`;
+            const sub =
+              k === 0
+                ? '0%/yr · 최소 기대치'
+                : k === 1
+                  ? `${(escInput(input) * 100).toFixed(1)}%/yr · 입력값`
+                  : `${(cg.rate * 100).toFixed(2)}%/yr · ${cg.from.year}~${cg.to.year} 한전 요금표`;
             return (
               <button
                 key={k}
@@ -300,7 +319,7 @@ export function SimReport({
                   scen === k ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:bg-slate-200',
                 )}
               >
-                <span>{['한전요금 동결', '상승분 반영 (입력값)'][k]}</span>
+                <span>{['한전요금 동결', '상승분 반영 (입력값)', '실적 CAGR 반영'][k]}</span>
                 <small className={cn('text-[10.5px] font-semibold', scen === k ? 'text-blue-700' : 'text-slate-400')}>
                   {sub}
                 </small>
@@ -425,23 +444,15 @@ export function SimReport({
         </div>
       </Card>
 
-      {/* 민감도 */}
-      <Card title="민감도 분석 — 한전요금 상승률 시나리오별 20년 누적 (백만원)">
-        <div className="h-[250px]">
+      {/* 민감도 — 위 그래프(누적), 아래 표(시나리오별 값 · 입력값 대비) */}
+      <Card title="민감도 분석 — 한전요금 상승률별 20년 누적 절감 (백만원)">
+        <div className="h-[260px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={Array.from({ length: 20 }, (_, k) => {
                 const o: Record<string, number | string> = { x: `${k + 1}년` };
-                sc.forEach((s, j) => {
-                  const r = s.R;
-                  // 자가소비 = 절감액 누적(설치비 · O&M 은 설치단가를 안 쓰므로 빼지 않음)
-                  o[`s${j}`] = Math.round(
-                    (r.mode === 'self'
-                      ? r.years.slice(0, k + 1).reduce((a, y) => a + y.save, 0)
-                      : r.ets
-                        ? r.years[k]!.cumT
-                        : r.years[k]!.cumD) / 1e6,
-                  );
+                sens.forEach((s, j) => {
+                  o[`s${j}`] = Math.round(cumSaveAt(s.R, k + 1) / 1e6);
                 });
                 return o;
               })}
@@ -458,20 +469,45 @@ export function SimReport({
               <Tooltip {...TIP} formatter={(v) => Number(v).toLocaleString()} />
               <Legend verticalAlign="top" wrapperStyle={{ fontSize: 10 }} />
               <ReferenceLine y={0} stroke="#cbd5e1" />
-              {sc.map((s, j) => (
+              {sens.map((s, j) => (
                 <Line
                   key={j}
                   dataKey={`s${j}`}
                   name={s.name}
-                  stroke={SCEN_COLOR[j]}
-                  strokeWidth={j === scen ? 3 : 1.8}
-                  strokeDasharray={j === scen ? undefined : '5 4'}
+                  stroke={SENS_COLOR[j]}
+                  strokeWidth={s.input ? 3 : 1.8}
+                  strokeDasharray={s.input ? undefined : '5 4'}
                   dot={false}
                   {...NO_ANIM}
                 />
               ))}
             </LineChart>
           </ResponsiveContainer>
+        </div>
+        <div className="mt-3 overflow-hidden rounded-lg border border-slate-100">
+          {(() => {
+            const base = cumSaveAt(sens.find((x) => x.input)!.R, 20);
+            return (
+              <T
+                cur={sens.findIndex((x) => x.input)}
+                head={['시나리오', '상승률', '1차년 절감 (억원)', '10년 누적 (억원)', '20년 누적 (억원)', '입력값 대비']}
+                rows={sens.map((x) => {
+                  const v = cumSaveAt(x.R, 20);
+                  const d = v - base;
+                  return [
+                    x.name.replace(/ \(.*\)$/, ''),
+                    `${(x.e * 100).toFixed(x.e === cg.rate ? 2 : 1)}%/yr`,
+                    EOK(cumSaveAt(x.R, 1)),
+                    EOK(cumSaveAt(x.R, 10)),
+                    <b key="v" className="text-slate-900">
+                      {EOK(v)}
+                    </b>,
+                    x.input ? '기준' : `${d >= 0 ? '+' : '−'}${EOK(Math.abs(d))}억 (${d >= 0 ? '+' : '−'}${base ? Math.abs((d / base) * 100).toFixed(1) : '0'}%)`,
+                  ];
+                })}
+              />
+            );
+          })()}
         </div>
       </Card>
 
@@ -631,7 +667,7 @@ function PpaKpis({ R }: { R: PpaResult }) {
       <Kpi
         k="연간 예상 발전량 (1차년)"
         v={`${F1(R.annualGen1 / 1000)} MWh`}
-        s={`일평균 발전시간 ${F2(R.annualGen1 / R.cap / 365)}h · 설치용량 ${F(R.cap)}kW`}
+        s={`가동일 ${R.opDays}일 (쉬는 날 OFF) · 일평균 발전시간 ${F2(R.annualGen1 / R.cap / R.opDays)}h · 설치용량 ${F(R.cap)}kW`}
       />
       <Kpi
         k="PPA 단가 구조 (20년)"
@@ -947,7 +983,7 @@ function Assumptions({ adj, co2f }: { adj: TariffAdj; co2f: number }) {
     ],
     [
       '전기요금 상승률',
-      '입력값(기본 2.5%/yr)을 1년차부터 누적 적용. 한전 단가는 관리 › 에너지 설정 한전 요금표 값이며, 민감도 분석에서 0%(동결) / 입력값 시나리오 제공',
+      '입력값(기본 2.5%/yr)을 1년차부터 누적 적용. 한전 단가는 관리 › 에너지 설정 한전 요금표 값이며, 민감도 분석에서 0%(동결) / 입력값 ±1%p / 실적 CAGR(관리 › 에너지 설정 연도별 한전 요금표 평균의 연평균 상승률) 시나리오 제공',
     ],
     [
       '모듈 열화율',
@@ -968,6 +1004,10 @@ function Assumptions({ adj, co2f }: { adj: TariffAdj; co2f: number }) {
     [
       'PPA 단가',
       '20년 계약기간 한 단가(입력한 PPA 단가, 기본 150원/kWh)를 적용하고, PPA 단가 상승률은 1년차부터 누적 적용',
+    ],
+    [
+      '가동일',
+      'PPA 는 쉬는 날(주말 · 공휴일, 관리 › 에너지 설정) 인버터를 OFF — 그날 만든 전기는 PPA 로 팔 곳이 없다. 달마다 가동일 ÷ 일수만큼만 발전한다고 본다(공휴일은 한국천문연구원 특일 정보). 자가소비는 365일',
     ],
     [
       '자가소비 처리',

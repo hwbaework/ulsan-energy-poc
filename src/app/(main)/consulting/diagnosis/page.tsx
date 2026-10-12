@@ -15,8 +15,9 @@ import { SimInputPanel } from '@/components/features/consulting/SimInputPanel';
 import { recordOf } from '@/components/features/consulting/SimDiagnosisView';
 import { SimReport, type ReviewRecord } from '@/components/features/consulting/SimReport';
 import { ReviewHistoryList } from '@/components/features/consulting/ReviewHistoryList';
-import { CLIMATE_CHG, FUEL_ADJ, calc, defaultSimInput, type SimInput } from '@/lib/solar-sim';
-import { energyNum, useEnergySettings, useKepcoTariff } from '@/hooks/common/useSettings';
+import { CLIMATE_CHG, FUEL_ADJ, calc, latestTable, defaultSimInput, type SimInput } from '@/lib/solar-sim';
+import { energyNum, useEnergySettings, useHolidays, useKepcoTariff } from '@/hooks/common/useSettings';
+import { holidayMap, opRatios, opRuleOf, opYear } from '@/lib/op-calendar';
 import { cn } from '@/lib/utils';
 import type { Diagnosis } from '@/types/consultation';
 import { getPersona } from '@/lib/persona';
@@ -64,19 +65,24 @@ export default function DiagnosisPage() {
   // 검토서에는 이 값이 함께 남아, 나중에 설정이 바뀌어도 저장된 검토서 숫자는 그대로
   const { data: energySettings } = useEnergySettings();
   const { data: kepcoTable } = useKepcoTariff();
+  // PPA 가동일 — 금년 달력 · 공휴일(특일 정보) · 에너지 설정 쉬는 날 규칙
+  const opYearNo = new Date().getFullYear();
+  const { data: holidays } = useHolidays(opYearNo);
   const seeded = useRef(false);
   useEffect(() => {
-    if (seeded.current || !energySettings || !kepcoTable) return;
+    if (seeded.current || !energySettings || !kepcoTable || !holidays) return;
     seeded.current = true;
+    const yr = opYear(opYearNo, holidayMap(holidays), opRuleOf(energySettings));
     setF((p) => ({
       ...p,
       co2f: energyNum(energySettings, 'CO2_EMISSION_FACTOR', p.co2f),
       climateChg: energyNum(energySettings, 'CLIMATE_CHG', p.climateChg ?? CLIMATE_CHG),
       fuelAdj: energyNum(energySettings, 'FUEL_ADJ', p.fuelAdj ?? FUEL_ADJ),
       // 자가소비 설치단가 — 관리 › 에너지 설정(무료진단 화면엔 칸이 없다)
-      tariff: kepcoTable,
+      tariff: latestTable(kepcoTable),
+      ppa: { ...p.ppa, op: opRatios(yr), opDays: yr.op, opYear: opYearNo },
     }));
-  }, [energySettings, kepcoTable]);
+  }, [energySettings, kepcoTable, holidays, opYearNo]);
   const [view, setView] = useState<View>({ kind: 'input' });
   const [saving, setSaving] = useState(false);
 

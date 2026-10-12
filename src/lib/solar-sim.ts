@@ -126,6 +126,55 @@ export function cleanTable(t: unknown): TariffTable {
   const label = typeof src.label === 'string' && src.label.trim() ? src.label.slice(0, 40) : d.label;
   return { label, share, '1': row(src['1'], d['1']), '2': row(src['2'], d['2']) };
 }
+/** 연도별 한전 요금표 — 관리 › 에너지 설정. 해마다 그 해 마지막 고시 하나. 시뮬레이션은 가장 최근 해 요금표를 쓰고,
+ *  해마다 평균 전력량요금 → 전년 대비 · 연평균 상승률(CAGR) 은 자동 계산 */
+export type TariffYearTable = TariffTable & { year: number };
+const SEASON_MONTH_N = [3, 5, 4]; // 여름 6~8 · 봄가을 3~5 9~10 · 겨울 11~2
+/** 요금표 평균 전력량요금(원/kWh) — 시간대 비중 × 계절 월수 가중. 기본요금 · 가산 요금 제외 */
+export function tableAvg(t: TariffTable, plan: Plan) {
+  return [0, 1, 2].reduce((a, k) => {
+    const s = t.share[k]!;
+    const r = t[plan];
+    return a + (SEASON_MONTH_N[k]! / 12) * (r.light[k]! * s.light + r.mid[k]! * s.mid + r.peak[k]! * s.peak);
+  }, 0);
+}
+/** 연도별 평균 · 연평균 상승률 — 연도 2개 미만이면 null */
+export function bookCagr(book: TariffYearTable[] | undefined, plan: Plan): { rate: number; from: TariffYear; to: TariffYear } | null {
+  return cagrOf((book ?? []).map((t) => ({ year: t.year, price: tableAvg(t, plan) })));
+}
+/** 가장 최근 해 요금표 */
+export const latestTable = (book: TariffYearTable[] | undefined): TariffYearTable | undefined =>
+  [...(book ?? [])].sort((a, b) => b.year - a.year)[0];
+// 시드 — 산업용(을) 고압A 선택Ⅰ · Ⅱ, 해마다 그 해 마지막 시행 요금표(한전 전기요금표 · 물가정보 공공요금 거래가격 원문 대조)
+//  2019 · 2020: 2013-11-21 시행(변동 없음) · 2021: 2021-01-01 · 2022: 2022-10-01 · 2023: 2023-11-09 · 2024 · 2025: 2024-10-24(2025-04-01 원문 같음)
+//  [기본요금, 경부하 여름·봄가을·겨울, 중간부하, 최대부하]
+type RawRow = [number, number[], number[], number[]];
+const RAW_BOOK: [number, RawRow, RawRow][] = [
+  [2019, [7220, [61.6, 61.6, 68.6], [114.5, 84.1, 114.7], [196.6, 114.8, 172.2]], [8320, [56.1, 56.1, 63.1], [109.0, 78.6, 109.2], [191.1, 109.3, 166.7]]],
+  [2020, [7220, [61.6, 61.6, 68.6], [114.5, 84.1, 114.7], [196.6, 114.8, 172.2]], [8320, [56.1, 56.1, 63.1], [109.0, 78.6, 109.2], [191.1, 109.3, 166.7]]],
+  [2021, [7220, [56.6, 56.6, 63.6], [109.5, 79.1, 109.7], [191.6, 109.8, 167.2]], [8320, [51.1, 51.1, 58.1], [104.0, 73.6, 104.2], [186.1, 104.3, 161.7]]],
+  [2022, [7220, [73.4, 73.4, 80.4], [126.3, 95.9, 126.5], [208.4, 126.6, 184.0]], [8320, [67.9, 67.9, 74.9], [120.8, 90.4, 121.0], [202.9, 121.1, 178.5]]],
+  [2023, [7220, [99.5, 99.5, 106.5], [152.4, 122.0, 152.6], [234.5, 152.7, 210.1]], [8320, [94.0, 94.0, 101.0], [146.9, 116.5, 147.1], [229.0, 147.2, 204.6]]],
+];
+const rowOf = ([base, light, mid, peak]: RawRow): TariffRow => ({ base, light, mid, peak });
+export const TARIFF_BOOK_SEED: TariffYearTable[] = [
+  ...RAW_BOOK.map(([year, a, b]) => ({ label: String(year), share: TARIFF_TABLE_SEED.share.map((x) => ({ ...x })), '1': rowOf(a), '2': rowOf(b), year })),
+  { ...TARIFF_TABLE_SEED, year: 2024, label: '2024' },
+  { ...TARIFF_TABLE_SEED, year: 2025, label: '2025' },
+];
+/** 저장된 연도별 요금표가 깨졌으면 시드로 — 연도 중복 · 범위 밖은 뺀다 */
+export function cleanBook(raw: unknown): TariffYearTable[] {
+  if (!Array.isArray(raw)) return TARIFF_BOOK_SEED.map((t) => structuredClone(t));
+  const seen = new Set<number>();
+  const out: TariffYearTable[] = [];
+  for (const r of raw as Partial<TariffYearTable>[]) {
+    const y = Number(r?.year);
+    if (!Number.isInteger(y) || y < TARIFF_YEAR_LIM.year[0] || y > TARIFF_YEAR_LIM.year[1] || seen.has(y)) continue;
+    seen.add(y);
+    out.push({ ...cleanTable(r), year: y, label: String(y) });
+  }
+  return out.length ? out.sort((a, b) => a.year - b.year) : TARIFF_BOOK_SEED.map((t) => structuredClone(t));
+}
 /** 검토에 쓸 요금표 — 검토 시점에 남긴 요금표, 없으면 그 기록의 요금 기준 원본 값 */
 export const tableOf = (i: { tariff?: TariffTable }, ver: TariffVer): TariffTable => (i.tariff ? cleanTable(i.tariff) : legacyTable(ver));
 
@@ -163,7 +212,8 @@ export interface SimInput {
   // capexUnit·extraCost·om: 예전 기록에는 없을 수 있다 → 기본값
   self: { cap: number; ctr: number; usage: number; plan: Plan; ver: TariffVer; esc: number; peakR: number; capexUnit?: number; extraCost?: number; om?: number; govRate?: number };
   // OnSite PPA
-  ppa: { cap: number; plan: Plan; ver: TariffVer; esc: number; peakR: number; b1: number; b2: number; segs: [PpaSegInput, PpaSegInput, PpaSegInput]; ppaEsc: number };
+  // op: 달마다 가동 비율(가동일 ÷ 일수) — 쉬는 날 인버터 OFF(관리 › 에너지 설정). opDays · opYear: 연간 가동일 · 기준 해. 예전 기록엔 없음 → 365일
+  ppa: { cap: number; plan: Plan; ver: TariffVer; esc: number; peakR: number; b1: number; b2: number; segs: [PpaSegInput, PpaSegInput, PpaSegInput]; ppaEsc: number; op?: number[]; opDays?: number; opYear?: number };
 }
 
 export function defaultSimInput(site = '', address = ''): SimInput {
@@ -304,7 +354,7 @@ export interface SelfResult {
 }
 export interface PpaResult {
   mode: 'ppa'; cap: number; plan: Plan; ver: TariffVer; esc: number; degR: number; baseSaveM: number; segs: PpaSeg[]; ppaEsc: number; ets: boolean; kau: number; co2f: number; adj: TariffAdj; table: TariffTable;
-  mg: number[]; mrows: { su: number; kepco: number; ppaCost: number }[]; annualGen1: number; years: PpaYear[]; cumSaveD: number; cumGen: number; cumCo2: number; cumCarbon: number; cumT: number;
+  mg: number[]; mrows: { su: number; kepco: number; ppaCost: number }[]; annualGen1: number; opDays: number; years: PpaYear[]; cumSaveD: number; cumGen: number; cumCo2: number; cumCarbon: number; cumT: number;
   saveD1: number; avgSu: number; avgPu: number; avgKu: number; firstFixed: PpaYear | null; sumKep: number; sumPpa: number;
 }
 export type SimResult = SelfResult | PpaResult;
@@ -370,7 +420,8 @@ export function calc(i: SimInput, escOv?: number): SimResult {
   const esc = escOv !== undefined ? escOv : i.ppa.esc / 100;
   const peakR = i.ppa.peakR / 100;
   const base = table[plan].base;
-  const mg = monthlyGen(cap, avgH);
+  // 쉬는 날은 인버터 OFF — 그 달 가동 비율만큼만 발전
+  const mg = monthlyGen(cap, avgH).map((g, m) => g * (i.ppa.op?.[m] ?? 1));
   const annualGen1 = mg.reduce((a, b) => a + b, 0);
   const baseSaveM = base * cap * peakR * (1 + FUND);
   const u1 = ppaUnitForYear(segOf(segs, 1), 1, ppaEsc);
@@ -404,7 +455,7 @@ export function calc(i: SimInput, escOv?: number): SimResult {
   }
   const avgSu = annualGen1 ? mrows.reduce((a, r) => a + r.kepco, 0) / annualGen1 : 0;
   return {
-    mode: 'ppa', cap, plan, ver, esc, degR, baseSaveM, segs, ppaEsc, ets, kau, co2f, adj, table, mg, mrows, annualGen1, years, cumSaveD, cumGen, cumCo2, cumCarbon, cumT,
+    mode: 'ppa', cap, plan, ver, esc, degR, baseSaveM, segs, ppaEsc, ets, kau, co2f, adj, table, mg, mrows, annualGen1, opDays: i.ppa.opDays ?? 365, years, cumSaveD, cumGen, cumCo2, cumCarbon, cumT,
     saveD1: years[0]!.saveD, avgSu, avgPu: cumGen ? sumPpa / cumGen : 0, avgKu: cumGen ? sumKep / cumGen : 0, firstFixed: years.find((r) => !r.linked) ?? null, sumKep, sumPpa,
   };
 }
@@ -427,12 +478,14 @@ export function hiddenDefaultsOf(i: SimInput): [string, string, string][] {
     ['월별 발전 배분', '월별 일조시간 표로 1년 발전량을 달마다 나눔', '고정 (원본 시뮬레이터)'],
     ['전기 사용량', '발전량 전부를 기업이 직접 쓴다고 봄(사용량 입력 없음)', '고정'],
     ['계약 · 분석 기간', '20년', '고정'],
+    ['한전요금 실적 CAGR 시나리오', '연도별 한전 요금표 평균 전력량요금의 연평균 상승률', '관리 › 에너지 설정 한전 요금표 (자동)'],
   ];
   if (self) {
     return [
       ['요금제 · 요금 기준', `${PLAN_LABEL[i.self.plan]} · ${t.label || VER_LABEL[ver]}`, '기본값'],
       ['기본요금 (kW당)', `${t[i.self.plan].base.toLocaleString('ko-KR')} 원`, '요금표'],
       ['기본요금 피크감축 반영률', `${i.self.peakR}%`, '기본값'],
+      ['가동일', '365일 (자가소비는 쉬는 날에도 가동)', '고정'],
       ...common,
     ];
   }
@@ -440,19 +493,43 @@ export function hiddenDefaultsOf(i: SimInput): [string, string, string][] {
     ['비교 요금제 · 요금 기준', `${PLAN_LABEL[i.ppa.plan]} · ${t.label || VER_LABEL[ver]}`, '기본값'],
     ['기본요금 (kW당)', `${t[i.ppa.plan].base.toLocaleString('ko-KR')} 원`, '요금표'],
     ['기본요금 피크감축 반영률', `${i.ppa.peakR}%`, '기본값'],
+    ['가동일 (쉬는 날 인버터 OFF)', i.ppa.opDays ? `${i.ppa.opDays}일 / ${i.ppa.opYear && i.ppa.opYear % 4 === 0 ? 366 : 365}일 (${i.ppa.opYear}년 달력)` : '365일', '관리 › 에너지 설정'],
     ...common,
   ];
 }
 
 export const escInput = (i: SimInput) => (i.mode === 'self' ? i.self.esc : i.ppa.esc) / 100;
 export const SCEN_COLOR = ['#94a3b8', '#3b82f6', '#10b981'];
-/** 한전요금 시나리오 — 동결 0% / 입력값. 단가는 관리 › 에너지 설정 한전 요금표 */
-export function scenarios(i: SimInput) {
+/** 한전요금 시나리오 — 동결 0% / 입력값 / 실적 CAGR(관리 › 에너지 설정 연도별 한전 요금표에서 자동 계산) */
+export function scenarios(i: SimInput, cagr = CAGR) {
   const e = escInput(i);
   return [
     { e: 0, name: '한전요금 동결 (0%)', R: calc(i, 0) },
     { e, name: `상승분 반영 · 입력값 (${(e * 100).toFixed(1)}%)`, R: calc(i, e) },
+    { e: cagr, name: `실적 CAGR (${(cagr * 100).toFixed(2)}%)`, R: calc(i, cagr) },
   ];
+}
+/** 민감도 — 입력값 위아래 1%p */
+export const SENS_STEP = 0.01;
+export const SENS_COLOR = ['#94a3b8', '#f59e0b', '#2563eb', '#7c3aed', '#10b981'];
+/** 민감도 시나리오 — 동결 · 입력값 −1%p · 입력값 · 입력값 +1%p · 실적 CAGR */
+export function sensitivity(i: SimInput, cagr = CAGR) {
+  const e = escInput(i);
+  const p = (v: number) => `${(v * 100).toFixed(1)}%`;
+  const lo = Math.max(0, e - SENS_STEP);
+  return [
+    { input: false, e: 0, name: '한전요금 동결 (0%)', R: calc(i, 0) },
+    { input: false, e: lo, name: `입력값 −1%p (${p(lo)})`, R: calc(i, lo) },
+    { input: true, e, name: `입력값 (${p(e)})`, R: calc(i, e) },
+    { input: false, e: e + SENS_STEP, name: `입력값 +1%p (${p(e + SENS_STEP)})`, R: calc(i, e + SENS_STEP) },
+    { input: false, e: cagr, name: `실적 CAGR (${(cagr * 100).toFixed(2)}%)`, R: calc(i, cagr) },
+  ];
+}
+/** k 년차까지 누적 절감(원) — 자가소비 = 절감액, PPA = 전기요금(할당대상업체면 배출권 합산) */
+export function cumSaveAt(R: SimResult, k: number) {
+  if (R.mode === 'self') return R.years.slice(0, k).reduce((a, y) => a + y.save, 0);
+  const y = R.years[k - 1]!;
+  return R.ets ? y.cumT : y.cumD;
 }
 
 /** 선택 연차의 월별 상세 */

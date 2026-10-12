@@ -10,7 +10,8 @@ import type { MonitoringConsumer, PlantContractKind, PlantAnomalySummary } from 
 import type { PowerStation } from '@/types/power-station';
 import type { ConsumerSite } from '@/types/consumer';
 import type { MarketPrice } from '@/types/trading';
-import { TARIFF_TABLE_SEED, TARIFF_YEAR_SEED, cleanTable, type TariffTable, type TariffYear } from '@/lib/solar-sim';
+import { HOLIDAYS_SEED, type Holiday } from '@/lib/op-calendar';
+import { TARIFF_YEAR_SEED, cleanBook, type TariffYear, type TariffYearTable } from '@/lib/solar-sim';
 import './adminFixtures'; // 관리(ADMIN) 축 목업
 import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
 
@@ -277,6 +278,8 @@ let ENERGY: Record<string, string> = {
   CO2_FACTOR_YEAR: '2023', // 배출계수 기준 연도
   CO2_FACTOR_PUBLISHED: '2025-12-17', // 기후에너지환경부 공표일
   CLIMATE_CHG: '9.0', // ₩/kWh — 기후환경요금
+  PPA_WEEKEND_OFF: '1', // 무료진단 PPA — 주말 인버터 OFF
+  PPA_HOLIDAY_OFF: '1', // 무료진단 PPA — 공휴일 인버터 OFF
   FUEL_ADJ: '5.0', // ₩/kWh — 연료비조정요금 (2026 3분기)
   KEPCO_UNIT_PRICE: '152.3', // ₩/kWh — 한전 산업용 단가. 자가소비 절감액 = 발전량 × 이 값
   PPA_UNIT_PRICE: '138.0', // ₩/kWh — 온사이트 PPA 계약 단가. PPA 요금 = 발전량 × 이 값
@@ -323,20 +326,44 @@ registerMock(/^\/settings\/public\/industrial-tariff$/, ({ body }) => {
   return TARIFF_YEARS;
 }, 'PUT');
 
-// 한전 요금표 — 관리 › 에너지 설정. 새로고침해도 남게 브라우저에 저장 (POC)
-const KEPCO_KEY = 'ulsan-kepco-tariff-v3'; // v3 — 경부하 추가 · 시간대 비중 = 경부하 10h · 최대 2h · 중간 12h
-let KEPCO_TABLE: TariffTable = cleanTable(TARIFF_TABLE_SEED);
+// 연도별 한전 요금표 — 관리 › 에너지 설정. 새로고침해도 남게 브라우저에 저장 (POC)
+const KEPCO_KEY = 'ulsan-kepco-tariff-v5'; // v5 — 2019~2025 원문 요금표 · v4 — 연도별(이름 없음) · 경부하 · 시간대 경부하 10h · 최대 2h · 중간 12h
+let KEPCO_TABLE: TariffYearTable[] = cleanBook(null);
 if (typeof window !== 'undefined') {
   try {
     const saved = JSON.parse(window.localStorage.getItem(KEPCO_KEY) ?? 'null');
-    if (saved) KEPCO_TABLE = cleanTable(saved);
+    if (saved) KEPCO_TABLE = cleanBook(saved);
   } catch {
     /* 저장본이 깨졌으면 원본 값으로 시작 */
   }
 }
 registerMock(/^\/settings\/public\/kepco-tariff$/, () => KEPCO_TABLE, 'GET');
+// 공휴일 — 특일 정보 API 응답을 날짜 · 이름으로(목업은 받아 둔 해만). 사람이 더하고 뺀 목록은 브라우저에 저장
+const HOLIDAY_KEY = 'ulsan-holidays-v1';
+let HOLIDAYS: Record<number, Holiday[]> = {};
+if (typeof window !== 'undefined') {
+  try {
+    HOLIDAYS = JSON.parse(window.localStorage.getItem(HOLIDAY_KEY) ?? '{}') ?? {};
+  } catch {
+    /* 깨졌으면 API 값으로 */
+  }
+}
+registerMock(/^\/settings\/public\/holidays$/, ({ query }) => HOLIDAYS[Number(query.get('year'))] ?? HOLIDAYS_SEED[Number(query.get('year'))] ?? [], 'GET');
+registerMock(/^\/settings\/public\/holidays$/, ({ query, body }) => {
+  const y = Number(query.get('year'));
+  const list = (Array.isArray(body) ? (body as Holiday[]) : [])
+    .filter((h) => typeof h?.date === 'string' && h.date.startsWith(`${y}-`) && typeof h?.name === 'string')
+    .sort((a, b) => a.date.localeCompare(b.date));
+  HOLIDAYS = { ...HOLIDAYS, [y]: list };
+  try {
+    window.localStorage.setItem(HOLIDAY_KEY, JSON.stringify(HOLIDAYS));
+  } catch {
+    /* 저장 실패는 무시 — 메모리에는 남는다 */
+  }
+  return list;
+}, 'PUT');
 registerMock(/^\/settings\/public\/kepco-tariff$/, ({ body }) => {
-  KEPCO_TABLE = cleanTable(body);
+  KEPCO_TABLE = cleanBook(body);
   try {
     window.localStorage.setItem(KEPCO_KEY, JSON.stringify(KEPCO_TABLE));
   } catch {

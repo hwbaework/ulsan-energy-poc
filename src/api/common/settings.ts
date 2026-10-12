@@ -1,7 +1,8 @@
 import { getApiClient } from '@/api/client';
 import { ENDPOINTS } from '@/api/endpoints';
 import type { SystemSetting } from '@/types';
-import type { TariffTable, TariffYear } from '@/lib/solar-sim';
+import type { TariffYear, TariffYearTable } from '@/lib/solar-sim';
+import type { Holiday } from '@/lib/op-calendar';
 
 export async function getSettings(): Promise<SystemSetting[]> {
   return getApiClient().get(ENDPOINTS.systemSettings.list);
@@ -33,11 +34,21 @@ export async function saveIndustrialTariff(rows: TariffYear[]): Promise<TariffYe
   return getApiClient().put(ENDPOINTS.systemSettings.industrialTariff, rows);
 }
 
-/** 한전 요금표 — 무료진단 태양광 대체단가 · 기본요금 절감 */
-export async function getKepcoTariff(): Promise<TariffTable> {
+/** 연도별 한전 요금표 — 최근 해 = 무료진단 태양광 대체단가 · 기본요금 절감, 연도별 평균 = 실적 CAGR */
+export async function getKepcoTariff(): Promise<TariffYearTable[]> {
   return getApiClient().get(ENDPOINTS.systemSettings.kepcoTariff);
 }
 
-export async function saveKepcoTariff(table: TariffTable): Promise<TariffTable> {
+export async function saveKepcoTariff(table: TariffYearTable[]): Promise<TariffYearTable[]> {
   return getApiClient().put(ENDPOINTS.systemSettings.kepcoTariff, table);
+}
+
+/** 공휴일 — 특일 정보(한국천문연구원) 그 해 목록 */
+export async function getHolidays(year: number): Promise<Holiday[]> {
+  return getApiClient().get(ENDPOINTS.systemSettings.holidays, { year });
+}
+
+/** 공휴일 저장 — API 로 받은 목록에 사람이 더하고 뺀 결과(임시공휴일 · 취소) */
+export async function saveHolidays(year: number, list: Holiday[]): Promise<Holiday[]> {
+  return getApiClient().put(`${ENDPOINTS.systemSettings.holidays}?year=${year}`, list);
 }
