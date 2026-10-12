@@ -302,7 +302,7 @@ const GNB_ITEMS: GnbItem[] = [
         { to: '/platform/approvals', icon: ClipboardCheck, label: '승인 관리', section: '운영' }, // 4.3.1
         { to: '/platform/trading-approvals', icon: ShieldCheck, label: '거래 승인', section: '운영' }, // 4.3.2
         { to: '/platform/notification-settings', icon: Bell, label: '알림 설정', section: '시스템' }, // 4.4.1
-        { to: '/platform/energy-settings', icon: Calculator, label: '에너지 설정', section: '시스템' }, // 산업용 평균판매단가 → 무료진단 실적 CAGR
+        { to: '/platform/energy-settings', icon: Calculator, label: '에너지 설정', section: '시스템' }, // 한전 요금표 · 배출계수 → 무료진단
     ],
   },
 ];

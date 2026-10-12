@@ -12,10 +12,10 @@ export function ReviewHistoryList({ history, selectedId, onPick, onDelete }: { h
   return (
     <div className="rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] lg:sticky lg:top-[116px]">
       <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
-        <p className="text-base font-semibold text-white">검토 기록</p>
+        <p className="text-base font-semibold text-white">시뮬레이션 기록</p>
       </div>
       {history.length === 0 ? (
-        <p className="px-5 py-6 text-sm text-slate-500">아직 검토 기록 없음</p>
+        <p className="px-5 py-6 text-sm text-slate-500">아직 시뮬레이션 기록 없음</p>
       ) : (
         <ul className="max-h-[calc(100vh-200px)] divide-y divide-white/[0.04] overflow-y-auto">
           {history.map((d) => {

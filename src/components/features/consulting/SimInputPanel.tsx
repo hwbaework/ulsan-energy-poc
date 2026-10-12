@@ -3,14 +3,14 @@
 import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { ChevronDown } from 'lucide-react';
-import { ADDRESS_MAX, F, LIM, NAME_MAX, SELF_CAPEX_UNIT, hiddenDefaultsOf, type SimInput } from '@/lib/solar-sim';
+import { ADDRESS_MAX, LIM, NAME_MAX, hiddenDefaultsOf, type SimInput } from '@/lib/solar-sim';
 
 /**
  * 무료진단 입력 화면 — 울산미포산단 태양광 사업성 시뮬레이터 v1.1 입력값. 한 장의 페이지 안에서
- * 칸은 '이름 위 · 값 아래'. 검토 방식 · [사업 검토] 버튼까지 한 장 안에(footer).
+ * 칸은 '이름 위 · 값 아래'. 방식 · [시뮬레이션] 버튼까지 한 장 안에(footer).
  * 기업명·기업 주소는 로그인(가입) 값으로 고정(입력 없음) — 관리자만 companyEdit 로 기존 기업 선택 또는 직접 입력.
  * 입력은 꼭 필요한 것만(2026-10-12): 지붕 면적 · 기존 설비 · 계약전력 · 요금제 · 피크감축 · PPA 구간은 받지 않고 기본값으로 계산한다.
- *  - 자가소비: 희망 태양광 설치용량 · 월평균 전기사용량 · 전기요금 상승률 (설치단가 · 추가 시공비는 기본값 — 총사업비는 그걸로 계산)
+ *  - 자가소비: 희망 태양광 설치용량 · 전기요금 상승률 (발전량은 전부 직접 쓴다고 본다) (설치단가 · 추가 시공비는 기본값 — 총사업비는 그걸로 계산)
  *  - PPA: 희망 태양광 설치용량 · 한전요금 상승률 · PPA 단가 상승률 · PPA 단가(20년 한 단가)
  */
 
@@ -100,7 +100,7 @@ export function SimInputPanel({
   onChange: (next: SimInput) => void;
   companyName: string;
   facilitySource?: string;
-  footer?: ReactNode; // 한 장 맨 아래(여백 안) — [사업 검토]
+  footer?: ReactNode; // 한 장 맨 아래(여백 안) — [시뮬레이션]
   /** 관리자만 — 기존 기업을 고르면 기업명·기업 주소 고정, 신규 기업 등록이면 직접 입력. 없으면 로그인(가입) 값 고정 */
   companyEdit?: {
     options: { value: string; label: string }[];
@@ -219,17 +219,10 @@ export function SimInputPanel({
                 <Field label="희망 태양광 설치용량" hl>
                   <Num lim={LIM.cap} value={f.self.cap} onChange={(v) => setSelf({ cap: v })} unit="kW" />
                 </Field>
-                <Field label="월평균 전기사용량">
-                  <Num lim={LIM.usage} value={f.self.usage} onChange={(v) => setSelf({ usage: v })} unit="kWh" />
-                </Field>
                 <Field label="전기요금 상승률">
                   <Num lim={LIM.esc} value={f.self.esc} dec={1} onChange={(v) => setSelf({ esc: v })} unit="%/yr" />
                 </Field>
               </div>
-              <p className="mt-3 text-xs text-slate-400">
-                ※ 설치단가는 견적 전이라 평균 추정치({F(f.self.capexUnit ?? SELF_CAPEX_UNIT)}원/kW)를 보수적으로 적용했기 때문에 정확한 값은
-                아닙니다.
-              </p>
             </Sec>
           </Line>
         ) : (

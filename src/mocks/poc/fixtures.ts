@@ -276,7 +276,6 @@ let ENERGY: Record<string, string> = {
   CO2_EMISSION_FACTOR: String(ELEC_FACTOR), // tCO₂/MWh — 국가 전력배출계수
   CO2_FACTOR_YEAR: '2023', // 배출계수 기준 연도
   CO2_FACTOR_PUBLISHED: '2025-12-17', // 기후에너지환경부 공표일
-  SELF_CAPEX_UNIT: '1500000', // ₩/kW — 무료진단 자가소비 설치단가(평균 추정치를 보수적으로 잡은 값)
   CLIMATE_CHG: '9.0', // ₩/kWh — 기후환경요금
   FUEL_ADJ: '5.0', // ₩/kWh — 연료비조정요금 (2026 3분기)
   KEPCO_UNIT_PRICE: '152.3', // ₩/kWh — 한전 산업용 단가. 자가소비 절감액 = 발전량 × 이 값
@@ -325,7 +324,7 @@ registerMock(/^\/settings\/public\/industrial-tariff$/, ({ body }) => {
 }, 'PUT');
 
 // 한전 요금표 — 관리 › 에너지 설정. 새로고침해도 남게 브라우저에 저장 (POC)
-const KEPCO_KEY = 'ulsan-kepco-tariff-v2'; // v2 — 요금표 하나(요금 기준 2개 → 1개)
+const KEPCO_KEY = 'ulsan-kepco-tariff-v3'; // v3 — 경부하 추가 · 시간대 비중 = 경부하 10h · 최대 2h · 중간 12h
 let KEPCO_TABLE: TariffTable = cleanTable(TARIFF_TABLE_SEED);
 if (typeof window !== 'undefined') {
   try {

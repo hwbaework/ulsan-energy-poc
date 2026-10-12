@@ -21,16 +21,13 @@ import { cn } from '@/lib/utils';
 import { energyNum, useEnergySettings } from '@/hooks/common/useSettings';
 import { PINE_PER_TCO2, TOE_PER_MWH } from '@/lib/constants/env-benefit';
 import {
-  CAGR,
   EOK,
   F,
   F1,
   F2,
   MNAME,
   SCEN_COLOR,
-  TARIFF_YEAR_SEED,
   calc,
-  cagrOf,
   escInput,
   monthlyFor,
   saveUnit,
@@ -40,13 +37,11 @@ import {
   type SelfResult,
   type SimInput,
   type TariffAdj,
-  type TariffYear,
 } from '@/lib/solar-sim';
-import { useIndustrialTariff } from '@/hooks/common/useSettings';
 
 /**
  * 태양광 사업성 검토서 — 울산미포산단 태양광 사업성 시뮬레이터 v1.1 오른쪽 화면을 그대로 옮긴다(실무진 검토 값).
- * 순서: 시나리오 → KPI → 월별 발전량 · 누적(자가소비 J-Curve / PPA 누적 절감) → (PPA만) 연도별 적용단가 → 20년 종합 요약
+ * 순서: 시나리오 → KPI → 월별 발전량 · (PPA만) 누적 절감 → (PPA만) 연도별 적용단가 → 20년 종합 요약
  *      → 민감도 → 20년간 운영 분석 · 누적 효과(마무리) → 산정 기준(접어 둠). 시나리오별 최종 결과 비교 표는 쓰지 않는다
  * 적용 전기요금 단가 · 월별 상세 · 연도별 20년 종합 분석 표는 쓰지 않는다(사용자 지시 — 20년 운영 분석으로 마무리)
  * 원본과 다른 점(사용자 지시): 머리 아래는 작성일만, 맨 위 검토 입력값 기록, KPI 2칸, 그래프 위아래, 이모지·색 줄 없음,
@@ -230,18 +225,8 @@ export function SimReport({
   const [scen, setScen] = useState(1);
   const [mY, setMY] = useState(1);
   const [showBasis, setShowBasis] = useState(false); // 산정 기준 및 출처 — 참고용, 펼칠 때만
-  // 실적 CAGR — 관리 › 에너지 설정의 산업용 평균판매단가 표(첫해 → 마지막 해). 못 읽으면 기본값
-  const { data: tariffYears } = useIndustrialTariff();
-  const cg = useMemo(
-    () =>
-      cagrOf(tariffYears) ?? {
-        rate: CAGR,
-        from: TARIFF_YEAR_SEED[0]!,
-        to: TARIFF_YEAR_SEED[TARIFF_YEAR_SEED.length - 1]!,
-      },
-    [tariffYears],
-  );
-  const sc = useMemo(() => scenarios(input, cg.rate), [input, cg.rate]);
+  // 한전요금 시나리오 — 동결 / 입력값. 단가는 관리 › 에너지 설정 한전 요금표
+  const sc = useMemo(() => scenarios(input), [input]);
   const R = sc[scen]!.R;
   const self = R.mode === 'self';
   const written = (record?.at ?? new Date().toISOString()).slice(0, 10);
@@ -255,7 +240,7 @@ export function SimReport({
     if (!w) return;
     const styles = [...document.querySelectorAll('link[rel="stylesheet"], style')].map((el) => el.outerHTML).join('');
     w.document.write(
-      `<!doctype html><html><head><meta charset="utf-8"><title>${record?.no ?? companyName} 태양광 사업성 검토</title>${styles}<style>@page{size:A4;margin:10mm}body{background:#fff}[data-noprint]{display:none!important}</style></head><body>${html}</body></html>`,
+      `<!doctype html><html><head><meta charset="utf-8"><title>${record?.no ?? companyName} 태양광 시뮬레이션</title>${styles}<style>@page{size:A4;margin:10mm}body{background:#fff}[data-noprint]{display:none!important}</style></head><body>${html}</body></html>`,
     );
     w.document.close();
     setTimeout(() => w.print(), 600);
@@ -278,7 +263,7 @@ export function SimReport({
       <div className="flex items-end justify-between gap-4 border-b-2 border-slate-900 pb-3.5">
         <div>
           <h1 className="text-[22px] font-extrabold tracking-tight">
-            울산미포산단 태양광 사업성 검토
+            울산미포산단 태양광 시뮬레이션
             <span className="ml-2 rounded bg-blue-100 px-2 py-0.5 align-middle text-[11px] font-extrabold text-blue-700">
               {self ? '자가소비용' : 'PPA'}
             </span>
@@ -302,14 +287,9 @@ export function SimReport({
             const r = x.R;
             const res =
               r.mode === 'self'
-                ? `20년 절감 ${EOK(r.cumSave)}억 · 순현금 ${EOK(r.years[19]!.cum)}억`
+                ? `20년 절감 ${EOK(r.cumSave)}억`
                 : `20년 절감 ${EOK(r.ets ? r.cumT : r.cumSaveD)}억 · kWh당 ${F1(r.avgKu - r.avgPu)}원`;
-            const sub =
-              k === 0
-                ? '0%/yr · 최소 기대치'
-                : k === 1
-                  ? `${(escInput(input) * 100).toFixed(1)}%/yr · 입력값`
-                  : `${(cg.rate * 100).toFixed(2)}%/yr · ${cg.from.year}~${cg.to.year} 산업용 실적`;
+            const sub = k === 0 ? '0%/yr · 최소 기대치' : `${(escInput(input) * 100).toFixed(1)}%/yr · 입력값`;
             return (
               <button
                 key={k}
@@ -320,7 +300,7 @@ export function SimReport({
                   scen === k ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:bg-slate-200',
                 )}
               >
-                <span>{['한전요금 동결', '상승분 반영 (입력값)', '실적 CAGR 반영'][k]}</span>
+                <span>{['한전요금 동결', '상승분 반영 (입력값)'][k]}</span>
                 <small className={cn('text-[10.5px] font-semibold', scen === k ? 'text-blue-700' : 'text-slate-400')}>
                   {sub}
                 </small>
@@ -339,7 +319,7 @@ export function SimReport({
       </div>
 
       {/* KPI */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{self ? <SelfKpis R={R} /> : <PpaKpis R={R} />}</div>
+      <div className={cn('grid grid-cols-1 gap-3', self ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>{self ? <SelfKpis R={R} /> : <PpaKpis R={R} />}</div>
 
       {/* 월별 발전량 */}
       <Card
@@ -432,15 +412,15 @@ export function SimReport({
         )}
       </Card>
 
-      {/* 누적 — 자가소비: 투자 회수 곡선(J-Curve) / PPA: 수요자 20년 누적 절감액 */}
-      <CumChart R={R} />
+      {/* 누적 — PPA: 수요자 20년 누적 절감액. 자가소비는 설치단가를 쓰지 않아 투자 회수 곡선 없음 */}
+      {!self && <CumChart R={R} />}
 
       {/* PPA 에만 있는 그래프 */}
       {!self && <UnitCard R={R} />}
 
       {/* 20년 종합 요약 */}
       <Card title="20년 종합 요약 (Summary)">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <div className={cn('grid grid-cols-2 gap-3', self ? 'md:grid-cols-4' : 'md:grid-cols-3')}>
           {self ? <SelfSummary R={R} /> : <PpaSummary R={R} />}
         </div>
       </Card>
@@ -454,8 +434,13 @@ export function SimReport({
                 const o: Record<string, number | string> = { x: `${k + 1}년` };
                 sc.forEach((s, j) => {
                   const r = s.R;
+                  // 자가소비 = 절감액 누적(설치비 · O&M 은 설치단가를 안 쓰므로 빼지 않음)
                   o[`s${j}`] = Math.round(
-                    (r.mode === 'self' ? r.years[k]!.cum : r.ets ? r.years[k]!.cumT : r.years[k]!.cumD) / 1e6,
+                    (r.mode === 'self'
+                      ? r.years.slice(0, k + 1).reduce((a, y) => a + y.save, 0)
+                      : r.ets
+                        ? r.years[k]!.cumT
+                        : r.years[k]!.cumD) / 1e6,
                   );
                 });
                 return o;
@@ -513,11 +498,11 @@ export function SimReport({
             <p className="mb-3 text-[13px] font-bold tracking-wide text-slate-500">
               산정 기준 및 출처 (Logic Reference)
             </p>
-            <Assumptions cg={cg} years={tariffYears} adj={R.adj} co2f={R.co2f} />
+            <Assumptions adj={R.adj} co2f={R.co2f} />
           </div>
         )}
         <Note>
-          본 시뮬레이터는 초기 사업성 개략 검토(Pre-Feasibility)용으로 작성되었으며, 실제 사업 조건은 현장 실사·계통
+          본 시뮬레이터는 초기 개략 시뮬레이션(Pre-Feasibility)용으로 작성되었으며, 실제 사업 조건은 현장 실사·계통
           검토·계약 협의에 따라 달라질 수 있습니다. — RMS Platform 분산에너지사업부
         </Note>
       </div>
@@ -531,7 +516,7 @@ function InputRecord({ input: i, companyName }: { input: SimInput; companyName: 
   const items: [string, string][] = [
     ['기업명', i.site || companyName || '-'],
     ['기업 주소', i.address || '-'],
-    ['검토 방식', self ? '자가소비용' : 'PPA'],
+    ['방식', self ? '자가소비용' : 'PPA'],
     ['일평균 발전시간', `${i.avgH} h/일`],
     ['모듈 효율감소율', `${i.deg} %/yr`],
     ['배출권 시세 (KAU)', `${F(i.kau)} 원/t · 상승률 ${i.kauEsc} %/yr`],
@@ -540,7 +525,6 @@ function InputRecord({ input: i, companyName }: { input: SimInput; companyName: 
     ...(self
       ? ([
           ['희망 태양광 설치용량', `${F(i.self.cap)} kW`],
-          ['월평균 전기사용량', `${F(i.self.usage)} kWh`],
           ['전기요금 상승률', `${i.self.esc} %/yr`],
         ] as [string, string][])
       : ([
@@ -554,7 +538,7 @@ function InputRecord({ input: i, companyName }: { input: SimInput; companyName: 
   for (let k = 0; k < items.length; k += 2) pairs.push(items.slice(k, k + 2));
   const fac: SimInput['facilities'] = []; // 기존 설비는 입력에서 뺐다(2026-10-12)
   return (
-    <Card title="검토 입력값">
+    <Card title="입력값">
       <table className="w-full border-collapse text-xs">
         <tbody>
           {pairs.map((p, k) => (
@@ -622,7 +606,7 @@ function SelfKpis({ R }: { R: SelfResult }) {
         v={`${F1(R.annualGen1 / 1000)} MWh`}
         s={
           <>
-            일평균 발전시간 {F2(R.annualGen1 / R.cap / 365)}h · 자가소비율 {(R.selfRatio * 100).toFixed(1)}%
+            일평균 발전시간 {F2(R.annualGen1 / R.cap / 365)}h
           </>
         }
       />
@@ -630,23 +614,6 @@ function SelfKpis({ R }: { R: SelfResult }) {
         k="연간 절감액 (1차년)"
         v={`${EOK(R.save1)} 억원`}
         s={`전력량 ${F(R.eSave1 / 1e4)}만원 + 기본요금 ${F(R.bSave1 / 1e4)}만원${R.ets ? ` + 배출권 ${F(R.carbon1 / 1e4)}만원` : ''}`}
-      />
-      <Kpi
-        k="소비자 부담 / 회수기간"
-        v={`${EOK(R.consumer)} 억원`}
-        s={
-          <>
-            총사업비 {EOK(R.total)}억 = 국비 {EOK(R.gov)}억({R.govRate}%) + 자부담 {EOK(R.consumer)}억
-            <br />
-            {R.payback ? (
-              <>
-                투자 회수 약 <b className="text-slate-900">{R.payback}년차</b>
-              </>
-            ) : (
-              '20년 내 미회수'
-            )}
-          </>
-        }
       />
       <Kpi
         k="20년 누적 효과"
@@ -707,21 +674,15 @@ function PpaKpis({ R }: { R: PpaResult }) {
   );
 }
 
-/* ── 누적 그래프 — 자가소비: 투자 회수 곡선(J-Curve, 0년 투자 마이너스에서 시작), PPA: 수요자 20년 누적 절감액(투자 0원) ── */
-function CumChart({ R }: { R: SelfResult | PpaResult }) {
-  const self = R.mode === 'self';
-  const data = self
-    ? [
-        { x: '0년(투자)', a: Math.round(-R.consumer / 1e6) },
-        ...R.years.map((r) => ({ x: `${r.y}년`, a: Math.round(r.cum / 1e6) })),
-      ]
-    : R.years.map((r) => ({ x: `${r.y}년`, a: Math.round(r.cumD / 1e6), b: Math.round(r.cumT / 1e6) }));
+/* ── 누적 그래프 — PPA: 수요자 20년 누적 절감액(투자 0원) ── */
+function CumChart({ R }: { R: PpaResult }) {
+  const data = R.years.map((r) => ({ x: `${r.y}년`, a: Math.round(r.cumD / 1e6), b: Math.round(r.cumT / 1e6) }));
   const vals = data.map((d) => d.a);
   const max = Math.max(...vals, 0);
   const min = Math.min(...vals, 0);
   const zero = max === min ? 1 : max / (max - min); // 그라데이션에서 0 이 놓이는 위치 (위 초록 · 아래 빨강)
   return (
-    <Card title={self ? '투자 회수 곡선 (J-Curve, 백만원)' : '수요자 20년 누적 절감액 (백만원)'}>
+    <Card title="수요자 20년 누적 절감액 (백만원)">
       <div className="h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data as Record<string, number | string>[]}>
@@ -756,7 +717,7 @@ function CumChart({ R }: { R: SelfResult | PpaResult }) {
             />
             <Line
               dataKey="a"
-              name={self ? '누적 현금 (소비자 부담 차감)' : '누적 절감액 (전기요금)'}
+              name="누적 절감액 (전기요금)"
               stroke="#2563eb"
               strokeWidth={2.5}
               {...NO_ANIM}
@@ -764,7 +725,7 @@ function CumChart({ R }: { R: SelfResult | PpaResult }) {
                 <circle key={p.index} cx={p.cx} cy={p.cy} r={3} fill={(p.value ?? 0) >= 0 ? '#059669' : '#dc2626'} />
               )}
             />
-            {!self && R.ets && (
+            {R.ets && (
               <Line
                 dataKey="b"
                 name="누적 절감액 (배출권 합산)"
@@ -822,18 +783,12 @@ function UnitCard({ R }: { R: PpaResult }) {
 
 /* ── 20년 종합 요약 ── */
 function SelfSummary({ R }: { R: SelfResult }) {
-  const last = R.years[19]!;
   return (
     <>
-      {/* 보조 설명 줄 없이 — 꼭 필요한 조건은 칸 이름 괄호에. 6칸 높이가 같게 */}
+      {/* 보조 설명 줄 없이 — 꼭 필요한 조건은 칸 이름 괄호에. 설치단가로 나오는 소비자 부담 · 순현금은 없음 */}
       <SumItem k="20년 총 발전량" v={`${F(R.cumGen / 1000)} MWh`} />
       <SumItem k="20년 총 절감액" v={`${EOK(R.cumSave)} 억원`} />
-      <SumItem k="연평균 절감 (O&M 차감 전)" v={`${EOK(R.cumSave / 20)} 억원`} />
-      <SumItem
-        k={`소비자 부담 (${R.payback ? `${R.payback}년차 회수` : '20년 내 미회수'})`}
-        v={`${EOK(R.consumer)} 억원`}
-      />
-      <SumItem k="20년 순현금 (소비자 부담 차감)" v={`${EOK(last.cum)} 억원`} />
+      <SumItem k="연평균 절감" v={`${EOK(R.cumSave / 20)} 억원`} />
       <SumItem k="CO₂ 총감축" v={`${F(R.cumCo2)} t`} />
     </>
   );
@@ -927,17 +882,13 @@ function EffPanel({ R }: { R: SelfResult | PpaResult }) {
         {line('20년 총 발전량', `${F1(R.cumGen / 1000)} MWh`)}
         {R.mode === 'self' ? (
           <>
-            {line(`20년 총 절감액${R.ets ? ' (배출권 합산)' : ''}`, `${F(R.cumSave)} 원`)}
             {line(`배출권 가치 20년 (${F(R.kau)}원/t)${R.ets ? '' : ' — 참고'}`, `${F(R.cumCarbon)} 원`, {
               dim: !R.ets,
             })}
             <div className="my-2 h-px bg-slate-200" />
-            {line('총사업비 (설치 용량 × 설치단가)', `${F(R.total)} 원`)}
-            {line(`국비 지원 (설치비의 ${R.govRate}%)`, `${F(R.gov)} 원`)}
-            {line('소비자 부담 (총사업비 − 국비)', `${F(R.consumer)} 원`)}
             {line(
-              <b className="text-slate-900">20년 순수익 (소비자 부담·O&amp;M 차감)</b>,
-              `${F(R.years[19]!.cum)} 원`,
+              <b className="text-slate-900">20년 총 절감액{R.ets ? ' (배출권 합산)' : ''}</b>,
+              `${F(R.cumSave)} 원`,
               { hl: true },
             )}
           </>
@@ -984,22 +935,7 @@ function EffPanel({ R }: { R: SelfResult | PpaResult }) {
 }
 
 /* ── 산정 기준 및 출처 (원본 그대로, 날짜는 하이픈 양식) ── */
-function Assumptions({
-  cg,
-  years,
-  adj,
-  co2f,
-}: {
-  cg: { rate: number; from: TariffYear; to: TariffYear };
-  years?: TariffYear[];
-  adj: TariffAdj;
-  co2f: number;
-}) {
-  const pct = (cg.rate * 100).toFixed(2);
-  const list = [...(years?.length ? years : [cg.from, cg.to])]
-    .sort((a, b) => a.year - b.year)
-    .map((r) => `${r.year} ${F1(r.price)}`)
-    .join(' → ');
+function Assumptions({ adj, co2f }: { adj: TariffAdj; co2f: number }) {
   const rows: [string, string][] = [
     [
       '발전량 산식',
@@ -1011,11 +947,7 @@ function Assumptions({
     ],
     [
       '전기요금 상승률',
-      `산업용 평균판매단가 실적: ${list}원/kWh, ${cg.to.year - cg.from.year}년 연평균(CAGR) ${pct}% (한국전력통계·한전 결산 기준). 기본값 2.5%는 최근 급등이 연료비 정상화에 따른 일시적 구간임을 감안한 보수적 설정이며, 민감도 분석에서 0% / 2.5% / ${pct}%(실적 CAGR) 시나리오 제공`,
-    ],
-    [
-      'O&M 요율',
-      '국내 태양광 O&M 통상 MW당 연 1,000~1,500만원 수준 = 평균 CAPEX(158~164만원/kW, 에너지경제연구원 2025 실증) 대비 약 0.6~1.0%/년. 기본값 1.0%는 보수적 상단 적용',
+      '입력값(기본 2.5%/yr)을 1년차부터 누적 적용. 한전 단가는 관리 › 에너지 설정 한전 요금표 값이며, 민감도 분석에서 0%(동결) / 입력값 시나리오 제공',
     ],
     [
       '모듈 열화율',
@@ -1023,15 +955,11 @@ function Assumptions({
     ],
     [
       '절감단가 매칭',
-      '태양광 발전전력의 시간대 분포를 요금 시간대에 매칭 — 개편 후: 중간부하(08~15시) 70% + 최대부하(15~21시) 30% / 개편 전: 여름·봄가을 최대 52%·중간 48%, 겨울 최대 45%·중간 55% (평일 기준 단순화)',
+      '하루 24시간을 요금 시간대로 나눈 비중으로 단가를 가중평균 — 기본 경부하 10시간 · 최대부하 2시간 · 중간부하 12시간(관리 › 에너지 설정 한전 요금표)',
     ],
     [
       '기본요금 절감',
       '한전 기본요금은 요금적용전력(당월 및 직전 12개월 동·하계 최대수요전력 중 최댓값, 15분 단위 계량) 기준 부과 (한전 기본공급약관 제8장). 태양광은 피크 발생 시점의 출력을 보장하지 못하므로 「기본요금 단가 × 설치용량 × 피크감축 반영률(기본 30%)」로 보수적 반영 — 흐린 날 피크 발생 시 절감 축소 가능',
-    ],
-    [
-      '자가소비 사업구조',
-      `총사업비 = 설치용량 × 설치단가(관리 › 에너지 설정 값 — 견적 전 평균 추정치를 보수적으로 잡은 값, 기본 150만원/kW). 국비는 순수 설치비 × 국비 비율(기본 0% — 국비 지원 없음, 백만원 미만 절삭)만 지원 — 소비자 부담 = 총사업비 − 국비(국비 0%면 전액 기업 부담). O&M 은 총사업비 대비 연 요율(기본 1.0%). 회수기간·누적현금은 소비자 부담 기준.`,
     ],
     [
       'PPA 구조',
@@ -1043,7 +971,7 @@ function Assumptions({
     ],
     [
       '자가소비 처리',
-      '월 발전량이 월 사용량을 초과하는 잉여전력은 절감액 산정에서 제외(역송 정산 미반영, 보수적). 연속공정 사업장은 통상 전량 자가소비 가능',
+      '발전량 전부를 기업이 직접 쓴다고 본다(대상 사업장은 사용량이 발전량보다 훨씬 크다)',
     ],
     [
       '환경 편익',

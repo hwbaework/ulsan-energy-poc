@@ -29,9 +29,10 @@ export const TARIFF: Record<TariffVer, Record<Plan, { base: number; light: numbe
     '2': { base: 8320, light: [116.0, 116.0, 123.0], mid: [163.8, 133.4, 164.0], peak: [229.0, 150.9, 204.6] },
   },
 };
-const PVSHARE: Record<TariffVer, { mid: number; peak: number }[]> = {
-  new: [{ mid: 0.7, peak: 0.3 }, { mid: 0.7, peak: 0.3 }, { mid: 0.7, peak: 0.3 }],
-  old: [{ mid: 0.48, peak: 0.52 }, { mid: 0.48, peak: 0.52 }, { mid: 0.55, peak: 0.45 }],
+// 태양광 발전량이 떨어지는 시간대 비중 — 원본은 경부하(밤) 0 으로 본다
+const PVSHARE: Record<TariffVer, TariffShare[]> = {
+  new: [{ light: 0, mid: 0.7, peak: 0.3 }, { light: 0, mid: 0.7, peak: 0.3 }, { light: 0, mid: 0.7, peak: 0.3 }],
+  old: [{ light: 0, mid: 0.48, peak: 0.52 }, { light: 0, mid: 0.48, peak: 0.52 }, { light: 0, mid: 0.55, peak: 0.45 }],
 };
 export const CLIMATE_CHG = 9.0; // 원/kWh — 관리 › 에너지 설정 값이 없을 때 기본
 export const FUEL_ADJ = 5.0; // 원/kWh — 연료비조정요금(분기마다 바뀜). 관리 › 에너지 설정 값이 없을 때 기본
@@ -81,11 +82,12 @@ export function cagrOf(rows: TariffYear[] | undefined): { rate: number; from: Ta
 export const PLAN_LABEL: Record<Plan, string> = { '1': '고압A 선택Ⅰ', '2': '고압A 선택Ⅱ' };
 export const VER_LABEL: Record<TariffVer, string> = { old: '2025-04 확정단가 (고시)', new: '2026-04 개편 (참고·계산값)' };
 
-/** 한전 요금표 — 관리 › 시스템 › 에너지 설정에서 하나만 관리. 산업용(을) 고압A 선택Ⅰ·Ⅱ 기본요금 + 중간·최대부하 × 계절,
- *  태양광 발전 시간대 비중(중간·최대). 경부하(밤)는 태양광이 발전하지 않아 계산에 안 쓰므로 두지 않는다. 시드 = 원본 2025-04 확정단가 */
-export type TariffRow = { base: number; mid: number[]; peak: number[] };
-export type TariffTable = { label: string; share: { mid: number; peak: number }[] } & Record<Plan, TariffRow>;
-const legacyRow = (r: { base: number; mid: number[]; peak: number[] }): TariffRow => ({ base: r.base, mid: [...r.mid], peak: [...r.peak] });
+/** 한전 요금표 — 관리 › 시스템 › 에너지 설정에서 하나만 관리. 산업용(을) 고압A 선택Ⅰ·Ⅱ 기본요금 + 경부하·중간부하·최대부하 × 계절,
+ *  태양광 발전 시간대 비중(경부하 · 중간 · 최대). 시드 = 원본 2025-04 확정단가 */
+export type TariffRow = { base: number; light: number[]; mid: number[]; peak: number[] };
+export type TariffShare = { light: number; mid: number; peak: number };
+export type TariffTable = { label: string; share: TariffShare[] } & Record<Plan, TariffRow>;
+const legacyRow = (r: TariffRow): TariffRow => ({ base: r.base, light: [...r.light], mid: [...r.mid], peak: [...r.peak] });
 /** 예전 기록(요금표를 남기지 않은 검토서)은 그 기록의 요금 기준 원본 값으로 — 숫자가 바뀌지 않게 */
 const legacyTable = (ver: TariffVer): TariffTable => ({
   label: VER_LABEL[ver],
@@ -93,7 +95,10 @@ const legacyTable = (ver: TariffVer): TariffTable => ({
   '1': legacyRow(TARIFF[ver]['1']),
   '2': legacyRow(TARIFF[ver]['2']),
 });
-export const TARIFF_TABLE_SEED: TariffTable = legacyTable('old');
+/** 시간대 비중 기본 — 하루 24시간 중 경부하 10시간 · 최대부하 2시간 · 나머지 중간부하 12시간(2026-10-12 사용자) */
+export const SHARE_HOURS = { light: 10, peak: 2 } as const;
+export const shareOfHours = (light: number, peak: number): TariffShare => ({ light: light / 24, mid: (24 - light - peak) / 24, peak: peak / 24 });
+export const TARIFF_TABLE_SEED: TariffTable = { ...legacyTable('old'), share: [0, 1, 2].map(() => shareOfHours(SHARE_HOURS.light, SHARE_HOURS.peak)) };
 export const TARIFF_LIM = { base: [0, 100_000], unit: [0, 1_000], share: [0, 1] } as const;
 const clip = (v: unknown, [lo, hi]: readonly [number, number], fb: number) => {
   const n = Number(v);
@@ -104,10 +109,19 @@ export function cleanTable(t: unknown): TariffTable {
   const src = (t ?? {}) as Partial<TariffTable>;
   const d = TARIFF_TABLE_SEED;
   const arr = (a: unknown, da: number[]) => da.map((x, k) => clip((a as number[] | undefined)?.[k], TARIFF_LIM.unit, x));
-  const row = (r: Partial<TariffRow> | undefined, dr: TariffRow): TariffRow => ({ base: clip(r?.base, TARIFF_LIM.base, dr.base), mid: arr(r?.mid, dr.mid), peak: arr(r?.peak, dr.peak) });
+  const row = (r: Partial<TariffRow> | undefined, dr: TariffRow): TariffRow => ({
+    base: clip(r?.base, TARIFF_LIM.base, dr.base),
+    light: arr(r?.light, dr.light),
+    mid: arr(r?.mid, dr.mid),
+    peak: arr(r?.peak, dr.peak),
+  });
+  // 경부하 · 최대부하를 읽고 중간부하 = 나머지. 경부하가 없는 예전 저장값은 기본 시간(경부하 10 · 최대 2)
   const share = d.share.map((x, k) => {
-    const mid = clip(src.share?.[k]?.mid, TARIFF_LIM.share, x.mid);
-    return { mid, peak: Math.round((1 - mid) * 1000) / 1000 };
+    const sv = src.share?.[k];
+    if (sv?.light == null) return { ...x };
+    const light = clip(sv.light, TARIFF_LIM.share, x.light);
+    const peak = clip(sv.peak, [0, 1 - light], x.peak);
+    return { light, mid: 1 - light - peak, peak };
   });
   const label = typeof src.label === 'string' && src.label.trim() ? src.label.slice(0, 40) : d.label;
   return { label, share, '1': row(src['1'], d['1']), '2': row(src['2'], d['2']) };
@@ -166,7 +180,8 @@ export function defaultSimInput(site = '', address = ''): SimInput {
     kauEsc: 0,
     co2f: ELEC_FACTOR,
     ets: false,
-    self: { cap: 320, ctr: 10000, usage: 3_000_000, plan: '2', ver: 'old', esc: 2.5, peakR: 30, capexUnit: SELF_CAPEX_UNIT, extraCost: SELF_EXTRA_COST, om: SELF_OM, govRate: SELF_GOV_RATE },
+    // usage — 자가소비는 발전량을 전부 쓴다고 본다(2026-10-12). 원본 계산식 min(발전량, 사용량)은 그대로 두고 사용량을 입력 상한으로
+    self: { cap: 320, ctr: 10000, usage: 1_000_000_000, plan: '2', ver: 'old', esc: 2.5, peakR: 30, capexUnit: SELF_CAPEX_UNIT, extraCost: SELF_EXTRA_COST, om: SELF_OM, govRate: SELF_GOV_RATE },
     ppa: {
       cap: 1000,
       plan: '2',
@@ -227,7 +242,7 @@ export function clampSimInput(i: SimInput): SimInput {
 export function saveUnit(season: number, plan: Plan, table: TariffTable = TARIFF_TABLE_SEED, adj: TariffAdj = DEFAULT_ADJ) {
   const t = table[plan];
   const s = table.share[season]!;
-  return (t.mid[season]! * s.mid + t.peak[season]! * s.peak + adj.climate + adj.fuel) * (1 + FUND);
+  return (t.light[season]! * s.light + t.mid[season]! * s.mid + t.peak[season]! * s.peak + adj.climate + adj.fuel) * (1 + FUND);
 }
 /** 1차년 한전 태양광 대체단가(원/kWh) — 월별 일조시간 가중 평균. PPA 연동 구간의 기준 단가 */
 export function avgSaveUnit(plan: Plan, table: TariffTable = TARIFF_TABLE_SEED, adj: TariffAdj = DEFAULT_ADJ) {
@@ -402,27 +417,22 @@ export function hiddenDefaultsOf(i: SimInput): [string, string, string][] {
   const self = i.mode === 'self';
   const ver = self ? i.self.ver : i.ppa.ver;
   const t = tableOf(i, ver);
-  const pct = (v: number) => `${Math.round(v * 1000) / 10}%`;
-  const share = (k: number) => `중간부하 ${pct(t.share[k]!.mid)} · 최대부하 ${pct(t.share[k]!.peak)}`;
+  const hr = (v: number) => `${Math.round(v * 240) / 10}시간`;
+  const share = (k: number) => `경부하 ${hr(t.share[k]!.light)} · 중간부하 ${hr(t.share[k]!.mid)} · 최대부하 ${hr(t.share[k]!.peak)}`;
   const adj = adjOf(i);
   const common: [string, string, string][] = [
     ['기후환경요금 · 연료비조정요금', `${adj.climate} · ${adj.fuel} 원/kWh`, '관리 › 에너지 설정'],
     ['전력산업기반기금', `${Math.round(FUND * 1000) / 10}%`, '고정'],
     ['태양광 시간대 비중', `여름 · 봄가을 ${share(0)} / 겨울 ${share(2)}`, '관리 › 에너지 설정 요금표'],
     ['월별 발전 배분', '월별 일조시간 표로 1년 발전량을 달마다 나눔', '고정 (원본 시뮬레이터)'],
+    ['전기 사용량', '발전량 전부를 기업이 직접 쓴다고 봄(사용량 입력 없음)', '고정'],
     ['계약 · 분석 기간', '20년', '고정'],
-    ['한전요금 실적 CAGR 시나리오', `${Math.round(CAGR * 10000) / 100}%/yr`, '관리 › 에너지 설정 판매단가 표'],
   ];
   if (self) {
-    const c = selfCost(i);
     return [
       ['요금제 · 요금 기준', `${PLAN_LABEL[i.self.plan]} · ${t.label || VER_LABEL[ver]}`, '기본값'],
       ['기본요금 (kW당)', `${t[i.self.plan].base.toLocaleString('ko-KR')} 원`, '요금표'],
       ['기본요금 피크감축 반영률', `${i.self.peakR}%`, '기본값'],
-      ['설치단가', `${(i.self.capexUnit ?? SELF_CAPEX_UNIT).toLocaleString('ko-KR')} 원/kW (평균 추정치를 보수적으로 잡은 값)`, '관리 › 에너지 설정'],
-      ['총사업비 (설치 용량 × 설치단가)', `${c.total.toLocaleString('ko-KR')} 원`, '계산'],
-      ['국비 지원 (설치비 대비)', `${c.govRate}%`, '기본값'],
-      ['연간 O&M (총사업비 대비)', `${i.self.om ?? SELF_OM}%`, '기본값'],
       ...common,
     ];
   }
@@ -436,13 +446,12 @@ export function hiddenDefaultsOf(i: SimInput): [string, string, string][] {
 
 export const escInput = (i: SimInput) => (i.mode === 'self' ? i.self.esc : i.ppa.esc) / 100;
 export const SCEN_COLOR = ['#94a3b8', '#3b82f6', '#10b981'];
-/** 한전요금 시나리오 — 동결 0% / 입력값 / 실적 CAGR(관리자 표에서 계산) */
-export function scenarios(i: SimInput, cagr = CAGR) {
+/** 한전요금 시나리오 — 동결 0% / 입력값. 단가는 관리 › 에너지 설정 한전 요금표 */
+export function scenarios(i: SimInput) {
   const e = escInput(i);
   return [
     { e: 0, name: '한전요금 동결 (0%)', R: calc(i, 0) },
     { e, name: `상승분 반영 · 입력값 (${(e * 100).toFixed(1)}%)`, R: calc(i, e) },
-    { e: cagr, name: `실적 CAGR (${(cagr * 100).toFixed(2)}%)`, R: calc(i, cagr) },
   ];
 }
 

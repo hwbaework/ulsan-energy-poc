@@ -15,7 +15,7 @@ import { SimInputPanel } from '@/components/features/consulting/SimInputPanel';
 import { recordOf } from '@/components/features/consulting/SimDiagnosisView';
 import { SimReport, type ReviewRecord } from '@/components/features/consulting/SimReport';
 import { ReviewHistoryList } from '@/components/features/consulting/ReviewHistoryList';
-import { CLIMATE_CHG, FUEL_ADJ, SELF_CAPEX_UNIT, calc, defaultSimInput, type SimInput } from '@/lib/solar-sim';
+import { CLIMATE_CHG, FUEL_ADJ, calc, defaultSimInput, type SimInput } from '@/lib/solar-sim';
 import { energyNum, useEnergySettings, useKepcoTariff } from '@/hooks/common/useSettings';
 import { cn } from '@/lib/utils';
 import type { Diagnosis } from '@/types/consultation';
@@ -27,7 +27,7 @@ import { CONSUMERS } from '@/stores/useTradingPocStore';
  *  ① 입력 화면(값 입력 + 옆에 지난 검토 기록) → [사업 검토] → ② 단계별 진행 → ③ 검토서(A4 문서)
  *  결과를 보고 [저장]하면 새 사업 검토서로 기록되고(덮어쓰지 않음), 오른쪽 기록을 누르면 다시 계산하지 않고 그 검토서를 바로 연다.
  */
-const REVIEW_STEPS = ['입력값 확인', '월별 발전량 산정 (울산관측소 일조시간)', '한전 요금 시간대 매칭', '20년 운영 시뮬레이션', '요금 시나리오 · 민감도 분석', '검토서 작성'];
+const REVIEW_STEPS = ['입력값 확인', '월별 발전량 산정 (울산관측소 일조시간)', '한전 요금 시간대 매칭', '20년 운영 시뮬레이션', '요금 시나리오 · 민감도 분석', '결과 작성'];
 const STEP_MS = 450;
 
 type View = { kind: 'input' } | { kind: 'loading'; step: number } | { kind: 'result'; input: SimInput; record?: ReviewRecord };
@@ -74,7 +74,6 @@ export default function DiagnosisPage() {
       climateChg: energyNum(energySettings, 'CLIMATE_CHG', p.climateChg ?? CLIMATE_CHG),
       fuelAdj: energyNum(energySettings, 'FUEL_ADJ', p.fuelAdj ?? FUEL_ADJ),
       // 자가소비 설치단가 — 관리 › 에너지 설정(무료진단 화면엔 칸이 없다)
-      self: { ...p.self, capexUnit: energyNum(energySettings, 'SELF_CAPEX_UNIT', p.self.capexUnit ?? SELF_CAPEX_UNIT) },
       tariff: kepcoTable,
     }));
   }, [energySettings, kepcoTable]);
@@ -158,9 +157,9 @@ export default function DiagnosisPage() {
       })) as { id: number; createdAt: string };
       const record = recordOf(d);
       setView({ kind: 'result', input: view.input, record });
-      toast('success', `${record.no} 사업 검토서로 저장했습니다`);
+      toast('success', `${record.no} 시뮬레이션 결과로 저장했습니다`);
     } catch {
-      toast('error', '검토서 저장에 실패했습니다');
+      toast('error', '시뮬레이션 결과 저장에 실패했습니다');
     } finally {
       setSaving(false);
     }
@@ -199,7 +198,7 @@ export default function DiagnosisPage() {
           {view.kind === 'loading' ? (
             <div className="flex min-h-[460px] flex-col items-center justify-center rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.06] p-10">
               <div className="w-full max-w-md">
-                <p className="text-base font-semibold text-white">사업 검토 중</p>
+                <p className="text-base font-semibold text-white">시뮬레이션 중</p>
                 <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
                   <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${(view.step / REVIEW_STEPS.length) * 100}%` }} />
                 </div>
@@ -241,7 +240,7 @@ export default function DiagnosisPage() {
                   }
                   footer={
                     <Button size="lg" onClick={review} disabled={isAdmin && (!target.name.trim() || !target.address.trim())}>
-                      사업 검토
+                      시뮬레이션
                     </Button>
                   }
                 />
