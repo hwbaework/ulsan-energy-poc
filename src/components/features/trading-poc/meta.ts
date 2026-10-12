@@ -101,10 +101,17 @@ export const estimateMonthlyKwh = (capacityKw: number) =>
 export const estimateMonthlyAmount = (capacityKw: number, unitPrice: number) =>
   Math.round(capacityKw * MONTHLY_KWH_PER_KW * unitPrice);
 
-/** 계약 조건 한 줄 — 단가 하나(자가소비 운영관리 · PPA) */
-export const termsText = (t: { unitPrice: number }) => fmtPrice(t.unitPrice);
-/** 변경 유형 이름 — 단가 변경은 두 유형 같다(자가소비 운영관리 단가 · PPA 단가) */
-export const changeTypeLabel = (type: ChangeType, _kind?: PlantContractKind) => CHANGE_TYPE[type];
+/** 계약 조건 한 줄 — 자가소비: 설치 ₩1,350,000/kW · O&M 1% / PPA: ₩138/kWh */
+export const termsText = (t: { kind: PlantContractKind; unitPrice: number; installUnit?: number; omRatePct?: number }) =>
+  t.kind === 'SELF_CONSUMPTION' && (t.installUnit || t.omRatePct)
+    ? [t.installUnit ? `설치 ₩${fmtNum(t.installUnit)}/kW` : '', t.omRatePct ? `O&M ${t.omRatePct}%` : ''].filter(Boolean).join(' · ')
+    : fmtPrice(t.unitPrice);
+/** 예상 설치비 — 자가소비: 용량 × 설치 단가 + 추가 시공비 */
+export const totalCostOf = (t: { capacityKw: number; installUnit?: number; extraCost?: number }) =>
+  t.installUnit ? t.capacityKw * t.installUnit + (t.extraCost ?? 0) : 0;
+/** 변경 유형 이름 — 단가 변경은 자가소비면 O&M 변경 */
+export const changeTypeLabel = (type: ChangeType, kind?: PlantContractKind) =>
+  type === 'PRICE' && kind === 'SELF_CONSUMPTION' ? 'O&M 변경' : CHANGE_TYPE[type];
 
 /** 한전 산업용 단가(₩/kWh) — 관리자 설정 › 에너지 설정 KEPCO_UNIT_PRICE 와 같은 값. onsite 할인 = 한전 요금 − PPA 요금 */
 export const KEPCO_UNIT_PRICE = 152.3;

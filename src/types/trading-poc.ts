@@ -34,10 +34,17 @@ export interface TradeEvent {
 }
 
 /**
- * 계약 조건 — 신청 때는 의향(미팅 희망일 · 담당자)만, 설치 용량 · 계약 기간 · 단가(unitPrice)는 미팅 뒤 관리자가 넣는다.
- *  - 자가소비: 운영관리 단가(₩/kWh) × 발전량 / PPA: PPA 단가(₩/kWh) × 사용량. 설치비 · O&M% · 요금제 · 구간 단가는 없다(2026-10-12)
+ * 계약 조건 — 신청 때는 의향(미팅 희망일 · 담당자)만, 나머지는 미팅 뒤 관리자가 넣는다(컨설팅 문서에 있는 값 그대로).
+ *  - 자가소비: 설치 단가(원/kW) × 용량 = 설치비(기업 부담), SPC 에 연간 O&M(설치비 대비 %) 지급 → 월 요금 = 설치비 × O&M% ÷ 12
+ *  - PPA: PPA 단가(unitPrice ₩/kWh) × 사용량. 요금제 · 요금 기준 · 구간 단가는 없다(2026-10-12)
  */
 export interface ContractTerms {
+  /** 자가소비 설치 단가(원/kW) — 얼마에 설치할지 */
+  installUnit?: number;
+  /** 자가소비 추가 시공비(원) — 있으면 */
+  extraCost?: number;
+  /** 자가소비 연간 O&M — 설치비 대비 % */
+  omRatePct?: number;
   /** O&M 포함 — 필수 */
   omIncluded?: boolean;
   /** 미팅 희망일 */
@@ -122,7 +129,7 @@ export interface ContractChange {
   requestedByName: string;
   requestedAt: string;
   reason: string;
-  /** 변경 전·후 — 단가 ₩/kWh, 용량 kW, 기간 종료일 */
+  /** 변경 전·후 — PPA 단가 ₩/kWh · 자가소비 연간 O&M %, 용량 kW, 기간 종료일 */
   before?: string;
   after?: string;
   /** TERMINATE — 희망 해지일 */

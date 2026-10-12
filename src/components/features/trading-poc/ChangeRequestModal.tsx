@@ -64,9 +64,19 @@ export function ChangeRequestModal({
 
   const c = contracts.find((x) => String(x.id) === cid);
   const self = c?.kind === 'SELF_CONSUMPTION';
-  // 지금 적용 중인 단가 — 하나(자가소비 운영관리 · PPA)
-  const before = !c ? '' : ctype === 'PRICE' ? `₩${fmtNum(c.unitPrice, 1)}/kWh` : ctype === 'CAPACITY' ? fmtKw(c.capacityKw) : c.endDate;
-  const needsDate = ctype === 'TERMINATE' || ctype === 'PRICE';
+  // 지금 값 — PPA 단가 · 자가소비 연간 O&M %
+  const before = !c
+    ? ''
+    : ctype === 'PRICE'
+      ? self
+        ? c.omRatePct != null
+          ? `${c.omRatePct}%`
+          : ''
+        : `₩${fmtNum(c.unitPrice, 1)}/kWh`
+      : ctype === 'CAPACITY'
+        ? fmtKw(c.capacityKw)
+        : c.endDate;
+  const needsDate = ctype === 'TERMINATE' || (ctype === 'PRICE' && !self);
   const valid =
     !!c &&
     reason.trim().length > 0 &&

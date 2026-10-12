@@ -25,7 +25,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 28; // 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
+export const SEED_VERSION = 29; // 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -69,9 +69,9 @@ const ev = (at: string, by: Party, label: string, note?: string) => ({
 });
 
 /* ── 시드: 체결 = 실제 6건(자가소비 5 · onsite 1) / 상태별 샘플 1건씩(실제 기업·용량·조건) ───────────────────────────────────────── */
-/** 시드 계약 조건 — 단가(unitPrice)는 계약마다 따로, 여기선 O&M 포함만 */
-export function seedTermsOf(_x: { kind: PlantContractKind; unitPrice: number; termYears: number }): ContractTerms {
-  return { omIncluded: true };
+/** 시드 계약 조건 — 자가소비: 설치 단가 ₩1,350,000/kW · 연간 O&M 1% / PPA: 단가는 계약의 unitPrice */
+export function seedTermsOf(x: { kind: PlantContractKind; unitPrice: number; termYears: number }): ContractTerms {
+  return x.kind === 'SELF_CONSUMPTION' ? { installUnit: 1_350_000, omRatePct: 1, omIncluded: true } : { omIncluded: true };
 }
 
 function seedContracts(): Contract[] {
@@ -740,13 +740,13 @@ function seedChanges(): ContractChange[] {
       requestedBy: 'spc',
       requestedByName: CO.SPC.name,
       requestedAt: iso('2026-09-10', '10:00:00'),
-      reason: '인버터 정기 점검을 운영관리 범위에 포함',
-      before: '26',
-      after: '28',
+      reason: '인버터 정기 점검을 O&M 범위에 포함',
+      before: '1',
+      after: '1.2',
       status: 'REQUESTED',
       stage: 'SIGN',
       events: [
-        ev(iso('2026-09-10', '10:00:00'), 'spc', '요청 접수', '운영관리 단가 ₩26 → ₩28/kWh'),
+        ev(iso('2026-09-10', '10:00:00'), 'spc', '요청 접수', 'O&M 1% → 1.2%'),
         ev(iso('2026-09-25', '10:00:00'), 'consumer', '승인'),
         ev(iso('2026-09-26', '11:20:00'), 'consumer', '합의서 서명', `${CO.TAESUNG.name} 서명`),
       ],
@@ -797,14 +797,14 @@ function seedChanges(): ContractChange[] {
       requestedBy: 'generator',
       requestedByName: HANIL,
       requestedAt: iso('2026-01-12'),
-      reason: '인버터 정기 점검을 운영관리 범위에 포함',
-      before: '26',
-      after: '28',
+      reason: '인버터 정기 점검을 O&M 범위에 포함',
+      before: '0.8',
+      after: '1',
       status: 'APPROVED',
       decidedAt: iso('2026-01-28', '15:00:00'),
       decisionNote: '2026-02 정산분부터 적용',
       events: [
-        ev(iso('2026-01-12', '09:00:00'), 'generator', '요청 접수', '운영관리 단가 ₩26 → ₩28/kWh'),
+        ev(iso('2026-01-12', '09:00:00'), 'generator', '요청 접수', 'O&M 0.8% → 1%'),
         ev(iso('2026-01-26', '10:00:00'), 'spc', '승인'),
         ev(iso('2026-01-27', '16:00:00'), 'generator', '합의서 서명', `${HANIL} 서명`),
         ev(iso('2026-01-28', '15:00:00'), 'spc', '합의서 서명', `${CO.SPC.name} 서명`),
@@ -876,8 +876,12 @@ export type TradeSettlement = PpaSettlement & {
   kind: PlantContractKind;
 };
 
-/** 계약 조건 → 그 달 금액(부가세 전) = 단가 × 발전량(PPA 사용량 · 자가소비 운영관리) */
-export function termsAmount(c: Contract, _period: string, kwh: number): { supply: number; price: number } {
+/** 계약 조건 → 그 달 금액(부가세 전). 자가소비 = 설치비 × 연간 O&M% ÷ 12, PPA = 단가 × 사용량 */
+export function termsAmount(c: Contract, _period: string, kwh: number): { supply: number; price?: number } {
+  if (c.kind === 'SELF_CONSUMPTION' && c.omRatePct && c.installUnit) {
+    const total = c.capacityKw * c.installUnit + (c.extraCost ?? 0);
+    return { supply: Math.round((total * c.omRatePct) / 100 / 12) };
+  }
   return { supply: Math.round(kwh * c.unitPrice), price: c.unitPrice };
 }
 
@@ -962,7 +966,7 @@ export function settlementsOf(contracts: Contract[]): TradeSettlement[] {
         period,
         status: period <= LAST_CONFIRMED ? 'CONFIRMED' : 'PENDING',
         generationKwh: kwh,
-        smpUnitPrice: t.price,
+        smpUnitPrice: t.price ?? 0,
         kind: c.kind,
         supplyAmount: supply,
         vat,
@@ -1110,7 +1114,11 @@ interface TradingPocState {
   addMessage: (id: number, by: Party, byName: string, text: string) => void;
   markSurveyDone: (id: number, date: string) => void;
   /** 미팅 뒤 조건 입력 — 신청 내용에 그 자리에서 저장(접수 상태면 미팅 상태로) */
-  updateTerms: (id: number, terms: Partial<Pick<TradeRequest, 'capacityKw' | 'termYears' | 'unitPrice'>>, note?: string) => void;
+  updateTerms: (
+    id: number,
+    terms: Partial<Pick<TradeRequest, 'capacityKw' | 'termYears' | 'unitPrice' | 'installUnit' | 'extraCost' | 'omRatePct'>>,
+    note?: string,
+  ) => void;
   rejectRequest: (id: number, reason: string) => void;
   cancelRequest: (id: number, note?: string) => void;
   signAsGenerator: (contractId: number) => void;
@@ -1137,12 +1145,12 @@ interface TradingPocState {
 }
 
 // 로컬 시각(한국) 기준 — toISOString 은 UTC 라 9시간 어긋난다
-/** 단가 변경 전 값 — 단가 하나(자가소비 운영관리 · PPA) */
+/** 단가 변경 전 값 — PPA 는 단가, 자가소비는 연간 O&M % */
 function priceBefore(c: Contract) {
-  return String(c.unitPrice);
+  return c.kind === 'SELF_CONSUMPTION' && c.omRatePct != null ? String(c.omRatePct) : String(c.unitPrice);
 }
 function applyPrice(c: Contract, after: number): Contract {
-  return { ...c, unitPrice: after };
+  return c.kind === 'SELF_CONSUMPTION' && c.omRatePct != null ? { ...c, omRatePct: after } : { ...c, unitPrice: after };
 }
 
 const nowIso = () => {
@@ -1242,6 +1250,9 @@ export const useTradingPocStore = create<TradingPocState>()(
           unitPrice: r.unitPrice,
           termYears: r.termYears,
           // 미팅에서 넣은 조건 그대로 — 내 계약에서 같은 값
+          installUnit: r.installUnit,
+          extraCost: r.extraCost,
+          omRatePct: r.omRatePct,
           omIncluded: r.omIncluded,
           contact: r.contact,
           startDate: start,

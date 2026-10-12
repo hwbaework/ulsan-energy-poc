@@ -11,7 +11,7 @@ import { Select } from '@/components/ui/Select';
 import { settlementsOf } from '@/stores/useTradingPocStore';
 import type { ChangeType, Contract } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
-import { KEPCO_UNIT_PRICE, KIND_OPTIONS, fmtKrw, fmtKw, kindLabel } from './meta';
+import { KEPCO_UNIT_PRICE, KIND_OPTIONS, fmtKrw, fmtKw, kindLabel, totalCostOf } from './meta';
 import { PageHeader, cell, cellNum, cellStrong } from './Bits';
 import { ContractDetailCard, monthOfContract } from './ContractDetailModal';
 import { ChangeRequestModal } from './ChangeRequestModal';
@@ -93,8 +93,11 @@ export function MyContractsScreen() {
     if (active.length === 0) return { data: [] as Record<string, string | number>[], breakEven: '', total: 0 };
     // 계약 기간에 맞춘다 — 10년 계약이면 10년까지, 20년이면 20년까지. 유형별 선도 그 유형 계약 기간에서 끝난다
     const years = Math.max(...active.map((c) => c.termYears));
-    // 두 유형 같다 — 해마다 (한전 단가 − 계약 단가: 자가소비 운영관리 · PPA) × 연 발전량. 설치비는 다루지 않는다(2026-10-12)
-    const valueAt = (c: Contract, k: number) => upTo(c, k, (y) => kwhYear(c) * (KEPCO_UNIT_PRICE - priceIn(c, y)));
+    // 자가소비: −설치비 + 해마다 한전에 안 낸 요금 / PPA: 해마다 (한전 단가 − PPA 단가) × 연 사용량
+    const valueAt = (c: Contract, k: number) =>
+      c.kind === 'SELF_CONSUMPTION'
+        ? upTo(c, k, () => kwhYear(c) * KEPCO_UNIT_PRICE) - totalCostOf(c)
+        : upTo(c, k, (y) => kwhYear(c) * (KEPCO_UNIT_PRICE - priceIn(c, y)));
     const self = active.filter((c) => c.kind === 'SELF_CONSUMPTION');
     const onsite = active.filter((c) => c.kind === 'ONSITE');
     const sum = (xs: Contract[], k: number) => Math.round(xs.reduce((a, c) => a + valueAt(c, k), 0) / 10_000);
@@ -105,7 +108,7 @@ export function MyContractsScreen() {
       ...(onsite.length && k <= lastOf(onsite) ? { onsite: sum(onsite, k) } : {}),
     }));
     // 흑자 전환 — 자가소비 설치비를 절감액으로 다 갚는 때(몇 년 몇 개월 · 그 달)
-    const cost = 0; // 설치비 없음 — 흑자 전환 시점은 없다
+    const cost = self.reduce((a, c) => a + totalCostOf(c), 0);
     const perMonth = self.reduce((a, c) => a + monthOfContract(c).saving, 0);
     const first = self.map((c) => c.startDate).sort()[0];
     let breakEven = '';
