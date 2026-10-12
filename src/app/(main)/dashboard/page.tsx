@@ -225,6 +225,16 @@ function usePlantsYearlyEnergy(plantIds: number[], years: number[], todayStr: st
   }, [dataKey, plantIds.join(','), years.join(','), todayStr]);
 }
 
+/** 설비용량 · 발전량 표시 — 1,000 이상이면 MW · MWh */
+const fmtKw = (v: number) =>
+  v >= 1000 ? `${(v / 1000).toFixed(2)} MW` : `${v.toLocaleString('ko-KR', { maximumFractionDigits: 2 })} kW`;
+const fmtKwh = (v: number) =>
+  v <= 0
+    ? '- kWh'
+    : v >= 1000
+      ? `${(v / 1000).toLocaleString('ko-KR', { maximumFractionDigits: 2 })} MWh`
+      : `${v.toLocaleString('ko-KR', { maximumFractionDigits: 1 })} kWh`;
+
 export default function DashboardPage() {
   const router = useRouter();
   const { isCompleted, complete, hydrate } = useOnboardingStore();
@@ -263,12 +273,14 @@ export default function DashboardPage() {
 
   const user = useAuthStore((s) => s.user);
   const personaOverride = usePersonaOverride((s) => s.override);
-  const isAdmin = (personaOverride ?? getPersona(user)) === 'admin';
+  const persona = personaOverride ?? getPersona(user);
+  const isAdmin = persona === 'admin';
+  const isConsumer = persona === 'consumer';
 
   const { hasPlants, isGenerator } = useMyPlantIds();
   // 역할별 범위: 관리자=전체, 발전사업자·전기사용자=자사 계약 발전소
   const { plants: scopedPlants } = useScopedPlants();
-  // 발전소별 칩·계열은 계약 단위 — 한일튜브(자가소비)·한일튜브(onsite). 이력은 발전소 것에 계약 몫(share)을 곱한다
+  // 발전소별 칩·계열은 계약 단위 — 한일튜브(자가소비)·한일튜브(PPA). 이력은 발전소 것에 계약 몫(share)을 곱한다
   const allContractPlants = useMemo(() => expandByContract(scopedPlants), [scopedPlants]);
 
   // 관리자: 발전량 비교에서만 회사(계약 발전소) 하나를 골라 비교한다 — 지표·CO₂ 는 전체(전 회사)
@@ -328,18 +340,14 @@ export default function DashboardPage() {
     return maxEnergy * activeShare;
   }, [yesterdayHistory, activeShare]);
 
-  // 발전시간 — 발전소마다 따로 세어 더한다 (관리자 전체 = 전 발전소 발전시간 합)
-  const yesterdayHours = useMemo(() => {
-    const hoursOf = (hist: PlantHistoryPoint[] | undefined) => {
-      if (!hist || !Array.isArray(hist) || hist.length === 0) return 0;
-      const activePoints = hist.filter((h) => (h.acPower ?? 0) > 0).length;
-      const intervalMinutes = Math.round((24 * 60) / hist.length);
-      return (activePoints * intervalMinutes) / 60;
-    };
-    const ids = Object.keys(yesterdayByPlant);
-    const total = ids.length === 0 ? hoursOf(yesterdayHistory) : ids.reduce((sum, id) => sum + hoursOf(yesterdayByPlant[Number(id)]), 0);
-    return Math.round(total * 10) / 10;
-  }, [yesterdayHistory, yesterdayByPlant]);
+  // 년 · 월 발전량 — 올해 이력을 발전소마다 달별로 더한다(CO₂ 카드와 같은 조회 · 캐시)
+  const kpiYears = useMemo(() => [todayYear], [todayYear]);
+  const kpiByPlant = usePlantsYearlyEnergy(scopedIds, kpiYears, todayStr);
+  const yearKwh = scopedIds.reduce((a, id) => a + (kpiByPlant[id]?.[todayYear]?.total ?? 0), 0);
+  const monthKwh = scopedIds.reduce(
+    (a, id) => a + (kpiByPlant[id]?.[todayYear]?.months[Number(todayStr.slice(5, 7)) - 1] ?? 0),
+    0,
+  );
 
   // PPA 계약 단가 — 관리자 설정 › 에너지 설정 PPA_UNIT_PRICE (없으면 예전 기본값)
   const ppaUnitPrice = Number(energySettings?.PPA_UNIT_PRICE ?? 0) || 92.6;
@@ -688,39 +696,19 @@ export default function DashboardPage() {
             <h1 className="text-xl font-bold text-white">대시보드</h1>
           </div>
 
-          {/* Stats — QA #1 전일발전량 표시, #2 전일대비 삭제, #4 금액 계산식 */}
+          {/* 카드 4개 (2026-10-12) — 전기사용자: 설비용량 · 년 · 월 · 일 발전량 / 발전사업자 · 관리자: 설비용량 · 월 · 일 발전량 · 금액 */}
           <StatsGrid columns={4}>
-            <StatCard
-              label={isAdmin ? '전체 출력' : '현재 출력'}
-              value={
-                plant?.currentOutput === undefined
-                  ? '- kW'
-                  : isAdmin && plant.currentOutput >= 1000
-                    ? `${(plant.currentOutput / 1000).toFixed(2)} MW` // 관리자 전체 합산만 MW, 그 외는 kW
-                    : `${plant.currentOutput.toFixed(1)} kW`
-              }
-            />
-
-            <StatCard
-              label={isAdmin ? '전체 발전량' : '발전량'}
-              value={
-                yesterdayEnergy <= 0
-                  ? '- kWh'
-                  : isAdmin && yesterdayEnergy >= 1000
-                    ? `${(yesterdayEnergy / 1000).toFixed(2)} MWh` // 관리자 전체 합산만 MWh, 그 외는 kWh
-                    : `${yesterdayEnergy.toLocaleString('ko-KR', { maximumFractionDigits: 1 })} kWh`
-              }
-            />
-
-            <StatCard
-              label={isAdmin ? '전체 발전시간' : '발전시간'}
-              value={yesterdayHours > 0 ? `${yesterdayHours} 시간` : '- 시간'}
-            />
-
-            <StatCard
-              label={isAdmin ? '전체 금액' : '금액'}
-              value={yesterdayAmount > 0 ? `${Math.round(yesterdayAmount).toLocaleString('ko-KR')} 원` : '- 원'} // 1원 단위 그대로
-            />
+            <StatCard label={isAdmin ? '전체 설비용량' : '설비용량'} value={fmtKw(plant.capacity)} />
+            {isConsumer && <StatCard label="년 발전량" value={fmtKwh(yearKwh)} sub={`${todayYear}`} />}
+            <StatCard label={isAdmin ? '전체 월 발전량' : '월 발전량'} value={fmtKwh(monthKwh)} sub={todayMonth} />
+            <StatCard label={isAdmin ? '전체 일 발전량' : '일 발전량'} value={fmtKwh(yesterdayEnergy)} sub={yesterdayStr} />
+            {!isConsumer && (
+              <StatCard
+                label={isAdmin ? '전체 금액' : '금액'}
+                value={yesterdayAmount > 0 ? `${Math.round(yesterdayAmount).toLocaleString('ko-KR')} 원` : '- 원'} // 1원 단위 그대로
+                sub={yesterdayStr}
+              />
+            )}
           </StatsGrid>
 
           {/* 관리자 — 작년·올해 발전량 비교 */}

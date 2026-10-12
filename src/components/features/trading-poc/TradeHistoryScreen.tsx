@@ -41,12 +41,12 @@ import { TermsInfo, type TermsEdit } from './TermsInfo';
 const IN_TALK: TradeRequest['status'][] = ['SUBMITTED', 'REVIEW'];
 const IN_APPROVALS: TradeRequest['status'][] = ['APPROVED', 'SIGNED'];
 
-/** 거래 이력 상태 — 승인 전까지(신청 접수 · 관리자 검토 · 현장 실측 · 조건 협의) + 반려 · 취소. 승인부터는 거래 승인에 */
-const HISTORY_STATUS = ['관리자 검토', '현장 실측', '조건 협의', '반려', '취소'] as const;
+/** 거래 이력 상태 — 승인 전까지(신청 접수 · 관리자 검토 · 미팅 · 조건 협의) + 반려 · 취소. 승인부터는 거래 승인에 */
+const HISTORY_STATUS = ['관리자 검토', '미팅', '조건 협의', '반려', '취소'] as const;
 type HistoryStatus = (typeof HISTORY_STATUS)[number];
 const HISTORY_TONE: Record<HistoryStatus, StatusTone> = {
   '관리자 검토': 'warning',
-  '현장 실측': 'warning',
+  '미팅': 'warning',
   '조건 협의': 'warning',
   반려: 'danger',
   취소: 'muted',
@@ -127,7 +127,7 @@ export function TradeHistoryScreen() {
       <StatsGrid columns={3}>
         <StatCard label="들어온 신청" value={`${stats.all}건`} />
         <StatCard label="자가소비" value={`${stats.self}건`} />
-        <StatCard label="onsite" value={`${stats.onsite}건`} />
+        <StatCard label="PPA" value={`${stats.onsite}건`} />
       </StatsGrid>
 
       <SectionCard
@@ -203,9 +203,7 @@ type Draft = Record<
   | 'installUnit'
   | 'extraCost'
   | 'omRatePct'
-  | 'seg1End'
-  | 'seg1Price'
-  | 'seg2Price'
+  | 'ppaPrice'
   | 'tariffPlan'
   | 'tariffBasis',
   string
@@ -221,9 +219,7 @@ const draftOf = (r: TradeRequest): Draft => ({
   installUnit: String(r.installUnit ?? ''),
   extraCost: String(r.extraCost ?? ''),
   omRatePct: String(r.omRatePct ?? ''),
-  seg1End: String(r.segments?.[0]?.to ?? 3),
-  seg1Price: String(r.segments?.[0]?.price ?? r.unitPrice),
-  seg2Price: String(r.segments?.[1]?.price ?? r.unitPrice),
+  ppaPrice: String(r.segments?.[0]?.price ?? r.unitPrice),
   tariffPlan: r.tariffPlan ?? '',
   tariffBasis: r.tariffBasis ?? '',
 });
@@ -240,10 +236,8 @@ function termsOfDraft(d: Draft, r: TradeRequest) {
     ? { ...common, installUnit: n('installUnit'), extraCost: n('extraCost'), omRatePct: n('omRatePct') }
     : {
         ...common,
-        segments: [
-          { from: 1, to: n('seg1End'), price: n('seg1Price') },
-          { from: n('seg1End') + 1, to: n('termYears'), price: n('seg2Price') },
-        ],
+        // PPA 단가는 계약 기간 한 단가
+        segments: [{ from: 1, to: n('termYears'), price: n('ppaPrice') }],
       };
 }
 /** 진행 이력에 남길 바뀐 내용 */
@@ -263,14 +257,14 @@ function changeNote(r: TradeRequest, t: ReturnType<typeof termsOfDraft>) {
   } else {
     const seg = (g?: { from: number; to: number; price: number }[]) =>
       (g ?? []).map((x) => `${x.from}~${x.to}년차 ₩${fmtNum(x.price, 1)}`).join(' · ');
-    if (seg(t.segments) !== seg(r.segments)) out.push(`구간 단가 ${seg(r.segments)} → ${seg(t.segments)}`);
+    if (seg(t.segments) !== seg(r.segments)) out.push(`PPA 단가 ${seg(r.segments)} → ${seg(t.segments)}`);
   }
   return out.join(' · ') || undefined;
 }
 
 /**
  * 신청 한 건 — 단계(위) · 신청 내용 · 진행 이력 · 협의 채팅(옆).
- * 관리자(SPC): 검토 시작 → 현장 실측(요청 있으면) → 조건 협의(신청 내용을 바로 고쳐 저장) → 승인 / 반려. 신청한 쪽: 채팅 · 신청 취소.
+ * 관리자(SPC): 검토 시작 → 미팅(요청 있으면) → 조건 협의(신청 내용을 바로 고쳐 저장) → 승인 / 반려. 신청한 쪽: 채팅 · 신청 취소.
  */
 function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   const router = useRouter();
@@ -302,7 +296,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
     n('termYears') > 0 &&
     (self
       ? n('installUnit') > 0 && n('omRatePct') > 0
-      : n('seg1End') >= 1 && n('seg1End') < n('termYears') && n('seg1Price') > 0 && n('seg2Price') > 0);
+      : n('ppaPrice') > 0);
 
   const [surveyDate, setSurveyDate] = useState(r.surveyDate ?? new Date().toISOString().slice(0, 10));
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -370,25 +364,14 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
           />
         ),
         segments: (
-          <div className="col-span-3 grid grid-cols-3 gap-4">
-            <Input label="1구간 끝 (년차)" type="number" min={1} value={draft.seg1End} onChange={set('seg1End')} />
-            <Input
-              label={`1구간 단가 (1~${draft.seg1End || 'n'}년차, ₩/kWh)`}
-              type="number"
-              min={1}
-              step="0.1"
-              value={draft.seg1Price}
-              onChange={set('seg1Price')}
-            />
-            <Input
-              label={`2구간 단가 (${n('seg1End') + 1}~${draft.termYears || 'n'}년차, ₩/kWh)`}
-              type="number"
-              min={1}
-              step="0.1"
-              value={draft.seg2Price}
-              onChange={set('seg2Price')}
-            />
-          </div>
+          <Input
+            label={`PPA 단가 (${draft.termYears || 'n'}년, ₩/kWh)`}
+            type="number"
+            min={1}
+            step="0.1"
+            value={draft.ppaPrice}
+            onChange={set('ppaPrice')}
+          />
         ),
       }
     : undefined;
@@ -406,19 +389,19 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
         <Button
           size="sm"
           onClick={() => {
-            // 관리자 검토 통과 — 실측 요청이 있으면 현장 실측, 없으면 조건 협의로
+            // 관리자 검토 통과 — 미팅 요청이 있으면 미팅, 없으면 조건 협의로
             if (r.status === 'SUBMITTED') startReview(r.id);
-            if (r.surveyRequested) moveStage(r.id, '현장 실측', r.surveyDate ? `${r.surveyDate} 예정` : undefined);
+            if (r.surveyRequested) moveStage(r.id, '미팅', r.surveyDate ? `${r.surveyDate} 예정` : undefined);
             else moveStage(r.id, '조건 협의');
           }}
         >
-          {r.surveyRequested ? '현장 실측 →' : '조건 협의 →'}
+          {r.surveyRequested ? '미팅 →' : '조건 협의 →'}
         </Button>
       )}
       {admin && step === 2 && (
         <>
           <label className="flex items-center gap-2 text-sm text-slate-400">
-            실측일
+            미팅일
             <input
               type="date"
               value={surveyDate}
@@ -431,10 +414,10 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
             disabled={!surveyDate}
             onClick={() => {
               markSurveyDone(r.id, surveyDate);
-              addToast('success', `${r.no} 현장 실측 완료`);
+              addToast('success', `${r.no} 미팅 완료`);
             }}
           >
-            현장 실측 완료
+            미팅 완료
           </Button>
         </>
       )}

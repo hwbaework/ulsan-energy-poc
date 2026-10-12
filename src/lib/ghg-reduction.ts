@@ -12,7 +12,7 @@ import { useHydrateTradingPoc, useTradingPocStore } from '@/stores/useTradingPoc
 import type { Contract } from '@/types/trading-poc';
 
 /** 설비 구분 — 자가소비(기업이 설치) · onsite(EPC 설치, 기업이 쓴 만큼 사용료) */
-export type FacilityKind = '자가소비' | 'onsite';
+export type FacilityKind = '자가소비' | 'PPA';
 
 /** 배출원 = 전력거래에서 체결된 계약의 태양광 설비. 따로 입력하지 않고 체결되면 생긴다 */
 export interface Facility {
@@ -42,7 +42,7 @@ export function facilitiesOf(contracts: Contract[]): Facility[] {
       companyId: c.consumerCompanyId,
       company: c.consumerCompanyName,
       address: c.address,
-      kind: c.kind === 'ONSITE' ? ('onsite' as const) : ('자가소비' as const),
+      kind: c.kind === 'ONSITE' ? ('PPA' as const) : ('자가소비' as const),
       kw: c.capacityKw,
       contractNo: c.no,
       signedAt: (c.signedAt ?? c.createdAt).slice(0, 10),

@@ -50,7 +50,7 @@ const COMPANIES = [
   { name: '한길', capacityKw: 90.88, address: '울산 남구 용연동 490-11' },
   { name: '태성산업', capacityKw: 46.08, address: '울산 남구 여천동 358-8' },
   { name: '건호이엔씨', capacityKw: 33.92, address: '울산 남구 부곡동 22-5' },
-  { name: '한일튜브', capacityKw: 429.44, address: '울산 남구 부곡동 273-6' }, // 자가소비 99.84 + onsite 329.6
+  { name: '한일튜브', capacityKw: 429.44, address: '울산 남구 부곡동 273-6' }, // 자가소비 99.84 + PPA 329.6
   { name: '용인금속', capacityKw: 152.32, address: '울산 남구 여천동 887-18' },
 ] as const;
 const capacityOf = (name: string) => COMPANIES.find((c) => c.name === name)?.capacityKw ?? 0;
@@ -654,7 +654,7 @@ interface ApiOffset {
 const SOLAR_METHOD = '재생에너지(태양광) 전력 대체';
 const OFFSETS: ApiOffset[] = [
   { id: 1, company: '한길', name: '한길 태양광 90.88kW 자가소비', methodology: SOLAR_METHOD, status: 'MONITORING', kocIssued: 0, recDuplicate: false },
-  { id: 2, company: '한일튜브', name: '한일튜브 태양광 429.44kW (자가소비 99.84 + onsite 329.6)', methodology: SOLAR_METHOD, status: 'ISSUED', kocIssued: solarReduction(429.44, 365), recDuplicate: true },
+  { id: 2, company: '한일튜브', name: '한일튜브 태양광 429.44kW (자가소비 99.84 + PPA 329.6)', methodology: SOLAR_METHOD, status: 'ISSUED', kocIssued: solarReduction(429.44, 365), recDuplicate: true },
   { id: 3, company: '용인금속', name: '용인금속 태양광 152.32kW 자가소비', methodology: SOLAR_METHOD, status: 'ISSUED', kocIssued: solarReduction(152.32, 365), recDuplicate: false },
   { id: 4, company: '태성산업', name: '태성산업 태양광 46.08kW 자가소비', methodology: SOLAR_METHOD, status: 'APPROVED', kocIssued: 0, recDuplicate: false },
   { id: 5, company: '건호이엔씨', name: '건호이엔씨 태양광 33.92kW 자가소비', methodology: SOLAR_METHOD, status: 'PLAN', kocIssued: 0, recDuplicate: false },

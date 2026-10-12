@@ -9,7 +9,10 @@ import { SectionCard, StatCard, StatsGrid } from '@/components/features';
 
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { StatusPill } from '@/components/ui/Design';
-import { CONTRACT_KIND, commStatusOf, contractKindsOf, gradeOf, isAnomaly } from '@/lib/design';
+import { CONTRACT_KIND, CONTRACT_KIND_LABEL, CONTRACT_KIND_ORDER, commStatusOf, contractKindsOf, gradeOf, isAnomaly } from '@/lib/design';
+import { cn } from '@/lib/utils';
+import { getPersona } from '@/lib/persona';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { contractDisplayName } from '@/lib/contract-plants';
 import type { AnomalyEvent, PlantContractKind } from '@/types/monitoring';
 import { useAnomalies } from '@/hooks/monitoring/useAnomalies';
@@ -21,7 +24,7 @@ interface AnomalyRow extends AnomalyEvent {
   plantType?: string;
   /** 이상이 속한 계약 — 이상 하나는 계약 하나. 응답에 없으면 발전소의 계약이 하나일 때만 채움 */
   contractKind?: PlantContractKind;
-  /** 계약 단위 이름 — 한일튜브(onsite) */
+  /** 계약 단위 이름 — 한일튜브(PPA) */
   displayName: string;
   description?: string;
   createdAt?: string;
@@ -48,6 +51,9 @@ export default function AnomaliesPage() {
   const [severity, setSeverity] = useState('all');
   const [status, setStatus] = useState('all');
   const [query, setQuery] = useState('');
+  // 관리자는 전체를 한 번에, 발전사업자 · 전기사용자는 계약 유형(자가소비 / PPA)을 골라서 본다 — 계약마다 주체가 다르다
+  const isAdmin = getPersona(useAuthStore((st) => st.user)) === 'admin';
+  const [kindTab, setKindTab] = useState<PlantContractKind>('SELF_CONSUMPTION');
 
   const myPlantMatcher = useMyPlantMatcher();
   const { data: plantList } = useMonitoringPlants();
@@ -104,6 +110,8 @@ export default function AnomaliesPage() {
 
   const q = query.trim().toLowerCase();
   const filtered = anomalies.filter((a) => {
+    // 계약을 모르는 이상(발전소 단위 RTU 등)은 두 유형 모두에 보인다
+    if (!isAdmin && a.contractKind && a.contractKind !== kindTab) return false;
     if (severity !== 'all' && a.severity !== severity) return false;
     if (status !== 'all' && a.status !== status) return false;
     if (q && !a.displayName.toLowerCase().includes(q) && !a.title.toLowerCase().includes(q)) return false;
@@ -121,8 +129,9 @@ export default function AnomaliesPage() {
   }, [anomalies]);
 
   // 활성 이상 = 목록 전체(등급 주의·경고 또는 통신오류) · 경고 = 등급 경고 건
-  const activeCount = anomalies.length;
-  const warningCount = anomalies.filter((a) => a.severity === 'warning').length;
+  const inKind = anomalies.filter((a) => isAdmin || !a.contractKind || a.contractKind === kindTab);
+  const activeCount = inKind.length;
+  const warningCount = inKind.filter((a) => a.severity === 'warning').length;
 
   const columns: Column<AnomalyRow>[] = [
     {
@@ -155,7 +164,7 @@ export default function AnomaliesPage() {
       render: (r) => <span className="text-sm text-slate-300">{TYPE_LABELS[r.plantType ?? ''] ?? r.plantType}</span>,
     },
     {
-      // 계약 유형 — 자가소비 / onsite. 발전소 단위 이상(RTU 등)은 계약 전부
+      // 계약 유형 — 자가소비 / PPA. 발전소 단위 이상(RTU 등)은 계약 전부
       key: 'contractKind',
       header: '계약 유형',
       width: '110px',
@@ -210,6 +219,23 @@ export default function AnomaliesPage() {
         actions={
           /* /guide 표기 규칙: 필터 → 검색 */
           <div className="flex items-center gap-3">
+            {!isAdmin && (
+              <div className="flex rounded-md bg-white/[0.04] p-0.5 ring-1 ring-white/[0.08]">
+                {CONTRACT_KIND_ORDER.map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setKindTab(k)}
+                    className={cn(
+                      'rounded px-3 py-1 text-sm font-medium transition-colors',
+                      kindTab === k ? 'bg-primary text-white' : 'text-slate-400 hover:text-white',
+                    )}
+                  >
+                    {CONTRACT_KIND_LABEL[k]}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="w-32">
               <Select options={severityOptions} value={severity} onChange={(e) => setSeverity(e.target.value)} />
             </div>

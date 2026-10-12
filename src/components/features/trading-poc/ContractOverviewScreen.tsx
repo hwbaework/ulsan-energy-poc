@@ -63,7 +63,7 @@ export function ContractOverviewScreen() {
   const coCols: Column<Co>[] = [
     { key: 'name', header: '기업', render: (c) => cellStrong(c.name) },
     { key: 'self', header: '자가소비', width: '130px', render: (c) => cellNum(c.selfKw ? fmtKw(c.selfKw) : '-') },
-    { key: 'onsite', header: 'onsite', width: '130px', render: (c) => cellNum(c.onsiteKw ? fmtKw(c.onsiteKw) : '-') },
+    { key: 'onsite', header: 'PPA', width: '130px', render: (c) => cellNum(c.onsiteKw ? fmtKw(c.onsiteKw) : '-') },
     { key: 'start', header: '첫 시작일', width: '130px', render: (c) => cellMuted(c.start || '-') },
     {
       key: 'monthly',
@@ -100,8 +100,8 @@ export function ContractOverviewScreen() {
 
       <StatsGrid columns={3}>
         <StatCard label="자가소비 용량" value={fmtKw(kw(self))} />
-        <StatCard label="onsite 용량" value={fmtKw(kw(onsite))} />
-        <StatCard label="월 사용료 (onsite)" value={fmtKrw(monthly)} />
+        <StatCard label="PPA 용량" value={fmtKw(kw(onsite))} />
+        <StatCard label="월 사용료 (PPA)" value={fmtKrw(monthly)} />
       </StatsGrid>
 
       {role.isAdmin ? (
@@ -112,7 +112,7 @@ export function ContractOverviewScreen() {
               xKey="name"
               bars={[
                 { key: '자가소비', name: '자가소비' },
-                { key: 'onsite', name: 'onsite' },
+                { key: 'onsite', name: 'PPA' },
               ]}
               stacked
               height={260}

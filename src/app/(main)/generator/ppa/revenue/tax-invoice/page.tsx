@@ -98,8 +98,8 @@ interface Plant {
 const KIND_META: Record<string, { label: string; cls: string }> = {
   // POC 계약 유형은 자가소비 · onsite 뿐 — 색 없이 글자만
   self: { label: '자가소비', cls: 'bg-white/[0.04] text-slate-300 ring-white/[0.10]' },
-  onsite: { label: 'onsite', cls: 'bg-white/[0.04] text-slate-300 ring-white/[0.10]' },
-  offsite: { label: 'onsite', cls: 'bg-white/[0.04] text-slate-300 ring-white/[0.10]' },
+  onsite: { label: 'PPA', cls: 'bg-white/[0.04] text-slate-300 ring-white/[0.10]' },
+  offsite: { label: 'PPA', cls: 'bg-white/[0.04] text-slate-300 ring-white/[0.10]' },
   lease: { label: '자가소비', cls: 'bg-white/[0.04] text-slate-300 ring-white/[0.10]' },
 };
 

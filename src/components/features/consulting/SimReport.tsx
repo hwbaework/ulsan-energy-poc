@@ -22,32 +22,22 @@ import { energyNum, useEnergySettings } from '@/hooks/common/useSettings';
 import { PINE_PER_TCO2, TOE_PER_MWH } from '@/lib/constants/env-benefit';
 import {
   CAGR,
-  CLIMATE_CHG,
-  FUEL_ADJ,
   EOK,
   F,
   F1,
   F2,
   MNAME,
-  PLAN_LABEL,
   SCEN_COLOR,
-  SELF_CAPEX_UNIT,
-  SELF_EXTRA_COST,
-  SELF_OM,
   PPA_REMAIN,
   SELF_REMAIN,
   TARIFF_YEAR_SEED,
-  tableOf,
   calc,
   cagrOf,
   escInput,
   monthlyFor,
-  ppaSegs,
   saveUnit,
   scenarios,
-  segLabel,
   segOfYear,
-  selfCost,
   type PpaResult,
   type SelfResult,
   type SimInput,
@@ -71,7 +61,6 @@ export interface ReviewRecord {
   at: string; // 2026-10-02 14:32
 }
 
-const SEG_COLOR = ['#64748b', '#2563eb', '#0891b2'];
 const AXIS = { fontSize: 11, fill: '#64748b' };
 const GRID = '#eef2f7';
 const TIP = { contentStyle: { background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12 } };
@@ -194,14 +183,6 @@ const Blue = ({ children }: { children: ReactNode }) => <span className="text-bl
 const Dim = ({ on, children }: { on: boolean; children: ReactNode }) => (
   <span className={on ? 'text-blue-700' : 'text-slate-400'}>{children}</span>
 );
-const SegTag = ({ idx, children }: { idx: number; children: ReactNode }) => (
-  <span
-    className="inline-block rounded px-1.5 py-0.5 text-[11px] font-bold text-white"
-    style={{ background: SEG_COLOR[idx - 1] }}
-  >
-    {children}
-  </span>
-);
 /** 연차 선택 — 원본처럼 ◀ 레인지 ▶ + 'n차년 (한전 +x%)'. 손잡이는 파란 원으로 잘 보이게 */
 function YearSel({ value, onChange, esc }: { value: number; onChange: (v: number) => void; esc: number }) {
   const pct = ((value - 1) / 19) * 100;
@@ -306,7 +287,7 @@ export function SimReport({
           <h1 className="text-[22px] font-extrabold tracking-tight">
             울산미포산단 태양광 사업성 검토
             <span className="ml-2 rounded bg-blue-100 px-2 py-0.5 align-middle text-[11px] font-extrabold text-blue-700">
-              {self ? '자가소비용' : 'OnSite PPA (리스형)'}
+              {self ? '자가소비용' : 'PPA'}
             </span>
           </h1>
           <p className="mt-1.5 text-xs text-slate-500 tabular-nums">작성일 {written}</p>
@@ -373,8 +354,7 @@ export function SimReport({
             {F(es.selfRemain)}kW({(es.selfRemain / 1000).toFixed(2)}MW)
           </b>
           입니다. 입력 용량 {F(R.cap)}kW 중 초과분은 자가소비 배정에서 제외될 수 있어, 초과 용량은{' '}
-          <b>OnSite PPA(리스형)</b> 검토를 권장합니다 — 초기투자 0원, 구간별 PPA 단가 적용(초기 구간 한전요금 연동
-          가능).
+          <b>PPA</b> 검토를 권장합니다 — 초기투자 0원, 20년 PPA 단가 적용.
         </div>
       )}
 
@@ -386,7 +366,7 @@ export function SimReport({
         title={
           self
             ? `월별 예상 발전량 (${mY}차년)`
-            : `월별 발전량 · 한전요금 대비 PPA 납입료 (${mY}차년 · ${segNow!.idx}구간${segNow!.linked ? ' 한전 연동' : ` 고정 ${F1(rows[0]!.pu)}원`})`
+            : `월별 발전량 · 한전요금 대비 PPA 납입료 (${mY}차년 · ${segNow!.linked ? '한전 연동' : `PPA 단가 ${F1(rows[0]!.pu)}원`})`
         }
       >
         <YearSel value={mY} onChange={setMY} esc={R.esc} />
@@ -465,8 +445,8 @@ export function SimReport({
             {F1(saveUnit(2, R.plan, R.table, R.adj) * Math.pow(1 + R.esc, mY - 1))}원/kWh (상승률{' '}
             {(R.esc * 100).toFixed(1)}%/yr 누적).{' '}
             {segNow!.linked
-              ? `${mY}차년은 ${segNow!.idx}구간 한전 연동으로 PPA 납입료(주황)가 한전 기준액과 동일 — 전력량요금 절감 0, 기본요금 절감만 발생`
-              : `PPA 납입료(주황)는 ${segNow!.idx}구간 고정단가 ${F1(rows[0]!.pu)}원/kWh로 발전량에 정비례`}{' '}
+              ? `${mY}차년은 한전 연동으로 PPA 납입료(주황)가 한전 기준액과 동일 — 전력량요금 절감 0, 기본요금 절감만 발생`
+              : `PPA 납입료(주황)는 PPA 단가 ${F1(rows[0]!.pu)}원/kWh로 발전량에 정비례`}{' '}
             · 연간 절감 {F((R as PpaResult).years[mY - 1]!.saveD / 1e4)}만원
           </Note>
         )}
@@ -565,54 +545,33 @@ export function SimReport({
   );
 }
 
-/* ── 검토 입력값 (사용자 요청 — 어떤 값으로 계산했는지 기록) ── */
+/* ── 검토 입력값 — 입력 화면에서 넣은 값만(2026-10-12). 뒤에서 쓰는 기본값 · 상수는 여기 보이지 않는다 ── */
 function InputRecord({ input: i, companyName }: { input: SimInput; companyName: string }) {
   const self = i.mode === 'self';
-  const cost = selfCost(i);
   const items: [string, string][] = [
-    ['업체', companyName || '-'],
-    ['기업명', i.site || '-'],
+    ['기업명', i.site || companyName || '-'],
     ['기업 주소', i.address || '-'],
-    ['검토 방식', self ? '자가소비용' : 'OnSite PPA (리스형)'],
-    ['지붕 가용면적', i.roof ? `${F(i.roof)} ㎡ (약 ${F(i.roof / (i.areaPerKw || 10))} kW)` : ''],
+    ['검토 방식', self ? '자가소비용' : 'PPA'],
     ['일평균 발전시간', `${i.avgH} h/일`],
     ['모듈 효율감소율', `${i.deg} %/yr`],
     ['배출권 시세 (KAU)', `${F(i.kau)} 원/t · 상승률 ${i.kauEsc} %/yr`],
     ['전력 배출계수', `${i.co2f} t/MWh`],
-    ['기후환경요금 · 연료비조정요금', `${F1(i.climateChg ?? CLIMATE_CHG)} · ${F1(i.fuelAdj ?? FUEL_ADJ)} 원/kWh`],
     ['배출권 할당대상업체', i.ets ? '예' : '아니오'],
     ...(self
       ? ([
-          ['태양광 설치용량', `${F(i.self.cap)} kW`],
-          ['계약전력', i.self.ctr ? `${F(i.self.ctr)} kW` : ''],
-          ['월평균 전기사용량', `${F(i.self.usage)} kWh`],
-          ['요금제 · 요금 기준', `${PLAN_LABEL[i.self.plan]} · ${tableOf(i, i.self.ver).label}`],
+          ['희망 태양광 설치용량', `${F(i.self.cap)} kW`],
           ['전기요금 상승률', `${i.self.esc} %/yr`],
-          ['기본요금 피크감축 반영률', `${i.self.peakR} %`],
-          ['설치단가', `${F(i.self.capexUnit ?? SELF_CAPEX_UNIT)} 원/kW`],
-          ['추가 시공비 (변압기 등)', `${F(i.self.extraCost ?? SELF_EXTRA_COST)} 원`],
-          ['총사업비 (설치비 + 추가 시공비)', `${F(cost.total)} 원`],
-          [`국비 지원 (설치비의 ${cost.govRate}%)`, `${F(cost.gov)} 원`],
-          ['소비자 부담 (총사업비 − 국비)', `${F(cost.consumer)} 원`],
-          ['연간 O&M (총사업비 대비)', `${i.self.om ?? SELF_OM} %`],
         ] as [string, string][])
       : ([
-          ['태양광 설치용량', `${F(i.ppa.cap)} kW`],
-          ['비교 요금제 · 요금 기준', `${PLAN_LABEL[i.ppa.plan]} · ${tableOf(i, i.ppa.ver).label}`],
+          ['희망 태양광 설치용량', `${F(i.ppa.cap)} kW`],
           ['한전요금 상승률', `${i.ppa.esc} %/yr`],
-          ['기본요금 피크감축 반영률', `${i.ppa.peakR} %`],
-          ...ppaSegs(i)
-            .filter((sg) => sg.idx <= 2 && sg.end >= sg.start)
-            .map((sg): [string, string] => [
-              `${sg.idx}구간 (${segLabel(sg)})`,
-              sg.linked ? '한전 대체단가 연동' : `${F1(sg.price)} 원/kWh 고정`,
-            ]),
           ['PPA 단가 상승률', `${i.ppa.ppaEsc} %/yr`],
+          ['PPA 단가 (20년)', `${F1(i.ppa.segs[0].price)} 원/kWh`],
         ] as [string, string][])),
   ];
   const pairs: [string, string][][] = [];
   for (let k = 0; k < items.length; k += 2) pairs.push(items.slice(k, k + 2));
-  const fac = i.facilities.filter((f) => f.kw || f.genKwh || f.useKwh);
+  const fac: SimInput['facilities'] = []; // 기존 설비는 입력에서 뺐다(2026-10-12)
   return (
     <Card title="검토 입력값">
       <table className="w-full border-collapse text-xs">
@@ -732,10 +691,8 @@ function PpaKpis({ R }: { R: PpaResult }) {
           <span className="flex flex-wrap items-center gap-1.5 text-[15px] leading-relaxed">
             {R.segs
               .filter((s) => s.end >= s.start)
-              .map((s, k) => (
+              .map((s) => (
                 <span key={s.idx} className="flex items-center gap-1">
-                  {k > 0 && <span className="text-slate-400">→</span>}
-                  <SegTag idx={s.idx}>{s.idx}구간</SegTag> {segLabel(s)} ·{' '}
                   {s.linked ? '한전 연동' : `${F1(s.price)}원/kWh`}
                   {!s.linked && R.ppaEsc > 0 ? ` (+${(R.ppaEsc * 100).toFixed(1)}%/yr)` : ''}
                 </span>
@@ -874,7 +831,7 @@ function UnitCard({ R }: { R: PpaResult }) {
           .filter((s) => s.end >= s.start)
           .map(
             (s) =>
-              `${s.idx}구간 ${segLabel(s)} ${s.linked ? '한전 연동(절감 0, 기본요금 절감만)' : `${F1(s.price)}원/kWh 고정`}`,
+              `PPA 단가 ${s.linked ? '한전 연동(절감 0, 기본요금 절감만)' : `${F1(s.price)}원/kWh 고정`}`,
           )
           .join(' · ')}
       </Note>
@@ -942,7 +899,6 @@ function OpTable({ R, cur }: { R: SelfResult | PpaResult; cur: number }) {
       cur={cur}
       head={[
         '년차',
-        '구간',
         '발전량 (MWh)',
         '월평균 납입료 (천원)',
         '전기요금 절감 (천원)',
@@ -951,7 +907,6 @@ function OpTable({ R, cur }: { R: SelfResult | PpaResult; cur: number }) {
       ]}
       rows={R.years.map((r) => [
         `${r.y}년차`,
-        <SegTag key="s" idx={r.seg}>{`${r.seg}구간`}</SegTag>,
         F1(r.gen / 1000),
         <Blue key="p">{F(r.ppaAmt / 12 / 1e3)}</Blue>,
         F(r.saveD / 1e3),
@@ -1100,12 +1055,12 @@ function Assumptions({
       `총사업비 = 설치용량 × 설치단가(기본 135만원/kW) + 변압기 등 추가 시공비(기본 2천만원, 컨소시엄 EPC 회신 기준). 국비는 순수 설치비 × 국비 비율(입력값, 기본 70%, 백만원 미만 절삭)만 지원하며 추가 시공비는 국비 제외 — 소비자 부담 = 총사업비 − 국비(국비 0%면 전액 기업 부담). O&M 은 총사업비 대비 연 요율(기본 1.0%). 회수기간·누적현금은 소비자 부담 기준. 자가소비 배정 잔여용량 약 ${(es.selfRemain / 1000).toFixed(2)}MW`,
     ],
     [
-      'OnSite PPA 구조',
+      'PPA 구조',
       `사업자(컨소시엄)가 설비 투자·설치·운영·유지보수 전액 부담, 소비자는 부지(지붕)만 제공하고 발전전력 사용분을 PPA 단가로 지불. 잉여전력·계통 리스크는 사업자 귀속. 계약기간 20년 기준. 당해연도 PPA 배정 잔여용량 약 ${(es.ppaRemain / 1000).toFixed(2)}MW`,
     ],
     [
-      '구간별 PPA 단가',
-      '20년 계약기간을 2구간으로 분할(전환연차 슬라이더). 지붕 보수·주차장형 구조물 등 설치비 과중 현장은 1구간(기본 1~5년차)을 한전 대체단가 연동으로 설정해 소비자 요금을 한전과 동일하게 두고, 2구간(기본 6~20년차)부터 고정 PPA 단가(기본 150원/kWh)를 적용. 연동 구간의 절감은 기본요금(피크감축)분만 발생하며, 고정단가 구간의 상승률은 구간 시작연차 기준으로 누적 적용',
+      'PPA 단가',
+      '20년 계약기간 한 단가(입력한 PPA 단가, 기본 150원/kWh)를 적용하고, PPA 단가 상승률은 1년차부터 누적 적용',
     ],
     [
       '자가소비 처리',
@@ -1150,7 +1105,7 @@ function Assumptions({
 export function simHeadline(input: SimInput) {
   const R = calc(input);
   return {
-    mode: R.mode === 'self' ? '자가소비' : 'onsite',
+    mode: R.mode === 'self' ? '자가소비' : 'PPA',
     cap: R.cap,
     gen1: R.annualGen1,
     save20: R.mode === 'self' ? R.cumSave : R.ets ? R.cumT : R.cumSaveD,

@@ -54,7 +54,7 @@ const strong = (v: ReactNode) => (
 const ALL_MONTHS = monthsBetween(FIRST_MONTH, LAST_MONTH);
 const MONTH_OPTIONS = ALL_MONTHS.map((m) => ({ value: m, label: m }));
 const YEAR_OPTIONS = YEARS.map((y) => ({ value: y, label: `${y}년` }));
-const kindBadge = (f: Facility) => <Badge variant={f.kind === 'onsite' ? 'info' : 'default'}>{f.kind}</Badge>;
+const kindBadge = (f: Facility) => <Badge variant={f.kind === 'PPA' ? 'info' : 'default'}>{f.kind}</Badge>;
 
 /** 화면 제목 — E-데이터마켓 › 온실가스 인벤토리 › 화면 */
 function Header({ title, actions }: { title: string; actions?: ReactNode }) {

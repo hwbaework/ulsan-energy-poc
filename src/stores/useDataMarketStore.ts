@@ -275,7 +275,7 @@ export function summaryOf(d: Pick<Dataset, 'ownerCompanyId'>): DataSummary | und
   const hourDays = g.reduce((a, r) => a + r.hours * daysIn(r.month), 0);
   const kw = c.solarKw.toFixed(2);
   return {
-    kwText: c.id === 4 ? `${kw} kW (자가소비 99.84 + onsite 329.60)` : `${kw} kW`,
+    kwText: c.id === 4 ? `${kw} kW (자가소비 99.84 + PPA 329.60)` : `${kw} kW`,
     avgHours: days ? Math.round((hourDays / days) * 10) / 10 : 0,
     totalKwh: g.reduce((a, r) => a + r.kwh, 0),
   };

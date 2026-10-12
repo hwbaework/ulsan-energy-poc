@@ -76,13 +76,13 @@ export const cellMuted = (v: ReactNode) => (
 );
 
 /* ── 진행 단계 — 거래 이력 · 거래 승인이 같은 단계를 쓴다 ── */
-export const TRADE_STEPS = ['신청 접수', '관리자 검토', '현장 실측', '조건 협의', '승인', '전자서명', '체결'] as const;
+export const TRADE_STEPS = ['신청 접수', '관리자 검토', '미팅', '조건 협의', '승인', '전자서명', '체결'] as const;
 
-/** 검토 중 어디까지 왔는지 — 실측이 끝났거나 조건 협의로 넘겼으면 조건 협의, 실측으로 넘겼으면 현장 실측, 아니면 관리자 검토 */
+/** 검토 중 어디까지 왔는지 — 미팅이 끝났거나 조건 협의로 넘겼으면 조건 협의, 미팅으로 넘겼으면 미팅, 아니면 관리자 검토 */
 function reviewStepOf(r: TradeRequest) {
   const has = (label: string) => r.events.some((e) => e.label === label);
   if (r.surveyDoneAt || has('조건 협의')) return 3;
-  if (has('현장 실측')) return 2;
+  if (has('미팅')) return 2;
   return 1; // 신청하면 바로 관리자 검토
 }
 

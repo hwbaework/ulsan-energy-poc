@@ -12,11 +12,11 @@ const MapboxMapView = dynamic(() => import('@/components/ui/MapboxMapView').then
 });
 import type { MapLike as MapboxMap, MapMarkerSpec } from '@/components/ui/MapboxMapView';
 import type { PlantContractKind } from '@/types/monitoring';
-import { contractSplitOf } from '@/lib/design';
+import { CONTRACT_KIND_LABEL, CONTRACT_KIND_ORDER, contractSplitOf } from '@/lib/design';
 import { expandByContract } from '@/lib/contract-plants';
 
 /**
- * 계약 사업장 한 행 = 발전소 × 계약 — "한일튜브(자가소비)" · "한일튜브(onsite)". 값은 계약 용량 몫.
+ * 계약 사업장 한 행 = 발전소 × 계약 — "한일튜브(자가소비)" · "한일튜브(PPA)". 값은 계약 용량 몫.
  * 지도 핀은 위치가 하나라 발전소당 1개 — 핀을 누르면 그 발전소의 계약 전부, 행을 누르면 그 계약만 본다.
  */
 interface ContractRow {
@@ -87,16 +87,6 @@ const STATUS_LABELS_MAP: Record<PlantStatus, string> = {
 
 type LayerKey = 'plants' | 'anomalyHighlight' | 'performanceHeatmap';
 
-function computeAggregates(plants: MonitoringPlant[]) {
-  const totalOutput = plants.reduce((s, p) => s + p.currentOutput, 0);
-  const totalCapacity = plants.reduce((s, p) => s + p.capacity, 0);
-  const operatingRate = totalCapacity > 0 ? (totalOutput / totalCapacity) * 100 : 0;
-  const operatingCount = plants.filter((p) => p.status !== 'ANOMALY' && p.status !== 'OFFLINE').length;
-  const totalCount = plants.length;
-  const todayTotalGen = plants.reduce((s, p) => s + (p.dailyEnergy ?? 0), 0);
-  return { totalOutput, totalCapacity, operatingRate, operatingCount, totalCount, todayTotalGen };
-}
-
 /* ────────────────────────────────────────────────────────────────── */
 /*  Helpers: Marker icons                                            */
 /* ────────────────────────────────────────────────────────────────── */
@@ -145,22 +135,32 @@ function StatusDot({ status, pulse }: { status: PlantStatus; pulse?: boolean }) 
 /* ────────────────────────────────────────────────────────────────── */
 
 function StatusHud({ plants }: { plants: MonitoringPlant[] }) {
-  const agg = computeAggregates(plants);
   const anomalyCount = plants.filter((p) => p.status === 'ANOMALY' || p.status === 'WARNING').length;
-  const capacityMw = (agg.totalCapacity / 1000).toFixed(2);
+  // 설비용량 = 계약 설비(자가소비 + PPA) — 계약 몫으로 나눠 더한다
+  const rows = plants.flatMap(contractRowsOf);
+  const caps = CONTRACT_KIND_ORDER.map((k) => ({
+    k,
+    kw: rows.filter((r) => r.kind === k).reduce((sum, r) => sum + r.capacity, 0),
+  }));
+  const capTotal = caps.reduce((sum, c) => sum + c.kw, 0);
+  const kwText = (v: number) => `${v.toLocaleString('ko-KR', { maximumFractionDigits: 2 })} kW`;
 
   return (
     <div className="w-full">
       <div className="rounded-xl border border-white/10 bg-[#000C17]/95 px-5 py-3">
         <div className="flex items-center gap-6 flex-wrap">
-          {/* 전체 출력 */}
-          <div className="flex-1 min-w-[190px]">
+          {/* 설비용량 — 자가소비 + PPA */}
+          <div className="flex-1 min-w-[260px]">
             <div className="mb-1">
-              <span className="text-sm text-slate-300">전체 출력</span>
+              <span className="text-sm text-slate-300">설비용량</span>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-xl font-bold text-white tabular-nums">{agg.totalOutput.toLocaleString()} kW</span>
-              <span className="text-sm text-slate-400">설비 {capacityMw} MW</span>
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <span className="text-xl font-bold text-white tabular-nums">{kwText(capTotal)}</span>
+              {caps.map((c) => (
+                <span key={c.k} className="text-sm text-slate-400 tabular-nums">
+                  {CONTRACT_KIND_LABEL[c.k]} {kwText(c.kw)}
+                </span>
+              ))}
             </div>
           </div>
 
@@ -271,6 +271,8 @@ function SidePanel({
   onBack?: () => void;
 }) {
   const router = useRouter();
+  // 계약 사업장 목록은 한 번에 한 유형 — 자가소비 / PPA 를 골라서 본다
+  const [kindTab, setKindTab] = useState<PlantContractKind>('SELF_CONSUMPTION');
 
   if (selected) {
     const plant = selected;
@@ -467,7 +469,24 @@ function SidePanel({
       {/* 계약 사업장 */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-white">계약 사업장</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-white">계약 사업장</p>
+            <div className="flex rounded-md bg-white/[0.04] p-0.5 ring-1 ring-white/[0.08]">
+              {CONTRACT_KIND_ORDER.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setKindTab(k)}
+                  className={cn(
+                    'rounded px-2.5 py-0.5 text-xs font-medium transition-colors',
+                    kindTab === k ? 'bg-primary text-white' : 'text-slate-400 hover:text-white',
+                  )}
+                >
+                  {CONTRACT_KIND_LABEL[k]}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex items-center gap-3 text-xs text-slate-400">
             <span className="flex items-center gap-1">
               <span className="h-2 w-2 rounded-full bg-emerald-500" /> 정상
@@ -477,7 +496,10 @@ function SidePanel({
             </span>
           </div>
         </div>
-        {plants.flatMap(contractRowsOf).map((row) => {
+        {plants
+          .flatMap(contractRowsOf)
+          .filter((row) => row.kind === kindTab)
+          .map((row) => {
           const plant = row.plant;
           return (
             <button

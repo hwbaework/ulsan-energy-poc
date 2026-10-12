@@ -14,12 +14,12 @@ import type { EnergySource, PlantContractKind, PlantStatus } from '@/types/monit
 /* ── 계약 유형 — 울산 에자자는 자가소비 · onsite 두 가지만 ── */
 export const CONTRACT_KIND_LABEL: Record<PlantContractKind, string> = {
   SELF_CONSUMPTION: '자가소비',
-  ONSITE: 'onsite',
+  ONSITE: 'PPA',
 };
 /** 계약 유형 메타 — 색으로 구분하지 않는다(글자만). 금액 라벨·단가 설정 키를 화면들이 같이 쓴다 */
 export const CONTRACT_KIND: Record<PlantContractKind, { label: string; amountLabel: string; priceLabel: string; priceKey: string }> = {
   SELF_CONSUMPTION: { label: '자가소비', amountLabel: '절감액', priceLabel: '한전 단가', priceKey: 'KEPCO_UNIT_PRICE' },
-  ONSITE: { label: 'onsite', amountLabel: 'PPA 요금', priceLabel: '계약 단가', priceKey: 'PPA_UNIT_PRICE' },
+  ONSITE: { label: 'PPA', amountLabel: 'PPA 요금', priceLabel: '계약 단가', priceKey: 'PPA_UNIT_PRICE' },
 };
 export const CONTRACT_KIND_ORDER: PlantContractKind[] = ['SELF_CONSUMPTION', 'ONSITE'];
 /** 발전소의 계약 유형 목록 — 혼합 계약(한일튜브)은 2개, 연료전지·ORC 처럼 계약이 없으면 빈 배열 */

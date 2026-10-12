@@ -26,7 +26,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 24; // 발전사업자 계정 = 한일튜브(id 4) · 계약 상대는 모두 SPC
+export const SEED_VERSION = 27; // 2026-10-12 onsite → PPA, 현장 실측 → 미팅 (저장본 다시 시작)
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -70,7 +70,7 @@ const ev = (at: string, by: Party, label: string, note?: string) => ({
 });
 
 /* ── 시드: 체결 = 실제 6건(자가소비 5 · onsite 1) / 상태별 샘플 1건씩(실제 기업·용량·조건) ───────────────────────────────────────── */
-/** 시드 계약 조건 — 무료진단 기본값(설치단가 ₩1,350,000/kW · 추가 시공비 ₩20,000,000 · O&M 1%) · onsite 는 1~3년 / 4년~ 두 구간 */
+/** 시드 계약 조건 — 무료진단 기본값(설치단가 ₩1,350,000/kW · 추가 시공비 ₩20,000,000 · O&M 1%) · PPA 는 계약 기간 한 단가 */
 const TARIFF = { tariffPlan: '고압A 선택Ⅱ', tariffBasis: '2025-04 확정단가 (고시)' };
 export function seedTermsOf(x: {
   kind: PlantContractKind;
@@ -89,11 +89,8 @@ export function seedTermsOf(x: {
     : {
         ...TARIFF,
         omIncluded: true,
-        segments: [
-          // 1구간 1~5년차 · 2구간 6년차~ (무료진단 기본값과 같다). 사용료는 구간 단가로 SPC 가 받는다
-          { from: 1, to: 5, price: x.unitPrice },
-          { from: 6, to: x.termYears, price: x.unitPrice },
-        ],
+        // PPA 단가는 구간 없이 계약 기간 한 단가(2026-10-12). 사용료 = 사용량 × 단가, SPC 가 받는다
+        segments: [{ from: 1, to: x.termYears, price: x.unitPrice }],
       };
 }
 
@@ -114,7 +111,7 @@ function seedContracts(): Contract[] {
       requestId: 1,
       kind: 'ONSITE',
       plantId: 17514,
-      plantName: '한일튜브(onsite)',
+      plantName: '한일튜브(PPA)',
       generatorCompanyId: CO.SPC.id,
       generatorCompanyName: CO.SPC.name,
       consumerCompanyId: 4,
@@ -334,7 +331,7 @@ function seedRequests(): TradeRequest[] {
       ...gen,
       kind: 'ONSITE',
       plantId: 17514,
-      plantName: '한일튜브(onsite)',
+      plantName: '한일튜브(PPA)',
       consumerCompanyId: 4,
       consumerCompanyName: CO.HANIL.name,
       siteName: '한일튜브 울산공장',
@@ -352,7 +349,7 @@ function seedRequests(): TradeRequest[] {
         iso('2025-01-27'),
         iso('2025-02-20', '14:20:00'),
       ),
-      note: '한일튜브 울산공장 지붕 태양광 329.6kW — 전량 onsite 공급',
+      note: '한일튜브 울산공장 지붕 태양광 329.6kW — 전량 PPA 공급',
     }),
     mk({
       id: 2,
@@ -509,11 +506,11 @@ function seedRequests(): TradeRequest[] {
           at: iso('2026-09-29', '15:12:00'),
           by: 'consumer',
           byName: CO.CONSUMER_LOGIN.name,
-          text: '한길 자가소비 90.88kW 신청합니다. 실측 일정 조율 부탁드립니다.',
+          text: '한길 자가소비 90.88kW 신청합니다. 미팅 일정 조율 부탁드립니다.',
         },
       ],
     }),
-    // 현장 실측
+    // 미팅
     mk({
       id: 15,
       ...spc,
@@ -535,23 +532,23 @@ function seedRequests(): TradeRequest[] {
       events: [
         ev(iso('2026-09-25', '10:00:00'), 'spc', '신청 접수', '전화 문의 대리 접수'),
         ev(iso('2026-09-26', '09:30:00'), 'spc', '검토 시작'),
-        ev(iso('2026-09-26', '09:40:00'), 'spc', '현장 실측', '2026-10-08 예정'),
+        ev(iso('2026-09-26', '09:40:00'), 'spc', '미팅', '2026-10-08 예정'),
       ],
       messages: [
         {
           at: iso('2026-09-25', '10:05:00'),
           by: 'spc',
           byName: CO.SPC.name,
-          text: '전화 문의 접수 — 10월 8일 현장 실측 예정',
+          text: '전화 문의 접수 — 10월 8일 미팅 예정',
         },
       ],
     }),
-    // 조건 협의 — 실측 끝, 신청 내용에서 조건을 바로 고친다
+    // 조건 협의 — 미팅 끝, 신청 내용에서 조건을 바로 고친다
     mk({
       id: 5,
       ...gen,
       kind: 'ONSITE',
-      plantName: '한일튜브(onsite)',
+      plantName: '한일튜브(PPA)',
       consumerCompanyId: 4,
       consumerCompanyName: CO.HANIL.name,
       siteName: '한일튜브 울산공장',
@@ -569,14 +566,14 @@ function seedRequests(): TradeRequest[] {
       events: [
         ev(iso('2026-09-20'), 'generator', '신청 접수'),
         ev(iso('2026-09-23', '10:30:00'), 'spc', '검토 시작'),
-        ev(iso('2026-09-26', '12:00:00'), 'spc', '현장 실측 완료', '2026-09-26'),
+        ev(iso('2026-09-26', '12:00:00'), 'spc', '미팅 완료', '2026-09-26'),
       ],
       messages: [
         {
           at: iso('2026-09-22', '14:00:00'),
           by: 'spc',
           byName: CO.SPC.name,
-          text: '9월 26일 오전 10시 현장 실측 가능하실까요?',
+          text: '9월 26일 오전 10시 미팅 가능하실까요?',
         },
         {
           at: iso('2026-09-22', '15:30:00'),
@@ -588,7 +585,7 @@ function seedRequests(): TradeRequest[] {
           at: iso('2026-09-27', '11:00:00'),
           by: 'spc',
           byName: CO.SPC.name,
-          text: '실측 결과 신청 조건 그대로 진행 가능합니다. 확인 부탁드립니다.',
+          text: '미팅 결과 신청 조건 그대로 진행 가능합니다. 확인 부탁드립니다.',
         },
       ],
     }),
@@ -1050,7 +1047,7 @@ function seedDocuments(contracts: Contract[]): TradeDocument[] {
     if (!c.signedAt) continue;
     push({
       category: 'SIGNED',
-      title: `${c.kind === 'ONSITE' ? 'onsite 전력공급계약서' : '태양광 발전설비 및 부동산 교차 임대차 계약서'} — ${c.consumerCompanyName}`,
+      title: `${c.kind === 'ONSITE' ? 'PPA 전력공급계약서' : '태양광 발전설비 및 부동산 교차 임대차 계약서'} — ${c.consumerCompanyName}`,
       fileName: `${c.no}_계약서_서명본.pdf`,
       contractId: c.id,
       contractNo: c.no,
@@ -1171,11 +1168,11 @@ interface TradingPocState {
   submitRequest: (input: NewRequestInput) => TradeRequest;
   startReview: (id: number, note?: string) => void;
   approveRequest: (id: number, note?: string) => void;
-  /** 계약 현황 — 메시지 · 현장 실측 완료 · 조건 제안 · 제안 응답(수락 / 수정 요청) */
+  /** 계약 현황 — 메시지 · 미팅 완료 · 조건 제안 · 제안 응답(수락 / 수정 요청) */
   addMessage: (id: number, by: Party, byName: string, text: string) => void;
   markSurveyDone: (id: number, date: string) => void;
-  /** 검토 → 현장 실측 / 조건 협의로 넘긴다 */
-  moveStage: (id: number, label: '현장 실측' | '조건 협의', note?: string) => void;
+  /** 검토 → 미팅 / 조건 협의로 넘긴다 */
+  moveStage: (id: number, label: '미팅' | '조건 협의', note?: string) => void;
   /** 조건 협의 — 신청 내용의 조건을 그 자리에서 고친다 */
   updateTerms: (
     id: number,
@@ -1300,7 +1297,7 @@ export const useTradingPocStore = create<TradingPocState>()(
                   ...r,
                   surveyDoneAt: date,
                   updatedAt: nowIso(),
-                  events: [...r.events, ev(nowIso(), 'spc', '현장 실측 완료', date)],
+                  events: [...r.events, ev(nowIso(), 'spc', '미팅 완료', date)],
                 }
               : r,
           ),
@@ -1420,7 +1417,7 @@ export const useTradingPocStore = create<TradingPocState>()(
         const doc: TradeDocument = {
           id: nextId(get().documents),
           category: 'CONTRACT',
-          title: `${r.kind === 'ONSITE' ? 'onsite 전력공급계약서' : '태양광 발전설비 및 부동산 교차 임대차 계약서'} (초안)`,
+          title: `${r.kind === 'ONSITE' ? 'PPA 전력공급계약서' : '태양광 발전설비 및 부동산 교차 임대차 계약서'} (초안)`,
           fileName: `${contract.no}_계약서_초안.pdf`,
           contractId: contract.id,
           contractNo: contract.no,
@@ -1734,7 +1731,7 @@ function sign(set: Set, get: Get, contractId: number, party: 'generator' | 'cons
         {
           id: nextId(get().documents),
           category: 'SIGNED',
-          title: `${next.kind === 'ONSITE' ? 'onsite 전력공급계약서' : '태양광 발전설비 및 부동산 교차 임대차 계약서'} (서명본)`,
+          title: `${next.kind === 'ONSITE' ? 'PPA 전력공급계약서' : '태양광 발전설비 및 부동산 교차 임대차 계약서'} (서명본)`,
           fileName: `${next.no}_계약서_서명본.pdf`,
           contractId: next.id,
           contractNo: next.no,

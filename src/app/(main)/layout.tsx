@@ -211,11 +211,14 @@ const GNB_ITEMS: GnbItem[] = [
     icon: Leaf,
     menuCode: 'RE100',
     personas: ['generator', 'consumer', 'admin'],
-    toByPersona: { consumer: '/consulting', generator: '/generator/trading', admin: '/platform/trading' },
+    toByPersona: { consumer: '/consulting', generator: '/consulting', admin: '/consulting' },
     childrenByPersona: {
       // 전기사용자: 2.2 컨설팅만
       consumer: [...RE100_CONSULTING_CHILDREN, RE100_EDU(false)],
       generator: [
+        // 2.2 컨설팅 먼저 — 순서: 컨설팅 → 전력거래 (2026-10-12)
+        ...RE100_CONSULTING_CHILDREN,
+        RE100_EDU(false),
         // 2.1 전력거래 — 흐름 순서: 거래 신청 · 거래 이력 · 거래 승인 · 계약 현황 · 내 계약 · 변경·해지 · 수익·정산(세금계산서·청구서) · 문서 관리
         { to: '/generator/trading', icon: ArrowRightLeft, label: '거래 신청', section: '전력거래', end: true }, // 2.1.1
         { to: '/generator/trading/history', icon: History, label: '거래 이력', section: '전력거래' }, // 2.1.4
@@ -234,10 +237,11 @@ const GNB_ITEMS: GnbItem[] = [
           ],
         }, // 2.1.5
         { to: '/generator/ppa/documents', icon: FileText, label: '문서 관리', section: '전력거래' }, // 2.1.8
-        ...RE100_CONSULTING_CHILDREN,
-        RE100_EDU(false),
       ],
       admin: [
+        // 2.2 컨설팅 먼저 — 순서: 컨설팅 → 전력거래 (2026-10-12)
+        ...RE100_CONSULTING_CHILDREN,
+        RE100_EDU(true),
         // 2.1 전력거래 — 흐름 순서: 거래 신청 · 거래 이력 · 거래 승인 · 계약 현황 · 내 계약 · 변경·해지 · 수익·정산(세금계산서·청구서) · 문서 관리
         { to: '/platform/trading', icon: ArrowRightLeft, label: '거래 신청', section: '전력거래', end: true }, // 2.1.1
         { to: '/platform/trading/history', icon: History, label: '거래 이력', section: '전력거래' }, // 2.1.4
@@ -256,8 +260,6 @@ const GNB_ITEMS: GnbItem[] = [
           ],
         }, // 2.1.5
         { to: '/platform/ppa/documents', icon: FileText, label: '문서 관리', section: '전력거래' }, // 2.1.8
-        ...RE100_CONSULTING_CHILDREN,
-        RE100_EDU(true),
       ],
     },
   },

@@ -26,7 +26,7 @@ export interface TradeMessage {
   text: string;
 }
 
-/** SPC 조건 제안 — 실측 뒤 조건을 고쳐 제안하고 신청자가 수락하거나 수정 요청. 수락되면 승인 때 계약 조건이 된다 */
+/** SPC 조건 제안 — 미팅 뒤 조건을 고쳐 제안하고 신청자가 수락하거나 수정 요청. 수락되면 승인 때 계약 조건이 된다 */
 export interface TermsProposal {
   at: string;
   terms: Partial<ContractTerms> & { capacityKw?: number; termYears?: number };
@@ -63,7 +63,7 @@ export interface ContractTerms {
   omRatePct?: number;
   /** O&M 포함 — 필수 */
   omIncluded?: boolean;
-  /** 현장 실측 */
+  /** 미팅 */
   surveyRequested?: boolean;
   surveyDate?: string;
   /** onsite 구간 단가 — 1구간 · 2구간 (₩/kWh) */
@@ -103,7 +103,7 @@ export interface TradeRequest extends ContractTerms {
   /** 승인 시 생성되는 계약 */
   contractId?: number;
   events: TradeEvent[];
-  /** 계약 현황 — 소통 · 조건 제안 · 현장 실측 완료일 */
+  /** 계약 현황 — 소통 · 조건 제안 · 미팅 완료일 */
   messages?: TradeMessage[];
   proposal?: TermsProposal;
   surveyDoneAt?: string;

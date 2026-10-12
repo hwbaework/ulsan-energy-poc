@@ -192,15 +192,15 @@ export function MyContractsScreen() {
       <StatsGrid columns={3}>
         <StatCard label="총 계약 용량" value={stats.total} />
         <StatCard label="자가소비 용량" value={stats.self} />
-        <StatCard label="onsite 용량" value={stats.onsite} />
+        <StatCard label="PPA 용량" value={stats.onsite} />
       </StatsGrid>
       {role.isAdmin && !company ? (
         // 관리자 전체 — SPC 가 받는 돈(onsite 사용료 누적)
-        <SectionCard title="받는 사용료 누적 (만원, onsite)">
+        <SectionCard title="받는 사용료 누적 (만원, PPA)">
           <RmsPaybackChart
             data={income.data}
             xKey="year"
-            lines={[{ key: '사용료', name: 'onsite 사용료' }]}
+            lines={[{ key: '사용료', name: 'PPA 사용료' }]}
             height={260}
           />
         </SectionCard>

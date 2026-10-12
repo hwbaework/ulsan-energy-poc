@@ -15,14 +15,10 @@ import {
   SELF_EXTRA_COST,
   SELF_OM,
   VER_LABEL,
-  tableOf,
-  reviewNo as toReviewNo,
 } from '@/lib/solar-sim';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { useDiagnoses } from '@/hooks/consulting/useConsultations';
 import { useToastStore } from '@/stores/useToastStore';
 import { CONSUMERS, CO, defaultTermYears, defaultUnitPrice, useTradingPocStore } from '@/stores/useTradingPocStore';
-import type { Diagnosis } from '@/types/consultation';
 import type { PlantContractKind } from '@/types/monitoring';
 import { useTradingRole } from './useTradingRole';
 import { estimateMonthlyAmount, estimateMonthlyKwh, fmtKrw, fmtKw, fmtKwh, kindLabel } from './meta';
@@ -30,8 +26,6 @@ import { Info } from './Bits';
 
 const PLAN_OPTIONS = [{ value: '', label: '선택' }, ...Object.values(PLAN_LABEL).map((l) => ({ value: l, label: l }))];
 const VER_OPTIONS = [{ value: '', label: '선택' }, ...Object.values(VER_LABEL).map((l) => ({ value: l, label: l }))];
-/** 진단 분석 기간 — 시뮬레이터는 20년으로 본다 */
-const SIM_YEARS = 20;
 const won = (n: number) => `₩${Math.round(n).toLocaleString('ko-KR')}`;
 
 /** 계약 유형 카드 — 무엇인지 · 누가 무엇을 하는지 · 어떻게 청구하는지 */
@@ -50,7 +44,7 @@ const KIND_CARDS: { value: PlantContractKind; title: string; headline: string; p
   },
   {
     value: 'ONSITE',
-    title: 'onsite',
+    title: 'PPA',
     headline: '초기 비용 0원, 한전보다 낮은 단가로 절감',
     points: [
       '초기 비용 0원 · 설치비는 EPC 부담',
@@ -86,7 +80,6 @@ type Form = {
   consumerPick: string;
   consumerName: string;
   address: string;
-  pickedDiag: string;
   reviewNo?: string;
   capacity: string;
   term: string;
@@ -99,10 +92,8 @@ type Form = {
   extraCost: string;
   omRate: string;
   ppaSegText?: string;
-  /** onsite 구간 — 1구간 끝 년차 · 1구간 단가 · 2구간 단가 */
-  seg1End: string;
-  seg1Price: string;
-  seg2Price: string;
+  /** PPA 단가 — 계약 기간 한 단가(₩/kWh) */
+  ppaPrice: string;
   surveyRequested: boolean;
   surveyDate: string;
   contactName: string;
@@ -114,7 +105,7 @@ type Form = {
 /**
  * 거래 신청 — 신청만 한다(진행은 거래 현황, 승인·서명은 거래 승인).
  * 계약 유형을 먼저 고르고 내용을 넣는다. 기존 기업은 골라서 채우고, 전화로 들어온 신규 기업은 직접 입력(기업명·기업 주소 — 회원가입과 같은 말).
- * 무료진단(같은 유형)을 불러오면 설치 용량·계약 기간·요금제·요금 기준·단가·연락처가 채워진다. 진단은 추정이라 현장 실측을 함께 요청.
+ * 무료진단 불러오기는 없다(2026-10-12) — 계약 조건은 직접 넣는다. 진단은 추정이라 미팅을 함께 요청.
  */
 export function TradeRequestsScreen() {
   const role = useTradingRole();
@@ -135,7 +126,6 @@ export function TradeRequestsScreen() {
     consumerPick: own?.value ?? '',
     consumerName: own?.name ?? '',
     address: own?.address ?? '',
-    pickedDiag: '',
     capacity: '',
     term: k ? String(defaultTermYears(k)) : '',
     tariffPlan: '',
@@ -144,9 +134,7 @@ export function TradeRequestsScreen() {
     installUnit: '',
     extraCost: '',
     omRate: '',
-    seg1End: '',
-    seg1Price: '',
-    seg2Price: '',
+    ppaPrice: '',
     surveyRequested: true,
     surveyDate: '',
     contactName: '',
@@ -156,8 +144,6 @@ export function TradeRequestsScreen() {
   });
   const [kind, setKind] = useState<PlantContractKind | null>(null);
   const [f, setF] = useState<Form>(() => blank(null));
-  // 불러오기 직전 값 — [불러오기 취소]로 되돌린다
-  const [beforeLoad, setBeforeLoad] = useState<Form | null>(null);
   const set = (patch: Partial<Form>) => setF((prev) => ({ ...prev, ...patch }));
 
   const picked = own ?? COMPANY_OPTIONS.find((c) => c.value === f.consumerPick);
@@ -166,26 +152,11 @@ export function TradeRequestsScreen() {
     () => (picked ? contractsAll.filter((c) => c.consumerCompanyId === picked.id && c.status === 'ACTIVE') : []),
     [contractsAll, picked],
   );
-  // 컨설팅 연계 — 고른 유형과 같은 무료진단만. 기존 기업은 그 기업 기록, 신규 기업 등록은 관리자가 진단에서 직접 입력한 미등록 기업 기록 전부(불러오면 기업명·기업 주소까지)
-  const { data: diagData } = useDiagnoses();
-  const diagnoses = useMemo(
-    () =>
-      ((diagData ?? []) as Diagnosis[]).filter(
-        (d) =>
-          d.sim &&
-          (picked ? d.companyId === picked.id : d.companyId === 0) &&
-          (kind === 'ONSITE' ? d.sim.mode === 'ppa' : d.sim.mode === 'self'),
-      ),
-    [diagData, kind, picked],
-  );
-
   const chooseKind = (k: PlantContractKind) => {
     setKind(k);
-    setBeforeLoad(null);
     // 유형이 바뀌면 진단·조건은 다시(전기사용자·연락처는 둔다)
     setF((prev) => ({
       ...prev,
-      pickedDiag: '',
       reviewNo: undefined,
       capacity: '',
       term: String(defaultTermYears(k)),
@@ -197,59 +168,21 @@ export function TradeRequestsScreen() {
       extraCost: k === 'SELF_CONSUMPTION' ? String(SELF_EXTRA_COST) : '',
       omRate: k === 'SELF_CONSUMPTION' ? String(SELF_OM) : '',
       ppaSegText: undefined,
-      seg1End: '',
-      seg1Price: '',
-      seg2Price: '',
+      ppaPrice: '',
     }));
   };
   const pickConsumer = (v: string) => {
-    setBeforeLoad(null);
     const c = COMPANY_OPTIONS.find((x) => x.value === v);
     set(
       c
-        ? { consumerPick: v, consumerName: c.name, address: c.address, pickedDiag: '' }
-        : { consumerPick: '', pickedDiag: '' },
+        ? { consumerPick: v, consumerName: c.name, address: c.address }
+        : { consumerPick: '' },
     );
   };
-  const loadDiagnosis = () => {
-    const d = diagnoses.find((x) => String(x.id) === f.pickedDiag);
-    if (!d?.sim || !kind) return;
-    const sim = d.sim;
-    setBeforeLoad((prev) => prev ?? f); // 여러 번 불러와도 처음 값으로 되돌린다
-    const seg = sim.ppa.segs.slice(0, 2);
-    const segPrice = (s: { linked: boolean; price: number }) => (s.linked ? '한전 연동' : `₩${s.price}/kWh`);
-    set({
-      reviewNo: toReviewNo(d.id, d.createdAt),
-      // 신규 기업 등록이면 진단의 기업명·기업 주소도 가져온다
-      ...(picked ? {} : { consumerName: d.companyName }),
-      address: picked ? f.address : sim.address || f.address,
-      capacity: String(kind === 'ONSITE' ? sim.ppa.cap : sim.self.cap),
-      term: String(SIM_YEARS),
-      tariffPlan: PLAN_LABEL[kind === 'ONSITE' ? sim.ppa.plan : sim.self.plan],
-      tariffBasis: tableOf(sim, kind === 'ONSITE' ? sim.ppa.ver : sim.self.ver).label,
-      estInstallUnit: kind === 'SELF_CONSUMPTION' ? (sim.self.capexUnit ?? SELF_CAPEX_UNIT) : undefined,
-      extraCost: kind === 'SELF_CONSUMPTION' ? String(sim.self.extraCost ?? SELF_EXTRA_COST) : '',
-      omRate: kind === 'SELF_CONSUMPTION' ? String(sim.self.om ?? SELF_OM) : '',
-      // onsite 구간 단가 — 한전 연동 구간은 금액이 정해지지 않아 비워 두고 직접 적는다
-      seg1End: kind === 'ONSITE' ? String(sim.ppa.b1) : '',
-      seg1Price: kind === 'ONSITE' && !seg[0]!.linked ? String(seg[0]!.price) : '',
-      seg2Price: kind === 'ONSITE' && !seg[1]!.linked ? String(seg[1]!.price) : '',
-      ppaSegText:
-        kind === 'ONSITE'
-          ? `1구간 1~${sim.ppa.b1}년 ${segPrice(seg[0]!)} · 2구간 ${sim.ppa.b1 + 1}~20년 ${segPrice(seg[1]!)}`
-          : undefined,
-      contactName: d.contactName ?? f.contactName,
-      contactPhone: d.contactPhone ?? f.contactPhone,
-      contactEmail: d.contactEmail ?? f.contactEmail,
-    });
-  };
-
   const cap = Number(f.capacity) || 0;
   const years = Number(f.term) || 0;
-  const seg1End = Number(f.seg1End) || 0;
-  const p1 = Number(f.seg1Price) || 0;
-  const p2 = Number(f.seg2Price) || 0;
-  const segOk = seg1End >= 1 && seg1End < years && p1 > 0 && p2 > 0;
+  const p1 = Number(f.ppaPrice) || 0;
+  const segOk = p1 > 0;
   const monthlyKwh = estimateMonthlyKwh(cap);
   // 자가소비 — 예상 설치비(총사업비) = 설치 용량 × 설치 가능 단가 + 추가 시공비, 연간 O&M = 총사업비 × O&M %
   const installUnit = Number(f.installUnit) || 0;
@@ -261,11 +194,11 @@ export function TradeRequestsScreen() {
   const estUnit = f.estInstallUnit ?? SELF_CAPEX_UNIT;
   const unitRatio = installUnit > 0 ? installUnit / estUnit : 1;
   const unitOff = kind === 'SELF_CONSUMPTION' && installUnit > 0 && (unitRatio < 0.5 || unitRatio > 1.5);
-  // 정산 단가(₩/kWh) — onsite 는 1구간 단가, 자가소비는 연간 O&M 을 연 발전량으로 나눈 값(월 정산이 쓰는 값)
+  // 정산 단가(₩/kWh) — PPA 는 PPA 단가, 자가소비는 연간 O&M 을 연 발전량으로 나눈 값(월 정산이 쓰는 값)
   const unit = kind === 'ONSITE' ? p1 : monthlyKwh > 0 ? Math.round((annualOm / (monthlyKwh * 12)) * 10) / 10 : 0;
   // 계약 기간 합계 — onsite 는 구간별 단가로, 자가소비는 연간 O&M × 기간
   const termTotal =
-    kind === 'ONSITE' ? (segOk ? monthlyKwh * 12 * (seg1End * p1 + (years - seg1End) * p2) : 0) : annualOm * years;
+    kind === 'ONSITE' ? (segOk ? monthlyKwh * 12 * years * p1 : 0) : annualOm * years;
   const [confirmOff, setConfirmOff] = useState(false);
   const valid =
     !!kind &&
@@ -312,10 +245,7 @@ export function TradeRequestsScreen() {
       omRatePct: kind === 'SELF_CONSUMPTION' ? omRate : undefined,
       segments:
         kind === 'ONSITE'
-          ? [
-              { from: 1, to: seg1End, price: p1 },
-              { from: seg1End + 1, to: years, price: p2 },
-            ]
+          ? [{ from: 1, to: years, price: p1 }]
           : undefined,
       omIncluded: true,
       surveyRequested: f.surveyRequested,
@@ -324,7 +254,6 @@ export function TradeRequestsScreen() {
     });
     addToast('success', `${r.no} 신청 접수`);
     setKind(null);
-    setBeforeLoad(null);
     setF(blank(null));
   };
 
@@ -445,60 +374,6 @@ export function TradeRequestsScreen() {
               </div>
             </Section>
 
-            {(role.isAdmin || diagnoses.length > 0) && (
-              <Section title="무료진단">
-                {diagnoses.length === 0 ? (
-                  // 기록이 없어도 모양은 같게 — 고를 게 없으니 셀렉트 · 불러오기만 막는다
-                  <div className="flex flex-wrap items-end gap-3">
-                    <Select
-                      label="검토 기록"
-                      options={[{ value: '', label: '무료진단 기록 없음' }]}
-                      value=""
-                      onChange={() => {}}
-                      disabled
-                      className="w-[420px] max-w-full"
-                    />
-                    <Button variant="secondary" disabled>
-                      불러오기
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap items-end gap-3">
-                    <Select
-                      label="검토 기록"
-                      options={[
-                        { value: '', label: '선택' },
-                        ...diagnoses.map((d) => ({
-                          value: String(d.id),
-                          label: `${toReviewNo(d.id, d.createdAt)} · ${d.createdAt.slice(0, 10)} · ${d.companyName} · ${fmtKw(kind === 'ONSITE' ? d.sim!.ppa.cap : d.sim!.self.cap)}`,
-                        })),
-                      ]}
-                      value={f.pickedDiag}
-                      onChange={(e) => set({ pickedDiag: e.target.value })}
-                      className="w-[420px] max-w-full"
-                    />
-                    <Button variant="secondary" disabled={!f.pickedDiag} onClick={loadDiagnosis}>
-                      불러오기
-                    </Button>
-                    {f.reviewNo && beforeLoad && (
-                      <>
-                        <Button
-                          variant="cancel"
-                          onClick={() => {
-                            setF({ ...beforeLoad, pickedDiag: f.pickedDiag });
-                            setBeforeLoad(null);
-                          }}
-                        >
-                          불러오기 취소
-                        </Button>
-                        <span className="pb-2 text-sm text-slate-400 tabular-nums">{f.reviewNo} 적용</span>
-                      </>
-                    )}
-                  </div>
-                )}
-              </Section>
-            )}
-
             <Section title="계약 조건">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <Input
@@ -543,10 +418,6 @@ export function TradeRequestsScreen() {
                       onChange={(e) => set({ omRate: e.target.value })}
                       required
                     />
-                    <ReadOnly
-                      label="예상 설치단가 (무료진단)"
-                      value={f.estInstallUnit ? `${won(f.estInstallUnit)}/kW` : '-'}
-                    />
                     <div>
                       <Money
                         label="설치 가능 단가 (원/kW)"
@@ -566,33 +437,14 @@ export function TradeRequestsScreen() {
                 ) : (
                   <>
                     <Input
-                      label="1구간 끝 (년차)"
-                      type="number"
-                      min={1}
-                      max={Math.max(1, years - 1)}
-                      value={f.seg1End}
-                      onChange={(e) => set({ seg1End: e.target.value })}
-                      required
-                    />
-                    <Input
-                      label={`1구간 단가 (1~${seg1End || 'n'}년차, ₩/kWh)`}
+                      label={`PPA 단가 (${years || 'n'}년, ₩/kWh)`}
                       type="number"
                       min={1}
                       step="0.1"
-                      value={f.seg1Price}
-                      onChange={(e) => set({ seg1Price: e.target.value })}
+                      value={f.ppaPrice}
+                      onChange={(e) => set({ ppaPrice: e.target.value })}
                       required
                     />
-                    <Input
-                      label={`2구간 단가 (${seg1End ? seg1End + 1 : 'n'}~${years || 'n'}년차, ₩/kWh)`}
-                      type="number"
-                      min={1}
-                      step="0.1"
-                      value={f.seg2Price}
-                      onChange={(e) => set({ seg2Price: e.target.value })}
-                      required
-                    />
-                    <ReadOnly label="진단 단가 (참고)" value={f.ppaSegText ?? '-'} />
                   </>
                 )}
               </div>
@@ -621,10 +473,10 @@ export function TradeRequestsScreen() {
               )}
             </Section>
 
-            <Section title="현장 실측">
+            <Section title="미팅">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <Info
-                  label="실측 요청"
+                  label="미팅 요청"
                   value={
                     <Checkbox
                       label="요청"

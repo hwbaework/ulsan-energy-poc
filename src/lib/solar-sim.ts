@@ -173,10 +173,11 @@ export function defaultSimInput(site = '', address = ''): SimInput {
       ver: 'old',
       esc: 2.5,
       peakR: 30,
-      b1: 5,
+      // PPA 단가는 구간 없이 20년 한 단가(2026-10-12) — 1구간이 1~20년차 전부
+      b1: 20,
       b2: 20,
       segs: [
-        { linked: true, price: 150 },
+        { linked: false, price: 150 },
         { linked: false, price: 150 },
         { linked: false, price: 150 },
       ],
