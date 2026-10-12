@@ -25,7 +25,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 32; // 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
+export const SEED_VERSION = 33; // 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -275,7 +275,8 @@ function seedRequests(): TradeRequest[] {
       updatedAt?: string;
     },
   ): TradeRequest => ({
-    ...seedTermsOf(r),
+    // 조건은 미팅 뒤에 들어온다 — 미팅 전(접수 · 미팅 대기 · 취소 · 반려)은 비워 둔다
+    ...(r.status === 'APPROVED' || r.status === 'SIGNED' || r.surveyDoneAt ? seedTermsOf(r) : { omIncluded: true }),
     ...r,
     no: r.no ?? `TR-${r.submittedAt.slice(0, 4)}-${String(r.id).padStart(4, '0')}`,
     updatedAt: r.updatedAt ?? r.submittedAt,
@@ -600,7 +601,7 @@ function seedRequests(): TradeRequest[] {
       siteName: '한일튜브 울산공장',
       address: '울산 남구 부곡동 273-6',
       capacityKw: 99.84,
-      unitPrice: 28,
+      unitPrice: 0,
       termYears: 20,
       status: 'CANCELLED',
       submittedAt: iso('2026-07-08'),
