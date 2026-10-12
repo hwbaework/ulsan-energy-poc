@@ -45,6 +45,8 @@ export interface ContractTerms {
   extraCost?: number;
   /** 연간 O&M — 설치비 대비 % */
   omRatePct?: number;
+  /** PPA 단가 상승률(%/yr) — 계약 기간 동안 해마다 */
+  priceEscalationPct?: number;
   /** 한전 요금제 — 고압A 선택Ⅰ · Ⅱ */
   tariffPlan?: string;
   /** 기본요금 피크감축 반영률(%) — 설치 용량 중 피크를 깎는다고 보는 비율 */

@@ -9,7 +9,7 @@ const won = (n: number) => `₩${fmtNum(Math.round(n))}`;
 import { Info } from './Bits';
 
 /** 미팅 단계에서 그 자리에서 넣는 칸 — 주면 그 칸은 입력으로 바뀐다 */
-export type TermsEdit = Partial<Record<'capacity' | 'term' | 'price' | 'installUnit' | 'extraCost' | 'omRatePct' | 'tariffPlan' | 'peakR', ReactNode>>;
+export type TermsEdit = Partial<Record<'capacity' | 'term' | 'price' | 'installUnit' | 'extraCost' | 'omRatePct' | 'tariffPlan' | 'peakR' | 'priceEsc', ReactNode>>;
 
 /**
  * 신청 내용 — 거래 신청에서 넣은 것(유형 · 기업 · 주소 · 희망 용량 · 미팅 희망일 · 담당자)과
@@ -30,6 +30,7 @@ export function TermsInfo({ x, edit }: { x: TradeRequest | Contract; edit?: Term
       {edit?.term ?? <Info label="계약 기간" value={x.termYears > 0 ? `${x.termYears}년` : undefined} />}
       {/* 실제 거래에 필요한 값 — 두 유형 모두: 설치 단가 · 추가 설치비용 → 예상 설치비, 연간 O&M. PPA 는 단가도(사용분 × 단가) */}
       {!self && (edit?.price ?? <Info label="PPA 단가" value={x.unitPrice > 0 ? `₩${fmtNum(x.unitPrice, 1)}/kWh` : undefined} />)}
+      {!self && (edit?.priceEsc ?? <Info label="PPA 단가 상승률" value={x.priceEscalationPct != null ? `${x.priceEscalationPct}%/yr` : undefined} />)}
       {edit?.installUnit ?? <Info label="설치 단가" value={x.installUnit ? `${won(x.installUnit)}/kW` : undefined} />}
       {edit?.extraCost ?? <Info label="추가 설치비용" value={x.extraCost != null ? won(x.extraCost) : undefined} />}
       {edit?.omRatePct ?? <Info label="연간 O&M (설치비 대비)" value={x.omRatePct ? `${x.omRatePct}%` : undefined} />}
@@ -41,18 +42,17 @@ export function TermsInfo({ x, edit }: { x: TradeRequest | Contract; edit?: Term
         label="담당자"
         value={x.contact ? [x.contact.name, x.contact.phone, x.contact.email].filter(Boolean).join(' · ') : undefined}
       />
-      {/* 마지막 한 줄 — 그래서 얼마 드는지. 자가소비 = 설치비(기업 부담) + 연간 O&M, PPA = 설치비(EPC 부담) + 월 사용료 */}
-      <Info
-        label={self ? '자가소비 — 얼마 드는지' : 'PPA — 얼마 드는지'}
-        className="col-span-3"
-        value={
-          total
-            ? self
-              ? `설치비 ${won(total)} (기업 부담) · 연간 O&M ${won(annualOm)} (월 ${won(annualOm / 12)})`
-              : `설치비 ${won(total)} (EPC 부담) · 연간 O&M ${won(annualOm)}${x.unitPrice > 0 ? ` · 월 사용료 약 ${won(estimateMonthlyKwh(x.capacityKw) * x.unitPrice)} (예상 사용량 × 단가)` : ''}`
-            : undefined
-        }
-      />
+      {/* 마지막 — 그래서 얼마 드는지. 칸을 나눠서: 설치비 · 연간 O&M · (PPA) 월 사용료 */}
+      <Info label={self ? '설치비 (기업 부담)' : '설치비 (EPC 부담)'} value={total ? won(total) : undefined} />
+      <Info label="연간 O&M" value={annualOm ? `${won(annualOm)} (월 ${won(annualOm / 12)})` : undefined} />
+      {self ? (
+        <div />
+      ) : (
+        <Info
+          label="월 사용료 (예상 사용량 × 단가)"
+          value={x.unitPrice > 0 && x.capacityKw > 0 ? won(estimateMonthlyKwh(x.capacityKw) * x.unitPrice) : undefined}
+        />
+      )}
     </>
   );
 }
