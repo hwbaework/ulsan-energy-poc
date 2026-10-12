@@ -15,7 +15,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { useToastStore } from '@/stores/useToastStore';
 import { MonthRange, useGhgRole, useMonthRange, useRows, type Role } from '@/components/features/ghg/GhgScreens';
-import { COMPANIES, fmt, pick, totalsOf } from '@/lib/ghg-reduction';
+import { fmt, pick, totalsOf } from '@/lib/ghg-reduction';
 import {
   LAST12,
   LINKS,
@@ -37,12 +37,16 @@ import { BLANK, exportCarbonDocPdf } from '@/lib/utils/exportCarbonDoc';
 /* ── 공통 ── */
 const cell = (v: ReactNode, cls = 'text-slate-300') => <span className={`text-sm ${cls}`}>{v}</span>;
 const num = (v: ReactNode) => <span className="whitespace-nowrap text-sm tabular-nums text-slate-300">{v}</span>;
-const strong = (v: ReactNode) => <span className="whitespace-nowrap text-sm font-medium tabular-nums text-white">{v}</span>;
+const strong = (v: ReactNode) => (
+  <span className="whitespace-nowrap text-sm font-medium tabular-nums text-white">{v}</span>
+);
 
 function Header({ title, actions }: { title: string; actions?: ReactNode }) {
   return (
     <div className="space-y-6">
-      <Breadcrumb items={[{ label: 'E-데이터마켓', path: '/e-data/inventory' }, { label: '카본 마켓플레이스' }, { label: title }]} />
+      <Breadcrumb
+        items={[{ label: 'E-데이터마켓', path: '/e-data/inventory' }, { label: '카본 마켓플레이스' }, { label: title }]}
+      />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-white">{title}</h1>
         {actions && <div className="flex flex-wrap items-center gap-3">{actions}</div>}
@@ -66,7 +70,7 @@ function OutLink({ href, label }: { href: string; label: string }) {
 function useDocCompany(role: Role) {
   const [chosen, setChosen] = useState<number>(role.companies[0]?.id ?? 0);
   const id = role.isAdmin ? chosen : role.myId;
-  const company: DocCompany | undefined = COMPANIES.find((c) => c.id === id);
+  const company: DocCompany | undefined = role.companies.find((c) => c.id === id);
   return { company, chosen, setChosen };
 }
 function CompanyPicker({ role, value, onChange }: { role: Role; value: number; onChange: (v: number) => void }) {
@@ -232,7 +236,7 @@ function ScaleCard({ role }: { role: Role }) {
   const { rows } = useRows();
   const list = role.companies.map((c) => {
     const a = annualOf(rows, c.id);
-    const kw = selfFacilities(c.id).reduce((x, f) => x + f.kw, 0);
+    const kw = selfFacilities(role.facilities, c.id).reduce((x, f) => x + f.kw, 0);
     return { ...c, kw, ...a };
   });
   const sum = list.reduce((a, c) => a + c.tco2, 0);
@@ -241,7 +245,14 @@ function ScaleCard({ role }: { role: Role }) {
     { key: 'name', header: '기업명', render: (c) => cell(c.name, 'font-medium text-white') },
     { key: 'kw', header: '자가소비 설비 (kW)', align: 'right', render: (c) => num(fmt(c.kw, 2)) },
     { key: 'mwh', header: '연 발전량 (MWh)', align: 'right', render: (c) => num(fmt(c.mwh, 1)) },
-    { key: 'tco2', header: '연 감축량 (tCO₂eq)', align: 'right', sortable: true, sortValue: (c) => c.tco2, render: (c) => strong(fmt(c.tco2, 2)) },
+    {
+      key: 'tco2',
+      header: '연 감축량 (tCO₂eq)',
+      align: 'right',
+      sortable: true,
+      sortValue: (c) => c.tco2,
+      render: (c) => strong(fmt(c.tco2, 2)),
+    },
     { key: 'scale', header: '사업 규모', render: (c) => cell(scaleOf(c.tco2)) },
   ];
   return (
@@ -278,7 +289,12 @@ export function CarbonInfoScreen() {
           rows={[
             ['KAU 할당배출권', '할당대상업체에 할당된 배출허용량. 이행연도별 상장', '법 제12조', '해당 없음'],
             ['KCU 상쇄배출권', '외부사업 감축량에서 전환된 배출권. 전환은 할당대상업체만', '법 제29조', '해당 없음'],
-            ['KOC 외부사업 감축량', '할당대상업체 밖에서 줄여 정부 인증을 받은 실적', '법 제30조', '외부사업 승인 · 인증 후 판매'],
+            [
+              'KOC 외부사업 감축량',
+              '할당대상업체 밖에서 줄여 정부 인증을 받은 실적',
+              '법 제30조',
+              '외부사업 승인 · 인증 후 판매',
+            ],
           ]}
         />
       </SectionCard>
@@ -287,7 +303,11 @@ export function CarbonInfoScreen() {
           head={['구분', '할 수 있는 것', '근거']}
           rows={[
             ['할당대상업체', 'KAU · KCU 장내 · 장외 거래, 상쇄배출권 전환', '법 제19조 · 거래 고시 제26조의2'],
-            ['외부사업 사업자 (법인)', 'KOC 인증 · 보유 · 이전, KRX 외부사업 감축량 전문회원(KOC 자기매매)', '지침 제37조 · KRX 운영규정 제12조'],
+            [
+              '외부사업 사업자 (법인)',
+              'KOC 인증 · 보유 · 이전, KRX 외부사업 감축량 전문회원(KOC 자기매매)',
+              '지침 제37조 · KRX 운영규정 제12조',
+            ],
             ['배출권거래중개회사 · 신탁업자 등', '중개 · 금융투자상품 목적 거래', '시행령 제31조'],
           ]}
         />
@@ -360,13 +380,26 @@ export function CarbonOtcScreen() {
   const docs = dc.company ? [transferDoc(dc.company)] : [];
   return (
     <div className="space-y-6">
-      <Header title="탄소배출권 장외거래" actions={<CompanyPicker role={role} value={dc.chosen} onChange={dc.setChosen} />} />
+      <Header
+        title="탄소배출권 장외거래"
+        actions={<CompanyPicker role={role} value={dc.chosen} onChange={dc.setChosen} />}
+      />
       <SectionCard title="장외거래 구분">
         <TextTable
           head={['대상', '거래할 수 있는 사람', '신청 · 신고', '근거']}
           rows={[
-            ['KOC (외부사업 인증실적)', '외부사업 참여자(보유계정 있는 법인)', '양도인이 이전 신청서 + 계약 증빙 → 상쇄등록부', '지침 제37조'],
-            ['KAU · KCU (배출권)', '할당대상업체 · 중개회사 · 신탁업자', '양도인이 장외 거래 신고서 + 공증 → 배출권등록부', '거래 고시 제26조의2 · 제27조'],
+            [
+              'KOC (외부사업 인증실적)',
+              '외부사업 참여자(보유계정 있는 법인)',
+              '양도인이 이전 신청서 + 계약 증빙 → 상쇄등록부',
+              '지침 제37조',
+            ],
+            [
+              'KAU · KCU (배출권)',
+              '할당대상업체 · 중개회사 · 신탁업자',
+              '양도인이 장외 거래 신고서 + 공증 → 배출권등록부',
+              '거래 고시 제26조의2 · 제27조',
+            ],
           ]}
         />
       </SectionCard>
@@ -384,7 +417,10 @@ export function CarbonContractScreen() {
   const docs = dc.company ? [otcReportDoc(dc.company)] : [];
   return (
     <div className="space-y-6">
-      <Header title="탄소배출권 계약관리" actions={<CompanyPicker role={role} value={dc.chosen} onChange={dc.setChosen} />} />
+      <Header
+        title="탄소배출권 계약관리"
+        actions={<CompanyPicker role={role} value={dc.chosen} onChange={dc.setChosen} />}
+      />
       <SectionCard title="계약 · 신고 필수 항목">
         <TextTable
           head={['항목', '근거']}
@@ -450,7 +486,11 @@ export function CarbonOffsetScreen() {
           head={['고유번호', '방법론', '유효 시작일']}
           rows={[
             [METHOD.code, METHOD.name, METHOD.from],
-            ['01B-008-Ver01', '전력 자가사용 및 독립된 소규모 계통 연계를 위한 재생에너지 발전사업의 방법론', '2020-06-05'],
+            [
+              '01B-008-Ver01',
+              '전력 자가사용 및 독립된 소규모 계통 연계를 위한 재생에너지 발전사업의 방법론',
+              '2020-06-05',
+            ],
             ['01B-004-Ver01', '재생에너지를 이용한 전력 생산 및 자가 사용 사업의 방법론', '2016-05-26'],
           ]}
         />
@@ -460,7 +500,12 @@ export function CarbonOffsetScreen() {
           head={['단계', '내용', '기한', '서류']}
           rows={[
             ['0. 보유계정', '상쇄등록부 보유계정 등록', '', '별지 제36호'],
-            ['1. 승인 신청', '사업계획서 · 승인 신청서 제출 → 타당성 평가', '평가 30일 (연장 30일)', '별지 제1호 · 제5호'],
+            [
+              '1. 승인 신청',
+              '사업계획서 · 승인 신청서 제출 → 타당성 평가',
+              '평가 30일 (연장 30일)',
+              '별지 제1호 · 제5호',
+            ],
             ['2. 승인', '기후에너지환경부 협의 → 인증위원회 → 승인서', '협의 30일', ''],
             ['3. 착수신고', '승인일부터 1년 안에 사업 시작', '1년', '별지 제16호'],
             ['4. 모니터링', '발전량 수집 → 모니터링 보고서', '기간 종료 후 12개월', '별지 제17호'],

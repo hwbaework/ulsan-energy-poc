@@ -36,9 +36,11 @@ export interface SellerCompany {
   name: string;
   /** 태양광 설비 용량(kW) — 자가소비 + onsite */
   solarKw: number;
+  /** 데이터 시작 달 = 전력거래 계약 시작 달(PERIOD_FROM 보다 늦을 때만). 온실가스 배출원과 같은 범위 */
+  from?: string;
 }
 export const DM_SELLERS: SellerCompany[] = [
-  { id: 2, name: '한길', solarKw: 90.88 },
+  { id: 2, name: '한길', solarKw: 90.88, from: '2025-05' }, // 계약 CT-2025-0003 시작 2025-05-01
   { id: 4, name: '한일튜브', solarKw: 429.44 },
   { id: 5, name: '용인금속', solarKw: 152.32 },
   { id: 6, name: '태성산업', solarKw: 46.08 },
@@ -127,20 +129,105 @@ const wiggle = (id: number, i: number) => 1 + (((id * 7 + i * 5) % 13) - 6) / 20
 
 /** 달마다 발전시간 · 발전량 — 같은 기업 · 같은 달이면 늘 같은 흔들림(±3%). 온실가스 인벤토리 감축량도 이 값을 쓴다 */
 export function generationOf(c: SellerCompany) {
-  return months().map(({ month, m, days, i }) => {
-    const hours = r1((GEN_HOURS[m - 1] ?? 0) * wiggle(c.id, i));
-    return { month, hours, kwh: Math.round(c.solarKw * hours * days) };
-  });
+  return months()
+    .filter(({ month }) => !c.from || month >= c.from)
+    .map(({ month, m, days, i }) => {
+      const hours = r1((GEN_HOURS[m - 1] ?? 0) * wiggle(c.id, i));
+      return { month, hours, kwh: Math.round(c.solarKw * hours * days) };
+    });
 }
 /* ── 상품 — 기업 × 종류. id = 기업 id × 10 + 종류 번호 ── */
 const kindNo = (k: DataKind) => DATA_KINDS.indexOf(k) + 1;
 function describe(c: SellerCompany): string {
-  return `${c.name} 태양광 ${c.solarKw} kW 월별 발전량(kWh) · 하루 평균 발전시간`;
+  return `${c.name} 태양광 ${c.solarKw} kW 시간별 발전량(kWh)`;
 }
+
+/* ── 시간별 발전량(데모 시드) — 수집 단위. 달 발전량(generationOf)을 날마다 · 시간마다 나눈다
+ *  · 날: 같은 기업 · 같은 날이면 늘 같은 흔들림(맑음 · 흐림 0.6 ~ 1.1배), 합계는 그 달 발전량과 같게
+ *  · 시간: 해 뜨는 시각 ~ 지는 시각 사이 산 모양(정오 최대), 합계는 그 날 발전량과 같게
+ *  · 일조시간이 아니라 발전시간(발전량 ÷ 설비 용량) 기준 ── */
+/** 울산 월별 해 뜨는 · 지는 시각(시, 소수) — 1월 ~ 12월 */
+const DAYLIGHT: [number, number][] = [
+  [7.5, 17.7],
+  [7.2, 18.2],
+  [6.7, 18.6],
+  [6.0, 19.0],
+  [5.5, 19.4],
+  [5.2, 19.7],
+  [5.3, 19.7],
+  [5.8, 19.3],
+  [6.2, 18.7],
+  [6.6, 18.0],
+  [7.0, 17.4],
+  [7.4, 17.3],
+];
+/** 0 ~ 1 사이 고정 난수 — 같은 입력이면 같은 값 */
+const noise = (a: number, b: number) => {
+  const x = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+};
+/** 그 달 하루 발전 모양 — 24칸 비중(합 1) */
+function hourShape(m: number): number[] {
+  const [rise, set] = DAYLIGHT[m - 1] ?? [6, 19];
+  const w = Array.from({ length: 24 }, (_, h) => {
+    const t = (h + 0.5 - rise) / (set - rise);
+    return t <= 0 || t >= 1 ? 0 : Math.pow(Math.sin(Math.PI * t), 1.2);
+  });
+  const sum = w.reduce((a, v) => a + v, 0) || 1;
+  return w.map((v) => v / sum);
+}
+export interface DayGen {
+  date: string;
+  kwh: number;
+  /** 그 날 발전시간 = 발전량 ÷ 설비 용량 */
+  hours: number;
+  /** 0시 ~ 23시 발전량(kWh, 소수 1자리) — 합 = kwh */
+  hourly: number[];
+}
+/** 달 하나의 날마다 발전량 */
+function daysOf(c: SellerCompany, month: string, monthKwh: number, days: number): DayGen[] {
+  const m = Number(month.slice(5, 7));
+  const day0 = Number(month.replace('-', '')) * 100;
+  const f = Array.from({ length: days }, (_, i) => 0.6 + 0.5 * noise(c.id, day0 + i + 1));
+  const fs = f.reduce((a, v) => a + v, 0);
+  const shape = hourShape(m);
+  let left = monthKwh;
+  return f.map((v, i) => {
+    const kwh = i === days - 1 ? left : Math.round((monthKwh * v) / fs);
+    left -= kwh;
+    const hourly = shape.map((s) => Math.round(kwh * s * 10) / 10);
+    const peak = hourly.indexOf(Math.max(...hourly));
+    hourly[peak] = Math.round((hourly[peak]! + kwh - hourly.reduce((a, x) => a + x, 0)) * 10) / 10;
+    return {
+      date: `${month}-${String(i + 1).padStart(2, '0')}`,
+      kwh,
+      hours: r1(kwh / c.solarKw),
+      hourly,
+    };
+  });
+}
+/** 기간 전체 날마다 발전량 — 기업마다 한 번만 계산 */
+const dayCache = new Map<number, DayGen[]>();
+export function dailyOf(companyId: number): DayGen[] {
+  const hit = dayCache.get(companyId);
+  if (hit) return hit;
+  const c = DM_SELLERS.find((x) => x.id === companyId);
+  if (!c) return [];
+  const out = generationOf(c).flatMap((g) => daysOf(c, g.month, g.kwh, daysIn(g.month)));
+  dayCache.set(companyId, out);
+  return out;
+}
+
+/** 그 달 날수 */
+const daysIn = (month: string) => {
+  const [y = 2025, m = 1] = month.split('-').map(Number);
+  return new Date(Date.UTC(y, m, 0)).getUTCDate();
+};
+/** 기업 데이터 시작 달 */
+const fromOf = (c: SellerCompany) => (c.from && c.from > PERIOD_FROM ? c.from : PERIOD_FROM);
 
 export function productsOf(consents: Consent[]): Dataset[] {
   const base = {
-    periodFrom: PERIOD_FROM,
     periodTo: LAST_MONTH,
     priceType: 'MONTHLY' as PriceType,
     price: DM_PRICE,
@@ -150,6 +237,7 @@ export function productsOf(consents: Consent[]): Dataset[] {
       const consent = consents.find((x) => x.companyId === c.id && x.kind === kind);
       return {
         ...base,
+        periodFrom: fromOf(c),
         id: c.id * 10 + kindNo(kind),
         name: `${c.name} ${kind}`,
         kind,
@@ -163,6 +251,36 @@ export function productsOf(consents: Consent[]): Dataset[] {
   );
 }
 
+/** 수집 주기 · 데이터 항목 — 모든 데이터가 같다 */
+export const DATA_INTERVAL = '시간별';
+export const DATA_ITEMS = '일시 · 발전량 (kWh) — 시간별 · 일별 · 월별 합계';
+/** 보기 단위 */
+export type SheetUnit = 'hour' | 'day' | 'month';
+export const UNIT_LABEL: Record<SheetUnit, string> = { hour: '시간별', day: '일별', month: '월별' };
+
+/** 데이터 요약 — 상세 위 칸. 월별 표(generationOf)에서 계산해 표와 어긋나지 않게 */
+export interface DataSummary {
+  /** 설비 용량 — 한일튜브는 자가소비 + onsite 나눠서 */
+  kwText: string;
+  /** 기간 하루 평균 발전시간(h) — 날수 가중 */
+  avgHours: number;
+  /** 기간 누적 발전량(kWh) */
+  totalKwh: number;
+}
+export function summaryOf(d: Pick<Dataset, 'ownerCompanyId'>): DataSummary | undefined {
+  const c = DM_SELLERS.find((x) => x.id === d.ownerCompanyId);
+  if (!c) return undefined;
+  const g = generationOf(c);
+  const days = g.reduce((a, r) => a + daysIn(r.month), 0);
+  const hourDays = g.reduce((a, r) => a + r.hours * daysIn(r.month), 0);
+  const kw = c.solarKw.toFixed(2);
+  return {
+    kwText: c.id === 4 ? `${kw} kW (자가소비 99.84 + onsite 329.60)` : `${kw} kW`,
+    avgHours: days ? Math.round((hourDays / days) * 10) / 10 : 0,
+    totalKwh: g.reduce((a, r) => a + r.kwh, 0),
+  };
+}
+
 /** 표 — 칸 이름 · 줄. 첫 칸(월) 말고는 숫자, 오른쪽 정렬 */
 export interface DataSheet {
   columns: { key: string; label: string; strong?: boolean }[];
@@ -171,7 +289,50 @@ export interface DataSheet {
 const fmt1 = (v: number) =>
   v.toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-/** 상품 데이터 전체(2025-03 ~ 2026-09, 월별) — 발전 정보 그대로 */
+/** 시간별 — 고른 날 하루 24줄 */
+export function hourSheetOf(d: Pick<Dataset, 'ownerCompanyId'>, date: string): DataSheet {
+  const g = dailyOf(d.ownerCompanyId).find((x) => x.date === date);
+  return {
+    columns: [
+      { key: 'at', label: '일시' },
+      { key: 'kwh', label: '발전량 (kWh)', strong: true },
+    ],
+    rows: (g?.hourly ?? []).map((v, h) => ({
+      at: `${date} ${String(h).padStart(2, '0')}:00`,
+      kwh: fmt1(v),
+    })),
+  };
+}
+/** 일별 — 고른 달의 날마다 */
+export function daySheetOf(d: Pick<Dataset, 'ownerCompanyId'>, month: string): DataSheet {
+  return {
+    columns: [
+      { key: 'date', label: '날짜' },
+      { key: 'hours', label: '발전시간 (h)' },
+      { key: 'kwh', label: '발전량 (kWh)', strong: true },
+    ],
+    rows: dailyOf(d.ownerCompanyId)
+      .filter((g) => g.date.startsWith(month))
+      .map((g) => ({ date: g.date, hours: fmt1(g.hours), kwh: g.kwh.toLocaleString('ko-KR') })),
+  };
+}
+/** 시간별 전체 — CSV 내려받기(기간 전체, 한 시간 한 줄) */
+export function hourlyCsvOf(d: Pick<Dataset, 'ownerCompanyId'>): string {
+  const lines = dailyOf(d.ownerCompanyId).flatMap((g) =>
+    g.hourly.map((v, h) => `${g.date} ${String(h).padStart(2, '0')}:00,${v.toFixed(1)}`),
+  );
+  return ['일시,발전량 (kWh)', ...lines].join('\n');
+}
+/** 데이터가 있는 날짜 · 달 */
+export const dataDates = (companyId: number) => dailyOf(companyId).map((g) => g.date);
+export const dataMonths = (companyId: number) => {
+  const c = DM_SELLERS.find((x) => x.id === companyId);
+  return months()
+    .map((m) => m.month)
+    .filter((m) => !c?.from || m >= c.from);
+};
+
+/** 월별 — 기간 전체(2025-03 ~ 2026-09) */
 export function sheetOf(d: Dataset): DataSheet {
   const c = DM_SELLERS.find((x) => x.id === d.ownerCompanyId);
   if (!c) return { columns: [], rows: [] };

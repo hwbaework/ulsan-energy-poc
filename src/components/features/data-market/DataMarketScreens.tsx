@@ -27,17 +27,26 @@ import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { Toggle } from '@/components/ui/Toggle';
 import { StatusPill } from '@/components/ui/Design';
-import { RmsLineChart } from '@/components/ui/Chart';
+import { RmsBarChart, RmsLineChart } from '@/components/ui/Chart';
 import { getPersona } from '@/lib/persona';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import {
+  DATA_INTERVAL,
+  DATA_ITEMS,
   DM_FEE_RATE,
   DM_SELLERS,
   DM_TODAY,
   THIS_MONTH,
   billedIn,
-  csvOf,
+  dailyOf,
+  dataMonths,
+  daySheetOf,
+  hourSheetOf,
+  hourlyCsvOf,
+  summaryOf,
+  UNIT_LABEL,
+  type SheetUnit,
   isActive,
   monthsUntilNow,
   payDateOf,
@@ -258,7 +267,7 @@ function UsageCard({
   );
 }
 
-/** 데이터 표 — 월별 줄. 첫 칸(월) 말고는 숫자 */
+/** 데이터 표 — 월 · 날 · 시간 줄. 첫 칸 말고는 숫자 */
 function SheetTable({ sheet }: { sheet: DataSheet }) {
   return (
     <div className="overflow-x-auto">
@@ -274,7 +283,7 @@ function SheetTable({ sheet }: { sheet: DataSheet }) {
         </thead>
         <tbody>
           {sheet.rows.map((r) => (
-            <tr key={String(r.month)} className="border-b border-white/[0.04] last:border-0">
+            <tr key={String(r.month ?? r.date ?? r.at)} className="border-b border-white/[0.04] last:border-0">
               {sheet.columns.map((c, i) => (
                 <td
                   key={c.key}
@@ -326,9 +335,9 @@ function DatasetCard({
         ) : null}
       </div>
       <h3 className="mb-1 line-clamp-1 text-base font-semibold text-white group-hover:text-primary">{d.name}</h3>
-      <p className="mb-4 line-clamp-2 flex-1 text-sm text-slate-400">{d.description}</p>
+      <p className="mb-1 flex-1 text-sm text-slate-300">설비 용량 {summaryOf(d)?.kwText}</p>
       <p className="mb-4 text-sm text-slate-400">
-        {d.ownerCompanyName} <span className="text-slate-600">·</span> 월별
+        {d.ownerCompanyName} <span className="text-slate-600">·</span> {DATA_INTERVAL}
       </p>
       <div className="flex items-center justify-between border-t border-white/[0.06] pt-3">
         <span className="text-sm text-slate-400">이용 {users}곳</span>
@@ -432,7 +441,7 @@ function Steps({ at }: { at: number }) {
 /** 공개 조건 — 동의하는 내용 그대로 */
 const consentTerms = (d: Dataset): [string, string][] => [
   ['공개', '기업명과 함께 데이터 목록에 공개'],
-  ['데이터', `${d.name} · 월별 · ${periodText(d)}, 매달 갱신`],
+  ['데이터', `${d.name} · ${DATA_INTERVAL} · ${periodText(d)}, 매일 갱신`],
   ['가격', priceText(d)],
   ['제공', DELIVERY],
   ['판매 중지', '언제든 판매 동의에서 끄기 · 이미 산 기업은 이용 취소 전까지 사용'],
@@ -485,9 +494,10 @@ function ConsentFlow({ d, onClose }: { d: Dataset; onClose: () => void }) {
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <Info label="데이터" value={d.name} className="md:col-span-2" />
-            <Info label="수집 주기" value="월별" />
+            <Info label="수집 주기" value={DATA_INTERVAL} />
             <Info label="기간" value={periodText(d)} />
-            <Info label="내용" value={d.description} className="md:col-span-4" />
+            <Info label="설비 용량" value={summaryOf(d)?.kwText} className="md:col-span-2" />
+            <Info label="데이터 항목" value={DATA_ITEMS} className="md:col-span-2" />
           </div>
           <div className="rounded-xl ring-1 ring-white/[0.06]">
             <p className="border-b border-white/[0.06] px-5 py-2.5 text-sm font-semibold text-white">최근 3개월</p>
@@ -535,7 +545,7 @@ export function DataConsentScreen() {
 
   const columns: Column<Dataset>[] = [
     { key: 'name', header: '데이터', render: (d) => cell(d.name, 'font-medium text-white') },
-    { key: 'interval', header: '수집 주기', width: '100px', render: () => cell('월별') },
+    { key: 'interval', header: '수집 주기', width: '100px', render: () => cell(DATA_INTERVAL) },
     { key: 'period', header: '기간', width: '170px', render: (d) => num(periodText(d)) },
     { key: 'price', header: '가격', width: '110px', render: (d) => num(priceText(d)) },
     { key: 'users', header: '이용', width: '80px', render: (d) => num(`${usersOf(d.id)}곳`) },
@@ -597,7 +607,99 @@ export function DataConsentScreen() {
   );
 }
 
-/* ══ 데이터 한 건 — 정보 · 월별 데이터. 다른 기업: 신청, 이용 중 · 판매 기업 · 관리자: CSV 다운로드 ══ */
+const num1 = (v: string | number | undefined) => Number(String(v).replace(/,/g, ''));
+
+/** 샘플 — 사기 전. 마지막 날 하루 시간별 */
+function SampleDay({ d }: { d: Dataset }) {
+  const last = dailyOf(d.ownerCompanyId).at(-1);
+  const sheet = last ? hourSheetOf(d, last.date) : undefined;
+  if (!last || !sheet) return null;
+  return (
+    <SectionCard title={`샘플 · 시간별 (${last.date})`}>
+      <RmsBarChart
+        data={sheet.rows.map((r) => ({ h: String(r.at).slice(11, 13), kwh: num1(r.kwh) }))}
+        xKey="h"
+        bars={[{ key: 'kwh', name: '발전량 (kWh)', color: '#F59E0B' }]}
+        height={220}
+      />
+    </SectionCard>
+  );
+}
+
+/** 데이터 보기 — 이용 중 · 판매 기업 · 관리자. 단위(시간별 · 일별 · 월별)와 날짜 · 달을 고른다 */
+function DataView({ d }: { d: Dataset }) {
+  const days = dailyOf(d.ownerCompanyId);
+  const months = dataMonths(d.ownerCompanyId);
+  const [unit, setUnit] = useState<SheetUnit>('hour');
+  const [date, setDate] = useState(days.at(-1)?.date ?? '');
+  const [month, setMonth] = useState(months.at(-1) ?? '');
+  const sheet = unit === 'hour' ? hourSheetOf(d, date) : unit === 'day' ? daySheetOf(d, month) : sheetOf(d);
+  const xOf = (r: Record<string, string | number>) =>
+    unit === 'hour' ? String(r.at).slice(11, 13) : unit === 'day' ? String(r.date).slice(8) : String(r.month).slice(2);
+  const chart = sheet.rows.map((r) => ({ x: xOf(r), kwh: num1(r.kwh) }));
+  const total = chart.reduce((a, r) => a + r.kwh, 0);
+  return (
+    <>
+      <SectionCard
+        title={`발전량 · ${UNIT_LABEL[unit]}`}
+        actions={
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {unit === 'hour' && (
+              <div className="w-40">
+                <Input
+                  type="date"
+                  value={date}
+                  min={days[0]?.date}
+                  max={days.at(-1)?.date}
+                  onChange={(e) => e.target.value && setDate(e.target.value)}
+                />
+              </div>
+            )}
+            {unit === 'day' && (
+              <div className="w-32">
+                <Select
+                  options={months.map((m) => ({ value: m, label: m }))}
+                  value={month}
+                  onChange={(e) => setMonth(e.target.value)}
+                />
+              </div>
+            )}
+            <div className="w-28">
+              <Select
+                options={(['hour', 'day', 'month'] as SheetUnit[]).map((u) => ({ value: u, label: UNIT_LABEL[u] }))}
+                value={unit}
+                onChange={(e) => setUnit(e.target.value as SheetUnit)}
+              />
+            </div>
+          </div>
+        }
+      >
+        <div className="grid items-center gap-6 lg:grid-cols-4">
+          <div>
+            <p className="text-sm text-slate-400">발전량</p>
+            <p className="mt-1 text-3xl font-bold tabular-nums text-white">
+              {Math.round(total * 10) / 10 > 0 ? (Math.round(total * 10) / 10).toLocaleString('ko-KR') : '0'}
+              <span className="ml-1 text-2xl font-semibold text-slate-300">kWh</span>
+            </p>
+          </div>
+          <div className="lg:col-span-3">
+            <RmsBarChart
+              data={chart}
+              xKey="x"
+              bars={[{ key: 'kwh', name: '발전량 (kWh)', color: '#F59E0B' }]}
+              height={240}
+            />
+          </div>
+        </div>
+      </SectionCard>
+      <SectionCard title={`${UNIT_LABEL[unit]} 데이터 (${sheet.rows.length})`} noPadding>
+        <SheetTable sheet={sheet} />
+      </SectionCard>
+    </>
+  );
+}
+
+/* ══ 데이터 한 건 — 요약 · 데이터(이용 중 · 판매 기업 · 관리자: 시간별 전체 + CSV, 그 밖: 월별 요약 + 하루 샘플). 다른 기업: 신청 ══ */
 export function DataDetailScreen() {
   const router = useRouter();
   const role = useDataRole();
@@ -612,18 +714,18 @@ export function DataDetailScreen() {
   const mine = !!d && d.ownerCompanyId === role.companyId;
   const myTrade = d ? role.bought.find((t) => t.datasetId === d.id && isActive(t) && !role.isAdmin) : undefined;
   const canApply = !!d && !role.isAdmin && !mine && d.onSale && !myTrade;
-  // 이용 중 · 판매 기업 · 관리자는 전체, 나머지는 최근 3개월만
+  // 이용 중 · 판매 기업 · 관리자는 시간별 전체, 나머지는 요약(월별) + 최근 하루 시간별 샘플
   const full = role.isAdmin || mine || !!myTrade;
-  const sheet = useMemo(() => (d ? sheetOf(d) : undefined), [d]);
-  const shown = sheet && (full ? sheet : { ...sheet, rows: sheet.rows.slice(-3) });
+  const shown = useMemo(() => (d ? sheetOf(d) : undefined), [d]);
+  const sum = d ? summaryOf(d) : undefined;
 
   const download = () => {
-    if (!d || !sheet) return;
-    // 엑셀이 한글을 읽도록 BOM 을 붙인다
-    const blob = new Blob(['﻿' + csvOf(sheet)], { type: 'text/csv;charset=utf-8' });
+    if (!d) return;
+    // 시간별 전체(한 시간 한 줄). 엑셀이 한글을 읽도록 BOM 을 붙인다
+    const blob = new Blob(['﻿' + hourlyCsvOf(d)], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${d.name} ${periodText(d)}.csv`;
+    a.download = `${d.name} 시간별 ${periodText(d)}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
@@ -641,7 +743,9 @@ export function DataDetailScreen() {
         <BackButton href={CATALOG} label="데이터 등록/신청으로" />
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-white">{d?.name ?? '데이터'}</h1>
-          {d && <p className="mt-1 text-base text-slate-400">{[d.ownerCompanyName, d.kind, '월별'].join(' · ')}</p>}
+          {d && (
+            <p className="mt-1 text-base text-slate-400">{[d.ownerCompanyName, d.kind, DATA_INTERVAL].join(' · ')}</p>
+          )}
         </div>
       </div>
 
@@ -676,22 +780,32 @@ export function DataDetailScreen() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
               <Info label="제공 기업" value={d.ownerCompanyName} />
               <Info label="종류" value={d.kind} />
-              <Info label="제공 방식" value={DELIVERY} />
-              <Info label="수집 주기" value="월별" />
+              <Info label="설비 용량" value={sum?.kwText} className="md:col-span-2" />
+              <Info label="하루 평균 발전시간" value={sum && `${sum.avgHours.toFixed(1)} h`} />
+              <Info label="누적 발전량" value={sum && `${sum.totalKwh.toLocaleString('ko-KR')} kWh`} />
+              <Info label="데이터 항목" value={DATA_ITEMS} className="md:col-span-2" />
+              <Info label="수집 주기" value={DATA_INTERVAL} />
               <Info label="기간" value={periodText(d)} />
+              <Info label="제공 방식" value={DELIVERY} />
               <Info label="가격" value={priceText(d)} />
               <Info
                 label="이용"
                 value={`${role.tradesAll.filter((t) => t.datasetId === d.id && isActive(t)).length}곳`}
               />
               <Info label="공개일" value={day(d.consentedAt)} />
-              <Info label="내용" value={d.description} className="md:col-span-4" />
             </div>
           </SectionCard>
 
-          <SectionCard title={full ? `월별 데이터 (${shown.rows.length})` : '샘플 (최근 3개월)'} noPadding>
-            <SheetTable sheet={shown} />
-          </SectionCard>
+          {full ? (
+            <DataView d={d} />
+          ) : (
+            <>
+              <SampleDay d={d} />
+              <SectionCard title={`월별 요약 (${shown.rows.length})`} noPadding>
+                <SheetTable sheet={shown} />
+              </SectionCard>
+            </>
+          )}
         </>
       ) : null}
 

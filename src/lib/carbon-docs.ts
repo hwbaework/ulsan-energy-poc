@@ -3,12 +3,12 @@
 // 나머지는 비워 둔다(기업 작성). 서식 · 근거 · 절차는 docs/카본마켓-조사.md (2026-10-08 조사, 공식 출처) 기준.
 // 감축량은 온실가스 인벤토리와 같은 값(lib/ghg-reduction) — 단, 외부사업은 자가소비 설비만(onsite 는 소유권 정리 전이라 뺀다).
 import {
-  FACILITIES,
   LAST_MONTH,
   fmt,
   monthsBetween,
   pick,
   totalsOf,
+  type Facility,
   type GhgFactors,
   type ReductionRow,
 } from '@/lib/ghg-reduction';
@@ -78,9 +78,9 @@ export interface DocSpec {
   notes: string[];
 }
 
-/** 자가소비 설비 · 줄 — 외부사업 대상 */
-export const selfFacilities = (companyId: number) =>
-  FACILITIES.filter((f) => f.companyId === companyId && f.kind === '자가소비');
+/** 자가소비 설비 — 외부사업 대상(이용 중인 계약만) */
+export const selfFacilities = (fs: Facility[], companyId: number) =>
+  fs.filter((f) => f.companyId === companyId && f.kind === '자가소비' && f.status === 'ACTIVE');
 const selfRows = (rows: ReductionRow[], companyId: number) =>
   rows.filter((r) => r.facility.companyId === companyId && r.facility.kind === '자가소비');
 
@@ -94,7 +94,12 @@ export function annualOf(rows: ReductionRow[], companyId: number) {
   return totalsOf(pick(selfRows(rows, companyId), LAST12[0], LAST12[1]));
 }
 
-const kwOf = (companyId: number) => selfFacilities(companyId).reduce((a, f) => a + f.kw, 0);
+/** 자가소비 설비 용량 — 산정 줄에 들어 있는 설비에서 */
+const kwOf = (rows: ReductionRow[], companyId: number) =>
+  selfFacilities(
+    [...new Map(rows.map((r) => [r.facility.id, r.facility])).values()],
+    companyId,
+  ).reduce((a, f) => a + f.kw, 0);
 const projectName = (c: DocCompany) => `${c.name} 태양광 자가사용 온실가스 감축사업`;
 const t2 = (v: number) => fmt(v, 2);
 const t3 = (v: number) => fmt(v, 3);
@@ -129,7 +134,7 @@ function monthTable(rows: ReductionRow[], from: string, to: string, title: strin
 /** ① 외부사업 사업계획서 — 지침 별지 제1호 */
 export function planDoc(c: DocCompany, rows: ReductionRow[], fx: GhgFactors): DocSpec {
   const a = annualOf(rows, c.id);
-  const kw = kwOf(c.id);
+  const kw = kwOf(rows, c.id);
   const mine = selfRows(rows, c.id);
   return {
     key: 'plan',
@@ -145,7 +150,10 @@ export function planDoc(c: DocCompany, rows: ReductionRow[], fx: GhgFactors): Do
         title: '1. 사업 개요',
         fields: [
           { label: '1.1 사업명', value: projectName(c) },
-          { label: '1.1 사업 목적 · 내용', value: `태양광 발전설비 ${t2(kw)} kW로 생산한 전력을 기업이 직접 사용해 계통 전력을 대체` },
+          {
+            label: '1.1 사업 목적 · 내용',
+            value: `태양광 발전설비 ${t2(kw)} kW로 생산한 전력을 기업이 직접 사용해 계통 전력을 대체`,
+          },
           { label: '1.2 사업 위치', value: c.address },
           { label: '1.3 사업자', value: c.name },
           { label: '1.3 감축량 소유권 (%)' },
@@ -153,7 +161,10 @@ export function planDoc(c: DocCompany, rows: ReductionRow[], fx: GhgFactors): Do
           { label: '1.4 인증유효기간 (갱신형 5년 / 고정형 10년)' },
           { label: '1.5 중복성 평가 (REC · RPS · RE100 등)' },
           { label: '1.6 디번들링 평가' },
-          { label: '사업 규모 (지침 제9조)', value: `${scaleOf(a.tco2)} (연 ${t2(a.tco2)} tCO2eq)` },
+          {
+            label: '사업 규모 (지침 제9조)',
+            value: `${scaleOf(a.tco2)} (연 ${t2(a.tco2)} tCO2eq)`,
+          },
         ],
       },
       {
@@ -163,7 +174,10 @@ export function planDoc(c: DocCompany, rows: ReductionRow[], fx: GhgFactors): Do
           { label: '2.1 적용 방법론', value: `${METHOD.code} ${METHOD.name}` },
           { label: '사업 분야', value: METHOD.field },
           { label: '2.2 방법론 선정 타당성' },
-          { label: '2.3 사업경계 · 배출원', value: '태양광 발전설비 → 기업 전력 사용(계통 전력 대체)' },
+          {
+            label: '2.3 사업경계 · 배출원',
+            value: '태양광 발전설비 → 기업 전력 사용(계통 전력 대체)',
+          },
           { label: '2.4 베이스라인 시나리오' },
           { label: '2.5 추가성 (연 60,000 t 이하 — 법적 · 제도적 추가성)' },
         ],
@@ -173,8 +187,14 @@ export function planDoc(c: DocCompany, rows: ReductionRow[], fx: GhgFactors): Do
         title: '3. 감축량 산정',
         fields: [
           { label: '3.1 산정식', value: '감축량(tCO2eq) = 자가사용 발전량(MWh) × 전력 배출계수' },
-          { label: '3.5 고정 인자 — 전력 배출계수', value: `${fx.co2} tCO2eq/MWh (${fx.year}년 국가 전력 배출계수, ${fx.published} 공표)` },
-          { label: '3.6 예상 연간 발전량', value: `${t3(a.mwh)} MWh (${LAST12[0]} ~ ${LAST12[1]} 실적)` },
+          {
+            label: '3.5 고정 인자 — 전력 배출계수',
+            value: `${fx.co2} tCO2eq/MWh (${fx.year}년 국가 전력 배출계수, ${fx.published} 공표)`,
+          },
+          {
+            label: '3.6 예상 연간 발전량',
+            value: `${t3(a.mwh)} MWh (${LAST12[0]} ~ ${LAST12[1]} 실적)`,
+          },
           { label: '3.6 예상 연간 감축량', value: `${t3(a.tco2)} tCO2eq` },
         ],
       },
@@ -259,10 +279,16 @@ export function approvalDoc(c: DocCompany, rows: ReductionRow[]): DocSpec {
 /* ── 외부감축사업 보고서 ── */
 
 /** ③ 외부사업 모니터링 보고서 — 지침 별지 제17호 */
-export function monitoringDoc(c: DocCompany, rows: ReductionRow[], fx: GhgFactors, from: string, to: string): DocSpec {
+export function monitoringDoc(
+  c: DocCompany,
+  rows: ReductionRow[],
+  fx: GhgFactors,
+  from: string,
+  to: string,
+): DocSpec {
   const mine = selfRows(rows, c.id);
   const s = totalsOf(mine.filter((r) => r.month >= from && r.month <= to));
-  const kw = kwOf(c.id);
+  const kw = kwOf(rows, c.id);
   return {
     key: 'monitoring',
     title: '외부사업 모니터링 보고서',
@@ -300,7 +326,10 @@ export function monitoringDoc(c: DocCompany, rows: ReductionRow[], fx: GhgFactor
         kind: 'fields',
         title: '4. 모니터링 데이터',
         fields: [
-          { label: '4.1 고정 데이터 — 전력 배출계수', value: `${fx.co2} tCO2eq/MWh (${fx.year}년 기준)` },
+          {
+            label: '4.1 고정 데이터 — 전력 배출계수',
+            value: `${fx.co2} tCO2eq/MWh (${fx.year}년 기준)`,
+          },
           { label: '4.2 변동 데이터', value: '태양광 발전량 (kWh) — 월별 집계' },
           { label: '측정 장비 · 주기 · QA/QC' },
         ],
@@ -310,7 +339,10 @@ export function monitoringDoc(c: DocCompany, rows: ReductionRow[], fx: GhgFactor
         kind: 'fields',
         title: '5. 감축량',
         fields: [
-          { label: '5.4 감축량', value: `${t3(s.tco2)} tCO2eq (발전량 ${t3(s.mwh)} MWh × ${fx.co2})` },
+          {
+            label: '5.4 감축량',
+            value: `${t3(s.tco2)} tCO2eq (발전량 ${t3(s.mwh)} MWh × ${fx.co2})`,
+          },
           { label: '5.3 누출' },
           { label: '5.5 계획 대비 실제 비교' },
         ],
@@ -356,7 +388,10 @@ export function certifyDoc(c: DocCompany, rows: ReductionRow[], from: string, to
         kind: 'fields',
         title: '인증 신청',
         fields: [
-          { label: '인증신청량 (tCO2eq, 정수)', value: `${fmt(Math.floor(s.tco2))} (산정값 ${t3(s.tco2)} — 검증 결과로 확정)` },
+          {
+            label: '인증신청량 (tCO2eq, 정수)',
+            value: `${fmt(Math.floor(s.tco2))} (산정값 ${t3(s.tco2)} — 검증 결과로 확정)`,
+          },
           { label: '검증기관명' },
           { label: '타 감축제도 인증 여부 (제도명 · 인증일 · 인증번호)' },
         ],
@@ -371,7 +406,10 @@ export function certifyDoc(c: DocCompany, rows: ReductionRow[], from: string, to
         ],
       },
     ],
-    notes: [...COMMON_NOTES, '인증되면 KOC가 발행되고(소수점 버림), 인증일부터 5년 안에 상쇄배출권으로 전환 · 판매할 수 있습니다.'],
+    notes: [
+      ...COMMON_NOTES,
+      '인증되면 KOC가 발행되고(소수점 버림), 인증일부터 5년 안에 상쇄배출권으로 전환 · 판매할 수 있습니다.',
+    ],
   };
 }
 
@@ -457,7 +495,11 @@ export function otcReportDoc(c: DocCompany): DocSpec {
       {
         kind: 'fields',
         title: '거래자 (양수인)',
-        fields: [{ label: '법인명 · 법인등록번호' }, { label: '계정대표자명 · 주소' }, { label: '전화 · E-mail' }],
+        fields: [
+          { label: '법인명 · 법인등록번호' },
+          { label: '계정대표자명 · 주소' },
+          { label: '전화 · E-mail' },
+        ],
       },
       {
         kind: 'fields',

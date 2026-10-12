@@ -6,7 +6,8 @@
 
 import { useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Download, FileSpreadsheet, FileText, Settings } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, ArrowRight, ChevronRight, Download, FileSpreadsheet, FileText, Settings } from 'lucide-react';
 import { StatCard, StatsGrid } from '@/components/features/StatCard';
 import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
@@ -19,17 +20,17 @@ import { getPersona } from '@/lib/persona';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import {
-  COMPANIES,
-  FACILITIES,
   FIRST_MONTH,
   LAST_MONTH,
   YEARS,
   fmt,
   fmtT,
   monthsBetween,
+  companiesOf,
   pick,
   reductionRows,
   totalsOf,
+  useFacilities,
   useGhgFactorValues,
   yearRange,
   type Facility,
@@ -85,26 +86,41 @@ export function useGhgRole() {
   const persona = getPersona(user);
   const isAdmin = persona === 'admin' || persona === 'spc';
   const myId = user?.companyId ?? 0;
+  /** 배출원 = 전력거래 체결 계약의 설비 */
+  const all = useFacilities();
+  const facilities = isAdmin ? all : all.filter((f) => f.companyId === myId);
   /** 이 계정이 볼 수 있는 기업 */
-  const companies = isAdmin ? COMPANIES : COMPANIES.filter((c) => c.id === myId);
-  return { isAdmin, myId, companies, myName: user?.companyName ?? '' };
+  const companies = companiesOf(facilities);
+  return { isAdmin, persona, myId, companies, facilities, myName: user?.companyName ?? '' };
 }
 export type Role = ReturnType<typeof useGhgRole>;
 
 /** 산정 줄 전체 — 계수가 바뀌면(에너지 설정) 다시 계산 */
 export function useRows() {
   const fx = useGhgFactorValues();
-  const rows = useMemo(() => reductionRows(fx), [fx.co2, fx.toe, fx.pine]); // eslint-disable-line react-hooks/exhaustive-deps
+  const facilities = useFacilities();
+  const rows = useMemo(() => reductionRows(fx, facilities), [fx.co2, fx.toe, fx.pine, facilities]); // eslint-disable-line react-hooks/exhaustive-deps
   return { fx, rows };
 }
 
 /** 기업 셀렉트 — 관리자만(전체 + 기업마다). 기업 계정은 자기 회사로 고정 */
-function CompanySelect({ role, value, onChange }: { role: Role; value: number | null; onChange: (v: number | null) => void }) {
+function CompanySelect({
+  role,
+  value,
+  onChange,
+}: {
+  role: Role;
+  value: number | null;
+  onChange: (v: number | null) => void;
+}) {
   if (!role.isAdmin) return null;
   return (
     <div className="w-48">
       <Select
-        options={[{ value: '', label: '전체 기업' }, ...role.companies.map((c) => ({ value: String(c.id), label: c.name }))]}
+        options={[
+          { value: '', label: '전체 기업' },
+          ...role.companies.map((c) => ({ value: String(c.id), label: c.name })),
+        ]}
         value={value == null ? '' : String(value)}
         onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
       />
@@ -128,11 +144,19 @@ export function MonthRange({
     <div className="flex items-center gap-2">
       <span className="text-sm text-slate-400">기간</span>
       <div className="w-32">
-        <Select options={MONTH_OPTIONS.filter((o) => o.value <= to)} value={from} onChange={(e) => setFrom(e.target.value)} />
+        <Select
+          options={MONTH_OPTIONS.filter((o) => o.value <= to)}
+          value={from}
+          onChange={(e) => setFrom(e.target.value)}
+        />
       </div>
       <span className="text-slate-500">~</span>
       <div className="w-32">
-        <Select options={MONTH_OPTIONS.filter((o) => o.value >= from)} value={to} onChange={(e) => setTo(e.target.value)} />
+        <Select
+          options={MONTH_OPTIONS.filter((o) => o.value >= from)}
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
+        />
       </div>
     </div>
   );
@@ -150,10 +174,10 @@ export function useMonthRange() {
 const scopeOf = (role: Role, chosen: number | null) => (role.isAdmin ? chosen : role.myId);
 
 /** 기업별 합계 */
-function byCompany(rows: ReductionRow[], companies: { id: number; name: string }[]) {
+function byCompany(rows: ReductionRow[], companies: { id: number; name: string }[], facilities: Facility[]) {
   return companies.map((c) => {
     const rs = rows.filter((r) => r.facility.companyId === c.id);
-    const kw = FACILITIES.filter((f) => f.companyId === c.id).reduce((a, f) => a + f.kw, 0);
+    const kw = facilities.filter((f) => f.companyId === c.id).reduce((a, f) => a + f.kw, 0);
     return { id: c.id, company: c.name, kw: Math.round(kw * 100) / 100, ...totalsOf(rs) };
   });
 }
@@ -170,6 +194,7 @@ function docData(
   to: string,
   target: { id: number; name: string; address: string } | null,
   companies: { id: number; name: string }[],
+  facilities: Facility[],
 ): GhgDocData {
   return {
     target: target?.name ?? '전체 기업',
@@ -188,7 +213,7 @@ function docData(
     })),
     sum: totalsOf(rows),
     factors: fx,
-    byCompany: target ? undefined : byCompany(rows, companies),
+    byCompany: target ? undefined : byCompany(rows, companies, facilities),
     byMonth: byMonth(rows, monthsBetween(from, to)),
   };
 }
@@ -204,18 +229,20 @@ export function GhgOverviewScreen() {
   const t = totalsOf(picked);
   const months = monthsBetween(range.from, range.to);
   const shown = me == null ? role.companies : role.companies.filter((c) => c.id === me);
-  const perCompany = byCompany(picked, shown);
-  const kw = FACILITIES.filter((f) => shown.some((c) => c.id === f.companyId)).reduce((a, f) => a + f.kw, 0);
+  const perCompany = byCompany(picked, shown, role.facilities);
+  const kw = role.facilities.filter((f) => shown.some((c) => c.id === f.companyId)).reduce((a, f) => a + f.kw, 0);
 
   // 월별 감축량 — 전체면 기업마다 쌓고, 하나면 설비마다
   const groups =
     me == null
       ? shown.map((c) => ({ key: `c${c.id}`, name: c.name, match: (r: ReductionRow) => r.facility.companyId === c.id }))
-      : FACILITIES.filter((f) => f.companyId === me).map((f) => ({
-          key: `f${f.id}`,
-          name: `${f.company} ${f.kind}`,
-          match: (r: ReductionRow) => r.facility.id === f.id,
-        }));
+      : role.facilities
+          .filter((f) => f.companyId === me)
+          .map((f) => ({
+            key: `f${f.id}`,
+            name: `${f.company} ${f.kind}`,
+            match: (r: ReductionRow) => r.facility.id === f.id,
+          }));
   const chart = months.map((m) => {
     const inM = picked.filter((r) => r.month === m);
     return {
@@ -227,7 +254,14 @@ export function GhgOverviewScreen() {
   const cols: Column<(typeof perCompany)[number]>[] = [
     { key: 'company', header: '기업', render: (c) => cell(c.company, 'font-medium text-white') },
     { key: 'kw', header: '설비 용량 (kW)', align: 'right', render: (c) => num(fmt(c.kw, 2)) },
-    { key: 'kwh', header: '발전량 (kWh)', align: 'right', sortable: true, sortValue: (c) => c.kwh, render: (c) => num(fmt(c.kwh)) },
+    {
+      key: 'kwh',
+      header: '발전량 (kWh)',
+      align: 'right',
+      sortable: true,
+      sortValue: (c) => c.kwh,
+      render: (c) => num(fmt(c.kwh)),
+    },
     {
       key: 'tco2',
       header: '감축량 (tCO₂eq)',
@@ -272,7 +306,10 @@ export function GhgOverviewScreen() {
           <RmsPieChart
             donut
             height={280}
-            data={groups.map((g) => ({ name: g.name, value: Math.round(totalsOf(picked.filter(g.match)).tco2 * 100) / 100 }))}
+            data={groups.map((g) => ({
+              name: g.name,
+              value: Math.round(totalsOf(picked.filter(g.match)).tco2 * 100) / 100,
+            }))}
           />
         </SectionCard>
       </div>
@@ -295,8 +332,15 @@ export function GhgSourcesScreen() {
   const { rows } = useRows();
   const [company, setCompany] = useState<number | null>(null);
   const me = scopeOf(role, company);
-  const list = FACILITIES.filter((f) => role.companies.some((c) => c.id === f.companyId) && (me == null || f.companyId === me));
-  const kw = list.reduce((a, f) => a + f.kw, 0);
+  const router = useRouter();
+  const list = role.facilities.filter((f) => me == null || f.companyId === me);
+  const kw = list.filter((f) => f.status === 'ACTIVE').reduce((a, f) => a + f.kw, 0);
+  // 등록 근거 = 전력거래 계약 — 내 계약 화면(관리자 · 발전사업자)으로. 전기사용자는 전력거래 메뉴가 없어 이동 없음
+  const contractsPath = role.isAdmin
+    ? '/platform/ppa/contracts'
+    : role.persona === 'generator'
+      ? '/generator/ppa/contracts'
+      : '';
   const lastOf = (f: Facility) => rows.filter((r) => r.facility.id === f.id && r.month === LAST_MONTH);
 
   const cols: Column<Facility>[] = [
@@ -305,8 +349,17 @@ export function GhgSourcesScreen() {
     { key: 'name', header: '배출원', render: () => cell('태양광 발전설비') },
     { key: 'kind', header: '설비 구분', render: kindBadge },
     { key: 'scope', header: 'Scope', render: () => cell('Scope 2 · 전기') },
-    { key: 'kw', header: '설비 용량 (kW)', align: 'right', sortable: true, sortValue: (f) => f.kw, render: (f) => num(fmt(f.kw, 2)) },
-    { key: 'from', header: '수집 시작', render: () => num(FIRST_MONTH) },
+    {
+      key: 'kw',
+      header: '설비 용량 (kW)',
+      align: 'right',
+      sortable: true,
+      sortValue: (f) => f.kw,
+      render: (f) => num(fmt(f.kw, 2)),
+    },
+    { key: 'contract', header: '계약번호', render: (f) => num(f.contractNo) },
+    { key: 'signed', header: '체결일', render: (f) => num(f.signedAt) },
+    { key: 'from', header: '수집 시작', render: (f) => num(f.startMonth > FIRST_MONTH ? f.startMonth : FIRST_MONTH) },
     {
       key: 'last',
       header: `최근 발전량 (kWh)`,
@@ -314,18 +367,32 @@ export function GhgSourcesScreen() {
       render: (f) => num(fmt(lastOf(f).reduce((a, r) => a + r.kwh, 0))),
     },
     { key: 'input', header: '입력방식', render: () => cell('연동') },
+    {
+      key: 'status',
+      header: '상태',
+      render: (f) => cell(f.status === 'ACTIVE' ? '체결' : `해지 (${f.endMonth ?? ''})`),
+    },
+    ...(contractsPath
+      ? [{ key: 'go', header: '', width: '40px', render: () => <ChevronRight size={15} className="text-slate-600" /> }]
+      : []),
   ];
 
   return (
     <div className="space-y-6">
       <Header title="배출원 등록" actions={<CompanySelect role={role} value={company} onChange={setCompany} />} />
       <StatsGrid columns={3}>
-        <StatCard label="배출원" value={`${list.length}개`} />
+        <StatCard label="배출원" value={`${list.filter((f) => f.status === 'ACTIVE').length}개`} />
         <StatCard label="설비 용량" value={`${fmt(kw, 2)} kW`} />
         <StatCard label="기업" value={`${new Set(list.map((f) => f.companyId)).size}곳`} />
       </StatsGrid>
       <SectionCard title={`배출원 목록 (${list.length})`}>
-        <DataTable data={list} columns={cols} rowKey={(f) => f.id} />
+        <DataTable
+          data={list}
+          columns={cols}
+          rowKey={(f) => f.id}
+          emptyMessage="체결된 전력거래 계약이 없습니다"
+          onRowClick={contractsPath ? () => router.push(contractsPath) : undefined}
+        />
       </SectionCard>
     </div>
   );
@@ -410,7 +477,7 @@ export function GhgCalculationScreen() {
   const shown = me == null ? role.companies : role.companies.filter((c) => c.id === me);
 
   // 설비 × 1월 ~ 12월 감축량
-  const facilities = FACILITIES.filter((f) => shown.some((c) => c.id === f.companyId));
+  const facilities = role.facilities.filter((f) => shown.some((c) => c.id === f.companyId));
   const matrix = facilities.map((f) => {
     const rs = picked.filter((r) => r.facility.id === f.id);
     return { f, byM: Object.fromEntries(rs.map((r) => [r.month, r.tco2])), sum: totalsOf(rs) };
@@ -482,8 +549,8 @@ export function GhgStatementScreen() {
   const [from, to] = yearRange(year);
   const picked = pick(rows, from, to, me).filter((r) => role.companies.some((c) => c.id === r.facility.companyId));
   const t = totalsOf(picked);
-  const target = me == null ? null : (COMPANIES.find((c) => c.id === me) ?? null);
-  const data = docData(picked, fx, from, to, target, role.companies);
+  const target = me == null ? null : (role.companies.find((c) => c.id === me) ?? null);
+  const data = docData(picked, fx, from, to, target, role.companies, role.facilities);
   const fileBase = `온실가스_감축실적_명세서_${target?.name ?? '전체기업'}_${year}`;
   const run = async (kind: 'pdf' | 'xlsx') => {
     try {
@@ -578,9 +645,11 @@ export function GhgReportScreen() {
   const range = useMonthRange();
   const [company, setCompany] = useState<number | null>(null);
   const me = scopeOf(role, company);
-  const picked = pick(rows, range.from, range.to, me).filter((r) => role.companies.some((c) => c.id === r.facility.companyId));
-  const target = me == null ? null : (COMPANIES.find((c) => c.id === me) ?? null);
-  const data = docData(picked, fx, range.from, range.to, target, role.companies);
+  const picked = pick(rows, range.from, range.to, me).filter((r) =>
+    role.companies.some((c) => c.id === r.facility.companyId),
+  );
+  const target = me == null ? null : (role.companies.find((c) => c.id === me) ?? null);
+  const data = docData(picked, fx, range.from, range.to, target, role.companies, role.facilities);
   const download = async () => {
     try {
       await exportGhgReportPdf(`온실가스_감축실적_보고서_${data.target}_${range.from}_${range.to}`, data);

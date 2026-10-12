@@ -6,44 +6,66 @@
 import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
 import { PINE_PER_TCO2, TOE_PER_MWH } from '@/lib/constants/env-benefit';
 import { energyNum, useEnergySettings } from '@/hooks/common/useSettings';
-import { DM_SELLERS, generationOf } from '@/stores/useDataMarketStore';
+import { useMemo } from 'react';
+import { generationOf } from '@/stores/useDataMarketStore';
+import { useHydrateTradingPoc, useTradingPocStore } from '@/stores/useTradingPocStore';
+import type { Contract } from '@/types/trading-poc';
 
 /** 설비 구분 — 자가소비(기업이 설치) · onsite(EPC 설치, 기업이 쓴 만큼 사용료) */
 export type FacilityKind = '자가소비' | 'onsite';
 
+/** 배출원 = 전력거래에서 체결된 계약의 태양광 설비. 따로 입력하지 않고 체결되면 생긴다 */
 export interface Facility {
-  /** 기업 id × 10 + 순번 */
+  /** 계약 id */
   id: number;
   companyId: number;
   company: string;
   address: string;
   kind: FacilityKind;
   kw: number;
+  contractNo: string;
+  /** 체결일 */
+  signedAt: string;
+  /** 수집 시작 달 = 계약 시작 달 */
+  startMonth: string;
+  /** 해지한 달 — 그 달까지만 */
+  endMonth?: string;
+  status: 'ACTIVE' | 'TERMINATED';
 }
 
-/** 대상 기업 주소 — 회원가입 기업 주소 */
-const ADDRESS: Record<number, string> = {
-  2: '울산 남구 용연동 490-11',
-  4: '울산 남구 부곡동 273-6',
-  5: '울산 남구 여천동 887-18',
-  6: '울산 남구 여천동 358-8',
-  7: '울산 남구 부곡동 22-5',
-};
+/** 체결(이용 중 · 해지 포함) 계약 → 배출원. 서명 전 계약은 아직 아니다 */
+export function facilitiesOf(contracts: Contract[]): Facility[] {
+  return contracts
+    .filter((c) => c.status === 'ACTIVE' || c.status === 'TERMINATED')
+    .map((c) => ({
+      id: c.id,
+      companyId: c.consumerCompanyId,
+      company: c.consumerCompanyName,
+      address: c.address,
+      kind: c.kind === 'ONSITE' ? ('onsite' as const) : ('자가소비' as const),
+      kw: c.capacityKw,
+      contractNo: c.no,
+      signedAt: (c.signedAt ?? c.createdAt).slice(0, 10),
+      startMonth: c.startDate.slice(0, 7),
+      endMonth: c.terminatedAt?.slice(0, 7),
+      status: c.status === 'TERMINATED' ? ('TERMINATED' as const) : ('ACTIVE' as const),
+    }))
+    .sort((a, b) => a.company.localeCompare(b.company, 'ko') || a.id - b.id);
+}
 
-/** 설비 — 실제 체결 6건(자가소비 5 · onsite 1). 한일튜브 429.44 = 자가소비 99.84 + onsite 329.6 */
-export const FACILITIES: Facility[] = DM_SELLERS.flatMap((c) => {
-  const base = { companyId: c.id, company: c.name, address: ADDRESS[c.id] ?? '' };
-  if (c.id === 4)
-    return [
-      { ...base, id: c.id * 10 + 1, kind: '자가소비' as const, kw: 99.84 },
-      { ...base, id: c.id * 10 + 2, kind: 'onsite' as const, kw: 329.6 },
-    ];
-  return [{ ...base, id: c.id * 10 + 1, kind: '자가소비' as const, kw: c.solarKw }];
-}).sort((a, b) => a.company.localeCompare(b.company, 'ko') || a.id - b.id);
+/** 배출원이 있는 기업 */
+export function companiesOf(fs: Facility[]) {
+  return [...new Map(fs.map((f) => [f.companyId, f])).values()]
+    .map((f) => ({ id: f.companyId, name: f.company, address: f.address }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+}
 
-export const COMPANIES = [...new Map(FACILITIES.map((f) => [f.companyId, f])).values()]
-  .map((f) => ({ id: f.companyId, name: f.company, address: f.address }))
-  .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+/** 전력거래 계약에서 배출원 — 화면마다 이 훅 하나 */
+export function useFacilities(): Facility[] {
+  useHydrateTradingPoc();
+  const contracts = useTradingPocStore((s) => s.contracts);
+  return useMemo(() => facilitiesOf(contracts), [contracts]);
+}
 
 /** 수집 시작 달 · 마지막 달 — 데이터 마켓 발전 정보와 같다 */
 export const FIRST_MONTH = '2025-03';
@@ -86,23 +108,38 @@ export interface ReductionRow {
 const r3 = (v: number) => Math.round(v * 1000) / 1000;
 const r1 = (v: number) => Math.round(v * 10) / 10;
 
-/** 설비별 월 발전량 — 기업 발전량을 용량 비율로 나누고, 끝수는 마지막 설비에 */
-function facilityGeneration(): { facility: Facility; month: string; hours: number; kwh: number }[] {
-  return DM_SELLERS.flatMap((c) => {
-    const fs = FACILITIES.filter((f) => f.companyId === c.id);
-    return generationOf(c).flatMap((g) => {
+/** 설비별 월 발전량 — 기업 설비 용량 합으로 기업 발전량(데이터 마켓과 같은 식)을 내고 용량 비율로 나눈다.
+ *  끝수는 마지막 설비에. 계약 시작 달부터(해지면 해지 달까지)만 */
+function facilityGeneration(
+  facilities: Facility[],
+): { facility: Facility; month: string; hours: number; kwh: number }[] {
+  const byCompany = [...new Set(facilities.map((f) => f.companyId))];
+  return byCompany.flatMap((id) => {
+    const fs = facilities.filter((f) => f.companyId === id);
+    const kw = fs.reduce((a, f) => a + f.kw, 0);
+    return generationOf({
+      id,
+      name: fs[0]?.company ?? '',
+      solarKw: Math.round(kw * 100) / 100,
+    }).flatMap((g) => {
       let left = g.kwh;
-      return fs.map((f, i) => {
-        const kwh = i === fs.length - 1 ? left : Math.round((g.kwh * f.kw) / c.solarKw);
-        left -= kwh;
-        return { facility: f, month: g.month, hours: g.hours, kwh };
-      });
+      return fs
+        .map((f, i) => {
+          const kwh = i === fs.length - 1 ? left : Math.round((g.kwh * f.kw) / kw);
+          left -= kwh;
+          return { facility: f, month: g.month, hours: g.hours, kwh };
+        })
+        .filter(
+          (r) =>
+            r.month >= r.facility.startMonth &&
+            (!r.facility.endMonth || r.month <= r.facility.endMonth),
+        );
     });
   });
 }
 
-export function reductionRows(fx: GhgFactors): ReductionRow[] {
-  return facilityGeneration().map(({ facility, month, hours, kwh }) => {
+export function reductionRows(fx: GhgFactors, facilities: Facility[]): ReductionRow[] {
+  return facilityGeneration(facilities).map(({ facility, month, hours, kwh }) => {
     const mwh = kwh / 1000;
     const tco2 = mwh * fx.co2;
     return {
@@ -129,16 +166,33 @@ export interface Totals {
 }
 export function totalsOf(rows: ReductionRow[]): Totals {
   const t = rows.reduce(
-    (a, r) => ({ kwh: a.kwh + r.kwh, tco2: a.tco2 + r.tco2, toe: a.toe + r.toe, pine: a.pine + r.pine }),
+    (a, r) => ({
+      kwh: a.kwh + r.kwh,
+      tco2: a.tco2 + r.tco2,
+      toe: a.toe + r.toe,
+      pine: a.pine + r.pine,
+    }),
     { kwh: 0, tco2: 0, toe: 0, pine: 0 },
   );
-  return { kwh: t.kwh, mwh: r3(t.kwh / 1000), tco2: r3(t.tco2), toe: r3(t.toe), pine: Math.round(t.pine) };
+  return {
+    kwh: t.kwh,
+    mwh: r3(t.kwh / 1000),
+    tco2: r3(t.tco2),
+    toe: r3(t.toe),
+    pine: Math.round(t.pine),
+  };
 }
 
 /** 고른 범위 — 시작 달 ~ 종료 달(양 끝 포함), 기업(없으면 전체) */
-export function pick(rows: ReductionRow[], from: string, to: string, companyId?: number | null): ReductionRow[] {
+export function pick(
+  rows: ReductionRow[],
+  from: string,
+  to: string,
+  companyId?: number | null,
+): ReductionRow[] {
   return rows.filter(
-    (r) => r.month >= from && r.month <= to && (companyId == null || r.facility.companyId === companyId),
+    (r) =>
+      r.month >= from && r.month <= to && (companyId == null || r.facility.companyId === companyId),
   );
 }
 
@@ -160,7 +214,9 @@ export function monthsBetween(from: string, to: string): string[] {
 }
 
 /** 데이터가 있는 연도 */
-export const YEARS = [...new Set(monthsBetween(FIRST_MONTH, LAST_MONTH).map((m) => m.slice(0, 4)))].reverse();
+export const YEARS = [
+  ...new Set(monthsBetween(FIRST_MONTH, LAST_MONTH).map((m) => m.slice(0, 4))),
+].reverse();
 /** 그 해에 데이터가 있는 첫 달 · 마지막 달 */
 export const yearRange = (y: string): [string, string] => {
   const ms = monthsBetween(FIRST_MONTH, LAST_MONTH).filter((m) => m.startsWith(y));
