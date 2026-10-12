@@ -25,7 +25,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 31; // 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
+export const SEED_VERSION = 32; // 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -608,6 +608,54 @@ function seedRequests(): TradeRequest[] {
       events: [
         ev(iso('2026-07-08'), 'generator', '신청 접수'),
         ev(iso('2026-07-21', '09:00:00'), 'generator', '신청 취소', '설치 일정 보류'),
+      ],
+    }),
+    // 박발전(한일튜브) — 진행 중 자가소비 1건(PPA 는 id 5), 취소 PPA 1건(자가소비 취소는 id 9)
+    mk({
+      id: 18,
+      ...gen,
+      kind: 'SELF_CONSUMPTION',
+      plantName: '한일튜브(자가소비)',
+      consumerCompanyId: 4,
+      consumerCompanyName: CO.HANIL.name,
+      siteName: '한일튜브 울산공장',
+      address: '울산 남구 부곡동 273-6',
+      capacityKw: 50,
+      unitPrice: 0,
+      termYears: 20,
+      status: 'REVIEW',
+      submittedAt: iso('2026-10-02', '09:30:00'),
+      updatedAt: iso('2026-10-06', '14:00:00'),
+      surveyDate: '2026-10-14',
+      contact: { name: '박발전', phone: '010-2000-0002', email: 'operator@test.com' },
+      events: [
+        ev(iso('2026-10-02', '09:30:00'), 'generator', '신청 접수'),
+        ev(iso('2026-10-06', '14:00:00'), 'spc', '미팅 일정', '2026-10-14 예정'),
+      ],
+      messages: [
+        { at: iso('2026-10-02', '09:35:00'), by: 'generator', byName: CO.HANIL.name, text: '제2공장 지붕 50kW 자가소비 추가 설치 검토 요청드립니다.' },
+        { at: iso('2026-10-06', '14:00:00'), by: 'spc', byName: CO.SPC.name, text: '10월 14일 오후 미팅으로 잡겠습니다.' },
+      ],
+    }),
+    mk({
+      id: 19,
+      ...gen,
+      kind: 'ONSITE',
+      plantName: '한일튜브(PPA)',
+      consumerCompanyId: 4,
+      consumerCompanyName: CO.HANIL.name,
+      siteName: '한일튜브 울산공장',
+      address: '울산 남구 부곡동 273-6',
+      capacityKw: 200,
+      unitPrice: 0,
+      termYears: 20,
+      status: 'CANCELLED',
+      submittedAt: iso('2026-08-12', '10:00:00'),
+      updatedAt: iso('2026-08-28', '16:00:00'),
+      contact: { name: '박발전', phone: '010-2000-0002', email: 'operator@test.com' },
+      events: [
+        ev(iso('2026-08-12', '10:00:00'), 'generator', '신청 접수'),
+        ev(iso('2026-08-28', '16:00:00'), 'generator', '신청 취소', '지붕 구조 보강 필요로 보류'),
       ],
     }),
     // 승인 — 서명 전(거래 승인)
