@@ -229,7 +229,7 @@ function changeNote(r: TradeRequest, t: ReturnType<typeof termsOfDraft>) {
 
 /**
  * 신청 한 건 — 단계(위) · 신청 내용 · 진행 이력 · 협의 채팅(옆).
- * 관리자(SPC): 미팅(채팅) → 조건 입력(신청 내용에 바로 저장) → 승인 / 반려. 신청한 쪽: 채팅 · 신청 취소. 미팅 완료 버튼은 없다(2026-10-12)
+ * 미팅 단계: 관리자 · 신청한 쪽 둘 다 같은 칸에 조건을 넣고 저장(채팅으로 맞춘다) → 승인 / 반려는 관리자, 신청 취소는 신청한 쪽. 미팅 완료 버튼은 없다(2026-10-12)
  */
 function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   const router = useRouter();
@@ -243,7 +243,8 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   const active = IN_TALK.includes(r.status);
   const isMine = isMineOf(role, r);
   const admin = role.isAdmin && active;
-  const editing = admin; // 미팅 단계 내내 조건을 넣고 고칠 수 있다
+  // 미팅 단계 — 관리자와 신청한 쪽이 같은 칸을 보고 넣는다(채팅으로 맞추면서). 승인 · 반려는 관리자, 신청 취소는 신청한 쪽
+  const editing = active && (role.isAdmin || isMine);
 
   const [draft, setDraft] = useState<Draft>(() => draftOf(r));
   const saved = draftOf(r);
@@ -298,7 +299,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
 
   const save = () => {
     const t = termsOfDraft(draft, r);
-    updateTerms(r.id, t, changeNote(r, t));
+    updateTerms(r.id, t, changeNote(r, t), role.party);
     addToast('success', `${r.no} 조건 저장`);
   };
 
@@ -313,9 +314,11 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
           <Button size="sm" variant="secondary" disabled={!dirty || !valid} onClick={save}>
             저장
           </Button>
-          <Button size="sm" disabled={!canApprove} onClick={() => setConfirm('approve')}>
-            승인
-          </Button>
+          {role.isAdmin && (
+            <Button size="sm" disabled={!canApprove} onClick={() => setConfirm('approve')}>
+              승인
+            </Button>
+          )}
         </>
       )}
       {admin && (

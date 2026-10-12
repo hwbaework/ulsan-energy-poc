@@ -1167,6 +1167,7 @@ interface TradingPocState {
     id: number,
     terms: Partial<Pick<TradeRequest, 'capacityKw' | 'termYears' | 'unitPrice' | 'installUnit' | 'extraCost' | 'omRatePct' | 'tariffPlan' | 'peakReductionPct' | 'priceEscalationPct'>>,
     note?: string,
+    by?: Party,
   ) => void;
   rejectRequest: (id: number, reason: string) => void;
   cancelRequest: (id: number, note?: string) => void;
@@ -1262,7 +1263,7 @@ export const useTradingPocStore = create<TradingPocState>()(
           ),
         })),
 
-      updateTerms: (id, terms, note) =>
+      updateTerms: (id, terms, note, by = 'spc') =>
         set((s) => ({
           requests: s.requests.map((r) =>
             r.id === id
@@ -1271,7 +1272,7 @@ export const useTradingPocStore = create<TradingPocState>()(
                   ...terms,
                   status: r.status === 'SUBMITTED' ? 'REVIEW' : r.status,
                   updatedAt: nowIso(),
-                  events: [...r.events, ev(nowIso(), 'spc', '조건 입력', note)],
+                  events: [...r.events, ev(nowIso(), by, '조건 입력', note)],
                 }
               : r,
           ),
