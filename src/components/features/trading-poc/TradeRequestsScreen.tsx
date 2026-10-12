@@ -9,7 +9,7 @@ import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { cn } from '@/lib/utils';
 import { useToastStore } from '@/stores/useToastStore';
-import { CONSUMERS, CO, defaultTermYears, useTradingPocStore } from '@/stores/useTradingPocStore';
+import { CONSUMERS, CO, useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { PlantContractKind } from '@/types/monitoring';
 import { useTradingRole } from './useTradingRole';
 import { fmtKw, kindLabel } from './meta';
@@ -145,9 +145,9 @@ export function TradeRequestsScreen() {
       siteName: consumerName,
       address: f.address.trim(),
       capacityKw: cap,
-      // 단가 · 계약 기간은 미팅 뒤 관리자가 넣는다(기간은 유형 기본값으로 시작)
+      // 단가 · 계약 기간은 미팅 뒤에 넣는다
       unitPrice: 0,
-      termYears: defaultTermYears(kind),
+      termYears: 0,
       note: f.note.trim() || undefined,
       omIncluded: true,
       surveyDate: f.surveyDate || undefined,

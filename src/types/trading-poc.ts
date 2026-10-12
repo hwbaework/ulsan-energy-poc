@@ -49,8 +49,6 @@ export interface ContractTerms {
   priceEscalationPct?: number;
   /** 한전 요금제 — 고압A 선택Ⅰ · Ⅱ */
   tariffPlan?: string;
-  /** 기본요금 피크감축 반영률(%) — 설치 용량 중 피크를 깎는다고 보는 비율 */
-  peakReductionPct?: number;
   /** O&M 포함 — 필수 */
   omIncluded?: boolean;
   /** 미팅 희망일 */
