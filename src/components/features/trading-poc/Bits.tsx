@@ -76,32 +76,20 @@ export const cellMuted = (v: ReactNode) => (
 );
 
 /* ── 진행 단계 — 거래 이력 · 거래 승인이 같은 단계를 쓴다 ── */
-export const TRADE_STEPS = ['신청 접수', '관리자 검토', '미팅', '조건 협의', '승인', '전자서명', '체결'] as const;
+export const TRADE_STEPS = ['신청 접수', '미팅', '승인', '전자서명', '체결'] as const;
 
-/** 검토 중 어디까지 왔는지 — 미팅이 끝났거나 조건 협의로 넘겼으면 조건 협의, 미팅으로 넘겼으면 미팅, 아니면 관리자 검토 */
-function reviewStepOf(r: TradeRequest) {
-  const has = (label: string) => r.events.some((e) => e.label === label);
-  if (r.surveyDoneAt || has('조건 협의')) return 3;
-  if (has('미팅')) return 2;
-  return 1; // 신청하면 바로 관리자 검토
-}
-
-/** 단계 표기 — 관리자 검토 (2/7) */
+/** 단계 표기 — 미팅 (2/5) */
 export const stepLabel = (label: string, i: number) => `${label} (${i + 1}/${TRADE_STEPS.length})`;
 
-/** 지금 단계(TRADE_STEPS 번호). 체결되면 TRADE_STEPS.length — 전부 끝 */
+/** 지금 단계(TRADE_STEPS 번호). 신청하면 곧 미팅(조건 입력), 승인되면 전자서명, 체결되면 TRADE_STEPS.length — 전부 끝 */
 export function tradeStepOf(r: TradeRequest): number {
   switch (r.status) {
-    case 'SUBMITTED':
-      return 1;
-    case 'REVIEW':
-      return reviewStepOf(r);
     case 'APPROVED':
-      return 5;
+      return 3;
     case 'SIGNED':
       return TRADE_STEPS.length;
     default:
-      return reviewStepOf(r); // 반려 · 취소 — 멈춘 단계
+      return 1; // 접수 · 미팅 · 반려 · 취소(멈춘 자리)
   }
 }
 
@@ -183,7 +171,7 @@ export function TradeStepper({
       steps={TRADE_STEPS}
       step={tradeStepOf(r)}
       failed={failed}
-      labelOf={(label, i) => (i === 5 && r.status === 'APPROVED' ? `전자서명 ${signedCount}/2` : label)}
+      labelOf={(label, i) => (i === 3 && r.status === 'APPROVED' ? `전자서명 ${signedCount}/2` : label)}
       className={className}
     />
   );

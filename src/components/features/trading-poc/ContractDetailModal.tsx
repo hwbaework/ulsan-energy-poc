@@ -27,7 +27,7 @@ interface Props {
 /** 한 달 — 예상 발전량 · 절감액(자가소비: 한전으로 냈을 요금, onsite: 한전 요금 − 사용료) · 사용료(onsite) */
 export function monthOfContract(c: Contract) {
   const kwh = estimateMonthlyKwh(c.capacityKw);
-  const price = c.segments?.[0]?.price ?? c.unitPrice;
+  const price = c.unitPrice;
   const onsite = c.kind === 'ONSITE';
   return {
     kwh,

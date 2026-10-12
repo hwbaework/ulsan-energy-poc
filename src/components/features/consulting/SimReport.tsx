@@ -553,6 +553,8 @@ function InputRecord({ input: i, companyName }: { input: SimInput; companyName: 
     ['기업명', i.site || companyName || '-'],
     ['기업 주소', i.address || '-'],
     ['방식', self ? '자가소비용' : 'PPA'],
+    // PPA — 쉬는 날(주말 · 공휴일) 인버터 OFF 로 계산한 가동일
+    ...(!self && i.ppa.opDays ? [['가동일', `${i.ppa.opDays}일 / 365일 (${i.ppa.opYear}년 달력 · 주말 · 공휴일 OFF)`] as [string, string]] : []),
     ['일평균 발전시간', `${i.avgH} h/일`],
     ['모듈 효율감소율', `${i.deg} %/yr`],
     ['배출권 시세 (KAU)', `${F(i.kau)} 원/t · 상승률 ${i.kauEsc} %/yr`],

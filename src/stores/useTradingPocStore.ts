@@ -21,12 +21,11 @@ import type {
   DocCategory,
   Party,
   TradeDocument,
-  TermsProposal,
   TradeRequest,
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 27; // 2026-10-12 onsite → PPA, 현장 실측 → 미팅 (저장본 다시 시작)
+export const SEED_VERSION = 28; // 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -70,28 +69,9 @@ const ev = (at: string, by: Party, label: string, note?: string) => ({
 });
 
 /* ── 시드: 체결 = 실제 6건(자가소비 5 · onsite 1) / 상태별 샘플 1건씩(실제 기업·용량·조건) ───────────────────────────────────────── */
-/** 시드 계약 조건 — 무료진단 기본값(설치단가 ₩1,350,000/kW · 추가 시공비 ₩20,000,000 · O&M 1%) · PPA 는 계약 기간 한 단가 */
-const TARIFF = { tariffPlan: '고압A 선택Ⅱ', tariffBasis: '2025-04 확정단가 (고시)' };
-export function seedTermsOf(x: {
-  kind: PlantContractKind;
-  unitPrice: number;
-  termYears: number;
-}): ContractTerms {
-  return x.kind === 'SELF_CONSUMPTION'
-    ? {
-        ...TARIFF,
-        estInstallUnit: 1_350_000,
-        installUnit: 1_350_000,
-        extraCost: 20_000_000,
-        omRatePct: 1,
-        omIncluded: true,
-      }
-    : {
-        ...TARIFF,
-        omIncluded: true,
-        // PPA 단가는 구간 없이 계약 기간 한 단가(2026-10-12). 사용료 = 사용량 × 단가, SPC 가 받는다
-        segments: [{ from: 1, to: x.termYears, price: x.unitPrice }],
-      };
+/** 시드 계약 조건 — 단가(unitPrice)는 계약마다 따로, 여기선 O&M 포함만 */
+export function seedTermsOf(_x: { kind: PlantContractKind; unitPrice: number; termYears: number }): ContractTerms {
+  return { omIncluded: true };
 }
 
 function seedContracts(): Contract[] {
@@ -303,7 +283,7 @@ function seedRequests(): TradeRequest[] {
   });
   const signedEvents = (submitted: string, review: string, approved: string, signed: string) => [
     ev(submitted, 'generator', '신청 접수'),
-    ev(review, 'spc', '검토 시작'),
+    ev(review, 'spc', '미팅 일정'),
     ev(approved, 'spc', '승인', '계약서 초안 생성'),
     ev(signed, 'generator', '전자서명'),
     ev(signed, 'consumer', '전자서명'),
@@ -399,7 +379,7 @@ function seedRequests(): TradeRequest[] {
       updatedAt: iso('2025-04-18', '11:00:00'),
       events: [
         ev(iso('2025-03-15'), 'consumer', '신청 접수'),
-        ev(iso('2025-03-17'), 'spc', '검토 시작'),
+        ev(iso('2025-03-17'), 'spc', '미팅 일정'),
         ev(iso('2025-03-28'), 'spc', '승인', '계약서 초안 생성'),
         ev(iso('2025-04-18', '10:40:00'), 'generator', '전자서명'),
         ev(iso('2025-04-18', '11:00:00'), 'consumer', '전자서명'),
@@ -479,7 +459,7 @@ function seedRequests(): TradeRequest[] {
       ),
     }),
     // ── 상태별 샘플 1건씩 — 실제 기업·용량·조건만 ──
-    // 관리자 검토 (신청하면 바로)
+    // 접수 — 미팅 전(조건 없음)
     mk({
       id: 6,
       applicant: 'consumer',
@@ -494,11 +474,10 @@ function seedRequests(): TradeRequest[] {
       siteName: '한길',
       address: '울산 남구 용연동 490-11',
       capacityKw: 90.88,
-      unitPrice: 28,
+      unitPrice: 0,
       termYears: 20,
       status: 'SUBMITTED',
       submittedAt: iso('2026-09-29', '15:10:00'),
-      surveyRequested: true,
       surveyDate: '2026-10-15',
       contact: { name: '이수용', phone: '010-3000-0003', email: 'consumer@test.com' },
       messages: [
@@ -521,17 +500,16 @@ function seedRequests(): TradeRequest[] {
       siteName: '태성산업 본사',
       address: '울산 남구 여천동 358-8',
       capacityKw: 46.08,
-      unitPrice: 26,
+      unitPrice: 0,
       termYears: 20,
       status: 'REVIEW',
       submittedAt: iso('2026-09-25', '10:00:00'),
       updatedAt: iso('2026-09-26', '09:30:00'),
-      surveyRequested: true,
       surveyDate: '2026-10-08',
       contact: { name: '설비 담당', phone: '052-000-0000' },
       events: [
         ev(iso('2026-09-25', '10:00:00'), 'spc', '신청 접수', '전화 문의 대리 접수'),
-        ev(iso('2026-09-26', '09:30:00'), 'spc', '검토 시작'),
+        ev(iso('2026-09-26', '09:30:00'), 'spc', '미팅 일정'),
         ev(iso('2026-09-26', '09:40:00'), 'spc', '미팅', '2026-10-08 예정'),
       ],
       messages: [
@@ -543,7 +521,7 @@ function seedRequests(): TradeRequest[] {
         },
       ],
     }),
-    // 조건 협의 — 미팅 끝, 신청 내용에서 조건을 바로 고친다
+    // 미팅 완료 — 조건 입력 뒤 승인 대기
     mk({
       id: 5,
       ...gen,
@@ -559,13 +537,12 @@ function seedRequests(): TradeRequest[] {
       status: 'REVIEW',
       submittedAt: iso('2026-09-20'),
       updatedAt: iso('2026-09-27', '11:00:00'),
-      surveyRequested: true,
       surveyDate: '2026-09-26',
       surveyDoneAt: '2026-09-26',
       contact: { name: '시설 담당', phone: '052-000-0000' },
       events: [
         ev(iso('2026-09-20'), 'generator', '신청 접수'),
-        ev(iso('2026-09-23', '10:30:00'), 'spc', '검토 시작'),
+        ev(iso('2026-09-23', '10:30:00'), 'spc', '미팅 일정'),
         ev(iso('2026-09-26', '12:00:00'), 'spc', '미팅 완료', '2026-09-26'),
       ],
       messages: [
@@ -585,7 +562,7 @@ function seedRequests(): TradeRequest[] {
           at: iso('2026-09-27', '11:00:00'),
           by: 'spc',
           byName: CO.SPC.name,
-          text: '미팅 결과 신청 조건 그대로 진행 가능합니다. 확인 부탁드립니다.',
+          text: '미팅 결과 조건(329.6 kW · 20년 · PPA ₩138/kWh)을 넣었습니다. 승인 뒤 전자서명 요청드리겠습니다.',
         },
       ],
     }),
@@ -608,7 +585,7 @@ function seedRequests(): TradeRequest[] {
       updatedAt: iso('2026-08-12', '17:20:00'),
       events: [
         ev(iso('2026-08-03'), 'spc', '신청 접수', '전화 문의 대리 접수'),
-        ev(iso('2026-08-05'), 'spc', '검토 시작'),
+        ev(iso('2026-08-05'), 'spc', '미팅 일정'),
         ev(iso('2026-08-12', '17:20:00'), 'spc', '반려', '설치 위치 도면 미제출 — 보완 후 재신청'),
       ],
     }),
@@ -652,7 +629,7 @@ function seedRequests(): TradeRequest[] {
       updatedAt: iso('2026-09-15', '16:00:00'),
       events: [
         ev(iso('2026-09-02'), 'spc', '신청 접수', '전화 문의 대리 접수'),
-        ev(iso('2026-09-04'), 'spc', '검토 시작'),
+        ev(iso('2026-09-04'), 'spc', '미팅 일정'),
         ev(iso('2026-09-15', '16:00:00'), 'spc', '승인', '계약서 초안 생성 — 양측 전자서명 대기'),
       ],
     }),
@@ -675,7 +652,7 @@ function seedRequests(): TradeRequest[] {
       updatedAt: iso('2026-09-23', '11:00:00'),
       events: [
         ev(iso('2026-09-05'), 'generator', '신청 접수'),
-        ev(iso('2026-09-08'), 'spc', '검토 시작'),
+        ev(iso('2026-09-08'), 'spc', '미팅 일정'),
         ev(iso('2026-09-22', '15:00:00'), 'spc', '승인', '계약서 초안 생성 — 양측 전자서명 대기'),
         ev(iso('2026-09-23', '11:00:00'), 'consumer', '전자서명'),
       ],
@@ -763,13 +740,13 @@ function seedChanges(): ContractChange[] {
       requestedBy: 'spc',
       requestedByName: CO.SPC.name,
       requestedAt: iso('2026-09-10', '10:00:00'),
-      reason: '인버터 정기 점검을 O&M 범위에 포함',
-      before: '1',
-      after: '1.2',
+      reason: '인버터 정기 점검을 운영관리 범위에 포함',
+      before: '26',
+      after: '28',
       status: 'REQUESTED',
       stage: 'SIGN',
       events: [
-        ev(iso('2026-09-10', '10:00:00'), 'spc', '요청 접수', 'O&M 1% → 1.2%'),
+        ev(iso('2026-09-10', '10:00:00'), 'spc', '요청 접수', '운영관리 단가 ₩26 → ₩28/kWh'),
         ev(iso('2026-09-25', '10:00:00'), 'consumer', '승인'),
         ev(iso('2026-09-26', '11:20:00'), 'consumer', '합의서 서명', `${CO.TAESUNG.name} 서명`),
       ],
@@ -820,14 +797,14 @@ function seedChanges(): ContractChange[] {
       requestedBy: 'generator',
       requestedByName: HANIL,
       requestedAt: iso('2026-01-12'),
-      reason: '인버터 정기 점검을 O&M 범위에 포함',
-      before: '0.8',
-      after: '1',
+      reason: '인버터 정기 점검을 운영관리 범위에 포함',
+      before: '26',
+      after: '28',
       status: 'APPROVED',
       decidedAt: iso('2026-01-28', '15:00:00'),
       decisionNote: '2026-02 정산분부터 적용',
       events: [
-        ev(iso('2026-01-12', '09:00:00'), 'generator', '요청 접수', 'O&M 0.8% → 1%'),
+        ev(iso('2026-01-12', '09:00:00'), 'generator', '요청 접수', '운영관리 단가 ₩26 → ₩28/kWh'),
         ev(iso('2026-01-26', '10:00:00'), 'spc', '승인'),
         ev(iso('2026-01-27', '16:00:00'), 'generator', '합의서 서명', `${HANIL} 서명`),
         ev(iso('2026-01-28', '15:00:00'), 'spc', '합의서 서명', `${CO.SPC.name} 서명`),
@@ -897,35 +874,10 @@ export type TradeSettlement = PpaSettlement & {
   consumerCompanyName: string;
   generatorCompanyName: string;
   kind: PlantContractKind;
-  segment?: number;
-  omRatePct?: number;
 };
 
-/** 계약 연차(1부터) — 시작월 기준 */
-function contractYear(start: string, period: string) {
-  const [sy = 2026, sm = 1] = start.split('-').map(Number);
-  const [py = 2026, pm = 1] = period.split('-').map(Number);
-  return Math.floor((py * 12 + pm - (sy * 12 + sm)) / 12) + 1;
-}
-/** 계약 조건 → 그 달 금액(부가세 전). 조건이 없는 예전 계약은 단가 × 발전량 */
-export function termsAmount(
-  c: Contract,
-  period: string,
-  kwh: number,
-): { supply: number; price?: number; segment?: number; omRatePct?: number } {
-  if (c.kind === 'SELF_CONSUMPTION' && c.omRatePct && c.installUnit) {
-    const total = c.capacityKw * c.installUnit + (c.extraCost ?? 0);
-    return { supply: Math.round((total * c.omRatePct) / 100 / 12), omRatePct: c.omRatePct };
-  }
-  if (c.kind === 'ONSITE' && c.segments?.length) {
-    const y = contractYear(c.startDate, period);
-    const idx = Math.max(
-      0,
-      c.segments.findIndex((g) => y >= g.from && y <= g.to),
-    );
-    const g = c.segments[idx] ?? c.segments[c.segments.length - 1]!;
-    return { supply: Math.round(kwh * g.price), price: g.price, segment: idx + 1 };
-  }
+/** 계약 조건 → 그 달 금액(부가세 전) = 단가 × 발전량(PPA 사용량 · 자가소비 운영관리) */
+export function termsAmount(c: Contract, _period: string, kwh: number): { supply: number; price: number } {
   return { supply: Math.round(kwh * c.unitPrice), price: c.unitPrice };
 }
 
@@ -1010,9 +962,7 @@ export function settlementsOf(contracts: Contract[]): TradeSettlement[] {
         period,
         status: period <= LAST_CONFIRMED ? 'CONFIRMED' : 'PENDING',
         generationKwh: kwh,
-        smpUnitPrice: t.price ?? 0,
-        segment: t.segment,
-        omRatePct: t.omRatePct,
+        smpUnitPrice: t.price,
         kind: c.kind,
         supplyAmount: supply,
         vat,
@@ -1127,25 +1077,14 @@ export interface NewRequestInput {
   unitPrice: number;
   termYears: number;
   note?: string;
-  reviewNo?: string;
-  tariffPlan?: string;
-  tariffBasis?: string;
-  estInstallUnit?: number;
-  installUnit?: number;
-  extraCost?: number;
-  omRatePct?: number;
   omIncluded?: boolean;
-  surveyRequested?: boolean;
   surveyDate?: string;
-  segments?: { from: number; to: number; price: number }[];
   contact?: { name: string; phone: string; email?: string };
 }
 
 export interface NewChangeInput {
   contractId: number;
   type: ChangeType;
-  /** onsite 단가 변경 — 몇 구간 */
-  segment?: number;
   requestedBy: Party;
   requestedByName: string;
   reason: string;
@@ -1166,33 +1105,12 @@ interface TradingPocState {
   issueInvoice: (key: string) => void;
   payInvoice: (key: string) => void;
   submitRequest: (input: NewRequestInput) => TradeRequest;
-  startReview: (id: number, note?: string) => void;
   approveRequest: (id: number, note?: string) => void;
-  /** 계약 현황 — 메시지 · 미팅 완료 · 조건 제안 · 제안 응답(수락 / 수정 요청) */
+  /** 계약 현황 — 메시지 · 미팅 완료 */
   addMessage: (id: number, by: Party, byName: string, text: string) => void;
   markSurveyDone: (id: number, date: string) => void;
-  /** 검토 → 미팅 / 조건 협의로 넘긴다 */
-  moveStage: (id: number, label: '미팅' | '조건 협의', note?: string) => void;
-  /** 조건 협의 — 신청 내용의 조건을 그 자리에서 고친다 */
-  updateTerms: (
-    id: number,
-    terms: Partial<
-      Pick<
-        TradeRequest,
-        | 'capacityKw'
-        | 'termYears'
-        | 'installUnit'
-        | 'extraCost'
-        | 'omRatePct'
-        | 'segments'
-        | 'tariffPlan'
-        | 'tariffBasis'
-      >
-    >,
-    note?: string,
-  ) => void;
-  proposeTerms: (id: number, terms: TermsProposal['terms'], note?: string) => void;
-  respondProposal: (id: number, accept: boolean, note?: string) => void;
+  /** 미팅 뒤 조건 입력 — 신청 내용에 그 자리에서 저장(접수 상태면 미팅 상태로) */
+  updateTerms: (id: number, terms: Partial<Pick<TradeRequest, 'capacityKw' | 'termYears' | 'unitPrice'>>, note?: string) => void;
   rejectRequest: (id: number, reason: string) => void;
   cancelRequest: (id: number, note?: string) => void;
   signAsGenerator: (contractId: number) => void;
@@ -1219,21 +1137,11 @@ interface TradingPocState {
 }
 
 // 로컬 시각(한국) 기준 — toISOString 은 UTC 라 9시간 어긋난다
-/** 단가 변경 전 값 — onsite 는 그 구간 단가, 자가소비는 연간 O&M %, 예전 계약은 단가 */
-function priceBefore(c: Contract, segment?: number) {
-  if (c.kind === 'ONSITE' && c.segments?.length)
-    return String(c.segments[(segment ?? 1) - 1]?.price ?? c.unitPrice);
-  if (c.kind === 'SELF_CONSUMPTION' && c.omRatePct != null) return String(c.omRatePct);
+/** 단가 변경 전 값 — 단가 하나(자가소비 운영관리 · PPA) */
+function priceBefore(c: Contract) {
   return String(c.unitPrice);
 }
-function applyPrice(c: Contract, after: number, segment?: number): Contract {
-  if (c.kind === 'ONSITE' && c.segments?.length) {
-    // 구간을 고르지 않으면(새 신청) 모든 구간을 그 단가로
-    const i = segment == null ? -1 : segment - 1;
-    const segments = c.segments.map((g, k) => (i < 0 || k === i ? { ...g, price: after } : g));
-    return { ...c, segments, unitPrice: segments[0]!.price };
-  }
-  if (c.kind === 'SELF_CONSUMPTION' && c.omRatePct != null) return { ...c, omRatePct: after };
+function applyPrice(c: Contract, after: number): Contract {
   return { ...c, unitPrice: after };
 }
 
@@ -1269,13 +1177,6 @@ export const useTradingPocStore = create<TradingPocState>()(
         return r;
       },
 
-      startReview: (id, note) =>
-        set((s) => ({
-          requests: s.requests.map((r) =>
-            r.id === id ? patchReq(r, 'REVIEW', ev(nowIso(), 'spc', '검토 시작', note)) : r,
-          ),
-        })),
-
       addMessage: (id, by, byName, text) =>
         set((s) => ({
           requests: s.requests.map((r) =>
@@ -1295,22 +1196,10 @@ export const useTradingPocStore = create<TradingPocState>()(
             r.id === id
               ? {
                   ...r,
+                  status: r.status === 'SUBMITTED' ? 'REVIEW' : r.status,
                   surveyDoneAt: date,
                   updatedAt: nowIso(),
                   events: [...r.events, ev(nowIso(), 'spc', '미팅 완료', date)],
-                }
-              : r,
-          ),
-        })),
-
-      moveStage: (id, label, note) =>
-        set((s) => ({
-          requests: s.requests.map((r) =>
-            r.id === id
-              ? {
-                  ...r,
-                  updatedAt: nowIso(),
-                  events: [...r.events, ev(nowIso(), 'spc', label, note)],
                 }
               : r,
           ),
@@ -1323,61 +1212,17 @@ export const useTradingPocStore = create<TradingPocState>()(
               ? {
                   ...r,
                   ...terms,
+                  status: r.status === 'SUBMITTED' ? 'REVIEW' : r.status,
                   updatedAt: nowIso(),
-                  events: [...r.events, ev(nowIso(), 'spc', '조건 수정', note)],
-                }
-              : r,
-          ),
-        })),
-
-      proposeTerms: (id, terms, note) =>
-        set((s) => ({
-          requests: s.requests.map((r) =>
-            r.id === id
-              ? {
-                  ...r,
-                  updatedAt: nowIso(),
-                  proposal: { at: nowIso(), terms, note, status: 'OPEN' },
-                  events: [...r.events, ev(nowIso(), 'spc', '조건 제안', note)],
-                }
-              : r,
-          ),
-        })),
-
-      respondProposal: (id, accept, note) =>
-        set((s) => ({
-          requests: s.requests.map((r) =>
-            r.id === id && r.proposal
-              ? {
-                  ...r,
-                  updatedAt: nowIso(),
-                  proposal: {
-                    ...r.proposal,
-                    status: accept ? 'ACCEPTED' : 'REVISE',
-                    respondedAt: nowIso(),
-                    responseNote: note,
-                  },
-                  events: [
-                    ...r.events,
-                    ev(nowIso(), r.applicant, accept ? '제안 수락' : '수정 요청', note),
-                  ],
+                  events: [...r.events, ev(nowIso(), 'spc', '조건 입력', note)],
                 }
               : r,
           ),
         })),
 
       approveRequest: (id, note) => {
-        const r0 = get().requests.find((x) => x.id === id);
-        if (!r0) return;
-        // 수락한 조건 제안이 있으면 그 조건으로 계약
-        const r: TradeRequest =
-          r0.proposal?.status === 'ACCEPTED'
-            ? {
-                ...r0,
-                ...r0.proposal.terms,
-                unitPrice: r0.proposal.terms.segments?.[0]?.price ?? r0.unitPrice,
-              }
-            : r0;
+        const r = get().requests.find((x) => x.id === id);
+        if (!r) return;
         const at = nowIso();
         const start = firstOfNextMonth();
         const contract: Contract = {
@@ -1396,16 +1241,8 @@ export const useTradingPocStore = create<TradingPocState>()(
           capacityKw: r.capacityKw,
           unitPrice: r.unitPrice,
           termYears: r.termYears,
-          // 신청의 계약 조건 그대로 — 내 계약에서 같은 값
-          reviewNo: r.reviewNo,
-          tariffPlan: r.tariffPlan,
-          tariffBasis: r.tariffBasis,
-          estInstallUnit: r.estInstallUnit,
-          installUnit: r.installUnit,
-          extraCost: r.extraCost,
-          omRatePct: r.omRatePct,
+          // 미팅에서 넣은 조건 그대로 — 내 계약에서 같은 값
           omIncluded: r.omIncluded,
-          segments: r.segments,
           contact: r.contact,
           startDate: start,
           endDate: addYears(start, r.termYears),
@@ -1479,7 +1316,7 @@ export const useTradingPocStore = create<TradingPocState>()(
         const c = get().contracts.find((x) => x.id === input.contractId);
         const before = c
           ? input.type === 'PRICE'
-            ? priceBefore(c, input.segment)
+            ? priceBefore(c)
             : input.type === 'CAPACITY'
               ? String(c.capacityKw)
               : input.type === 'TERM'
@@ -1491,7 +1328,6 @@ export const useTradingPocStore = create<TradingPocState>()(
           no: seqNo('CH', get().changes),
           contractId: input.contractId,
           type: input.type,
-          segment: input.segment,
           requestedBy: input.requestedBy,
           requestedByName: input.requestedByName,
           requestedAt: nowIso(),
@@ -1513,7 +1349,7 @@ export const useTradingPocStore = create<TradingPocState>()(
         const at = nowIso();
         const contracts = get().contracts.map((c) => {
           if (c.id !== ch.contractId) return c;
-          if (ch.type === 'PRICE') return applyPrice(c, Number(ch.after), ch.segment);
+          if (ch.type === 'PRICE') return applyPrice(c, Number(ch.after));
           if (ch.type === 'CAPACITY') return { ...c, capacityKw: Number(ch.after) };
           if (ch.type === 'TERM') return { ...c, endDate: String(ch.after) };
           return {

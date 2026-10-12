@@ -13,12 +13,11 @@ import { useTradingRole } from './useTradingRole';
 import { PARTY_LABEL, changeTypeLabel, fmtDateTime, fmtKw, fmtPrice, kindLabel } from './meta';
 import { ChangeStatusPill, Info, ModalFooter } from './Bits';
 
-/** 변경 내용 한 줄 — onsite 단가는 그 구간, 자가소비는 연간 O&M %, 용량·기간은 전 → 후, 해지는 해지일 */
-export function changeText(ch: ContractChange, kind?: PlantContractKind) {
+/** 변경 내용 한 줄 — 단가 · 용량 · 기간은 전 → 후, 해지는 해지일 */
+export function changeText(ch: ContractChange, _kind?: PlantContractKind) {
   if (ch.type === 'TERMINATE') return `해지일 ${ch.effectiveDate ?? ''}`;
-  if (ch.type === 'PRICE' && kind === 'SELF_CONSUMPTION') return `O&M ${ch.before}% → ${ch.after}%`;
   if (ch.type === 'PRICE')
-    return `${ch.segment ? `${ch.segment}구간 ` : ''}${fmtPrice(Number(ch.before))} → ${fmtPrice(Number(ch.after))}`;
+    return `${fmtPrice(Number(ch.before))} → ${fmtPrice(Number(ch.after))}`;
   if (ch.type === 'CAPACITY') return `${fmtKw(Number(ch.before))} → ${fmtKw(Number(ch.after))}`;
   return `${ch.before ?? ''} → ${ch.after ?? ''}`;
 }

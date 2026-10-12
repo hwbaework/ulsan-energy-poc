@@ -31,7 +31,7 @@ import {
 } from './Bits';
 import { CONTRACT_PDF } from './DocumentsScreen';
 
-/** 거래 승인 상태 — 진행 5단계(신청 접수 · 관리자 검토 · 승인 · 전자서명 · 체결)의 뒤 3단계 */
+/** 거래 승인 상태 — 진행 5단계(신청 접수 · 미팅 · 승인 · 전자서명 · 체결)의 뒤 3단계 */
 const SIGN_STATUS = ['승인', '전자서명', '체결'] as const;
 type SignStatus = (typeof SIGN_STATUS)[number];
 

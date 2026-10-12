@@ -16,7 +16,7 @@ import { PageHeader, cell, cellMuted, cellNum, cellStrong } from './Bits';
 const kw = (xs: Contract[]) => xs.reduce((s, c) => s + c.capacityKw, 0);
 /** 월 사용료 — onsite 만(예상 월 사용량 × 1구간 단가). 자가소비는 매달 내는 돈이 없다 */
 const returnOf = (c: Contract) =>
-  c.kind === 'ONSITE' ? estimateMonthlyKwh(c.capacityKw) * (c.segments?.[0]?.price ?? c.unitPrice) : 0;
+  c.kind === 'ONSITE' ? estimateMonthlyKwh(c.capacityKw) * c.unitPrice : 0;
 const arrow = {
   key: 'go',
   header: '',

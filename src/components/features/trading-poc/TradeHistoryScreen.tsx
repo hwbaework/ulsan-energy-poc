@@ -16,7 +16,6 @@ import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { StatusPill, type StatusTone } from '@/components/ui/Design';
 import { cn } from '@/lib/utils';
-import { PLAN_LABEL, VER_LABEL } from '@/lib/solar-sim';
 import { useToastStore } from '@/stores/useToastStore';
 import { useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { TradeRequest } from '@/types/trading-poc';
@@ -27,7 +26,6 @@ import {
   Info,
   ModalFooter,
   PageHeader,
-  TRADE_STEPS,
   TradeStepper,
   stepLabel,
   cell,
@@ -41,20 +39,14 @@ import { TermsInfo, type TermsEdit } from './TermsInfo';
 const IN_TALK: TradeRequest['status'][] = ['SUBMITTED', 'REVIEW'];
 const IN_APPROVALS: TradeRequest['status'][] = ['APPROVED', 'SIGNED'];
 
-/** 거래 이력 상태 — 승인 전까지(신청 접수 · 관리자 검토 · 미팅 · 조건 협의) + 반려 · 취소. 승인부터는 거래 승인에 */
-const HISTORY_STATUS = ['관리자 검토', '미팅', '조건 협의', '반려', '취소'] as const;
+/** 거래 이력 상태 — 승인 전까지(미팅 = 접수부터 조건 입력까지) + 반려 · 취소. 승인부터는 거래 승인에 */
+const HISTORY_STATUS = ['미팅', '반려', '취소'] as const;
 type HistoryStatus = (typeof HISTORY_STATUS)[number];
-const HISTORY_TONE: Record<HistoryStatus, StatusTone> = {
-  '관리자 검토': 'warning',
-  '미팅': 'warning',
-  '조건 협의': 'warning',
-  반려: 'danger',
-  취소: 'muted',
-};
+const HISTORY_TONE: Record<HistoryStatus, StatusTone> = { 미팅: 'warning', 반려: 'danger', 취소: 'muted' };
 function historyStatusOf(r: TradeRequest): HistoryStatus {
   if (r.status === 'REJECTED') return '반려';
   if (r.status === 'CANCELLED') return '취소';
-  return TRADE_STEPS[Math.min(tradeStepOf(r), 3)] as HistoryStatus;
+  return '미팅';
 }
 const HistoryPill = ({ r }: { r: TradeRequest }) => {
   const label = historyStatusOf(r);
@@ -196,107 +188,54 @@ export function TradeHistoryDetailScreen() {
   );
 }
 
-/* ── 조건 — 신청 내용 칸을 그 자리에서 고친다(조건 협의 · 관리자) ── */
-type Draft = Record<
-  | 'capacityKw'
-  | 'termYears'
-  | 'installUnit'
-  | 'extraCost'
-  | 'omRatePct'
-  | 'ppaPrice'
-  | 'tariffPlan'
-  | 'tariffBasis',
-  string
->;
-/** 글자 칸 — 숫자로 비교하지 않는다 */
-const TEXT_KEYS: (keyof Draft)[] = ['tariffPlan', 'tariffBasis'];
-/** 요금제 · 요금 기준 고르기 — 지금 값이 목록에 없어도 남긴다 */
-const optionsOf = (labels: string[], cur: string) =>
-  [...new Set([...labels, ...(cur ? [cur] : [])])].map((l) => ({ value: l, label: l }));
+/* ── 조건 — 미팅 뒤 신청 내용 칸에 그 자리에서 넣는다(관리자): 설치 용량 · 계약 기간 · 단가 ── */
+type Draft = Record<'capacityKw' | 'termYears' | 'price', string>;
 const draftOf = (r: TradeRequest): Draft => ({
-  capacityKw: String(r.capacityKw),
-  termYears: String(r.termYears),
-  installUnit: String(r.installUnit ?? ''),
-  extraCost: String(r.extraCost ?? ''),
-  omRatePct: String(r.omRatePct ?? ''),
-  ppaPrice: String(r.segments?.[0]?.price ?? r.unitPrice),
-  tariffPlan: r.tariffPlan ?? '',
-  tariffBasis: r.tariffBasis ?? '',
+  capacityKw: String(r.capacityKw || ''),
+  termYears: String(r.termYears || ''),
+  price: r.unitPrice > 0 ? String(r.unitPrice) : '',
 });
-function termsOfDraft(d: Draft, r: TradeRequest) {
+function termsOfDraft(d: Draft) {
   const n = (k: keyof Draft) => Number(d[k]) || 0;
-  // 요금제 · 요금 기준 — 승인 단계에서 바뀔 수 있다(한전 요금제 변경 등)
-  const common = {
-    capacityKw: n('capacityKw'),
-    termYears: n('termYears'),
-    tariffPlan: d.tariffPlan || undefined,
-    tariffBasis: d.tariffBasis || undefined,
-  };
-  return r.kind === 'SELF_CONSUMPTION'
-    ? { ...common, installUnit: n('installUnit'), extraCost: n('extraCost'), omRatePct: n('omRatePct') }
-    : {
-        ...common,
-        // PPA 단가는 계약 기간 한 단가
-        segments: [{ from: 1, to: n('termYears'), price: n('ppaPrice') }],
-      };
+  return { capacityKw: n('capacityKw'), termYears: n('termYears'), unitPrice: n('price') };
 }
 /** 진행 이력에 남길 바뀐 내용 */
 function changeNote(r: TradeRequest, t: ReturnType<typeof termsOfDraft>) {
   const out: string[] = [];
   if (t.capacityKw !== r.capacityKw) out.push(`설치 용량 ${fmtKw(r.capacityKw)} → ${fmtKw(t.capacityKw)}`);
   if (t.termYears !== r.termYears) out.push(`계약 기간 ${r.termYears}년 → ${t.termYears}년`);
-  if ((t.tariffPlan ?? '') !== (r.tariffPlan ?? '')) out.push(`요금제 ${r.tariffPlan ?? '-'} → ${t.tariffPlan ?? '-'}`);
-  if ((t.tariffBasis ?? '') !== (r.tariffBasis ?? ''))
-    out.push(`요금 기준 ${r.tariffBasis ?? '-'} → ${t.tariffBasis ?? '-'}`);
-  if ('installUnit' in t) {
-    if (t.installUnit !== r.installUnit)
-      out.push(`설치 가능 단가 ₩${fmtNum(r.installUnit ?? 0)} → ₩${fmtNum(t.installUnit)}/kW`);
-    if (t.extraCost !== (r.extraCost ?? 0))
-      out.push(`추가 시공비 ₩${fmtNum(r.extraCost ?? 0)} → ₩${fmtNum(t.extraCost)}`);
-    if (t.omRatePct !== r.omRatePct) out.push(`연간 O&M ${r.omRatePct ?? 0}% → ${t.omRatePct}%`);
-  } else {
-    const seg = (g?: { from: number; to: number; price: number }[]) =>
-      (g ?? []).map((x) => `${x.from}~${x.to}년차 ₩${fmtNum(x.price, 1)}`).join(' · ');
-    if (seg(t.segments) !== seg(r.segments)) out.push(`PPA 단가 ${seg(r.segments)} → ${seg(t.segments)}`);
-  }
+  if (t.unitPrice !== r.unitPrice)
+    out.push(`${r.kind === 'ONSITE' ? 'PPA' : '운영관리'} 단가 ${r.unitPrice > 0 ? `₩${fmtNum(r.unitPrice, 1)}` : '-'} → ₩${fmtNum(t.unitPrice, 1)}/kWh`);
   return out.join(' · ') || undefined;
 }
 
 /**
  * 신청 한 건 — 단계(위) · 신청 내용 · 진행 이력 · 협의 채팅(옆).
- * 관리자(SPC): 검토 시작 → 미팅(요청 있으면) → 조건 협의(신청 내용을 바로 고쳐 저장) → 승인 / 반려. 신청한 쪽: 채팅 · 신청 취소.
+ * 관리자(SPC): 미팅 완료 → 조건 입력(신청 내용에 바로 저장) → 승인 / 반려. 신청한 쪽: 채팅 · 신청 취소.
  */
 function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   const router = useRouter();
   const role = useTradingRole();
   const addToast = useToastStore((s) => s.add);
-  const startReview = useTradingPocStore((s) => s.startReview);
-  const moveStage = useTradingPocStore((s) => s.moveStage);
   const markSurveyDone = useTradingPocStore((s) => s.markSurveyDone);
   const updateTerms = useTradingPocStore((s) => s.updateTerms);
   const approve = useTradingPocStore((s) => s.approveRequest);
   const reject = useTradingPocStore((s) => s.rejectRequest);
   const cancel = useTradingPocStore((s) => s.cancelRequest);
 
-  const step = tradeStepOf(r);
   const active = IN_TALK.includes(r.status);
   const isMine = isMineOf(role, r);
   const admin = role.isAdmin && active;
-  const editing = admin && step === 3;
+  const editing = admin; // 미팅 단계 내내 조건을 넣고 고칠 수 있다
 
   const [draft, setDraft] = useState<Draft>(() => draftOf(r));
   const saved = draftOf(r);
-  const dirty = (Object.keys(saved) as (keyof Draft)[]).some((k) =>
-    TEXT_KEYS.includes(k) ? draft[k] !== saved[k] : (Number(draft[k]) || 0) !== (Number(saved[k]) || 0),
-  );
+  const dirty = (Object.keys(saved) as (keyof Draft)[]).some((k) => (Number(draft[k]) || 0) !== (Number(saved[k]) || 0));
   const n = (k: keyof Draft) => Number(draft[k]) || 0;
   const self = r.kind === 'SELF_CONSUMPTION';
-  const valid =
-    n('capacityKw') > 0 &&
-    n('termYears') > 0 &&
-    (self
-      ? n('installUnit') > 0 && n('omRatePct') > 0
-      : n('ppaPrice') > 0);
+  const valid = n('capacityKw') > 0 && n('termYears') > 0 && n('price') > 0;
+  // 승인 — 미팅이 끝나고 조건(단가)이 저장돼 있어야
+  const canApprove = !dirty && !!r.surveyDoneAt && r.unitPrice > 0 && r.capacityKw > 0 && r.termYears > 0;
 
   const [surveyDate, setSurveyDate] = useState(r.surveyDate ?? new Date().toISOString().slice(0, 10));
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -305,79 +244,27 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
 
   const set = (k: keyof Draft) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setDraft((d) => ({ ...d, [k]: e.target.value }));
-  const money = (k: keyof Draft, label: string) => (
-    <Input
-      label={label}
-      inputMode="numeric"
-      value={draft[k] ? Number(draft[k]).toLocaleString('ko-KR') : ''}
-      onChange={(e) => setDraft((d) => ({ ...d, [k]: e.target.value.replace(/[^\d]/g, '') }))}
-    />
-  );
   const edit: TermsEdit | undefined = editing
     ? {
         capacity: (
+          <Input label="설치 용량 (kW)" type="number" min={1} step="0.01" value={draft.capacityKw} onChange={set('capacityKw')} />
+        ),
+        term: <Input label="계약 기간 (년)" type="number" min={1} max={25} value={draft.termYears} onChange={set('termYears')} />,
+        price: (
           <Input
-            label="설치 용량 (kW)"
-            type="number"
-            min={1}
-            step="0.01"
-            value={draft.capacityKw}
-            onChange={set('capacityKw')}
-          />
-        ),
-        term: (
-          <Input
-            label="계약 기간 (년)"
-            type="number"
-            min={1}
-            max={25}
-            value={draft.termYears}
-            onChange={set('termYears')}
-          />
-        ),
-        tariffPlan: (
-          <Select
-            label="요금제"
-            options={optionsOf(Object.values(PLAN_LABEL), draft.tariffPlan)}
-            value={draft.tariffPlan}
-            onChange={(e) => setDraft((d) => ({ ...d, tariffPlan: e.target.value }))}
-          />
-        ),
-        tariffBasis: (
-          <Select
-            label="요금 기준"
-            options={optionsOf(Object.values(VER_LABEL), draft.tariffBasis)}
-            value={draft.tariffBasis}
-            onChange={(e) => setDraft((d) => ({ ...d, tariffBasis: e.target.value }))}
-          />
-        ),
-        installUnit: money('installUnit', '설치 가능 단가 (원/kW)'),
-        extraCost: money('extraCost', '추가 시공비 (원)'),
-        omRatePct: (
-          <Input
-            label="연간 O&M (총사업비 대비, %)"
+            label={self ? '운영관리 단가 (₩/kWh)' : 'PPA 단가 (₩/kWh)'}
             type="number"
             min={0.1}
             step="0.1"
-            value={draft.omRatePct}
-            onChange={set('omRatePct')}
-          />
-        ),
-        segments: (
-          <Input
-            label={`PPA 단가 (${draft.termYears || 'n'}년, ₩/kWh)`}
-            type="number"
-            min={1}
-            step="0.1"
-            value={draft.ppaPrice}
-            onChange={set('ppaPrice')}
+            value={draft.price}
+            onChange={set('price')}
           />
         ),
       }
     : undefined;
 
   const save = () => {
-    const t = termsOfDraft(draft, r);
+    const t = termsOfDraft(draft);
     updateTerms(r.id, t, changeNote(r, t));
     addToast('success', `${r.no} 조건 저장`);
   };
@@ -385,20 +272,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   // 단계별 처리 — 신청 내용 위에 고정
   const actions = (
     <>
-      {admin && step === 1 && (
-        <Button
-          size="sm"
-          onClick={() => {
-            // 관리자 검토 통과 — 미팅 요청이 있으면 미팅, 없으면 조건 협의로
-            if (r.status === 'SUBMITTED') startReview(r.id);
-            if (r.surveyRequested) moveStage(r.id, '미팅', r.surveyDate ? `${r.surveyDate} 예정` : undefined);
-            else moveStage(r.id, '조건 협의');
-          }}
-        >
-          {r.surveyRequested ? '미팅 →' : '조건 협의 →'}
-        </Button>
-      )}
-      {admin && step === 2 && (
+      {admin && !r.surveyDoneAt && (
         <>
           <label className="flex items-center gap-2 text-sm text-slate-400">
             미팅일
@@ -429,7 +303,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
           <Button size="sm" variant="secondary" disabled={!dirty || !valid} onClick={save}>
             저장
           </Button>
-          <Button size="sm" disabled={dirty} onClick={() => setConfirm('approve')}>
+          <Button size="sm" disabled={!canApprove} onClick={() => setConfirm('approve')}>
             승인
           </Button>
         </>
@@ -476,7 +350,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
 
         <SectionCard title="신청 내용" actions={actions}>
           <div className="grid grid-cols-3 gap-4">
-            <TermsInfo x={editing ? { ...r, ...termsOfDraft(draft, r) } : r} edit={edit} />
+            <TermsInfo x={editing ? { ...r, ...termsOfDraft(draft) } : r} edit={edit} />
             {r.status === 'REJECTED' && <Info label="반려 사유" value={r.rejectReason} className="col-span-3" />}
             {r.note && <Info label="비고" value={r.note} className="col-span-3" />}
           </div>

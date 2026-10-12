@@ -2,7 +2,7 @@
  * 전력거래(RE100 2.1) — 울산 에자자 POC 도메인.
  * 계약 유형은 자가소비 · onsite 두 가지뿐이고, 발전소 1 ↔ 전기사용자 사업장 1 이다 (매칭 바스켓·Offsite·Lease 없음).
  *
- * 흐름(두 유형 공통): 신청 접수 → 관리자 검토 → 승인(계약 생성) → 전자서명(발전사업자·전기사용자) → 체결 → 월 정산
+ * 흐름(두 유형 공통, 2026-10-12): 신청 접수 → 미팅(조건 입력) → 승인(계약 생성) → 전자서명(발전사업자·전기사용자) → 체결 → 월 정산
  *  - onsite  : 발전사업자가 전기사용자 사업장에 설비를 두고 전력을 공급. 계약 단가(₩/kWh) × 공급량 으로 월 청구
  *  - 자가소비 : 전기사용자 소유 설비를 발전사업자가 설치·운영 관리. 운영관리 단가(₩/kWh) × 발전량 으로 월 청구
  */
@@ -12,7 +12,7 @@ export type Party = 'generator' | 'consumer' | 'spc';
 
 export type TradeRequestStatus =
   | 'SUBMITTED' // 접수
-  | 'REVIEW' // 관리자 검토 중
+  | 'REVIEW' // 미팅 — 미팅 완료 · 조건 입력(승인 전)
   | 'APPROVED' // 승인 — 계약 생성, 서명 대기
   | 'SIGNED' // 체결 (양측 서명 완료)
   | 'REJECTED' // 반려
@@ -26,16 +26,6 @@ export interface TradeMessage {
   text: string;
 }
 
-/** SPC 조건 제안 — 미팅 뒤 조건을 고쳐 제안하고 신청자가 수락하거나 수정 요청. 수락되면 승인 때 계약 조건이 된다 */
-export interface TermsProposal {
-  at: string;
-  terms: Partial<ContractTerms> & { capacityKw?: number; termYears?: number };
-  note?: string;
-  status: 'OPEN' | 'ACCEPTED' | 'REVISE';
-  respondedAt?: string;
-  responseNote?: string;
-}
-
 export interface TradeEvent {
   at: string; // ISO
   by: Party;
@@ -44,31 +34,15 @@ export interface TradeEvent {
 }
 
 /**
- * 계약 조건 — 거래 신청에서 넣고, 승인되면 계약(내 계약)이 같은 값을 갖는다.
- *  - 자가소비: 기업이 설치비 부담(설치 용량 × 설치 가능 단가 + 추가 시공비), SPC 에 연간 O&M(총사업비 대비 %) 지급
- *  - onsite : EPC 가 설치비 부담, 기업은 사용분을 PPA 단가(1구간 · 2구간)로 지급
+ * 계약 조건 — 신청 때는 의향(미팅 희망일 · 담당자)만, 설치 용량 · 계약 기간 · 단가(unitPrice)는 미팅 뒤 관리자가 넣는다.
+ *  - 자가소비: 운영관리 단가(₩/kWh) × 발전량 / PPA: PPA 단가(₩/kWh) × 사용량. 설치비 · O&M% · 요금제 · 구간 단가는 없다(2026-10-12)
  */
 export interface ContractTerms {
-  /** 컨설팅 › 무료진단 검토번호(SR-YYYY-NNNN) */
-  reviewNo?: string;
-  /** 요금제 · 요금 기준 — 한전 산업용(을) 고압A */
-  tariffPlan?: string;
-  tariffBasis?: string;
-  /** 자가소비 설치단가 (원/kW) — 무료진단 예상 · 제시한 설치 가능 단가 */
-  estInstallUnit?: number;
-  installUnit?: number;
-  /** 자가소비 추가 시공비(원) */
-  extraCost?: number;
-  /** 자가소비 연간 O&M — 총사업비(예상 설치비) 대비 % */
-  omRatePct?: number;
   /** O&M 포함 — 필수 */
   omIncluded?: boolean;
-  /** 미팅 */
-  surveyRequested?: boolean;
+  /** 미팅 희망일 */
   surveyDate?: string;
-  /** onsite 구간 단가 — 1구간 · 2구간 (₩/kWh) */
-  segments?: { from: number; to: number; price: number }[];
-  /** 기업 담당자 */
+  /** 기업 담당자 — 로그인 계정에서 자동 */
   contact?: { name: string; phone: string; email?: string };
 }
 
@@ -103,9 +77,8 @@ export interface TradeRequest extends ContractTerms {
   /** 승인 시 생성되는 계약 */
   contractId?: number;
   events: TradeEvent[];
-  /** 계약 현황 — 소통 · 조건 제안 · 미팅 완료일 */
+  /** 계약 현황 — 소통 · 미팅 완료일 */
   messages?: TradeMessage[];
-  proposal?: TermsProposal;
   surveyDoneAt?: string;
 }
 
@@ -149,9 +122,7 @@ export interface ContractChange {
   requestedByName: string;
   requestedAt: string;
   reason: string;
-  /** onsite 단가 변경 — 몇 구간(1 · 2) */
-  segment?: number;
-  /** 변경 전·후 — onsite 단가 ₩/kWh · 자가소비 연간 O&M %, 용량 kW, 기간 종료일 */
+  /** 변경 전·후 — 단가 ₩/kWh, 용량 kW, 기간 종료일 */
   before?: string;
   after?: string;
   /** TERMINATE — 희망 해지일 */

@@ -1,7 +1,7 @@
 /**
  * 울산미포산단 태양광 사업성 시뮬레이터 v1.1 (RMS 분산에너지, 정건호) 계산 이식.
  * 무료진단 = 왼쪽 값 입력 → 오른쪽 사업 검토. 산식·단가·계수는 원본 HTML 그대로.
- *  - 자가소비용: 총사업비(설치비 + 추가 시공비) − 국비(순수 설치비 × 국비 비율) = 소비자 부담 → J-curve 로 회수 시점
+ *  - 자가소비용: 발전량 전부 자가소비 → 한전 요금 절감(설치비 · 국비는 다루지 않는다, 2026-10-12)
  *  - OnSite PPA: 사업자 투자 · 20년 2구간 단가(한전 연동 / 고정)
  */
 
@@ -50,8 +50,6 @@ export const SELF_CAPEX_UNIT = 1_500_000;
 /** 추가 시공비 — 현장에서 따로 본다(2026-10-12). 무료진단엔 넣지 않아 0 */
 export const SELF_EXTRA_COST = 0;
 export const SELF_OM = 1.0; // %/년, 총사업비 대비
-/** 국비 지원 비율(%) — 순수 설치비 대비, 추가 시공비는 제외. 원본 시뮬레이터는 70% 였지만 국비 지원은 없으므로 0 (2026-10-12 사용자) */
-export const SELF_GOV_RATE = 0;
 export const CAGR = 0.0932; // 산업용 판매단가 실적 CAGR ('19~'25, 9.32%) — 관리자 표를 못 읽었을 때만 쓰는 기본값
 
 /** 산업용 평균판매단가 실적 — 관리 › 에너지 설정에서 연도별로 관리 */
@@ -147,6 +145,7 @@ export const latestTable = (book: TariffYearTable[] | undefined): TariffYearTabl
   [...(book ?? [])].sort((a, b) => b.year - a.year)[0];
 // 시드 — 산업용(을) 고압A 선택Ⅰ · Ⅱ, 해마다 그 해 마지막 시행 요금표(한전 전기요금표 · 물가정보 공공요금 거래가격 원문 대조)
 //  2019 · 2020: 2013-11-21 시행(변동 없음) · 2021: 2021-01-01 · 2022: 2022-10-01 · 2023: 2023-11-09 · 2024 · 2025: 2024-10-24(2025-04-01 원문 같음)
+//  2026: 2026-04-16 계시별 개편 — 정부 발표 증감폭(최대부하 여름·겨울 −16.9 · 봄가을 −13.2, 경부하 +5.1원)을 2025 표에 적용한 참고값. 고시 원문 확인 뒤 관리에서 고친다
 //  [기본요금, 경부하 여름·봄가을·겨울, 중간부하, 최대부하]
 type RawRow = [number, number[], number[], number[]];
 const RAW_BOOK: [number, RawRow, RawRow][] = [
@@ -161,6 +160,7 @@ export const TARIFF_BOOK_SEED: TariffYearTable[] = [
   ...RAW_BOOK.map(([year, a, b]) => ({ label: String(year), share: TARIFF_TABLE_SEED.share.map((x) => ({ ...x })), '1': rowOf(a), '2': rowOf(b), year })),
   { ...TARIFF_TABLE_SEED, year: 2024, label: '2024' },
   { ...TARIFF_TABLE_SEED, year: 2025, label: '2025' },
+  { ...TARIFF_TABLE_SEED, '1': legacyRow(TARIFF.new['1']), '2': legacyRow(TARIFF.new['2']), year: 2026, label: '2026' },
 ];
 /** 저장된 연도별 요금표가 깨졌으면 시드로 — 연도 중복 · 범위 밖은 뺀다 */
 export function cleanBook(raw: unknown): TariffYearTable[] {
@@ -210,7 +210,7 @@ export interface SimInput {
   ets: boolean; // 배출권 할당대상업체
   // 자가소비
   // capexUnit·extraCost·om: 예전 기록에는 없을 수 있다 → 기본값
-  self: { cap: number; ctr: number; usage: number; plan: Plan; ver: TariffVer; esc: number; peakR: number; capexUnit?: number; extraCost?: number; om?: number; govRate?: number };
+  self: { cap: number; ctr: number; usage: number; plan: Plan; ver: TariffVer; esc: number; peakR: number; capexUnit?: number; extraCost?: number; om?: number };
   // OnSite PPA
   // op: 달마다 가동 비율(가동일 ÷ 일수) — 쉬는 날 인버터 OFF(관리 › 에너지 설정). opDays · opYear: 연간 가동일 · 기준 해. 예전 기록엔 없음 → 365일
   ppa: { cap: number; plan: Plan; ver: TariffVer; esc: number; peakR: number; b1: number; b2: number; segs: [PpaSegInput, PpaSegInput, PpaSegInput]; ppaEsc: number; op?: number[]; opDays?: number; opYear?: number };
@@ -231,7 +231,7 @@ export function defaultSimInput(site = '', address = ''): SimInput {
     co2f: ELEC_FACTOR,
     ets: false,
     // usage — 자가소비는 발전량을 전부 쓴다고 본다(2026-10-12). 원본 계산식 min(발전량, 사용량)은 그대로 두고 사용량을 입력 상한으로
-    self: { cap: 320, ctr: 10000, usage: 1_000_000_000, plan: '2', ver: 'old', esc: 2.5, peakR: 30, capexUnit: SELF_CAPEX_UNIT, extraCost: SELF_EXTRA_COST, om: SELF_OM, govRate: SELF_GOV_RATE },
+    self: { cap: 320, ctr: 10000, usage: 1_000_000_000, plan: '2', ver: 'old', esc: 2.5, peakR: 30, capexUnit: SELF_CAPEX_UNIT, extraCost: SELF_EXTRA_COST, om: SELF_OM },
     ppa: {
       cap: 1000,
       plan: '2',
@@ -276,7 +276,7 @@ export function clampSimInput(i: SimInput): SimInput {
       ...i.self,
       cap: cl(i.self.cap, LIM.cap), ctr: cl(i.self.ctr, LIM.ctr), usage: cl(i.self.usage, LIM.usage),
       esc: cl(i.self.esc, LIM.esc), peakR: cl(i.self.peakR, LIM.pct),
-      capexUnit: clOpt(i.self.capexUnit, LIM.capexUnit), extraCost: clOpt(i.self.extraCost, LIM.extraCost), om: clOpt(i.self.om, LIM.pct), govRate: clOpt(i.self.govRate, LIM.pct),
+      capexUnit: clOpt(i.self.capexUnit, LIM.capexUnit), extraCost: clOpt(i.self.extraCost, LIM.extraCost), om: clOpt(i.self.om, LIM.pct),
     },
     ppa: {
       ...i.ppa,
@@ -301,18 +301,12 @@ export function avgSaveUnit(plan: Plan, table: TariffTable = TARIFF_TABLE_SEED, 
 /** 사업 검토서 번호 — SR-연도-일련번호 */
 export const reviewNo = (id: number, createdAt: string) => `SR-${createdAt.slice(0, 4)}-${String(id).padStart(4, '0')}`;
 /** 월별 1차년 발전량 [kWh] — 연간 = cap×avgH×365, 월별은 일조시간 비중 배분 */
-/**
- * 자가소비 사업비 (원본 그대로) — 총사업비 = 설치용량 × 설치단가 + 추가 시공비.
- * 국비 = 순수 설치비 × 국비 비율(백만원 미만 절삭), 추가 시공비는 국비 제외. 소비자 부담 = 총사업비 − 국비.
- * 국비 비율이 없는 예전 기록은 국비 없이 계산했으므로 0.
- */
+/** 자가소비 사업비 — 화면에는 안 보인다(설치단가 · 국비 없음, 2026-10-12). 원본 J-curve 계산이 도는 데만 쓰고 전액 기업 부담 */
 export function selfCost(i: SimInput) {
   const install = i.self.cap * (i.self.capexUnit ?? SELF_CAPEX_UNIT);
   const extra = i.self.extraCost ?? SELF_EXTRA_COST;
-  const govRate = i.self.govRate ?? 0;
   const total = install + extra;
-  const gov = Math.floor((install * govRate) / 100 / 1e6) * 1e6;
-  return { install, extra, total, govRate, gov, consumer: total - gov };
+  return { install, extra, total, consumer: total };
 }
 const monthlyGen = (cap: number, avgH: number) => SUN.map((h) => (cap * avgH * 365 * h) / SUNTOT);
 
@@ -348,7 +342,7 @@ export interface PpaYear {
 export interface SelfResult {
   mode: 'self'; cap: number; plan: Plan; ver: TariffVer; esc: number; degR: number; usage: number; baseSaveM: number; mg: number[];
   mrows: { su: number; self: number; surplus: number }[]; annualGen1: number; selfRatio: number;
-  install: number; extra: number; total: number; govRate: number; gov: number; consumer: number; // 설치비 · 추가 시공비 · 총사업비 · 국비 비율 · 국비 · 소비자 부담
+  install: number; extra: number; total: number; consumer: number; // 설치비 · 추가 시공비 · 총사업비 · 기업 부담(화면엔 안 보임)
   ets: boolean; kau: number; co2f: number; adj: TariffAdj; table: TariffTable; cumCarbon: number; years: SelfYear[]; cumSave: number; cumGen: number; cumCo2: number; payback: number | null;
   save1: number; eSave1: number; bSave1: number; carbon1: number;
 }
@@ -385,7 +379,7 @@ export function calc(i: SimInput, escOv?: number): SimResult {
     const selfRatio = annualGen1 > 0 ? mrows.reduce((a, r) => a + r.self, 0) / annualGen1 : 0;
     const years: SelfYear[] = [];
     const omR = (i.self.om ?? SELF_OM) / 100;
-    const { install, extra, total, govRate, gov, consumer } = selfCost(i);
+    const { install, extra, total, consumer } = selfCost(i);
     // J-curve — 소비자 부담에서 마이너스로 시작해 매년 순절감(절감 - O&M)을 쌓는다
     let cum = -consumer, cumSave = 0, cumGen = 0, cumCo2 = 0, cumCarbon = 0;
     let payback: number | null = null;
@@ -409,7 +403,7 @@ export function calc(i: SimInput, escOv?: number): SimResult {
       years.push({ y, gen, eSave, bSave, save, om, net, cum, co2, cumCo2, carbon, cumCarbon });
     }
     return {
-      mode: 'self', cap, plan, ver, esc, degR, usage, baseSaveM, mg, mrows, annualGen1, selfRatio, install, extra, total, govRate, gov, consumer, ets, kau, co2f, adj, table, cumCarbon,
+      mode: 'self', cap, plan, ver, esc, degR, usage, baseSaveM, mg, mrows, annualGen1, selfRatio, install, extra, total, consumer, ets, kau, co2f, adj, table, cumCarbon,
       years, cumSave, cumGen, cumCo2, payback, save1: years[0]!.save, eSave1: years[0]!.eSave, bSave1: years[0]!.bSave, carbon1: years[0]!.carbon,
     };
   }

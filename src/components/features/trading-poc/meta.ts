@@ -25,7 +25,7 @@ export const amountLabel = (k: PlantContractKind) => (k === 'ONSITE' ? 'PPA 요�
 
 export const REQUEST_STATUS: Record<TradeRequestStatus, { label: string; tone: StatusTone }> = {
   SUBMITTED: { label: '접수', tone: 'muted' },
-  REVIEW: { label: '검토 중', tone: 'warning' },
+  REVIEW: { label: '미팅', tone: 'warning' },
   APPROVED: { label: '서명 대기', tone: 'warning' },
   SIGNED: { label: '체결', tone: 'normal' },
   REJECTED: { label: '반려', tone: 'danger' },
@@ -101,34 +101,10 @@ export const estimateMonthlyKwh = (capacityKw: number) =>
 export const estimateMonthlyAmount = (capacityKw: number, unitPrice: number) =>
   Math.round(capacityKw * MONTHLY_KWH_PER_KW * unitPrice);
 
-/* ── 계약 조건 한 줄 — 신청 · 승인 · 내 계약 · 계약 현황이 같은 말로 ── */
-type TermsLike = {
-  kind: PlantContractKind;
-  unitPrice: number;
-  segments?: { from: number; to: number; price: number }[];
-  installUnit?: number;
-  omRatePct?: number;
-};
-/** 자가소비: 설치 ₩1,350,000/kW · O&M 1% / onsite: 1~3년 ₩138 · 4~20년 ₩140 */
-export const termsText = (t: TermsLike) => {
-  if (t.kind === 'SELF_CONSUMPTION' && (t.installUnit || t.omRatePct)) {
-    return [
-      t.installUnit ? `설치 ₩${fmtNum(t.installUnit)}/kW` : '',
-      t.omRatePct ? `O&M ${t.omRatePct}%` : '',
-    ]
-      .filter(Boolean)
-      .join(' · ');
-  }
-  if (t.kind === 'ONSITE' && t.segments?.length)
-    return t.segments.map((g) => `${g.from}~${g.to}년 ₩${fmtNum(g.price, 1)}`).join(' · ');
-  return fmtPrice(t.unitPrice);
-};
-/** 예상 설치비(총사업비) — 자가소비 */
-export const totalCostOf = (t: { capacityKw: number; installUnit?: number; extraCost?: number }) =>
-  t.installUnit ? t.capacityKw * t.installUnit + (t.extraCost ?? 0) : 0;
-/** 변경 유형 이름 — 단가 변경은 자가소비면 O&M 변경 */
-export const changeTypeLabel = (type: ChangeType, kind?: PlantContractKind) =>
-  type === 'PRICE' && kind === 'SELF_CONSUMPTION' ? 'O&M 변경' : CHANGE_TYPE[type];
+/** 계약 조건 한 줄 — 단가 하나(자가소비 운영관리 · PPA) */
+export const termsText = (t: { unitPrice: number }) => fmtPrice(t.unitPrice);
+/** 변경 유형 이름 — 단가 변경은 두 유형 같다(자가소비 운영관리 단가 · PPA 단가) */
+export const changeTypeLabel = (type: ChangeType, _kind?: PlantContractKind) => CHANGE_TYPE[type];
 
 /** 한전 산업용 단가(₩/kWh) — 관리자 설정 › 에너지 설정 KEPCO_UNIT_PRICE 와 같은 값. onsite 할인 = 한전 요금 − PPA 요금 */
 export const KEPCO_UNIT_PRICE = 152.3;

@@ -2,31 +2,19 @@
 
 import type { ReactNode } from 'react';
 import type { Contract, TradeRequest } from '@/types/trading-poc';
-import { estimateMonthlyKwh, fmtKw, fmtKwh, fmtNum, kindLabel, totalCostOf } from './meta';
+import { fmtKw, fmtNum, kindLabel } from './meta';
 import { Info } from './Bits';
 
-const won = (n: number) => `₩${fmtNum(Math.round(n))}`;
-
-/** 조건 협의에서 그 자리에서 고치는 칸 — 주면 그 칸은 입력으로 바뀐다 */
-export type TermsEdit = Partial<
-  Record<
-    'capacity' | 'term' | 'installUnit' | 'extraCost' | 'omRatePct' | 'segments' | 'tariffPlan' | 'tariffBasis',
-    ReactNode
-  >
->;
+/** 미팅 단계에서 그 자리에서 넣는 칸 — 주면 그 칸은 입력으로 바뀐다 */
+export type TermsEdit = Partial<Record<'capacity' | 'term' | 'price', ReactNode>>;
 
 /**
- * 신청 내용 — 거래 신청에서 넣은 값. 거래 이력 · 거래 승인 · 내 계약이 같은 칸으로 보여 준다.
- * 3열 그리드 안에 넣는 칸들(Fragment). edit 를 주면 조건 칸은 입력으로(조건 협의).
- *  - 자가소비: 설치 가능 단가 · 추가 시공비 → 예상 설치비(총사업비), 연간 O&M(총사업비 대비 %)
- *  - PPA : 계약 기간 한 단가, 사용분 × 단가
+ * 신청 내용 — 거래 신청에서 넣은 것(유형 · 기업 · 주소 · 희망 용량 · 미팅 희망일 · 담당자)과
+ * 미팅 뒤 관리자가 넣는 조건(설치 용량 · 계약 기간 · 단가). 거래 이력 · 거래 승인 · 내 계약이 같은 칸.
+ *  - 자가소비: 운영관리 단가(₩/kWh) × 발전량 / PPA: PPA 단가(₩/kWh) × 사용량. 설치비 · O&M% · 요금제는 없다(2026-10-12)
  */
 export function TermsInfo({ x, edit }: { x: TradeRequest | Contract; edit?: TermsEdit }) {
   const self = x.kind === 'SELF_CONSUMPTION';
-  const total = totalCostOf(x);
-  const annualOm = x.omRatePct ? (total * x.omRatePct) / 100 : 0;
-  const monthlyKwh = estimateMonthlyKwh(x.capacityKw);
-  const firstPrice = x.segments?.[0]?.price ?? x.unitPrice;
   const surveyDoneAt = 'surveyDoneAt' in x ? x.surveyDoneAt : undefined;
   return (
     <>
@@ -34,54 +22,16 @@ export function TermsInfo({ x, edit }: { x: TradeRequest | Contract; edit?: Term
       <Info label="기업명" value={x.consumerCompanyName} />
       <div />
       <Info label="기업 주소" value={x.address} className="col-span-3" />
-      {edit?.capacity ?? <Info label="설치 용량" value={fmtKw(x.capacityKw)} />}
-      {edit?.term ?? <Info label="계약 기간" value={`${x.termYears}년`} />}
-      <Info label="O&M" value={x.omIncluded ? '포함 (필수)' : undefined} />
-      {edit?.tariffPlan ?? <Info label="요금제" value={x.tariffPlan} />}
-      {edit?.tariffBasis ?? <Info label="요금 기준" value={x.tariffBasis} />}
-      <div />
-      {self ? (
-        <>
-          {edit?.installUnit ?? (
-            <Info label="설치 가능 단가" value={x.installUnit ? `${won(x.installUnit)}/kW` : undefined} />
-          )}
-          {edit?.extraCost ?? <Info label="추가 시공비" value={x.extraCost != null ? won(x.extraCost) : undefined} />}
-          <Info label="예상 설치비" value={total ? won(total) : undefined} />
-          {edit?.omRatePct ?? (
-            <Info label="연간 O&M (총사업비 대비)" value={x.omRatePct ? `${x.omRatePct}%` : undefined} />
-          )}
-          <Info label="연간 O&M" value={annualOm ? `${won(annualOm)} (월 ${won(annualOm / 12)})` : undefined} />
-        </>
-      ) : (
-        <>
-          {edit?.segments ?? (
-            <Info
-              label="PPA 단가"
-              value={`₩${fmtNum(firstPrice, 1)}/kWh (${x.termYears}년)`}
-              className="col-span-3"
-            />
-          )}
-          <Info label="예상 월 사용량" value={fmtKwh(monthlyKwh)} />
-          <Info label="예상 월 납입료" value={won(monthlyKwh * firstPrice)} />
-          <div />
-        </>
+      {edit?.capacity ?? <Info label="설치 용량" value={x.capacityKw > 0 ? fmtKw(x.capacityKw) : undefined} />}
+      {edit?.term ?? <Info label="계약 기간" value={x.termYears > 0 ? `${x.termYears}년` : undefined} />}
+      {edit?.price ?? (
+        <Info label={self ? '운영관리 단가' : 'PPA 단가'} value={x.unitPrice > 0 ? `₩${fmtNum(x.unitPrice, 1)}/kWh` : undefined} />
       )}
-      <Info
-        label="미팅"
-        value={
-          surveyDoneAt
-            ? `완료 ${surveyDoneAt}`
-            : x.surveyRequested
-              ? `요청${x.surveyDate ? ` · 희망일 ${x.surveyDate}` : ''}`
-              : x.surveyRequested === false
-                ? '요청 안 함'
-                : undefined
-        }
-      />
+      <Info label="O&M" value={x.omIncluded ? '포함 (필수)' : undefined} />
+      <Info label="미팅" value={surveyDoneAt ? `완료 ${surveyDoneAt}` : x.surveyDate ? `희망일 ${x.surveyDate}` : undefined} />
       <Info
         label="담당자"
         value={x.contact ? [x.contact.name, x.contact.phone, x.contact.email].filter(Boolean).join(' · ') : undefined}
-        className="col-span-2"
       />
     </>
   );

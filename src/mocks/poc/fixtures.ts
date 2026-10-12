@@ -327,7 +327,7 @@ registerMock(/^\/settings\/public\/industrial-tariff$/, ({ body }) => {
 }, 'PUT');
 
 // 연도별 한전 요금표 — 관리 › 에너지 설정. 새로고침해도 남게 브라우저에 저장 (POC)
-const KEPCO_KEY = 'ulsan-kepco-tariff-v5'; // v5 — 2019~2025 원문 요금표 · v4 — 연도별(이름 없음) · 경부하 · 시간대 경부하 10h · 최대 2h · 중간 12h
+const KEPCO_KEY = 'ulsan-kepco-tariff-v6'; // v6 — 2026 개편 참고값 추가 · v5 — 2019~2025 원문 요금표 · v4 — 연도별(이름 없음) · 경부하 · 시간대 경부하 10h · 최대 2h · 중간 12h
 let KEPCO_TABLE: TariffYearTable[] = cleanBook(null);
 if (typeof window !== 'undefined') {
   try {
