@@ -8,12 +8,14 @@ import { Button } from '@/components/ui/Button';
 import { useToastStore } from '@/stores/useToastStore';
 import { useEnergySettings, useIndustrialTariff, useKepcoTariff, useSaveEnergySettings, useSaveIndustrialTariff, useSaveKepcoTariff } from '@/hooks/common/useSettings';
 import { PINE_PER_TCO2, TOE_PER_MWH } from '@/lib/constants/env-benefit';
+import { SELF_CAPEX_UNIT } from '@/lib/solar-sim';
 import { F1, PLAN_LABEL, TARIFF_LIM, TARIFF_YEAR_LIM, cagrOf, type Plan, type TariffTable, type TariffYear } from '@/lib/solar-sim';
 
 // 에너지 설정 — 정부 공표·고시·사업 배정에 따라 바뀌는 값을 한 곳에서 관리한다.
 // · 산업용 평균판매단가 연도별 실적 → 무료진단 '실적 CAGR 반영' 시나리오(첫해 → 마지막 해). 새 연도 실적이 나오면 한 줄 추가
 // · 탄소 배출계수 → 무료진단 기본값 · 대시보드 · RE100 · PPA 보고서
 // · 환경 편익 환산(화석에너지 대체 TOE · 소나무 식재) → 무료진단 검토서 누적 효과
+// · 자가소비 설치단가 → 무료진단 총사업비 · 회수기간
 // · 한전 요금 가산(기후환경요금 · 연료비조정요금) · 한전 요금표 → 무료진단 태양광 대체단가 · 기본요금 절감
 //   계산식은 원본 그대로, 값만 여기서 읽는다
 
@@ -24,10 +26,13 @@ const BASE_FIELDS = [
   { card: 'adj', key: 'FUEL_ADJ', label: '연료비조정요금', unit: '원/kWh', lim: [-100, 100], dec: true, minus: true },
   { card: 'co2', key: 'TOE_PER_MWH', label: '화석에너지 대체 (전력 1MWh당 TOE)', unit: 'TOE/MWh', lim: [0, 1], dec: true, def: TOE_PER_MWH },
   { card: 'co2', key: 'PINE_PER_TCO2', label: '소나무 식재 (tCO₂당 그루 · 20년생)', unit: '그루/t', lim: [0, 1000], dec: true, def: PINE_PER_TCO2 },
+  // 무료진단 자가소비 총사업비 = 설치 용량 × 이 값. 견적 전이라 평균 추정치를 보수적으로(높게) 잡는다
+  { card: 'cost', key: 'SELF_CAPEX_UNIT', label: '자가소비 설치단가 (kW당)', unit: '원/kW', lim: [0, 10_000_000], dec: false, def: SELF_CAPEX_UNIT },
 ] as const;
 const BASE_CARDS = [
   { card: 'co2', title: '탄소 배출계수' },
   { card: 'adj', title: '한전 요금 가산' },
+  { card: 'cost', title: '무료진단 사업비' },
 ] as const;
 const PLANS: Plan[] = ['1', '2'];
 const PARTS = [

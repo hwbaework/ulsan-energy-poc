@@ -276,6 +276,7 @@ let ENERGY: Record<string, string> = {
   CO2_EMISSION_FACTOR: String(ELEC_FACTOR), // tCO₂/MWh — 국가 전력배출계수
   CO2_FACTOR_YEAR: '2023', // 배출계수 기준 연도
   CO2_FACTOR_PUBLISHED: '2025-12-17', // 기후에너지환경부 공표일
+  SELF_CAPEX_UNIT: '1500000', // ₩/kW — 무료진단 자가소비 설치단가(평균 추정치를 보수적으로 잡은 값)
   CLIMATE_CHG: '9.0', // ₩/kWh — 기후환경요금
   FUEL_ADJ: '5.0', // ₩/kWh — 연료비조정요금 (2026 3분기)
   KEPCO_UNIT_PRICE: '152.3', // ₩/kWh — 한전 산업용 단가. 자가소비 절감액 = 발전량 × 이 값

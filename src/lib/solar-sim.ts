@@ -43,14 +43,14 @@ export interface TariffAdj {
 const DEFAULT_ADJ: TariffAdj = { climate: CLIMATE_CHG, fuel: FUEL_ADJ };
 export const adjOf = (i: { climateChg?: number; fuelAdj?: number }): TariffAdj => ({ climate: i.climateChg ?? CLIMATE_CHG, fuel: i.fuelAdj ?? FUEL_ADJ });
 const FUND = 0.037;
-export const SELF_REMAIN = 320; // 자가소비 배정 잔여용량 kW
 // 자가소비 사업비 기본값 — 원본 시뮬레이터 기본값(입력에서 바꿀 수 있음)
-export const SELF_CAPEX_UNIT = 1_350_000;
-export const SELF_EXTRA_COST = 20_000_000;
+/** 설치단가 기본값 — 실제 단가는 설치 업체 견적으로 정해지므로 모른다. 평균 추정치를 보수적으로(높게) 잡은 임의 값(2026-10-12) */
+export const SELF_CAPEX_UNIT = 1_500_000;
+/** 추가 시공비 — 현장에서 따로 본다(2026-10-12). 무료진단엔 넣지 않아 0 */
+export const SELF_EXTRA_COST = 0;
 export const SELF_OM = 1.0; // %/년, 총사업비 대비
-/** 국비 지원 비율(%) — 순수 설치비 대비, 추가 시공비는 제외. 원본 70%. 국비 없이 기업이 전액 부담하면 0 */
-export const SELF_GOV_RATE = 70;
-export const PPA_REMAIN = 2670; // OnSite PPA 배정 잔여용량 kW
+/** 국비 지원 비율(%) — 순수 설치비 대비, 추가 시공비는 제외. 원본 시뮬레이터는 70% 였지만 국비 지원은 없으므로 0 (2026-10-12 사용자) */
+export const SELF_GOV_RATE = 0;
 export const CAGR = 0.0932; // 산업용 판매단가 실적 CAGR ('19~'25, 9.32%) — 관리자 표를 못 읽었을 때만 쓰는 기본값
 
 /** 산업용 평균판매단가 실적 — 관리 › 에너지 설정에서 연도별로 관리 */
@@ -186,7 +186,7 @@ export function defaultSimInput(site = '', address = ''): SimInput {
   };
 }
 
-/* ── 입력 범위 — 엉터리 값(1e40 등)으로 계산이 깨지지 않게. 실제 기업이 넘을 일 없는 넉넉한 값. 사업 기준(잔여 배정용량)은 막지 않고 검토서 배너로 안내 ── */
+/* ── 입력 범위 — 엉터리 값(1e40 등)으로 계산이 깨지지 않게. 실제 기업이 넘을 일 없는 넉넉한 값. ── */
 export const LIM = {
   roof: [0, 1_000_000], areaPerKw: [1, 30], avgH: [0, 8], deg: [0, 5],
   kau: [0, 1_000_000], kauEsc: [0, 50], co2f: [0, 2],
@@ -392,6 +392,46 @@ export function calc(i: SimInput, escOv?: number): SimResult {
     mode: 'ppa', cap, plan, ver, esc, degR, baseSaveM, segs, ppaEsc, ets, kau, co2f, adj, table, mg, mrows, annualGen1, years, cumSaveD, cumGen, cumCo2, cumCarbon, cumT,
     saveD1: years[0]!.saveD, avgSu, avgPu: cumGen ? sumPpa / cumGen : 0, avgKu: cumGen ? sumKep / cumGen : 0, firstFixed: years.find((r) => !r.linked) ?? null, sumKep, sumPpa,
   };
+}
+
+/**
+ * 입력 화면에 없는 값 — 사업 검토 계산에 뒤에서 쓰는 기본값 · 고정값(2026-10-12 사용자 요청: 어디서 볼 수 있게).
+ * 입력 화면 [기본값 보기] 와 검토서 '기본값' 표가 같은 목록을 쓴다. [이름, 값, 어디서 관리]
+ */
+export function hiddenDefaultsOf(i: SimInput): [string, string, string][] {
+  const self = i.mode === 'self';
+  const ver = self ? i.self.ver : i.ppa.ver;
+  const t = tableOf(i, ver);
+  const pct = (v: number) => `${Math.round(v * 1000) / 10}%`;
+  const share = (k: number) => `중간부하 ${pct(t.share[k]!.mid)} · 최대부하 ${pct(t.share[k]!.peak)}`;
+  const adj = adjOf(i);
+  const common: [string, string, string][] = [
+    ['기후환경요금 · 연료비조정요금', `${adj.climate} · ${adj.fuel} 원/kWh`, '관리 › 에너지 설정'],
+    ['전력산업기반기금', `${Math.round(FUND * 1000) / 10}%`, '고정'],
+    ['태양광 시간대 비중', `여름 · 봄가을 ${share(0)} / 겨울 ${share(2)}`, '관리 › 에너지 설정 요금표'],
+    ['월별 발전 배분', '월별 일조시간 표로 1년 발전량을 달마다 나눔', '고정 (원본 시뮬레이터)'],
+    ['계약 · 분석 기간', '20년', '고정'],
+    ['한전요금 실적 CAGR 시나리오', `${Math.round(CAGR * 10000) / 100}%/yr`, '관리 › 에너지 설정 판매단가 표'],
+  ];
+  if (self) {
+    const c = selfCost(i);
+    return [
+      ['요금제 · 요금 기준', `${PLAN_LABEL[i.self.plan]} · ${t.label || VER_LABEL[ver]}`, '기본값'],
+      ['기본요금 (kW당)', `${t[i.self.plan].base.toLocaleString('ko-KR')} 원`, '요금표'],
+      ['기본요금 피크감축 반영률', `${i.self.peakR}%`, '기본값'],
+      ['설치단가', `${(i.self.capexUnit ?? SELF_CAPEX_UNIT).toLocaleString('ko-KR')} 원/kW (평균 추정치를 보수적으로 잡은 값)`, '관리 › 에너지 설정'],
+      ['총사업비 (설치 용량 × 설치단가)', `${c.total.toLocaleString('ko-KR')} 원`, '계산'],
+      ['국비 지원 (설치비 대비)', `${c.govRate}%`, '기본값'],
+      ['연간 O&M (총사업비 대비)', `${i.self.om ?? SELF_OM}%`, '기본값'],
+      ...common,
+    ];
+  }
+  return [
+    ['비교 요금제 · 요금 기준', `${PLAN_LABEL[i.ppa.plan]} · ${t.label || VER_LABEL[ver]}`, '기본값'],
+    ['기본요금 (kW당)', `${t[i.ppa.plan].base.toLocaleString('ko-KR')} 원`, '요금표'],
+    ['기본요금 피크감축 반영률', `${i.ppa.peakR}%`, '기본값'],
+    ...common,
+  ];
 }
 
 export const escInput = (i: SimInput) => (i.mode === 'self' ? i.self.esc : i.ppa.esc) / 100;

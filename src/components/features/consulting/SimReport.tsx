@@ -28,8 +28,6 @@ import {
   F2,
   MNAME,
   SCEN_COLOR,
-  PPA_REMAIN,
-  SELF_REMAIN,
   TARIFF_YEAR_SEED,
   calc,
   cagrOf,
@@ -234,11 +232,6 @@ export function SimReport({
   const [showBasis, setShowBasis] = useState(false); // 산정 기준 및 출처 — 참고용, 펼칠 때만
   // 실적 CAGR — 관리 › 에너지 설정의 산업용 평균판매단가 표(첫해 → 마지막 해). 못 읽으면 기본값
   const { data: tariffYears } = useIndustrialTariff();
-  // 잔여 배정용량 — 원본 값(계산에는 안 들어가고 초과 안내 배너·산정 기준 문구에만)
-  const es = {
-    selfRemain: SELF_REMAIN,
-    ppaRemain: PPA_REMAIN,
-  };
   const cg = useMemo(
     () =>
       cagrOf(tariffYears) ?? {
@@ -344,19 +337,6 @@ export function SimReport({
           })}
         </div>
       </div>
-
-      {/* 배너 */}
-      {self && R.cap > es.selfRemain && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-[12.5px] leading-relaxed text-amber-900">
-          <p className="mb-1.5 text-[13px] font-extrabold">자가소비 배정 잔여용량 초과</p>
-          울산 에너지자급자족 사업의 자가소비형 잔여 배정용량은 약{' '}
-          <b>
-            {F(es.selfRemain)}kW({(es.selfRemain / 1000).toFixed(2)}MW)
-          </b>
-          입니다. 입력 용량 {F(R.cap)}kW 중 초과분은 자가소비 배정에서 제외될 수 있어, 초과 용량은{' '}
-          <b>PPA</b> 검토를 권장합니다 — 초기투자 0원, 20년 PPA 단가 적용.
-        </div>
-      )}
 
       {/* KPI */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{self ? <SelfKpis R={R} /> : <PpaKpis R={R} />}</div>
@@ -533,7 +513,7 @@ export function SimReport({
             <p className="mb-3 text-[13px] font-bold tracking-wide text-slate-500">
               산정 기준 및 출처 (Logic Reference)
             </p>
-            <Assumptions cg={cg} years={tariffYears} es={es} adj={R.adj} co2f={R.co2f} />
+            <Assumptions cg={cg} years={tariffYears} adj={R.adj} co2f={R.co2f} />
           </div>
         )}
         <Note>
@@ -560,6 +540,7 @@ function InputRecord({ input: i, companyName }: { input: SimInput; companyName: 
     ...(self
       ? ([
           ['희망 태양광 설치용량', `${F(i.self.cap)} kW`],
+          ['월평균 전기사용량', `${F(i.self.usage)} kWh`],
           ['전기요금 상승률', `${i.self.esc} %/yr`],
         ] as [string, string][])
       : ([
@@ -951,7 +932,7 @@ function EffPanel({ R }: { R: SelfResult | PpaResult }) {
               dim: !R.ets,
             })}
             <div className="my-2 h-px bg-slate-200" />
-            {line('총사업비 (설치비 + 추가 시공비)', `${F(R.total)} 원`)}
+            {line('총사업비 (설치 용량 × 설치단가)', `${F(R.total)} 원`)}
             {line(`국비 지원 (설치비의 ${R.govRate}%)`, `${F(R.gov)} 원`)}
             {line('소비자 부담 (총사업비 − 국비)', `${F(R.consumer)} 원`)}
             {line(
@@ -1006,13 +987,11 @@ function EffPanel({ R }: { R: SelfResult | PpaResult }) {
 function Assumptions({
   cg,
   years,
-  es,
   adj,
   co2f,
 }: {
   cg: { rate: number; from: TariffYear; to: TariffYear };
   years?: TariffYear[];
-  es: { selfRemain: number; ppaRemain: number };
   adj: TariffAdj;
   co2f: number;
 }) {
@@ -1052,11 +1031,11 @@ function Assumptions({
     ],
     [
       '자가소비 사업구조',
-      `총사업비 = 설치용량 × 설치단가(기본 135만원/kW) + 변압기 등 추가 시공비(기본 2천만원, 컨소시엄 EPC 회신 기준). 국비는 순수 설치비 × 국비 비율(입력값, 기본 70%, 백만원 미만 절삭)만 지원하며 추가 시공비는 국비 제외 — 소비자 부담 = 총사업비 − 국비(국비 0%면 전액 기업 부담). O&M 은 총사업비 대비 연 요율(기본 1.0%). 회수기간·누적현금은 소비자 부담 기준. 자가소비 배정 잔여용량 약 ${(es.selfRemain / 1000).toFixed(2)}MW`,
+      `총사업비 = 설치용량 × 설치단가(관리 › 에너지 설정 값 — 견적 전 평균 추정치를 보수적으로 잡은 값, 기본 150만원/kW). 국비는 순수 설치비 × 국비 비율(기본 0% — 국비 지원 없음, 백만원 미만 절삭)만 지원 — 소비자 부담 = 총사업비 − 국비(국비 0%면 전액 기업 부담). O&M 은 총사업비 대비 연 요율(기본 1.0%). 회수기간·누적현금은 소비자 부담 기준.`,
     ],
     [
       'PPA 구조',
-      `사업자(컨소시엄)가 설비 투자·설치·운영·유지보수 전액 부담, 소비자는 부지(지붕)만 제공하고 발전전력 사용분을 PPA 단가로 지불. 잉여전력·계통 리스크는 사업자 귀속. 계약기간 20년 기준. 당해연도 PPA 배정 잔여용량 약 ${(es.ppaRemain / 1000).toFixed(2)}MW`,
+      `사업자(컨소시엄)가 설비 투자·설치·운영·유지보수 전액 부담, 소비자는 부지(지붕)만 제공하고 발전전력 사용분을 PPA 단가로 지불. 계약기간 20년 기준.`,
     ],
     [
       'PPA 단가',
