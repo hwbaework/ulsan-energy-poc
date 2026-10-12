@@ -138,11 +138,11 @@ export function tableAvg(t: TariffTable, plan: Plan) {
 }
 /** 연도별 평균 · 연평균 상승률 — 연도 2개 미만이면 null */
 export function bookCagr(book: TariffYearTable[] | undefined, plan: Plan): { rate: number; from: TariffYear; to: TariffYear } | null {
-  return cagrOf((book ?? []).map((t) => ({ year: t.year, price: tableAvg(t, plan) })));
+  return cagrOf((Array.isArray(book) ? book : []).map((t) => ({ year: t.year, price: tableAvg(t, plan) })));
 }
 /** 가장 최근 해 요금표 */
 export const latestTable = (book: TariffYearTable[] | undefined): TariffYearTable | undefined =>
-  [...(book ?? [])].sort((a, b) => b.year - a.year)[0];
+  [...(Array.isArray(book) ? book : [])].sort((a, b) => b.year - a.year)[0]; // 예전 저장본(요금표 하나)이면 없음 → 시드
 // 시드 — 산업용(을) 고압A 선택Ⅰ · Ⅱ, 해마다 그 해 마지막 시행 요금표(한전 전기요금표 · 물가정보 공공요금 거래가격 원문 대조)
 //  2019 · 2020: 2013-11-21 시행(변동 없음) · 2021: 2021-01-01 · 2022: 2022-10-01 · 2023: 2023-11-09 · 2024 · 2025: 2024-10-24(2025-04-01 원문 같음)
 //  2026: 2026-04-16 계시별 개편 — 정부 발표 증감폭(최대부하 여름·겨울 −16.9 · 봄가을 −13.2, 경부하 +5.1원)을 2025 표에 적용한 참고값. 고시 원문 확인 뒤 관리에서 고친다
