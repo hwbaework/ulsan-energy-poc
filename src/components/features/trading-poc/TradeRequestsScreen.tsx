@@ -35,7 +35,7 @@ const SIM_YEARS = 20;
 const won = (n: number) => `₩${Math.round(n).toLocaleString('ko-KR')}`;
 
 /** 계약 유형 카드 — 무엇인지 · 누가 무엇을 하는지 · 어떻게 청구하는지 */
-/** 계약 유형 카드 — 전기사용자가 얻는 것(장점)과 알고 있어야 할 것(유의) */
+/** 계약 유형 카드 — 전기사용자가 얻는 것(장점)과 참고할 것 */
 const KIND_CARDS: { value: PlantContractKind; title: string; headline: string; points: string[]; note: string }[] = [
   {
     value: 'SELF_CONSUMPTION',
@@ -46,7 +46,7 @@ const KIND_CARDS: { value: PlantContractKind; title: string; headline: string; p
       '발전량 · 절감액을 플랫폼에서 실시간 확인',
       '설비는 기업 소유 · O&M 포함',
     ],
-    note: '초기 설치비는 기업 부담 — 설치 용량에 따라 비용이 클 수 있음',
+    note: '설치비는 기업 부담 · 국비 지원을 받으면 자부담이 줄어듦',
   },
   {
     value: 'ONSITE',
@@ -382,9 +382,9 @@ export function TradeRequestsScreen() {
                   </li>
                 ))}
               </ul>
-              {/* 유의 — 전기사용자가 알고 있어야 할 것 */}
-              <p className="mt-4 flex gap-2 border-t border-white/[0.06] pt-4 text-sm text-amber-300/90">
-                <span className="shrink-0 font-semibold">유의</span>
+              {/* 참고 — 겁주지 않게 노란 경고색 대신 평범한 글씨로 */}
+              <p className="mt-4 flex gap-2 border-t border-white/[0.06] pt-4 text-sm text-slate-300">
+                <span className="shrink-0 font-semibold text-slate-400">참고</span>
                 {k.note}
               </p>
             </div>
@@ -448,7 +448,20 @@ export function TradeRequestsScreen() {
             {(role.isAdmin || diagnoses.length > 0) && (
               <Section title="무료진단">
                 {diagnoses.length === 0 ? (
-                  <ReadOnly label="검토 기록" value="무료진단 기록 없음" />
+                  // 기록이 없어도 모양은 같게 — 고를 게 없으니 셀렉트 · 불러오기만 막는다
+                  <div className="flex flex-wrap items-end gap-3">
+                    <Select
+                      label="검토 기록"
+                      options={[{ value: '', label: '무료진단 기록 없음' }]}
+                      value=""
+                      onChange={() => {}}
+                      disabled
+                      className="w-[420px] max-w-full"
+                    />
+                    <Button variant="secondary" disabled>
+                      불러오기
+                    </Button>
+                  </div>
                 ) : (
                   <div className="flex flex-wrap items-end gap-3">
                     <Select
