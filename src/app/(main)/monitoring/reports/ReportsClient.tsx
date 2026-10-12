@@ -227,7 +227,7 @@ export default function ReportsClient() {
       return {
         file: `${doc.title}${titleSuffix}`,
         sheet: KIND_LABEL.generation,
-        headers: ['발전소', '발전원', '계약 유형', '설비용량 kW', '발전량 kWh', '발전시간 h', '이상 건수'],
+        headers: ['발전소', '발전원', '계약 유형', '설비 용량 kW', '발전량 kWh', '발전시간 h', '이상 건수'],
         rows: generationRows.map((r) => [
           r.plant.displayName,
           sourceOf(r.plant.type).label,
@@ -311,7 +311,7 @@ export default function ReportsClient() {
         heading: '실적',
         rows: [
           ['발전소', `${p.displayName} (${sourceOf(p.type).label})`],
-          ['설비용량', `${p.capacity.toLocaleString()} kW`],
+          ['설비 용량', `${p.capacity.toLocaleString()} kW`],
           ['발전량', `${genTotal.toLocaleString()} kWh`],
           ['발전시간', `${hoursTotal} h`],
         ],
@@ -319,7 +319,7 @@ export default function ReportsClient() {
     } else {
       sections.push({
         heading: '발전소별 실적',
-        headers: ['발전소', '설비용량', '발전량', '발전시간', '이상'],
+        headers: ['발전소', '설비 용량', '발전량', '발전시간', '이상'],
         rows: [
           ...generationRows.map((r) => [
             `${r.plant.displayName} (${sourceOf(r.plant.type).label})`,

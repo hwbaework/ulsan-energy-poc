@@ -376,7 +376,7 @@ export default function GeneratorPpaRevenueAnalyticsPage() {
         />
         <StatCard
           icon={<Sun size={18} className="text-amber-400" />}
-          label="총 설비용량"
+          label="총 설비 용량"
           value={`${totalCapacity.toLocaleString()} kW`}
           sub={`${contracts.length}개 계약`}
         />

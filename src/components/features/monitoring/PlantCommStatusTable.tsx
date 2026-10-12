@@ -40,13 +40,24 @@ const fmt = (ms: number) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-export function PlantCommStatusTable({ plants, outages }: { plants: MonitoringPlant[]; outages: CommOutage[] }) {
+/** kind 를 주면 그 계약 유형 줄만(발전사업자가 자가소비 / PPA 를 골라서 볼 때) */
+export function PlantCommStatusTable({
+  plants,
+  outages,
+  kind,
+}: {
+  plants: MonitoringPlant[];
+  outages: CommOutage[];
+  kind?: PlantContractKind;
+}) {
   const [status, setStatus] = useState('all');
   const [query, setQuery] = useState('');
 
   const rows: Row[] = useMemo(
     () =>
-      expandByContract(plants).map((p) => {
+      expandByContract(plants)
+        .filter((p) => !kind || !p.contractKind || p.contractKind === kind)
+        .map((p) => {
         const ongoing = outages
           .filter((o) => o.plantId === p.plantId && !o.resolvedAt)
           .filter((o) => o.title.includes('RTU') || !o.contractKind || !p.contractKind || o.contractKind === p.contractKind)
@@ -62,7 +73,7 @@ export function PlantCommStatusTable({ plants, outages }: { plants: MonitoringPl
           lastAt: ongoing.length ? Math.min(...ongoing) : received.length ? Math.max(...received) : null,
         };
       }),
-    [plants, outages],
+    [plants, outages, kind],
   );
 
   // 필터 항목 = 데이터에 실제 있는 값만

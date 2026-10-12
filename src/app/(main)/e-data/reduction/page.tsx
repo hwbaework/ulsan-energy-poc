@@ -114,7 +114,7 @@ export default function ReductionPage() {
             <thead>
               <tr className="border-b border-white/[0.06] text-left text-xs text-slate-500">
                 <th className="px-4 py-3">발전자원</th>
-                <th className="px-4 py-3 text-right">설비용량(kW)</th>
+                <th className="px-4 py-3 text-right">설비 용량(kW)</th>
                 <th className="px-4 py-3 text-right">실적 발전량(MWh)</th>
                 <th className="px-4 py-3 text-right">실적 감축(tCO₂eq)</th>
               </tr>

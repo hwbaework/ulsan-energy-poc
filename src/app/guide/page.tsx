@@ -34,7 +34,7 @@ const TABLE_SAMPLE: GuidePlantSample[] = [
 const TABLE_SAMPLE_COLUMNS: Column<GuidePlantSample>[] = [
   { key: 'no', header: 'No.', width: '56px', align: 'right', render: (_r, i) => <span className="text-sm text-slate-500 tabular-nums">{i + 1}</span> },
   { key: 'name', header: '발전소', render: (r) => <PlantNameCell type={r.type} name={r.name} /> },
-  { key: 'capacity', header: '설비용량', width: '140px', align: 'right', sortable: true, sortValue: (r) => r.capacity, render: (r) => <span className="text-sm text-slate-300 tabular-nums">{r.capacity.toLocaleString()} kW</span> },
+  { key: 'capacity', header: '설비 용량', width: '140px', align: 'right', sortable: true, sortValue: (r) => r.capacity, render: (r) => <span className="text-sm text-slate-300 tabular-nums">{r.capacity.toLocaleString()} kW</span> },
   { key: 'status', header: '상태', width: '110px', render: (r) => <StatusPill tone={r.ok ? 'normal' : 'danger'} label={r.ok ? '정상' : '오류'} /> },
 ];
 

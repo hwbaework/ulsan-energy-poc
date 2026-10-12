@@ -136,7 +136,7 @@ function StatusDot({ status, pulse }: { status: PlantStatus; pulse?: boolean }) 
 
 function StatusHud({ plants }: { plants: MonitoringPlant[] }) {
   const anomalyCount = plants.filter((p) => p.status === 'ANOMALY' || p.status === 'WARNING').length;
-  // 설비용량 = 계약 설비(자가소비 + PPA) — 계약 몫으로 나눠 더한다
+  // 설비 용량 = 계약 설비(자가소비 + PPA) — 계약 몫으로 나눠 더한다
   const rows = plants.flatMap(contractRowsOf);
   const caps = CONTRACT_KIND_ORDER.map((k) => ({
     k,
@@ -149,10 +149,10 @@ function StatusHud({ plants }: { plants: MonitoringPlant[] }) {
     <div className="w-full">
       <div className="rounded-xl border border-white/10 bg-[#000C17]/95 px-5 py-3">
         <div className="flex items-center gap-6 flex-wrap">
-          {/* 설비용량 — 자가소비 + PPA */}
+          {/* 설비 용량 — 자가소비 + PPA */}
           <div className="flex-1 min-w-[260px]">
             <div className="mb-1">
-              <span className="text-sm text-slate-300">설비용량</span>
+              <span className="text-sm text-slate-300">설비 용량</span>
             </div>
             <div className="flex items-baseline gap-3 flex-wrap">
               <span className="text-xl font-bold text-white tabular-nums">{kwText(capTotal)}</span>

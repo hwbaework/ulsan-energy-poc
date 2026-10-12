@@ -238,7 +238,7 @@ function _pendingOnsiteToContract(r: PendingRequest, currentSite: string): Contr
 
 /* ── 정산 데이터 ─────────────────────── */
 
-// 6월 이후 추정 — 설비용량 99kW 기준, 계절별 일사량 반영
+// 6월 이후 추정 — 설비 용량 99kW 기준, 계절별 일사량 반영
 /* ── Generate records per plant ─────────────────────── */
 
 function generateRecordsFor(contracts: Contract[]): MonthlyRecord[] {
@@ -1092,7 +1092,7 @@ export default function PpaSettlementPage() {
                     />
                     <MetaRow label="주소" value={selectedPlant.address} />
                     <MetaRow label="설비코드" value={selectedPlant.facilityCode} />
-                    <MetaRow label="설비용량" value={selectedPlant.capacity} />
+                    <MetaRow label="설비 용량" value={selectedPlant.capacity} />
                     <MetaRow label="거래기관" value={selectedContract.exchangeAgency} />
                   </div>
                 </div>
@@ -1862,7 +1862,7 @@ function RecordsTableWithDetail({
                         <span>{p.name}</span>
                       </div>
                       <div className="flex gap-2">
-                        <span className="text-slate-500 w-20 shrink-0">설비용량</span>
+                        <span className="text-slate-500 w-20 shrink-0">설비 용량</span>
                         <span className="tabular-nums">{p.capacity}</span>
                       </div>
                       <div className="flex gap-2">

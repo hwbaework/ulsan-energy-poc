@@ -27,6 +27,8 @@ import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { useScopedPlants, usePlantsHistory } from '@/hooks/monitoring/useScopedPlants';
 import { expandByContract } from '@/lib/contract-plants';
+import { CONTRACT_KIND_LABEL, CONTRACT_KIND_ORDER } from '@/lib/design';
+import type { PlantContractKind } from '@/types/monitoring';
 import { useMyPlantIds } from '@/hooks/monitoring/useMyPlantFilter';
 import { useEnergySettings } from '@/hooks/common/useSettings';
 import * as monitoringApi from '@/api/monitoring';
@@ -225,7 +227,7 @@ function usePlantsYearlyEnergy(plantIds: number[], years: number[], todayStr: st
   }, [dataKey, plantIds.join(','), years.join(','), todayStr]);
 }
 
-/** 설비용량 · 발전량 표시 — 1,000 이상이면 MW · MWh */
+/** 설비 용량 · 발전량 표시 — 1,000 이상이면 MW · MWh */
 const fmtKw = (v: number) =>
   v >= 1000 ? `${(v / 1000).toFixed(2)} MW` : `${v.toLocaleString('ko-KR', { maximumFractionDigits: 2 })} kW`;
 const fmtKwh = (v: number) =>
@@ -295,10 +297,19 @@ export default function DashboardPage() {
   );
   const activePlants = scopedPlants; // 관리자는 전체 합산, 발전사업자·전기사용자는 자사 범위
   const scopedIds = useMemo(() => activePlants.map((p) => p.plantId), [activePlants]);
-  // 지표·CO₂ 는 설비 전체 값 그대로 (계약 몫은 발전량 비교에서만 곱한다)
-  const activeShare = 1;
-  // 발전소별 칩은 관리자 화면엔 없다(회사 하나만 보니까)
-  const contractPlants = useMemo(() => (isAdmin ? [] : allContractPlants), [isAdmin, allContractPlants]);
+  // 발전사업자 · 전기사용자 — 계약 유형이 둘(자가소비 · PPA)이면 한 화면에 섞지 않고 골라서 본다. 계약마다 주체가 다르다
+  const kindChoices = useMemo(
+    () => (isAdmin ? [] : CONTRACT_KIND_ORDER.filter((k) => allContractPlants.some((p) => p.contractKind === k))),
+    [isAdmin, allContractPlants],
+  );
+  const multiKind = kindChoices.length > 1;
+  const [kindSel, setKindSel] = useState<PlantContractKind>('SELF_CONSUMPTION');
+  const pickedContracts = useMemo(
+    () => (multiKind ? allContractPlants.filter((p) => p.contractKind === kindSel) : allContractPlants),
+    [multiKind, allContractPlants, kindSel],
+  );
+  // 발전소별 칩은 관리자 화면엔 없고, 계약 유형을 고르는 화면에도 없다(고른 계약 하나만 본다)
+  const contractPlants = useMemo(() => (isAdmin || multiKind ? [] : allContractPlants), [isAdmin, multiKind, allContractPlants]);
   const plant = useMemo(
     () => ({
       currentOutput: activePlants.reduce((sum, p) => sum + p.currentOutput, 0),
@@ -326,44 +337,32 @@ export default function DashboardPage() {
     });
   };
 
-  // 전일 데이터 — 기존 plantHistory API로 계산
-  const yesterdayStr = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().slice(0, 10);
-  }, []);
-  const { merged: yesterdayHistory, byPlant: yesterdayByPlant } = usePlantsHistory(scopedIds, yesterdayStr, yesterdayStr);
-
-  const yesterdayEnergy = useMemo(() => {
-    if (!yesterdayHistory || !Array.isArray(yesterdayHistory) || yesterdayHistory.length === 0) return 0;
-    const maxEnergy = Math.max(...yesterdayHistory.map((h) => h.dailyEnergy ?? 0));
-    return maxEnergy * activeShare;
-  }, [yesterdayHistory, activeShare]);
-
-  // 년 · 월 발전량 — 올해 이력을 발전소마다 달별로 더한다(CO₂ 카드와 같은 조회 · 캐시)
-  const kpiYears = useMemo(() => [todayYear], [todayYear]);
+  // 전년 · 금월 발전량 — 작년 · 올해 이력을 발전소마다 달별로 더한다(CO₂ 카드와 같은 조회 · 캐시)
+  const kpiYears = useMemo(() => [todayYear - 1, todayYear], [todayYear]);
   const kpiByPlant = usePlantsYearlyEnergy(scopedIds, kpiYears, todayStr);
-  const yearKwh = scopedIds.reduce((a, id) => a + (kpiByPlant[id]?.[todayYear]?.total ?? 0), 0);
-  const monthKwh = scopedIds.reduce(
-    (a, id) => a + (kpiByPlant[id]?.[todayYear]?.months[Number(todayStr.slice(5, 7)) - 1] ?? 0),
-    0,
-  );
+  // 전년 발전량 — 작년 1/1 ~ 12/31 합계(유형을 고른 화면은 그 계약 몫)
+  const lastYearKwh = multiKind
+    ? pickedContracts.reduce((a, p) => a + (kpiByPlant[p.plantId]?.[todayYear - 1]?.total ?? 0) * p.share, 0)
+    : scopedIds.reduce((a, id) => a + (kpiByPlant[id]?.[todayYear - 1]?.total ?? 0), 0);
+  const monthNo = Number(todayStr.slice(5, 7));
+  // 계약 유형을 고르는 화면은 고른 계약 몫(share)만, 그 밖은 설비 전체
+  const kpiCapacity = multiKind ? pickedContracts.reduce((a, p) => a + p.capacity, 0) : plant.capacity;
+  // 금일 발전량 — 오늘 지금까지(발전소 dailyEnergy 합)
+  const todayKwh = multiKind ? pickedContracts.reduce((a, p) => a + (p.dailyEnergy ?? 0), 0) : plant.dailyEnergy;
+  const monthKwh = multiKind
+    ? pickedContracts.reduce((a, p) => a + (kpiByPlant[p.plantId]?.[todayYear]?.months[monthNo - 1] ?? 0) * p.share, 0)
+    : scopedIds.reduce((a, id) => a + (kpiByPlant[id]?.[todayYear]?.months[monthNo - 1] ?? 0), 0);
 
   // PPA 계약 단가 — 관리자 설정 › 에너지 설정 PPA_UNIT_PRICE (없으면 예전 기본값)
   const ppaUnitPrice = Number(energySettings?.PPA_UNIT_PRICE ?? 0) || 92.6;
-  // 금액 — onsite 계약 몫의 전일 발전량 × 계약 단가. 자가소비는 판매가 아니라 금액이 생기지 않고, 연료전지·ORC 는 계약이 없다
-  //        (한일튜브는 설비 전체 이력에 onsite 몫 329.6/429.44 를 곱한다)
-  const yesterdayAmount = useMemo(
-    () =>
-      allContractPlants
-        .filter((p) => p.contractKind === 'ONSITE')
-        .reduce((sum, p) => {
-          const hist = yesterdayByPlant[p.plantId];
-          const energy = hist?.length ? Math.max(...hist.map((h) => h.dailyEnergy ?? 0)) : 0;
-          return sum + energy * p.share * ppaUnitPrice;
-        }, 0),
-    [allContractPlants, yesterdayByPlant, ppaUnitPrice],
-  );
+  // 카드는 계약 유형을 따른다 — 자가소비: 설비 용량 · 전년 · 금월 · 금일 발전량(전기사용자 대시보드와 같다)
+  //                         PPA · 관리자: 설비 용량 · 금월 · 금일 발전량 · 금일 금액
+  const viewKind: PlantContractKind | undefined = multiKind ? kindSel : kindChoices[0];
+  const selfCards = !isAdmin && (isConsumer || viewKind === 'SELF_CONSUMPTION');
+  // 금일 금액 — PPA 몫의 금일 발전량 × PPA 단가
+  const todayAmount = (multiKind ? pickedContracts : allContractPlants)
+    .filter((p) => p.contractKind === 'ONSITE')
+    .reduce((sum, p) => sum + (p.dailyEnergy ?? 0) * ppaUnitPrice, 0);
 
   // ── CO₂ 저감 — 역할 공통: 월·년 + ‹ 연도 › 피커. 관리자는 회사 셀렉트로 한 회사, 그 외는 자사 계약 발전소(전체 + 발전소별 선)
   const co2Plants = allContractPlants;
@@ -379,8 +378,15 @@ export default function DashboardPage() {
       return next;
     });
   const co2Targets = useMemo(
-    () => (isAdmin ? (co2Company ? [co2Company] : []) : co2Plants.filter((p) => !co2Off.has(p.key))),
-    [isAdmin, co2Company, co2Plants, co2Off],
+    () =>
+      isAdmin
+        ? co2Company
+          ? [co2Company]
+          : []
+        : multiKind
+          ? pickedContracts
+          : co2Plants.filter((p) => !co2Off.has(p.key)),
+    [isAdmin, co2Company, co2Plants, co2Off, multiKind, pickedContracts],
   );
   // ‹ › 피커 — 일: 고른 달(달 단위로 넘김, 연도 경계 넘김), 월: 고른 해(해 단위)
   const [co2Year, setCo2Year] = useState(todayYear);
@@ -488,11 +494,11 @@ export default function DashboardPage() {
         : genCtl.tu === 'day'
           ? buildDailyGenData(dailyHistory, genCtl.month)
           : buildMonthlyGenData(monthlyHistory, genCtl.year);
-    const rows = withForecast(base, genCtl.tu, plant?.capacity ?? 500) as Array<Record<string, unknown> & { x: string }>;
+    const rows = withForecast(base, genCtl.tu, kpiCapacity || 500) as Array<Record<string, unknown> & { x: string }>;
     // 발전소별 시리즈 — 같은 x 라벨에 p_<id> 값을 붙인다
     const byPlant = genCtl.tu === 'hour' ? hourlyByPlant : genCtl.tu === 'day' ? dailyByPlant : monthlyByPlant;
     const perPlant = new Map<string, Record<string, number>>();
-    for (const p of contractPlants) {
+    for (const p of multiKind ? pickedContracts : contractPlants) {
       const hist = byPlant[p.plantId];
       if (!hist || hist.length === 0) continue;
       const prows =
@@ -515,7 +521,9 @@ export default function DashboardPage() {
     hourlyData,
     dailyHistory,
     monthlyHistory,
-    plant?.capacity,
+    kpiCapacity,
+    multiKind,
+    pickedContracts,
     hourlyByPlant,
     dailyByPlant,
     monthlyByPlant,
@@ -692,21 +700,41 @@ export default function DashboardPage() {
       {/* Header */}
       {hasPlants && (
         <>
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <h1 className="text-xl font-bold text-white">대시보드</h1>
+          {/* 제목 줄 오른쪽 끝 — 계약 유형 셀렉트(유형이 둘이면 자가소비 / PPA 골라서 본다, 하나면 그 유형) */}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl font-bold text-white">대시보드</h1>
+              {/* 지금 보는 계약 유형 — 색이 아니라 글자로(design.ts 규칙) */}
+              {!isAdmin && viewKind && (
+                <span className="rounded-md bg-white/[0.08] px-2.5 py-1 text-sm font-semibold text-white ring-1 ring-white/[0.16]">
+                  {CONTRACT_KIND_LABEL[viewKind]}
+                </span>
+              )}
+            </div>
+            {multiKind ? (
+              <div className="w-52">
+                <Select
+                  options={kindChoices.map((k) => ({
+                    value: k,
+                    label: `${CONTRACT_KIND_LABEL[k]} · ${fmtKw(allContractPlants.filter((p) => p.contractKind === k).reduce((a, p) => a + p.capacity, 0))}`,
+                  }))}
+                  value={kindSel}
+                  onChange={(e) => setKindSel(e.target.value as PlantContractKind)}
+                />
+              </div>
+            ) : null}
           </div>
 
-          {/* 카드 4개 (2026-10-12) — 전기사용자: 설비용량 · 년 · 월 · 일 발전량 / 발전사업자 · 관리자: 설비용량 · 월 · 일 발전량 · 금액 */}
+          {/* 카드 4개 — 계약 유형별: 자가소비 = 설비 용량 · 전년 · 금월 · 금일 발전량 / PPA · 관리자 = 설비 용량 · 금월 · 금일 발전량 · 금일 금액 */}
           <StatsGrid columns={4}>
-            <StatCard label={isAdmin ? '전체 설비용량' : '설비용량'} value={fmtKw(plant.capacity)} />
-            {isConsumer && <StatCard label="년 발전량" value={fmtKwh(yearKwh)} sub={`${todayYear}`} />}
-            <StatCard label={isAdmin ? '전체 월 발전량' : '월 발전량'} value={fmtKwh(monthKwh)} sub={todayMonth} />
-            <StatCard label={isAdmin ? '전체 일 발전량' : '일 발전량'} value={fmtKwh(yesterdayEnergy)} sub={yesterdayStr} />
-            {!isConsumer && (
+            <StatCard label={isAdmin ? '전체 설비 용량' : '설비 용량'} value={fmtKw(kpiCapacity)} />
+            {selfCards && <StatCard label="전년 발전량" value={fmtKwh(lastYearKwh)} />}
+            <StatCard label={isAdmin ? '전체 금월 발전량' : '금월 발전량'} value={fmtKwh(monthKwh)} />
+            <StatCard label={isAdmin ? '전체 금일 발전량' : '금일 발전량'} value={fmtKwh(todayKwh)} />
+            {!selfCards && (
               <StatCard
-                label={isAdmin ? '전체 금액' : '금액'}
-                value={yesterdayAmount > 0 ? `${Math.round(yesterdayAmount).toLocaleString('ko-KR')} 원` : '- 원'} // 1원 단위 그대로
-                sub={yesterdayStr}
+                label={isAdmin ? '전체 금일 금액' : '금일 금액'}
+                value={todayAmount > 0 ? `${Math.round(todayAmount).toLocaleString('ko-KR')} 원` : '- 원'} // 1원 단위 그대로
               />
             )}
           </StatsGrid>
@@ -863,7 +891,7 @@ export default function DashboardPage() {
               <div>
                 <h3 className="text-md font-semibold text-white">발전소 발전·공급</h3>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  {genCtl.tu === 'hour' && '오늘 시간대별 발전량 (kW)'}
+                  {genCtl.tu === 'hour' && '금일 시간대별 발전량 (kW)'}
                   {genCtl.tu === 'day' && '최근 30일 일별 발전량 (kWh)'}
                   {genCtl.tu === 'month' && '최근 12개월 월별 발전량 (kWh)'}
                 </p>
@@ -1032,7 +1060,8 @@ export default function DashboardPage() {
                     ? []
                     : [
                         {
-                          key: 'generation',
+                          // 계약 유형을 고른 화면은 그 계약 몫이 본 계열
+                          key: multiKind ? (pickedContracts[0]?.key ?? 'generation') : 'generation',
                           name: genCtl.tu === 'hour' ? '현재 발전량 (kW)' : '현재 발전량 (kWh)',
                           color: '#10B981',
                         },
@@ -1089,22 +1118,22 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="px-5 py-4">
-              {/* 누적 KPI 카드 — 오늘 / 이번 달 / 올해 누적 (단위: tCO₂) */}
+              {/* 누적 KPI 카드 — 금일 / 금월 / 금년 누적 (단위: tCO₂) */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                 <div className="rounded-lg bg-emerald-500/[0.06] ring-1 ring-emerald-500/30 p-3">
-                  <p className="text-sm text-emerald-300/90">오늘 CO₂ 저감</p>
+                  <p className="text-sm text-emerald-300/90">금일 CO₂ 저감</p>
                   <p className="text-xl font-semibold text-emerald-300 tabular-nums mt-1">
                     {co2TodayTon.toFixed(2)} <span className="text-emerald-300">tCO₂</span>
                   </p>
                 </div>
                 <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.06] p-3">
-                  <p className="text-sm text-slate-300">이번 달 CO₂ 저감</p>
+                  <p className="text-sm text-slate-300">금월 CO₂ 저감</p>
                   <p className="text-xl font-semibold text-white tabular-nums mt-1">
                     {co2ThisMonthTon.toFixed(2)} <span className="text-white">tCO₂</span>
                   </p>
                 </div>
                 <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.06] p-3">
-                  <p className="text-sm text-slate-300">올해 누적 (YTD)</p>
+                  <p className="text-sm text-slate-300">금년 누적</p>
                   <p className="text-xl font-semibold text-white tabular-nums mt-1">
                     {co2YtdTon.toFixed(2)} <span className="text-white">tCO₂</span>
                   </p>
@@ -1112,7 +1141,9 @@ export default function DashboardPage() {
               </div>
 
               <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-                  {isAdmin ? (
+                  {multiKind ? (
+                  <span className="text-sm font-medium text-white">{CONTRACT_KIND_LABEL[kindSel]}</span>
+                  ) : isAdmin ? (
                   <div className="w-48">
                     <Select
                       options={companyOptions}

@@ -67,7 +67,7 @@ export default function PredictivePage() {
     },
     {
       key: 'capacity',
-      header: '설비용량',
+      header: '설비 용량',
       width: '120px',
       align: 'right',
       render: (p) => <span className="text-sm text-slate-300 tabular-nums">{p.capacity.toLocaleString()} kW</span>,

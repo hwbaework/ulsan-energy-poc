@@ -69,7 +69,7 @@ export default function MonitoringPlantListPage() {
     { key: 'address', header: '위치', render: (row) => <span className="text-sm text-slate-400">{row.address}</span> },
     {
       key: 'capacity',
-      header: '설비용량',
+      header: '설비 용량',
       width: '120px',
       align: 'right',
       render: (row) => <span className="text-sm text-slate-300 tabular-nums">{row.capacity.toLocaleString()} kW</span>,
@@ -114,7 +114,7 @@ export default function MonitoringPlantListPage() {
           value={`${operating} / ${plants.length}`}
         />
         <StatCard
-          label="총 설비용량"
+          label="총 설비 용량"
           value={`${totalCapacity.toLocaleString()} kW`}
         />
         <StatCard

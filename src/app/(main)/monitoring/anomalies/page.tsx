@@ -10,7 +10,6 @@ import { SectionCard, StatCard, StatsGrid } from '@/components/features';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { StatusPill } from '@/components/ui/Design';
 import { CONTRACT_KIND, CONTRACT_KIND_LABEL, CONTRACT_KIND_ORDER, commStatusOf, contractKindsOf, gradeOf, isAnomaly } from '@/lib/design';
-import { cn } from '@/lib/utils';
 import { getPersona } from '@/lib/persona';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { contractDisplayName } from '@/lib/contract-plants';
@@ -98,6 +97,9 @@ export default function AnomaliesPage() {
 
   // 전체 상태 — 내 발전소 전부(정상 포함) + 통신오류 건
   const myPlants = filterPlantsByOwnership(plantList ?? [], myPlantMatcher);
+  // 내 계약 유형 — 둘(자가소비 · PPA)일 때만 골라서 본다
+  const myKinds = CONTRACT_KIND_ORDER.filter((k) => myPlants.some((pl) => contractKindsOf(pl).includes(k)));
+  const pickKind = !isAdmin && myKinds.length > 1;
   const commOutages: CommOutage[] = rawList
     .filter((a: any) => a.status === 'COMM_ERROR')
     .map((a: any) => ({
@@ -111,7 +113,7 @@ export default function AnomaliesPage() {
   const q = query.trim().toLowerCase();
   const filtered = anomalies.filter((a) => {
     // 계약을 모르는 이상(발전소 단위 RTU 등)은 두 유형 모두에 보인다
-    if (!isAdmin && a.contractKind && a.contractKind !== kindTab) return false;
+    if (pickKind && a.contractKind && a.contractKind !== kindTab) return false;
     if (severity !== 'all' && a.severity !== severity) return false;
     if (status !== 'all' && a.status !== status) return false;
     if (q && !a.displayName.toLowerCase().includes(q) && !a.title.toLowerCase().includes(q)) return false;
@@ -129,7 +131,7 @@ export default function AnomaliesPage() {
   }, [anomalies]);
 
   // 활성 이상 = 목록 전체(등급 주의·경고 또는 통신오류) · 경고 = 등급 경고 건
-  const inKind = anomalies.filter((a) => isAdmin || !a.contractKind || a.contractKind === kindTab);
+  const inKind = anomalies.filter((a) => !pickKind || !a.contractKind || a.contractKind === kindTab);
   const activeCount = inKind.length;
   const warningCount = inKind.filter((a) => a.severity === 'warning').length;
 
@@ -205,8 +207,26 @@ export default function AnomaliesPage() {
   return (
     <div className="space-y-6">
       <Breadcrumb items={[{ label: '통합관제', path: '/dashboard' }, { label: '이상감지 관리' }]} />
-      <div>
-        <h1 className="text-xl font-bold text-white">이상감지 관리</h1>
+      {/* 제목 줄 오른쪽 끝 — 계약 유형이 둘인 발전사업자 · 전기사용자는 자가소비 / PPA 를 골라서 본다 */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-xl font-bold text-white">이상감지 관리</h1>
+          {/* 지금 보는 계약 유형 — 색이 아니라 글자로(design.ts 규칙) */}
+          {!isAdmin && myKinds.length > 0 && (
+            <span className="rounded-md bg-white/[0.08] px-2.5 py-1 text-sm font-semibold text-white ring-1 ring-white/[0.16]">
+              {CONTRACT_KIND_LABEL[pickKind ? kindTab : myKinds[0]!]}
+            </span>
+          )}
+        </div>
+        {pickKind && (
+          <div className="w-40">
+            <Select
+              options={myKinds.map((k) => ({ value: k, label: CONTRACT_KIND_LABEL[k] }))}
+              value={kindTab}
+              onChange={(e) => setKindTab(e.target.value as PlantContractKind)}
+            />
+          </div>
+        )}
       </div>
 
       <StatsGrid columns={2}>
@@ -219,23 +239,6 @@ export default function AnomaliesPage() {
         actions={
           /* /guide 표기 규칙: 필터 → 검색 */
           <div className="flex items-center gap-3">
-            {!isAdmin && (
-              <div className="flex rounded-md bg-white/[0.04] p-0.5 ring-1 ring-white/[0.08]">
-                {CONTRACT_KIND_ORDER.map((k) => (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => setKindTab(k)}
-                    className={cn(
-                      'rounded px-3 py-1 text-sm font-medium transition-colors',
-                      kindTab === k ? 'bg-primary text-white' : 'text-slate-400 hover:text-white',
-                    )}
-                  >
-                    {CONTRACT_KIND_LABEL[k]}
-                  </button>
-                ))}
-              </div>
-            )}
             <div className="w-32">
               <Select options={severityOptions} value={severity} onChange={(e) => setSeverity(e.target.value)} />
             </div>
@@ -262,7 +265,7 @@ export default function AnomaliesPage() {
         />
       </SectionCard>
 
-      <PlantCommStatusTable plants={myPlants} outages={commOutages} />
+      <PlantCommStatusTable plants={myPlants} outages={commOutages} kind={pickKind ? kindTab : undefined} />
     </div>
   );
 }

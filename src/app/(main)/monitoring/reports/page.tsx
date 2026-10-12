@@ -71,7 +71,7 @@ export default function ReportsEntryPage() {
     { key: 'plant', header: '발전소', width: '240px', render: (r) => <PlantNameCell type={r.plant.type} name={r.plant.displayName} /> },
     { key: 'contract' as keyof Row, header: '계약 유형', width: '110px', render: (r) => <span className="text-sm text-slate-300">{r.plant.contractKind ? CONTRACT_KIND[r.plant.contractKind].label : '-'}</span> },
     { key: 'address' as keyof Row, header: '위치', render: (r) => <span className="text-sm text-slate-300">{r.plant?.address ?? '-'}</span> },
-    { key: 'capacity', header: '설비용량', width: '130px', render: (r) => <span className="text-sm text-slate-300 tabular-nums whitespace-nowrap">{r.capacity.toLocaleString()} kW</span> },
+    { key: 'capacity', header: '설비 용량', width: '130px', render: (r) => <span className="text-sm text-slate-300 tabular-nums whitespace-nowrap">{r.capacity.toLocaleString()} kW</span> },
     { key: 'last' as keyof Row, header: '최근 보고서', width: '140px', render: (r) => <span className="text-sm text-slate-300 whitespace-nowrap">{hasReport(r.plant) ? LAST_REPORT : ''}</span> },
     { key: 'anomalies', header: '이번 달 이상', width: '120px', render: (r) => (hasReport(r.plant) ? <span className={`text-sm tabular-nums whitespace-nowrap ${r.anomalies > 0 ? 'text-red-400 font-semibold' : 'text-slate-300'}`}>{r.anomalies} 건</span> : null) },
     { key: 'go' as keyof Row, header: '', width: '48px', render: () => <ChevronRight size={16} className="text-slate-500" /> },

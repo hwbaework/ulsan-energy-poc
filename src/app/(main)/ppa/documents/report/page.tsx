@@ -249,7 +249,7 @@ export default function PpaReportPage() {
                   <p className="text-xs text-slate-400 mb-2">{c.siteName}</p>
                   <div className="grid grid-cols-3 gap-2 text-xs">
                     <div>
-                      <span className="text-slate-500">설비용량</span>
+                      <span className="text-slate-500">설비 용량</span>
                       <p className="text-white font-medium">{c.capacityKw} kW</p>
                     </div>
                     <div>
