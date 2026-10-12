@@ -25,7 +25,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 29; // 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
+export const SEED_VERSION = 30; // 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -69,9 +69,9 @@ const ev = (at: string, by: Party, label: string, note?: string) => ({
 });
 
 /* ── 시드: 체결 = 실제 6건(자가소비 5 · onsite 1) / 상태별 샘플 1건씩(실제 기업·용량·조건) ───────────────────────────────────────── */
-/** 시드 계약 조건 — 자가소비: 설치 단가 ₩1,350,000/kW · 연간 O&M 1% / PPA: 단가는 계약의 unitPrice */
-export function seedTermsOf(x: { kind: PlantContractKind; unitPrice: number; termYears: number }): ContractTerms {
-  return x.kind === 'SELF_CONSUMPTION' ? { installUnit: 1_350_000, omRatePct: 1, omIncluded: true } : { omIncluded: true };
+/** 시드 계약 조건 — 두 유형 모두 설치 단가 ₩1,350,000/kW · 연간 O&M 1%, PPA 단가는 계약의 unitPrice */
+export function seedTermsOf(_x: { kind: PlantContractKind; unitPrice: number; termYears: number }): ContractTerms {
+  return { installUnit: 1_350_000, omRatePct: 1, tariffPlan: '고압A 선택Ⅱ', peakReductionPct: 30, omIncluded: true };
 }
 
 function seedContracts(): Contract[] {
@@ -1116,7 +1116,7 @@ interface TradingPocState {
   /** 미팅 뒤 조건 입력 — 신청 내용에 그 자리에서 저장(접수 상태면 미팅 상태로) */
   updateTerms: (
     id: number,
-    terms: Partial<Pick<TradeRequest, 'capacityKw' | 'termYears' | 'unitPrice' | 'installUnit' | 'extraCost' | 'omRatePct'>>,
+    terms: Partial<Pick<TradeRequest, 'capacityKw' | 'termYears' | 'unitPrice' | 'installUnit' | 'extraCost' | 'omRatePct' | 'tariffPlan' | 'peakReductionPct'>>,
     note?: string,
   ) => void;
   rejectRequest: (id: number, reason: string) => void;
@@ -1253,6 +1253,8 @@ export const useTradingPocStore = create<TradingPocState>()(
           installUnit: r.installUnit,
           extraCost: r.extraCost,
           omRatePct: r.omRatePct,
+          tariffPlan: r.tariffPlan,
+          peakReductionPct: r.peakReductionPct,
           omIncluded: r.omIncluded,
           contact: r.contact,
           startDate: start,

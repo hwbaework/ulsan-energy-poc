@@ -18,6 +18,7 @@ import { StatusPill, type StatusTone } from '@/components/ui/Design';
 import { cn } from '@/lib/utils';
 import { useToastStore } from '@/stores/useToastStore';
 import { useTradingPocStore } from '@/stores/useTradingPocStore';
+import { PLAN_LABEL } from '@/lib/solar-sim';
 import type { TradeRequest } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
 import { KIND_OPTIONS, PARTY_LABEL, fmtDate, fmtDateTime, fmtKw, fmtNum, kindLabel } from './meta';
@@ -189,7 +190,9 @@ export function TradeHistoryDetailScreen() {
 }
 
 /* ── 조건 — 미팅 뒤 신청 내용 칸에 그 자리에서 넣는다(관리자): 설치 용량 · 계약 기간 · 단가 ── */
-type Draft = Record<'capacityKw' | 'termYears' | 'price' | 'installUnit' | 'extraCost' | 'omRatePct', string>;
+type Draft = Record<'capacityKw' | 'termYears' | 'price' | 'installUnit' | 'extraCost' | 'omRatePct' | 'tariffPlan' | 'peakR', string>;
+/** 글자 칸 — 숫자로 비교하지 않는다 */
+const TEXT_KEYS: (keyof Draft)[] = ['tariffPlan'];
 const draftOf = (r: TradeRequest): Draft => ({
   capacityKw: String(r.capacityKw || ''),
   termYears: String(r.termYears || ''),
@@ -197,13 +200,15 @@ const draftOf = (r: TradeRequest): Draft => ({
   installUnit: String(r.installUnit ?? ''),
   extraCost: String(r.extraCost ?? ''),
   omRatePct: String(r.omRatePct ?? ''),
+  tariffPlan: r.tariffPlan ?? '',
+  peakR: String(r.peakReductionPct ?? ''),
 });
 function termsOfDraft(d: Draft, r: TradeRequest) {
   const n = (k: keyof Draft) => Number(d[k]) || 0;
   const common = { capacityKw: n('capacityKw'), termYears: n('termYears') };
-  return r.kind === 'SELF_CONSUMPTION'
-    ? { ...common, installUnit: n('installUnit'), extraCost: n('extraCost'), omRatePct: n('omRatePct') }
-    : { ...common, unitPrice: n('price') };
+  // 두 유형 모두 설치 단가 · 추가 설치비용 · O&M. PPA 는 단가도
+  const cost = { installUnit: n('installUnit'), extraCost: n('extraCost'), omRatePct: n('omRatePct'), tariffPlan: d.tariffPlan || undefined, peakReductionPct: n('peakR') };
+  return r.kind === 'SELF_CONSUMPTION' ? { ...common, ...cost } : { ...common, ...cost, unitPrice: n('price') };
 }
 /** 진행 이력에 남길 바뀐 내용 */
 function changeNote(r: TradeRequest, t: ReturnType<typeof termsOfDraft>) {
@@ -212,11 +217,11 @@ function changeNote(r: TradeRequest, t: ReturnType<typeof termsOfDraft>) {
   if (t.termYears !== r.termYears) out.push(`계약 기간 ${r.termYears}년 → ${t.termYears}년`);
   if ('unitPrice' in t && t.unitPrice !== r.unitPrice)
     out.push(`PPA 단가 ${r.unitPrice > 0 ? `₩${fmtNum(r.unitPrice, 1)}` : '-'} → ₩${fmtNum(t.unitPrice, 1)}/kWh`);
-  if ('installUnit' in t) {
-    if (t.installUnit !== (r.installUnit ?? 0)) out.push(`설치 단가 ₩${fmtNum(r.installUnit ?? 0)} → ₩${fmtNum(t.installUnit)}/kW`);
-    if (t.extraCost !== (r.extraCost ?? 0)) out.push(`추가 시공비 ₩${fmtNum(r.extraCost ?? 0)} → ₩${fmtNum(t.extraCost)}`);
-    if (t.omRatePct !== (r.omRatePct ?? 0)) out.push(`연간 O&M ${r.omRatePct ?? 0}% → ${t.omRatePct}%`);
-  }
+  if (t.installUnit !== (r.installUnit ?? 0)) out.push(`설치 단가 ₩${fmtNum(r.installUnit ?? 0)} → ₩${fmtNum(t.installUnit)}/kW`);
+  if (t.extraCost !== (r.extraCost ?? 0)) out.push(`추가 설치비용 ₩${fmtNum(r.extraCost ?? 0)} → ₩${fmtNum(t.extraCost)}`);
+  if (t.omRatePct !== (r.omRatePct ?? 0)) out.push(`연간 O&M ${r.omRatePct ?? 0}% → ${t.omRatePct}%`);
+  if ((t.tariffPlan ?? '') !== (r.tariffPlan ?? '')) out.push(`요금제 ${r.tariffPlan ?? '-'} → ${t.tariffPlan ?? '-'}`);
+  if (t.peakReductionPct !== (r.peakReductionPct ?? 0)) out.push(`피크감축 반영률 ${r.peakReductionPct ?? 0}% → ${t.peakReductionPct}%`);
   return out.join(' · ') || undefined;
 }
 
@@ -240,12 +245,14 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
 
   const [draft, setDraft] = useState<Draft>(() => draftOf(r));
   const saved = draftOf(r);
-  const dirty = (Object.keys(saved) as (keyof Draft)[]).some((k) => (Number(draft[k]) || 0) !== (Number(saved[k]) || 0));
+  const dirty = (Object.keys(saved) as (keyof Draft)[]).some((k) =>
+    TEXT_KEYS.includes(k) ? draft[k] !== saved[k] : (Number(draft[k]) || 0) !== (Number(saved[k]) || 0),
+  );
   const n = (k: keyof Draft) => Number(draft[k]) || 0;
   const self = r.kind === 'SELF_CONSUMPTION';
-  const valid = n('capacityKw') > 0 && n('termYears') > 0 && (self ? n('installUnit') > 0 && n('omRatePct') > 0 : n('price') > 0);
+  const valid = n('capacityKw') > 0 && n('termYears') > 0 && n('installUnit') > 0 && n('omRatePct') > 0 && !!draft.tariffPlan && (self || n('price') > 0);
   // 승인 — 조건이 저장돼 있어야(미팅 완료 같은 버튼은 없다. 미팅은 채팅으로, 값은 여기에)
-  const termsSaved = r.capacityKw > 0 && r.termYears > 0 && (self ? !!r.installUnit && !!r.omRatePct : r.unitPrice > 0);
+  const termsSaved = r.capacityKw > 0 && r.termYears > 0 && !!r.installUnit && !!r.omRatePct && !!r.tariffPlan && (self || r.unitPrice > 0);
   const canApprove = !dirty && termsSaved;
 
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -270,10 +277,19 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
         term: <Input label="계약 기간 (년)" type="number" min={1} max={25} value={draft.termYears} onChange={set('termYears')} />,
         price: <Input label="PPA 단가 (₩/kWh)" type="number" min={0.1} step="0.1" value={draft.price} onChange={set('price')} />,
         installUnit: money('installUnit', '설치 단가 (원/kW)'),
-        extraCost: money('extraCost', '추가 시공비 (원)'),
+        extraCost: money('extraCost', '추가 설치비용 (원)'),
         omRatePct: (
           <Input label="연간 O&M (설치비 대비, %)" type="number" min={0.1} step="0.1" value={draft.omRatePct} onChange={set('omRatePct')} />
         ),
+        tariffPlan: (
+          <Select
+            label="요금제"
+            options={[{ value: '', label: '선택' }, ...Object.values(PLAN_LABEL).map((l) => ({ value: l, label: l }))]}
+            value={draft.tariffPlan}
+            onChange={(e) => setDraft((d) => ({ ...d, tariffPlan: e.target.value }))}
+          />
+        ),
+        peakR: <Input label="피크감축 반영률 (%)" type="number" min={0} max={100} step="1" value={draft.peakR} onChange={set('peakR')} />,
       }
     : undefined;
 
