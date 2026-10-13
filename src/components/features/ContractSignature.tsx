@@ -124,7 +124,7 @@ export function ContractSignature({
           className="mt-0.5 h-4 w-4 rounded border-white/20 bg-white/[0.04] text-sky-500 focus:ring-sky-500/30"
         />
         <span className="text-xs text-slate-300 group-hover:text-white transition-colors">
-          {contractSummary?.length ? '위 계약 내용' : '계약 내용과 계약서'}을 확인하였으며, 전자서명에 동의합니다. 본 전자서명은 서면 서명과 동일한 법적 효력을 가집니다.
+          {contractSummary?.length ? '위 계약 내용을' : '계약 내용과 계약서를'} 확인하였으며, 전자서명에 동의합니다. 본 전자서명은 서면 서명과 동일한 법적 효력을 가집니다.
         </span>
       </label>
 

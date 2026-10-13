@@ -187,7 +187,7 @@ export interface ChangeSign {
 }
 
 /** 전력거래 문서 — 계약서(초안) · 계약서(서명본) · 청구서 · 세금계산서 · 변경·해지 합의서 */
-export type DocCategory = 'CONTRACT' | 'SIGNED' | 'INVOICE' | 'TAX' | 'CHANGE';
+export type DocCategory = 'CONTRACT' | 'SIGNED' | 'INVOICE' | 'TAX' | 'CHANGE' | 'TERMINATE'; // CHANGE 변경 합의서 · TERMINATE 해지 합의서
 
 export interface TradeDocument {
   id: number;

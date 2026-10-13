@@ -27,7 +27,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 60; // 2026-10-13 해지 완료 1건(한길 예전 계약 CT-2024-0001 · CH-2025-0001). 59 — 2026-10-13 해지 3칸 · 상태 해지. 58 — 2026-10-13 신청 상태 PPA(CH-2026-0012) 추가. 57 — 2026-10-13 변경 조건은 지금 계약 값으로 시작. 56 — 2026-10-13 변경: 변경 동의 → 조건 입력(관리자) → 조건 동의 → 전자서명 → 승인. 55 — 2026-10-13 변경·해지 동의 → 변경 동의 / 해지 동의. 54 — 2026-10-13 승인된 변경·해지 합의서(서명본) 시드. 53 — 2026-10-13 변경·해지도 신청 접수 → 동의 → 전자서명 → 승인 완료. 52 — 2026-10-13 진행 이력 조건 동의(관리자 · 신청한 쪽) → 전자서명 → 승인 완료, 표시 SPC → 관리자. 51 — 2026-10-13 진행 이력 '승인'은 양측 서명 완료만, 동의는 '조건 동의'. 50 — 2026-10-13 서명 흔적(그림 · 이름) 저장. 49 — 2026-10-13 전자서명 자가소비(건호) · PPA(한일튜브) 1건씩. 48 — 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
+export const SEED_VERSION = 62; // 2026-10-13 관리자가 신청한 해지(용인금속, 전자서명 1/2). 61 — 2026-10-13 해지: 신청 → 전자서명 → 해지 승인, 문서 분류 변경 합의서 · 해지 합의서. 60 — 2026-10-13 해지 완료 1건(한길 예전 계약 CT-2024-0001 · CH-2025-0001). 59 — 2026-10-13 해지 3칸 · 상태 해지. 58 — 2026-10-13 신청 상태 PPA(CH-2026-0012) 추가. 57 — 2026-10-13 변경 조건은 지금 계약 값으로 시작. 56 — 2026-10-13 변경: 변경 동의 → 조건 입력(관리자) → 조건 동의 → 전자서명 → 승인. 55 — 2026-10-13 변경·해지 동의 → 변경 동의 / 해지 동의. 54 — 2026-10-13 승인된 변경·해지 합의서(서명본) 시드. 53 — 2026-10-13 변경·해지도 신청 접수 → 동의 → 전자서명 → 승인 완료. 52 — 2026-10-13 진행 이력 조건 동의(관리자 · 신청한 쪽) → 전자서명 → 승인 완료, 표시 SPC → 관리자. 51 — 2026-10-13 진행 이력 '승인'은 양측 서명 완료만, 동의는 '조건 동의'. 50 — 2026-10-13 서명 흔적(그림 · 이름) 저장. 49 — 2026-10-13 전자서명 자가소비(건호) · PPA(한일튜브) 1건씩. 48 — 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -918,6 +918,7 @@ function seedChanges(): ContractChange[] {
       reason: '공장 이전으로 설비 철거 예정',
       effectiveDate: '2026-12-31',
       status: 'REQUESTED',
+      stage: 'SIGN', // 해지 — 신청하면 바로 전자서명
       events: [
         ev(iso('2026-09-24', '10:30:00'), 'consumer', '신청 접수', '희망 해지일 2026-12-31'),
       ],
@@ -1006,6 +1007,28 @@ function seedChanges(): ContractChange[] {
         ev(iso('2026-06-20', '09:00:00'), 'generator', '신청 취소'),
       ],
     },
+    // 해지 — 관리자가 신청(보낸 요청). 신청하면 바로 전자서명, 관리자 서명 끝 · 용인금속 서명 남음
+    {
+      id: 14,
+      no: 'CH-2026-0013',
+      contractId: 4,
+      type: 'TERMINATE',
+      requestedBy: 'spc',
+      requestedByName: CO.SPC.name,
+      requestedAt: iso('2026-10-06', '10:00:00'),
+      reason: '공장 지붕 보수 공사로 설비 철거 예정',
+      effectiveDate: '2027-03-31',
+      status: 'REQUESTED',
+      stage: 'SIGN',
+      events: [
+        ev(iso('2026-10-06', '10:00:00'), 'spc', '신청 접수', '희망 해지일 2027-03-31'),
+        ev(iso('2026-10-06', '10:30:00'), 'spc', '전자서명', '김관리 서명'),
+      ],
+      messages: [
+        { at: iso('2026-10-06', '10:40:00'), by: 'spc', byName: CO.SPC.name, text: '지붕 보수 일정이 정해져 해지 합의서를 올렸습니다. 확인 후 서명 부탁드립니다.' },
+      ],
+      spcSign: { at: iso('2026-10-06', '10:30:00'), name: '김관리' },
+    },
     // 해지 — 끝난 것(상태 해지). 한길이 예전 계약을 해지하고 재계약
     {
       id: 13,
@@ -1022,10 +1045,9 @@ function seedChanges(): ContractChange[] {
       decisionNote: '2025-04-30 해지 · 2025-05-01 새 계약(CT-2025-0003) 시작',
       events: [
         ev(iso('2025-03-20', '10:00:00'), 'consumer', '신청 접수', '희망 해지일 2025-04-30'),
-        ev(iso('2025-03-25', '10:00:00'), 'spc', '해지 동의'),
         ev(iso('2025-04-09', '16:00:00'), 'consumer', '전자서명', '이수용 서명'),
         ev(iso('2025-04-10', '15:00:00'), 'spc', '전자서명', '김관리 서명'),
-        ev(iso('2025-04-10', '15:00:00'), 'spc', '해지 완료', '합의서(서명본) 문서 관리'),
+        ev(iso('2025-04-10', '15:00:00'), 'spc', '해지 승인', '합의서(서명본) 문서 관리'),
       ],
       companySign: { at: iso('2025-04-09', '16:00:00'), name: '이수용' },
       spcSign: { at: iso('2025-04-10', '15:00:00'), name: '김관리' },
@@ -1220,7 +1242,7 @@ function seedDocuments(contracts: Contract[], changes: ContractChange[] = []): T
     const c = contracts.find((x) => x.id === ch.contractId);
     if (!c) continue;
     push({
-      category: 'CHANGE',
+      category: ch.type === 'TERMINATE' ? 'TERMINATE' : 'CHANGE',
       title: `${ch.type === 'TERMINATE' ? '계약 해지 합의서' : '계약 변경 합의서'} (서명본) — ${c.plantName}`,
       fileName: `${ch.no}_합의서.pdf`,
       contractId: c.id,
@@ -1618,6 +1640,8 @@ export const useTradingPocStore = create<TradingPocState>()(
           after: input.after,
           effectiveDate: input.effectiveDate,
           status: 'REQUESTED',
+          // 해지는 조건이 없어 신청하면 바로 전자서명 — 양쪽 서명이 곧 동의
+          ...(input.type === 'TERMINATE' ? { stage: 'SIGN' as const } : {}),
           events: [ev(nowIso(), input.requestedBy, '신청 접수')],
           messages: [],
         };
@@ -1649,7 +1673,7 @@ export const useTradingPocStore = create<TradingPocState>()(
         const c = contracts.find((x) => x.id === ch.contractId)!;
         const doc: TradeDocument = {
           id: nextId(get().documents),
-          category: 'CHANGE',
+          category: ch.type === 'TERMINATE' ? 'TERMINATE' : 'CHANGE',
           title: `${ch.type === 'TERMINATE' ? '계약 해지 합의서' : '계약 변경 합의서'} (서명본) — ${c.plantName}`,
           fileName: `${ch.no}_합의서.pdf`,
           contractId: c.id,
@@ -1777,7 +1801,7 @@ export const useTradingPocStore = create<TradingPocState>()(
                     ...x,
                     events: [
                       ...(x.events ?? []),
-                      ev(nowIso(), 'spc', x.type === 'TERMINATE' ? '해지 완료' : '승인 완료', '합의서(서명본) 문서 관리'),
+                      ev(nowIso(), 'spc', x.type === 'TERMINATE' ? '해지 승인' : '승인 완료', '합의서(서명본) 문서 관리'),
                     ],
                   }
                 : x,
@@ -1950,5 +1974,6 @@ export const DOC_CATEGORY_LABEL: Record<DocCategory, string> = {
   SIGNED: '계약서',
   INVOICE: '청구서',
   TAX: '세금계산서',
-  CHANGE: '변경·해지 합의서',
+  CHANGE: '변경 합의서',
+  TERMINATE: '해지 합의서',
 };

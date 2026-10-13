@@ -23,13 +23,15 @@ export const CONTRACT_PDF = '/docs/lease-contract-template.pdf';
 export const isContractDoc = (d: TradeDocument) => d.category === 'CONTRACT' || d.category === 'SIGNED';
 export const docsBase = (admin: boolean) => (admin ? '/platform/ppa/documents' : '/generator/ppa/documents');
 
-/** 문서 관리에 두는 것 — 발행되고 받은 문서 3가지 */
-const CATEGORIES = ['SIGNED', 'INVOICE', 'TAX'] as const satisfies readonly DocCategory[];
+/** 문서 관리에 두는 것 — 계약서 · 청구서 · 세금계산서 · 변경 합의서 · 해지 합의서(양측 서명본) */
+const CATEGORIES = ['SIGNED', 'INVOICE', 'TAX', 'CHANGE', 'TERMINATE'] as const satisfies readonly DocCategory[];
 type Category = (typeof CATEGORIES)[number];
 const CATEGORY_META: Record<Category, { label: string }> = {
   SIGNED: { label: '계약서' },
   INVOICE: { label: '청구서' },
   TAX: { label: '세금계산서' },
+  CHANGE: { label: '변경 합의서' },
+  TERMINATE: { label: '해지 합의서' },
 };
 const isShown = (d: TradeDocument): d is TradeDocument & { category: Category } =>
   (CATEGORIES as readonly string[]).includes(d.category);
@@ -135,7 +137,7 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
         const label = CATEGORY_META[d.category].label;
         const name = d.uploadedBy
           ? d.fileName
-          : d.category === 'SIGNED'
+          : d.category === 'SIGNED' || d.category === 'CHANGE' || d.category === 'TERMINATE'
             ? `${label}_${c.no}_${c.consumerCompanyName}.pdf`
             : `${label}_${p}_${c.consumerCompanyName}.pdf`;
         return [{ ...d, company: c.consumerCompanyName, companyId: c.consumerCompanyId, contract: c, name }];

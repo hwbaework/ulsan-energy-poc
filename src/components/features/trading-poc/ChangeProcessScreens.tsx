@@ -45,14 +45,20 @@ function Direction({ fromSpc, company }: { fromSpc: boolean; company: string }) 
  *    받는 쪽이 [변경 동의]를 누르면 바로 조건 입력(거래의 미팅 확정처럼). 미팅은 시스템 밖(통화 등).
  *    해지는 조건이 없어 두 번째 칸이 해지 동의, 동의하면 바로 전자서명 ══ */
 const STEPS = ['신청', '조건 입력', '전자서명', '승인'] as const;
-/** 해지 — 조건이 없어 3칸. 양측 서명하면 바로 해지 */
-const STEPS_TERMINATE = ['신청', '해지 동의', '전자서명'] as const;
+/** 해지 — 조건이 없어 3칸. 신청하면 바로 전자서명(양쪽 서명 = 동의), 둘 다 서명하면 해지 승인 */
+const STEPS_TERMINATE = ['신청', '전자서명', '해지 승인'] as const;
 const stepsOf = (ch: Pick<ContractChange, 'type'>) => (ch.type === 'TERMINATE' ? STEPS_TERMINATE : STEPS);
 /** 동의 이름 — 거래의 '조건 동의'처럼 무엇에 동의하는지 */
 const agreeLabel = (ch: Pick<ContractChange, 'type'>) => (ch.type === 'TERMINATE' ? '해지 동의' : '변경 동의');
 /** 지금 단계 번호 — 0 신청(동의 전) · 1 조건 입력 · 조건 동의 · 2 전자서명 · 4 끝 */
 const stepOf = (ch: ContractChange) =>
-  ch.status === 'APPROVED' ? stepsOf(ch).length : ch.stage === 'SIGN' ? 2 : ch.stage === 'TERMS' || ch.stage === 'AGREE' ? 1 : 0;
+  ch.status === 'APPROVED'
+    ? stepsOf(ch).length
+    : ch.stage === 'SIGN'
+      ? (stepsOf(ch) as readonly string[]).indexOf('전자서명')
+      : ch.stage === 'TERMS' || ch.stage === 'AGREE'
+        ? 1
+        : 0;
 /** 두 번째 칸 이름 — 해지는 해지 동의, 변경은 조건 입력 → (확정 뒤) 조건 동의 */
 const agreeStepLabel = (ch: ContractChange) => (ch.type === 'TERMINATE' ? '해지 동의' : ch.stage === 'AGREE' ? '조건 동의' : '조건 입력');
 
@@ -156,10 +162,12 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
   const [reason, setReason] = useState('');
   // 합의서 문서 — 양측 서명 뒤는 문서 관리의 서명본, 그 전은 같은 양식의 초안
   const sheet = useRef<HTMLDivElement>(null);
-  const signedDoc = useTradingPocStore((s) => s.documents.find((d) => d.category === 'CHANGE' && d.fileName.startsWith(`${ch.no}_`)));
+  const signedDoc = useTradingPocStore((s) =>
+    s.documents.find((d) => (d.category === 'CHANGE' || d.category === 'TERMINATE') && d.fileName.startsWith(`${ch.no}_`)),
+  );
   const agreementDoc: TradeDocument = signedDoc ?? {
     id: -1,
-    category: 'CHANGE',
+    category: ch.type === 'TERMINATE' ? 'TERMINATE' : 'CHANGE',
     title: `${ch.type === 'TERMINATE' ? '계약 해지 합의서' : '계약 변경 합의서'} (초안) — ${c.plantName}`,
     fileName: `${ch.no}_합의서.pdf`,
     contractId: c.id,
@@ -210,7 +218,7 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
         </Button>
       )}
       {/* 전자서명 중 — 거래 전자서명처럼 신청한 쪽이 사유를 적고 반려(진행 멈춤) */}
-      {open && mineRequest && signing && (
+      {open && (mineRequest || (ch.type === 'TERMINATE' && receiver)) && signing && (
         <Button size="sm" variant="danger" onClick={() => {
             setReason('');
             setRejecting(true);

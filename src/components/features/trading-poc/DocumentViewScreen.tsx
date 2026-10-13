@@ -28,7 +28,7 @@ export function DocumentViewScreen() {
   const companyHref = contract ? `${base}?company=${contract.consumerCompanyId}` : base;
   // 청구서 · 세금계산서 — 양식 문서(미리보기 + PDF)
   const billing = doc && (doc.category === 'TAX' || doc.category === 'INVOICE') ? periodOf(doc) : undefined;
-  const change = doc?.category === 'CHANGE' ? role.changes.find((ch) => doc.fileName.startsWith(ch.no)) : undefined;
+  const change = doc?.category === 'CHANGE' || doc?.category === 'TERMINATE' ? role.changes.find((ch) => doc.fileName.startsWith(ch.no)) : undefined;
 
   useEffect(() => {
     if (!params?.pdf || !doc || isContractDoc(doc) || billing) return;

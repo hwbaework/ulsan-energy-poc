@@ -74,7 +74,7 @@ export const CHANGE_STATE_TONE: Record<ChangeState, StatusTone> = {
   '조건 동의': 'warning',
   전자서명: 'warning',
   승인: 'normal',
-  해지: 'danger',
+  해지: 'normal', // 해지도 양측 서명으로 끝난 것 — 반려(빨강)와 구분
   반려: 'danger',
   취소: 'muted',
 };
