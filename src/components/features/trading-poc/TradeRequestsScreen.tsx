@@ -13,6 +13,7 @@ import { CONSUMERS, CO, useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { PlantContractKind } from '@/types/monitoring';
 import { useTradingRole } from './useTradingRole';
 import { fmtKw, kindLabel } from './meta';
+import { TEXT_MAX, localToday } from './Bits';
 
 /** 입력 제한 — 기업명 · 기업 주소는 무료진단과 같은 최대값 */
 const LIMIT = {
@@ -22,7 +23,7 @@ const LIMIT = {
   name: [2, 20],
   phone: [9, 13], // 하이픈 포함 글자 수
   email: 100,
-  note: 500,
+  note: TEXT_MAX,
 } as const;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const lenOk = (v: string, [lo, hi]: readonly [number, number]) => v.trim().length >= lo && v.trim().length <= hi;
@@ -154,6 +155,7 @@ export function TradeRequestsScreen() {
     name: f.contactName.trim() && !lenOk(f.contactName, LIMIT.name) ? `${LIMIT.name[0]}~${LIMIT.name[1]}자` : undefined,
     phone: f.contactPhone.trim() && !lenOk(f.contactPhone, LIMIT.phone) ? `${LIMIT.phone[0]}~${LIMIT.phone[1]}자` : undefined,
     email: f.contactEmail.trim() && !EMAIL_RE.test(f.contactEmail.trim()) ? '이메일 형식' : undefined,
+    surveyDate: f.surveyDate && f.surveyDate < localToday() ? '오늘 이후' : undefined,
   };
   const valid =
     !!kind &&
@@ -163,7 +165,8 @@ export function TradeRequestsScreen() {
     cap <= LIMIT.capacity[1] &&
     lenOk(f.contactName, LIMIT.name) &&
     lenOk(f.contactPhone, LIMIT.phone) &&
-    !err.email;
+    !err.email &&
+    !err.surveyDate;
 
   const handleSubmit = () => {
     if (!kind || !valid) return;
@@ -309,7 +312,7 @@ export function TradeRequestsScreen() {
                   onChange={(e) => set({ capacity: capInput(e.target.value) })}
                   required
                 />
-                <Input label="미팅 희망일" type="date" value={f.surveyDate} onChange={(e) => set({ surveyDate: e.target.value })} />
+                <Input label="미팅 희망일" type="date" min={localToday()} error={err.surveyDate} value={f.surveyDate} onChange={(e) => set({ surveyDate: e.target.value })} />
               </div>
             </Section>
 

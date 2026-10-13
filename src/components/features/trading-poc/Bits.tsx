@@ -79,6 +79,14 @@ export const cellMuted = (v: ReactNode) => (
 export const TRADE_STEPS = ['신청 접수', '미팅', '전자서명', '승인'] as const;
 
 /** 단계 표기 — 미팅 (2/5) */
+/** 오늘(이 기기 날짜) YYYY-MM-DD — 미팅일은 오늘부터 */
+export const localToday = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+/** 글 칸 최대 글자 수 — 비고 · 반려 사유 · 협의 채팅 한 건 */
+export const TEXT_MAX = 500;
+
 export const stepLabel = (label: string, i: number) => `${label} (${i + 1}/${TRADE_STEPS.length})`;
 
 /** 지금 단계(TRADE_STEPS 번호). 신청하면 신청 접수, 관리자가 미팅일을 확정하면 미팅(조건 입력), 계약서를 만들면 전자서명, 둘 다 서명하면 승인(둘 다 서명) — TRADE_STEPS.length */

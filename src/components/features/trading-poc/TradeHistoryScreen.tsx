@@ -34,6 +34,8 @@ import {
   cellNum,
   cellStrong,
   tradeStepOf,
+  localToday,
+  TEXT_MAX,
 } from './Bits';
 import { TermsInfo, type TermsEdit } from './TermsInfo';
 
@@ -281,10 +283,12 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
           <Input
             label="미팅일"
             type="date"
+            min={localToday()}
             value={meetDate}
             onChange={(e) => {
               setMeetDate(e.target.value);
-              if (e.target.value) confirmMeeting(r.id, e.target.value);
+              // 지난 날은 저장하지 않는다 — 오늘부터
+              if (e.target.value && e.target.value >= localToday()) confirmMeeting(r.id, e.target.value);
             }}
           />
         ),
@@ -353,6 +357,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
             미팅일
             <input
               type="date"
+              min={localToday()}
               value={meetDate}
               onChange={(e) => setMeetDate(e.target.value)}
               className="h-8 rounded-md bg-white/[0.04] px-2 text-sm text-white ring-1 ring-white/[0.08] [color-scheme:dark] focus:outline-none focus:ring-primary/60"
@@ -360,7 +365,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
           </label>
           <Button
             size="sm"
-            disabled={!meetDate}
+            disabled={!meetDate || meetDate < localToday()}
             onClick={() => {
               confirmMeeting(r.id, meetDate);
               addToast('success', `${r.no} 미팅 확정 ${meetDate}`);
@@ -464,6 +469,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
         <div className="space-y-4">
           <Textarea
             label="반려 사유"
+            maxLength={TEXT_MAX}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
@@ -548,6 +554,7 @@ function ChatPanel({ r, canSend }: { r: TradeRequest; canSend: boolean }) {
         <div className="flex gap-2 border-t border-white/[0.06] p-3">
           <input
             value={text}
+            maxLength={TEXT_MAX}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.nativeEvent.isComposing) send();
