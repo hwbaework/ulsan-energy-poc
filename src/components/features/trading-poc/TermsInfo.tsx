@@ -9,7 +9,7 @@ const won = (n: number) => `₩${fmtNum(Math.round(n))}`;
 import { Info } from './Bits';
 
 /** 미팅 단계에서 그 자리에서 넣는 칸 — 주면 그 칸은 입력으로 바뀐다 */
-export type TermsEdit = Partial<Record<'capacity' | 'term' | 'price' | 'installUnit' | 'extraCost' | 'omRatePct' | 'tariffPlan' | 'priceEsc', ReactNode>>;
+export type TermsEdit = Partial<Record<'capacity' | 'term' | 'price' | 'installUnit' | 'extraCost' | 'omRatePct' | 'tariffPlan', ReactNode>>;
 
 /**
  * 신청 내용 — 거래 신청에서 넣은 것(유형 · 기업 · 주소 · 희망 용량 · 미팅 희망일 · 담당자)과
@@ -35,7 +35,6 @@ export function TermsInfo({ x, edit }: { x: TradeRequest | Contract; edit?: Term
       {/* 실제 거래에 필요한 값 — 두 유형 모두: 설치 단가 · 추가 설치비용 → 예상 설치비, 연간 O&M. PPA 는 단가도(사용분 × 단가) */}
       {/* 조건 칸 — 넣는 중이거나 값이 있을 때만. 취소 · 반려 · 미팅 전처럼 값이 없으면 아예 안 보인다 */}
       {!self && cell(edit?.price, 'PPA 단가', x.unitPrice > 0 ? `₩${fmtNum(x.unitPrice, 1)}/kWh` : undefined)}
-      {!self && cell(edit?.priceEsc, 'PPA 단가 상승률', x.priceEscalationPct != null ? `${x.priceEscalationPct}%/yr` : undefined)}
       {cell(edit?.installUnit, '설치 단가', x.installUnit ? `${won(x.installUnit)}/kW` : undefined)}
       {cell(edit?.extraCost, '추가 설치비용', x.extraCost != null ? won(x.extraCost) : undefined)}
       {cell(edit?.omRatePct, '연간 O&M (설치비 대비)', x.omRatePct ? `${x.omRatePct}%` : undefined)}

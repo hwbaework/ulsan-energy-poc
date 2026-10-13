@@ -190,7 +190,7 @@ export function TradeHistoryDetailScreen() {
 }
 
 /* ── 조건 — 미팅 뒤 신청 내용 칸에 그 자리에서 넣는다(관리자): 설치 용량 · 계약 기간 · 단가 ── */
-type Draft = Record<'capacityKw' | 'termYears' | 'price' | 'installUnit' | 'extraCost' | 'omRatePct' | 'tariffPlan' | 'priceEsc', string>;
+type Draft = Record<'capacityKw' | 'termYears' | 'price' | 'installUnit' | 'extraCost' | 'omRatePct' | 'tariffPlan', string>;
 /** 글자 칸 — 숫자로 비교하지 않는다 */
 const TEXT_KEYS: (keyof Draft)[] = ['tariffPlan'];
 const draftOf = (r: TradeRequest): Draft => ({
@@ -201,14 +201,13 @@ const draftOf = (r: TradeRequest): Draft => ({
   extraCost: String(r.extraCost ?? ''),
   omRatePct: String(r.omRatePct ?? ''),
   tariffPlan: r.tariffPlan ?? '',
-  priceEsc: String(r.priceEscalationPct ?? ''),
 });
 function termsOfDraft(d: Draft, r: TradeRequest) {
   const n = (k: keyof Draft) => Number(d[k]) || 0;
   const common = { capacityKw: n('capacityKw'), termYears: n('termYears') };
   // 두 유형 모두 설치 단가 · 추가 설치비용 · O&M. PPA 는 단가도
   const cost = { installUnit: n('installUnit'), extraCost: n('extraCost'), omRatePct: n('omRatePct'), tariffPlan: d.tariffPlan || undefined };
-  return r.kind === 'SELF_CONSUMPTION' ? { ...common, ...cost } : { ...common, ...cost, unitPrice: n('price'), priceEscalationPct: n('priceEsc') };
+  return r.kind === 'SELF_CONSUMPTION' ? { ...common, ...cost } : { ...common, ...cost, unitPrice: n('price') };
 }
 /** 진행 이력에 남길 바뀐 내용 */
 function changeNote(r: TradeRequest, t: ReturnType<typeof termsOfDraft>) {
@@ -221,7 +220,6 @@ function changeNote(r: TradeRequest, t: ReturnType<typeof termsOfDraft>) {
   if (t.extraCost !== (r.extraCost ?? 0)) out.push(`추가 설치비용 ₩${fmtNum(r.extraCost ?? 0)} → ₩${fmtNum(t.extraCost)}`);
   if (t.omRatePct !== (r.omRatePct ?? 0)) out.push(`연간 O&M ${r.omRatePct ?? 0}% → ${t.omRatePct}%`);
   if ((t.tariffPlan ?? '') !== (r.tariffPlan ?? '')) out.push(`요금제 ${r.tariffPlan ?? '-'} → ${t.tariffPlan ?? '-'}`);
-  if ('priceEscalationPct' in t && t.priceEscalationPct !== (r.priceEscalationPct ?? 0)) out.push(`PPA 단가 상승률 ${r.priceEscalationPct ?? 0}% → ${t.priceEscalationPct}%/yr`);
   return out.join(' · ') || undefined;
 }
 
@@ -294,7 +292,6 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
             onChange={(e) => setDraft((d) => ({ ...d, tariffPlan: e.target.value }))}
           />
         ),
-        priceEsc: <Input label="PPA 단가 상승률 (%/yr)" type="number" min={0} step="0.1" value={draft.priceEsc} onChange={set('priceEsc')} />,
       }
     : undefined;
 
