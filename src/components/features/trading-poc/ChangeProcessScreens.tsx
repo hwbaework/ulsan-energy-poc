@@ -7,15 +7,18 @@ import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { BackButton } from '@/components/layout/PageTitle';
 import { ContractSignature } from '@/components/features/ContractSignature';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { PLAN_LABEL } from '@/lib/solar-sim';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Modal } from '@/components/ui/Modal';
 import { Textarea } from '@/components/ui/Textarea';
 import { cn } from '@/lib/utils';
 import { useToastStore } from '@/stores/useToastStore';
-import { CO, useTradingPocStore } from '@/stores/useTradingPocStore';
-import type { ChangeSign, Contract, ContractChange, TradeDocument } from '@/types/trading-poc';
+import { CO, changeTermsOf, useTradingPocStore } from '@/stores/useTradingPocStore';
+import type { ChangeSign, ChangeTerms, Contract, ContractChange, TradeDocument } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
-import { changeTypeLabel, fmtDateTime, kindLabel } from './meta';
+import { TERM_LIM, changeTypeLabel, fmtDateTime, inLim, kindLabel, numIn, termRows, type TermLimKey } from './meta';
 import { EventTimeline, Info, ModalFooter, StepBar, TEXT_MAX } from './Bits';
 import { changeText } from './ChangeDetailModal';
 import { DocumentSheet, printSheet } from './DocumentSheet';
@@ -38,25 +41,28 @@ function Direction({ fromSpc, company }: { fromSpc: boolean; company: string }) 
   );
 }
 
-/* ══ 변경·해지 한 건 — 거래와 같은 말: 신청 → 동의(받는 쪽) → 전자서명(양쪽) → 승인. 요청 내용 · 합의서 · 진행 이력, 옆에 채팅. 팝업 없음 ══ */
-const STEPS = ['신청', '동의', '전자서명', '승인'] as const; // 동의 칸은 변경 동의 / 해지 동의로 보인다
+/* ══ 변경·해지 한 건 — 거래(신청 접수 → 미팅 → 전자서명 → 승인)와 같은 4칸: 신청 → 조건 입력 → 전자서명 → 승인.
+ *    받는 쪽이 [변경 동의]를 누르면 바로 조건 입력(거래의 미팅 확정처럼). 미팅은 시스템 밖(통화 등).
+ *    해지는 조건이 없어 두 번째 칸이 해지 동의, 동의하면 바로 전자서명 ══ */
+const STEPS = ['신청', '조건 입력', '전자서명', '승인'] as const;
 /** 동의 이름 — 거래의 '조건 동의'처럼 무엇에 동의하는지 */
 const agreeLabel = (ch: Pick<ContractChange, 'type'>) => (ch.type === 'TERMINATE' ? '해지 동의' : '변경 동의');
-/** 지금 단계 — 1 동의 대기 · 2 전자서명 · 3 승인(끝) */
-const stepOf = (ch: ContractChange) => (ch.status === 'APPROVED' ? 3 : ch.stage === 'SIGN' ? 2 : 1);
+/** 지금 단계 번호 — 0 신청(동의 전) · 1 조건 입력 · 조건 동의 · 2 전자서명 · 4 끝 */
+const stepOf = (ch: ContractChange) =>
+  ch.status === 'APPROVED' ? STEPS.length : ch.stage === 'SIGN' ? 2 : ch.stage === 'TERMS' || ch.stage === 'AGREE' ? 1 : 0;
+/** 두 번째 칸 이름 — 해지는 해지 동의, 변경은 조건 입력 → (확정 뒤) 조건 동의 */
+const agreeStepLabel = (ch: ContractChange) => (ch.type === 'TERMINATE' ? '해지 동의' : ch.stage === 'AGREE' ? '조건 동의' : '조건 입력');
 
-/** 단계 — 거래 이력과 같은 표시줄. 서명 단계는 몇 명 서명했는지 */
+/** 단계 — 거래 이력과 같은 표시줄. 서명 단계는 몇 명 서명했는지, 조건 단계는 입력 / 동의 대기 */
 function Stepper({ ch }: { ch: ContractChange }) {
   const failed = ch.status === 'REJECTED' ? '반려' : ch.status === 'CANCELLED' ? '취소' : undefined;
   const signed = Number(!!ch.spcSign) + Number(!!ch.companySign);
-  // 반영되면 모두 끝(마지막도 체크)
-  const step = ch.status === 'APPROVED' ? STEPS.length : stepOf(ch);
   return (
     <StepBar
       steps={STEPS}
-      step={step}
+      step={stepOf(ch)}
       failed={failed}
-      labelOf={(label, i) => (i === 1 ? agreeLabel(ch) : i === 2 && ch.stage === 'SIGN' ? `전자서명 ${signed}/2` : label)}
+      labelOf={(label) => (label === '조건 입력' ? agreeStepLabel(ch) : label === '전자서명' && ch.stage === 'SIGN' ? `전자서명 ${signed}/2` : label)}
     />
   );
 }
@@ -134,7 +140,7 @@ export function ChangeDetailScreen() {
 function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; list: string }) {
   const role = useTradingRole();
   const addToast = useToastStore((s) => s.add);
-  const move = useTradingPocStore((s) => s.moveChangeStage);
+  const agree = useTradingPocStore((s) => s.agreeChange);
   const signChange = useTradingPocStore((s) => s.signChange);
   const reject = useTradingPocStore((s) => s.rejectChange);
   const cancel = useTradingPocStore((s) => s.cancelChange);
@@ -160,6 +166,8 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
 
   const open = ch.status === 'REQUESTED';
   const step = stepOf(ch);
+  const signing = ch.stage === 'SIGN';
+  const showSign = signing || ch.status === 'APPROVED' || !!ch.spcSign || !!ch.companySign;
   const isCompany = !role.isAdmin && role.companyId === c.consumerCompanyId;
   const fromSpc = ch.requestedBy === 'spc';
   const mineRequest = role.isAdmin ? fromSpc : !fromSpc && isCompany;
@@ -170,13 +178,13 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
 
   const actions = (
     <>
-      {open && receiver && step === 1 && (
+      {open && receiver && step === 0 && (
         <>
           <Button
             size="sm"
             onClick={() => {
-              move(ch.id, 'SIGN', undefined, role.party);
-              addToast('success', `${ch.no} ${agreeLabel(ch)} — 전자서명 대기`);
+              agree(ch.id, role.party);
+              addToast('success', `${ch.no} ${agreeLabel(ch)} — ${ch.type === 'TERMINATE' ? '전자서명 대기' : '조건 입력 대기'}`);
             }}
           >
             {agreeLabel(ch)}
@@ -189,13 +197,13 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
           </Button>
         </>
       )}
-      {open && mineRequest && step === 1 && (
+      {open && mineRequest && step === 0 && (
         <Button size="sm" variant="danger" onClick={() => setConfirm('cancel')}>
           신청 취소
         </Button>
       )}
       {/* 전자서명 중 — 거래 전자서명처럼 신청한 쪽이 사유를 적고 반려(진행 멈춤) */}
-      {open && mineRequest && step === 2 && (
+      {open && mineRequest && signing && (
         <Button size="sm" variant="danger" onClick={() => {
             setReason('');
             setRejecting(true);
@@ -228,14 +236,14 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
         </div>
 
         {/* 합의서 — 전자서명 단계부터 맨 위. 내용은 아래 요청 칸에 있어 요약을 다시 두지 않는다. 둘 다 서명하면 승인 · 서명본이 문서 관리에 */}
-        {(step >= 2 || ch.spcSign || ch.companySign) && (
+        {showSign && (
           <SectionCard title={`${ch.type === 'TERMINATE' ? '계약 해지' : '계약 변경'} 합의서`}>
             <div className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <SignBox
                   title={`관리자 · ${CO.SPC.name}`}
                   sign={ch.spcSign}
-                  mine={role.isAdmin && open && step === 2}
+                  mine={role.isAdmin && open && signing}
                   signerName={CO.SPC.name}
                   onSign={(s) => {
                     signChange(ch.id, 'spc', s);
@@ -245,7 +253,7 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
                 <SignBox
                   title={`기업 · ${c.consumerCompanyName}`}
                   sign={ch.companySign}
-                  mine={isCompany && open && step === 2}
+                  mine={isCompany && open && signing}
                   signerName={c.consumerCompanyName}
                   onSign={(s) => {
                     signChange(ch.id, 'company', s);
@@ -255,6 +263,19 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
               </div>
             </div>
           </SectionCard>
+        )}
+
+        {/* 변경 조건 — 변경 동의 뒤 관리자가 다시 넣는다(지금 계약 값으로 시작). 해지는 없음 */}
+        {ch.type !== 'TERMINATE' && (ch.stage || ch.status === 'APPROVED') && (
+          <ChangeTermsCard
+            key={`${ch.id}-${ch.stage ?? ''}`}
+            ch={ch}
+            c={c}
+            onReject={() => {
+              setReason('');
+              setRejecting(true);
+            }}
+          />
         )}
 
         <SectionCard title={<Direction fromSpc={fromSpc} company={c.consumerCompanyName} />} actions={actions}>
@@ -271,7 +292,7 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
         </SectionCard>
 
         {/* 합의서 문서 — 계약서처럼. 전자서명 단계부터 초안, 양측 서명 뒤 서명본(문서 관리에도 남는다) */}
-        {(step >= 2 || ch.spcSign || ch.companySign) && (
+        {showSign && (
           <SectionCard
             title={signedDoc ? '합의서 (서명본)' : '합의서 (초안)'}
             actions={
@@ -335,6 +356,218 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
         variant="danger"
       />
     </div>
+  );
+}
+
+type TermDraft = Record<'capacityKw' | 'termYears' | 'price' | 'installUnit' | 'extraCost' | 'omAnnual' | 'tariffPlan', string>;
+const TERM_KEY: Record<string, keyof TermDraft> = {
+  '설치 용량': 'capacityKw',
+  '계약 기간': 'termYears',
+  'PPA 단가': 'price',
+  '설치 단가': 'installUnit',
+  '추가 설치비용': 'extraCost',
+  '연간 O&M': 'omAnnual',
+  요금제: 'tariffPlan',
+};
+const LIM_KEY: Partial<Record<keyof TermDraft, TermLimKey>> = {
+  capacityKw: 'capacityKw',
+  termYears: 'termYears',
+  price: 'price',
+  installUnit: 'installUnit',
+  extraCost: 'extraCost',
+  omAnnual: 'omAnnual',
+};
+const MONEY_KEYS: (keyof TermDraft)[] = ['installUnit', 'extraCost', 'omAnnual'];
+const toDraft = (t: ChangeTerms): TermDraft => ({
+  capacityKw: String(t.capacityKw),
+  termYears: String(t.termYears),
+  price: t.unitPrice ? String(t.unitPrice) : '',
+  installUnit: t.installUnit != null ? String(t.installUnit) : '',
+  extraCost: String(t.extraCost ?? 0),
+  omAnnual: t.omAnnual != null ? String(t.omAnnual) : '',
+  tariffPlan: t.tariffPlan ?? '',
+});
+const totalOf = (t: ChangeTerms) => t.capacityKw * (t.installUnit ?? 0) + (t.extraCost ?? 0);
+
+/**
+ * 변경 조건 — 항목 · 현재 · 변경. 관리자는 조건 입력 단계에서 '변경' 칸을 고친다(지금 계약 값 + 요청 값으로 시작, 그대로 둘 칸은 그대로).
+ * 저장 → 조건 확정 → 상대(기업) 조건 동의 → 전자서명. 확정 뒤엔 못 고치고 확정 취소로 다시 연다
+ */
+function ChangeTermsCard({ ch, c, onReject }: { ch: ContractChange; c: Contract; onReject: () => void }) {
+  const role = useTradingRole();
+  const addToast = useToastStore((s) => s.add);
+  const save = useTradingPocStore((s) => s.saveChangeTerms);
+  const confirmTerms = useTradingPocStore((s) => s.confirmChangeTerms);
+  const unconfirmTerms = useTradingPocStore((s) => s.unconfirmChangeTerms);
+  const agreeTerms = useTradingPocStore((s) => s.agreeChangeTerms);
+  const ppa = c.kind === 'ONSITE';
+  const open = ch.status === 'REQUESTED';
+  const before = ch.termsBefore ?? changeTermsOf(c);
+  const saved = ch.terms ?? changeTermsOf(c);
+  const editing = role.isAdmin && open && ch.stage === 'TERMS';
+  const isCompany = !role.isAdmin && role.companyId === c.consumerCompanyId;
+  const [d, setD] = useState<TermDraft>(() => toDraft(saved));
+  const n = (k: keyof TermDraft) => Number(d[k]) || 0;
+  const draft: ChangeTerms = {
+    capacityKw: n('capacityKw'),
+    termYears: n('termYears'),
+    unitPrice: ppa ? n('price') : 0,
+    installUnit: n('installUnit'),
+    extraCost: n('extraCost'),
+    omAnnual: n('omAnnual'),
+    tariffPlan: d.tariffPlan || undefined,
+  };
+  const dirty = JSON.stringify(toDraft(saved)) !== JSON.stringify(d);
+  const lim = (k: keyof TermDraft) => TERM_LIM[LIM_KEY[k]!];
+  const valid =
+    inLim(n('capacityKw'), lim('capacityKw')) &&
+    inLim(n('termYears'), lim('termYears')) &&
+    inLim(n('installUnit'), lim('installUnit')) &&
+    inLim(n('extraCost'), lim('extraCost')) &&
+    inLim(n('omAnnual'), lim('omAnnual')) &&
+    !!d.tariffPlan &&
+    (!ppa || inLim(n('price'), lim('price')));
+  const shown = editing ? draft : saved;
+  const rows = termRows(c.kind, before, shown);
+  const won = (v: number) => `₩${Math.round(v).toLocaleString('ko-KR')}`;
+  const totalRow = { label: '설치비 (O&M 포함)', before: won(totalOf(before)), after: won(totalOf(shown)) };
+  const changes = rows.filter((r) => r.changed);
+  const note = changes.map((r) => `${r.label} ${r.before} → ${r.after}`).join(' · ') || '바뀐 조건 없음';
+
+  const inputOf = (k: keyof TermDraft) =>
+    k === 'tariffPlan' ? (
+      <Select
+        options={[{ value: '', label: '선택' }, ...Object.values(PLAN_LABEL).map((l) => ({ value: l, label: l }))]}
+        value={d.tariffPlan}
+        onChange={(e) => setD((p) => ({ ...p, tariffPlan: e.target.value }))}
+      />
+    ) : (
+      <Input
+        aria-label={k}
+        inputMode={lim(k)[2] ? 'decimal' : 'numeric'}
+        value={MONEY_KEYS.includes(k) && d[k] ? Number(d[k]).toLocaleString('ko-KR') : d[k]}
+        error={d[k] !== '' && n(k) < lim(k)[0] ? `${lim(k)[0].toLocaleString('ko-KR')} 이상` : undefined}
+        onChange={(e) => setD((p) => ({ ...p, [k]: numIn(e.target.value, lim(k)) }))}
+      />
+    );
+
+  const state =
+    ch.status === 'APPROVED'
+      ? '승인 완료 · 계약에 반영'
+      : ch.stage === 'TERMS'
+        ? '조건 입력 중'
+        : ch.stage === 'AGREE'
+          ? '조건 확정 · 상대 조건 동의 대기'
+          : '조건 동의 완료 · 전자서명';
+
+  const actions = (
+    <>
+      {editing && (
+        <>
+          <Button size="sm" variant="secondary" disabled={!dirty} onClick={() => setD(toDraft(saved))}>
+            취소
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={!dirty || !valid}
+            onClick={() => {
+              save(ch.id, draft, note);
+              addToast('success', `${ch.no} 조건 저장`);
+            }}
+          >
+            저장
+          </Button>
+          <Button
+            size="sm"
+            disabled={dirty || !valid}
+            onClick={() => {
+              confirmTerms(ch.id);
+              addToast('success', `${ch.no} 조건 확정 — 조건 동의 대기`);
+            }}
+          >
+            조건 확정
+          </Button>
+        </>
+      )}
+      {role.isAdmin && open && ch.stage === 'AGREE' && (
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => {
+            unconfirmTerms(ch.id);
+            addToast('success', `${ch.no} 확정 취소 — 조건 다시 입력`);
+          }}
+        >
+          확정 취소
+        </Button>
+      )}
+      {isCompany && open && ch.stage === 'AGREE' && (
+        <>
+          <Button
+            size="sm"
+            onClick={() => {
+              agreeTerms(ch.id, role.party);
+              addToast('success', `${ch.no} 조건 동의 — 전자서명 대기`);
+            }}
+          >
+            조건 동의
+          </Button>
+          <Button size="sm" variant="danger" onClick={onReject}>
+            반려
+          </Button>
+        </>
+      )}
+    </>
+  );
+
+  return (
+    <SectionCard title="변경 조건" actions={actions}>
+      <p className="mb-3 text-sm text-slate-300">
+        진행 <span className="font-semibold text-white">{state}</span>
+        <span className="ml-3 text-slate-400">바뀐 조건 {changes.length}개</span>
+      </p>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-white/[0.06] text-left text-slate-400">
+            <th className="py-2 pr-3 font-medium">항목</th>
+            <th className="py-2 pr-3 font-medium">현재</th>
+            <th className="py-2 font-medium">변경</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.label} className={cn('border-b border-white/[0.04]', r.changed && 'bg-amber-500/[0.06]')}>
+              <td className="py-2 pr-3 text-slate-400">
+                {r.label}
+                {editing && r.label !== '추가 설치비용' && <span className="ml-0.5 text-semantic-red">*</span>}
+              </td>
+              <td className="py-2 pr-3 tabular-nums text-slate-300">{r.before}</td>
+              <td className={cn('py-2 tabular-nums', r.changed ? 'font-semibold text-amber-300' : 'text-slate-200')}>
+                {editing ? (
+                  <div className="flex items-center gap-2">
+                    <div className={cn('w-full max-w-[240px] rounded', r.changed && 'ring-1 ring-amber-400/70')}>{inputOf(TERM_KEY[r.label]!)}</div>
+                    {r.changed && <span className="shrink-0 text-xs font-semibold text-amber-300">변경</span>}
+                  </div>
+                ) : (
+                  <>
+                    {r.after}
+                    {r.changed && <span className="ml-2 text-xs font-semibold text-amber-300">변경</span>}
+                  </>
+                )}
+              </td>
+            </tr>
+          ))}
+          <tr className={cn(totalRow.before !== totalRow.after && 'bg-amber-500/[0.06]')}>
+            <td className="py-2 pr-3 text-slate-400">{totalRow.label}</td>
+            <td className="py-2 pr-3 tabular-nums text-slate-300">{totalRow.before}</td>
+            <td className={cn('py-2 tabular-nums', totalRow.before !== totalRow.after ? 'font-semibold text-amber-300' : 'text-slate-200')}>
+              {totalRow.after}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </SectionCard>
   );
 }
 

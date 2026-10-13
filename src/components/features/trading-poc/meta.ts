@@ -53,9 +53,9 @@ export const CHANGE_STATUS: Record<ChangeStatus, { label: string; tone: StatusTo
   CANCELLED: { label: '취소', tone: 'muted' },
 };
 
-/** 변경·해지 한 건의 상태 — 거래와 같은 말: 신청 → 동의(받는 쪽) → 전자서명(양쪽) → 승인(끝, 변경 · 해지 둘 다). 멈춤은 반려 · 취소 */
-export type ChangeState = '신청' | '전자서명' | '승인' | '반려' | '취소';
-export const CHANGE_STATES: ChangeState[] = ['신청', '전자서명', '승인', '반려', '취소'];
+/** 변경·해지 한 건의 상태 — 신청 → 변경 동의 → 조건 입력(관리자) → 조건 동의(상대) → 전자서명 → 승인. 해지는 동의 뒤 바로 전자서명. 멈춤은 반려 · 취소 */
+export type ChangeState = '신청' | '조건 입력' | '조건 동의' | '전자서명' | '승인' | '반려' | '취소';
+export const CHANGE_STATES: ChangeState[] = ['신청', '조건 입력', '조건 동의', '전자서명', '승인', '반려', '취소'];
 export const changeStateOf = (ch: {
   status: ChangeStatus;
   type: ChangeType;
@@ -64,10 +64,14 @@ export const changeStateOf = (ch: {
   if (ch.status === 'REJECTED') return '반려';
   if (ch.status === 'CANCELLED') return '취소';
   if (ch.status === 'APPROVED') return '승인';
+  if (ch.stage === 'TERMS') return '조건 입력';
+  if (ch.stage === 'AGREE') return '조건 동의';
   return ch.stage === 'SIGN' ? '전자서명' : '신청';
 };
 export const CHANGE_STATE_TONE: Record<ChangeState, StatusTone> = {
   신청: 'muted',
+  '조건 입력': 'warning',
+  '조건 동의': 'warning',
   전자서명: 'warning',
   승인: 'normal',
   반려: 'danger',
@@ -120,3 +124,38 @@ export const savingOf = (kwh: number, price: number) => {
   const saving = kepco - Math.round(kwh * price);
   return { kepco, saving, rate: kepco ? (saving / kepco) * 100 : 0 };
 };
+
+/** 계약 조건 칸 범위 — [최소, 최대, 소수 자리]. 거래 미팅 조건 · 변경 조건이 같이 쓴다. 추가 설치비용만 0 허용(선택) */
+export const TERM_LIM = {
+  capacityKw: [1, 10_000, 2], // kW — 거래 신청 · 무료진단과 같은 최대
+  termYears: [1, 25, 0], // 년
+  price: [0.1, 1_000, 1], // ₩/kWh — 무료진단 구간 단가와 같은 최대
+  installUnit: [1, 10_000_000, 0], // 원/kW — 무료진단 설치단가와 같은 최대
+  extraCost: [0, 10_000_000_000, 0], // 원
+  omAnnual: [1, 1_000_000_000, 0], // 원/년
+} as const;
+export type TermLimKey = keyof typeof TERM_LIM;
+/** 숫자 칸 — 숫자와 점 하나, 정해진 소수 자리까지, 최대를 넘으면 최대 */
+export const numIn = (raw: string, [, hi, dec]: readonly [number, number, number]) => {
+  let v = raw.replace(dec ? /[^0-9.]/g : /[^0-9]/g, '');
+  const dot = v.indexOf('.');
+  if (dot >= 0) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, '').slice(0, dec);
+  return Number(v) > hi ? String(hi) : v;
+};
+export const inLim = (v: number, [lo, hi]: readonly [number, number, number]) => v >= lo && v <= hi;
+
+/** 변경 조건 한 줄씩 — 항목 · 현재 · 변경(같으면 바뀌지 않음). PPA 단가는 PPA 만 */
+export function termRows(kind: PlantContractKind, before: ChangeTermsLike, after: ChangeTermsLike) {
+  const w = (n?: number) => (n == null ? '-' : `₩${fmtNum(Math.round(n))}`);
+  const rows: [string, string, string][] = [
+    ['설치 용량', fmtKw(before.capacityKw), fmtKw(after.capacityKw)],
+    ['계약 기간', `${before.termYears}년`, `${after.termYears}년`],
+    ...(kind === 'ONSITE' ? ([['PPA 단가', fmtPrice(before.unitPrice), fmtPrice(after.unitPrice)]] as [string, string, string][]) : []),
+    ['설치 단가', `${w(before.installUnit)}/kW`, `${w(after.installUnit)}/kW`],
+    ['추가 설치비용', w(before.extraCost ?? 0), w(after.extraCost ?? 0)],
+    ['연간 O&M', `${w(before.omAnnual)}/년`, `${w(after.omAnnual)}/년`],
+    ['요금제', before.tariffPlan ?? '-', after.tariffPlan ?? '-'],
+  ];
+  return rows.map(([label, b, a]) => ({ label, before: b, after: a, changed: b !== a }));
+}
+type ChangeTermsLike = { capacityKw: number; termYears: number; unitPrice: number; installUnit?: number; extraCost?: number; omAnnual?: number; tariffPlan?: string };

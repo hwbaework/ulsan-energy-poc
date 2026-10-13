@@ -3,6 +3,8 @@
 import type { Ref } from 'react';
 import {
   CO,
+  changeTermsOf,
+  termsFromRequest,
   DOC_CATEGORY_LABEL,
   billingStatusOf,
   dueDateOf,
@@ -11,7 +13,7 @@ import {
   writtenDateOf,
 } from '@/stores/useTradingPocStore';
 import type { Contract, ContractChange, TradeDocument } from '@/types/trading-poc';
-import { changeTypeLabel, fmtDateTime, fmtKw, fmtKwh, fmtNum, kindLabel } from './meta';
+import { changeTypeLabel, fmtDateTime, fmtKw, fmtKwh, fmtNum, kindLabel, termRows } from './meta';
 import { changeText } from './ChangeDetailModal';
 
 const won = (n: number) => `₩${fmtNum(Math.round(n))}`;
@@ -141,11 +143,19 @@ function SheetBody({ doc, contract: c, change }: { doc: TradeDocument; contract:
   return (
     <div className="space-y-10">
       <Rows rows={[...parties, ['계약 유형', kindLabel(c.kind)], ['설치 용량', fmtKw(c.capacityKw)]]} />
+      {change && change.type !== 'TERMINATE' && (change.terms || change.termsBefore) && (
+        // 변경 조건 — 바뀐 칸만 '현재 → 변경'
+        <Rows
+          rows={termRows(c.kind, change.termsBefore ?? changeTermsOf(c), change.terms ?? termsFromRequest(c, change))
+            .filter((r) => r.changed)
+            .map((r) => [r.label, `${r.before} → ${r.after}`] as [string, string])}
+        />
+      )}
       {change && (
         <Rows
           rows={[
             ['변경 유형', changeTypeLabel(change.type, c.kind)],
-            ['내용', changeText(change, c.kind)],
+            ['요청 내용', changeText(change, c.kind)],
             ['요청', `${change.requestedByName} · ${fmtDateTime(change.requestedAt)}`],
             ['승인', fmtDateTime(change.decidedAt)],
             ['사유', change.reason],

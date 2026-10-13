@@ -22,7 +22,7 @@ import { PLAN_LABEL } from '@/lib/solar-sim';
 import type { TradeRequest } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
 import { TradeApprovalDetailScreen } from './TradeApprovalsScreen';
-import { KIND_OPTIONS, PARTY_LABEL, fmtDate, fmtDateTime, fmtKw, fmtNum, kindLabel } from './meta';
+import { KIND_OPTIONS, PARTY_LABEL, TERM_LIM, fmtDate, fmtDateTime, fmtKw, fmtNum, inLim, kindLabel, numIn } from './meta';
 import {
   EventTimeline,
   Info,
@@ -197,23 +197,7 @@ export function TradeHistoryDetailScreen() {
 
 /* ── 조건 — 미팅 뒤 신청 내용 칸에 그 자리에서 넣는다(관리자): 설치 용량 · 계약 기간 · 단가 ── */
 type Draft = Record<'capacityKw' | 'termYears' | 'price' | 'installUnit' | 'extraCost' | 'omAnnual' | 'tariffPlan', string>;
-/** 조건 칸 범위 — [최소, 최대, 소수 자리]. 추가 설치비용만 0 허용(선택) */
-const TERM_LIM: Record<Exclude<keyof Draft, 'tariffPlan'>, readonly [number, number, number]> = {
-  capacityKw: [1, 10_000, 2], // kW — 거래 신청 · 무료진단과 같은 최대
-  termYears: [1, 25, 0], // 년
-  price: [0.1, 1_000, 1], // ₩/kWh — 무료진단 구간 단가와 같은 최대
-  installUnit: [1, 10_000_000, 0], // 원/kW — 무료진단 설치단가와 같은 최대
-  extraCost: [0, 10_000_000_000, 0], // 원
-  omAnnual: [1, 1_000_000_000, 0], // 원/년
-};
-/** 숫자 칸 — 숫자와 점 하나, 정해진 소수 자리까지, 최대를 넘으면 최대 */
-const numIn = (raw: string, [, hi, dec]: readonly [number, number, number]) => {
-  let v = raw.replace(dec ? /[^0-9.]/g : /[^0-9]/g, '');
-  const dot = v.indexOf('.');
-  if (dot >= 0) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, '').slice(0, dec);
-  return Number(v) > hi ? String(hi) : v;
-};
-const inLim = (v: number, [lo, hi]: readonly [number, number, number]) => v >= lo && v <= hi;
+/* 조건 칸 범위 · 숫자 정리 — meta 의 TERM_LIM · numIn · inLim(변경 조건과 같이) */
 
 /** 글자 칸 — 숫자로 비교하지 않는다 */
 const TEXT_KEYS: (keyof Draft)[] = ['tariffPlan'];

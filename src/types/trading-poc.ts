@@ -152,8 +152,11 @@ export interface ContractChange {
   status: ChangeStatus;
   decidedAt?: string;
   decisionNote?: string;
-  /** 진행 단계(요청 접수 다음) — 관리자 검토 → 협의 → 합의서 서명. 둘 다 서명하면 APPROVED(계약 반영) */
+  /** 진행 단계(신청 다음) — 변경: 변경 동의 → TERMS(관리자 조건 입력) → AGREE(조건 확정, 상대 동의 대기) → SIGN. 해지: 해지 동의 → SIGN. 둘 다 서명하면 APPROVED */
   stage?: ChangeStage;
+  /** 변경 — 동의할 때의 계약 조건(현재)과 관리자가 다시 넣은 조건(변경). 승인되면 계약이 terms 로 바뀐다 */
+  termsBefore?: ChangeTerms;
+  terms?: ChangeTerms;
   events?: TradeEvent[];
   messages?: TradeMessage[];
   /** 합의서 서명 — 서로 확인했다는 서명. SPC(관리자)와 기업이 각자 */
@@ -161,8 +164,18 @@ export interface ContractChange {
   companySign?: ChangeSign;
 }
 
-/** 승인되면 서명 단계(SIGN). 그 전은 승인 대기 */
-export type ChangeStage = 'SIGN';
+/** TERMS 조건 입력(관리자) · AGREE 조건 확정 뒤 상대 동의 대기 · SIGN 전자서명 */
+export type ChangeStage = 'TERMS' | 'AGREE' | 'SIGN';
+/** 변경 때 다시 넣는 계약 조건 — 미팅 조건 칸과 같은 항목 */
+export interface ChangeTerms {
+  capacityKw: number;
+  termYears: number;
+  unitPrice: number; // PPA 단가(자가소비는 0)
+  installUnit?: number;
+  extraCost?: number;
+  omAnnual?: number;
+  tariffPlan?: string;
+}
 export interface ChangeSign {
   at: string;
   /** 서명한 사람(기업명 · SPC) */
