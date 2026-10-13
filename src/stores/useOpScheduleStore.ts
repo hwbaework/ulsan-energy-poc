@@ -30,6 +30,8 @@ interface OpScheduleState {
 
   logs: RemoteLog[];
   setRule: (companyId: number, patch: Partial<OpRule>, by: string, base?: OpRule) => void;
+  /** 날짜 지정 — null 이면 자동(설정대로). 하루 가동 · 하루 OFF · 시간 OFF('HH:MM~HH:MM'). 자동과 같으면 지정을 지운다 */
+  setDay: (companyId: number, date: string, value: DayOverride | null, autoOn: boolean, by: string, base?: OpRule) => void;
   /** 날짜 누르기 — 자동 일정과 반대로 수동 지정, 이미 수동이면 자동으로 되돌린다 */
   toggleDay: (companyId: number, date: string, autoOn: boolean, by: string, base?: OpRule) => void;
   /** 원격 ON / OFF — 그날 일정에 바로 반영(자동과 같으면 수동 지정을 지운다). 운전 일정 · 대시보드 · 발전소 상세가 같은 값 */
@@ -60,6 +62,18 @@ export const useOpScheduleStore = create<OpScheduleState>()(
           set({
             schedules: { ...get().schedules, [companyId]: { ...cur, ...patch } },
             logs: log({ companyId, action: patch.weekendOff === false || patch.holidayOff === false ? 'ON' : 'OFF', how: '일정 변경', by, note }),
+          });
+        },
+        setDay: (companyId, date, value, autoOn, by, base) => {
+          const cur = scheduleOf(get(), companyId, base);
+          const overrides = { ...cur.overrides };
+          const asAuto = value === null || (value === 'ON' && autoOn) || (value === 'OFF' && !autoOn);
+          if (asAuto) delete overrides[date];
+          else overrides[date] = value;
+          const timeOff = value && value !== 'ON' && value !== 'OFF' ? value : '';
+          set({
+            schedules: { ...get().schedules, [companyId]: { ...cur, overrides } },
+            logs: log({ companyId, action: value === 'ON' || (value === null && autoOn) ? 'ON' : 'OFF', how: '일정 변경', by, note: timeOff ? `${date} ${timeOff}` : date }),
           });
         },
         toggleDay: (companyId, date, autoOn, by, base) => {

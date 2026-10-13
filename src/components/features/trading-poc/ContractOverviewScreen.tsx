@@ -7,8 +7,8 @@ import { StatCard, StatsGrid } from '@/components/features/StatCard';
 import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { Input } from '@/components/ui/Input';
-import { RmsBarChart, RmsPaybackChart } from '@/components/ui/Chart';
-import { settlementsOf } from '@/stores/useTradingPocStore';
+import { RmsPaybackChart } from '@/components/ui/Chart';
+import { PpaMonthlyCard } from './PpaMonthlyCard';
 import type { Contract } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
 import { KEPCO_UNIT_PRICE, estimateMonthlyKwh, fmtKrw, fmtKw, kindLabel, totalCostOf } from './meta';
@@ -71,18 +71,6 @@ export function ContractOverviewScreen() {
     const breakEven = m ? `${Math.floor(m / 12)}년 ${m % 12}개월` : '';
     return { data, breakEven, cost };
   }, [self]);
-  // 금년 1~12월 전부 — 아직 안 온 달은 0
-  const ppaMonthly = useMemo(() => {
-    const st = settlementsOf(onsite);
-    const year = new Date().getFullYear();
-    return Array.from({ length: 12 }, (_, k) => {
-      const m = `${year}-${String(k + 1).padStart(2, '0')}`;
-      const rows = st.filter((x) => x.period === m);
-      return { month: `${k + 1}월`, period: m, kwh: rows.reduce((a, x) => a + x.generationKwh, 0), 금액: Math.round(rows.reduce((a, x) => a + x.total, 0) / 10_000), confirmed: rows.length > 0 && rows.every((x) => x.status === 'CONFIRMED'), has: rows.length > 0 };
-    });
-  }, [onsite]);
-  const ppaYear = ppaMonthly.reduce((a, x) => a + x.금액, 0);
-  const ppaChart = ppaMonthly.map((x) => ({ month: x.month, 금액: x.금액 }));
 
   const coCols: Column<Co>[] = [
     { key: 'name', header: '기업', render: (c) => cellStrong(c.name) },
@@ -131,13 +119,7 @@ export function ContractOverviewScreen() {
       {role.isAdmin ? (
         <>
           {/* PPA — 달마다 얼마 들어왔는지(정산 실적) */}
-          {onsite.length > 0 && (
-            <SectionCard title={`PPA 월별 수입 (만원) · 금년 ${fmtKrw(ppaYear * 10_000)}`}>
-              <RmsBarChart data={ppaChart} xKey="month" bars={[{ key: '금액', name: '수입 (만원)' }]} height={240} />
-              {/* 사용량이 얼마라서 얼마 받았는지 — 달마다 */}
-              <MonthTable rows={ppaMonthly} doneLabel="입금" />
-            </SectionCard>
-          )}
+          <PpaMonthlyCard contracts={onsite} mode="income" />
           <SectionCard
             title={`기업별 계약 (${shownCos.length})`}
             actions={
@@ -177,12 +159,7 @@ export function ContractOverviewScreen() {
             </SectionCard>
           )}
           {/* PPA 기업 — 달마다 얼마 썼고 얼마 냈는지 */}
-          {onsite.length > 0 && (
-            <SectionCard title={`PPA 월별 납부 (만원) · 금년 ${fmtKrw(ppaYear * 10_000)}`}>
-              <RmsBarChart data={ppaChart} xKey="month" bars={[{ key: '금액', name: '납부 (만원)' }]} height={240} />
-              <MonthTable rows={ppaMonthly} doneLabel="납부" />
-            </SectionCard>
-          )}
+          <PpaMonthlyCard contracts={onsite} mode="pay" />
         <SectionCard title={`내 계약 (${active.length})`} noPadding>
           <DataTable
             columns={contractCols}
@@ -194,53 +171,6 @@ export function ContractOverviewScreen() {
         </SectionCard>
         </>
       )}
-    </div>
-  );
-}
-
-/** 달마다 발전량(kWh) · 금액(만원) · 상태 — 1~12월 가로 한 줄 */
-function MonthTable({ rows, doneLabel }: { rows: { month: string; kwh: number; 금액: number; confirmed: boolean; has: boolean }[]; doneLabel: string }) {
-  const td = 'px-1 py-1 text-right tabular-nums';
-  return (
-    <div className="mt-3 overflow-x-auto">
-      <table className="w-full text-xs text-slate-300">
-        <thead className="text-slate-500">
-          <tr>
-            <th className="px-1 py-1 text-left font-medium">월</th>
-            {rows.map((x) => (
-              <th key={x.month} className={`${td} font-medium`}>
-                {x.month}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td className="px-1 py-1 text-left text-slate-500">발전량 (kWh)</td>
-            {rows.map((x) => (
-              <td key={x.month} className={td}>
-                {x.has ? x.kwh.toLocaleString() : ''}
-              </td>
-            ))}
-          </tr>
-          <tr>
-            <td className="px-1 py-1 text-left text-slate-500">금액 (만원)</td>
-            {rows.map((x) => (
-              <td key={x.month} className={`${td} text-white`}>
-                {x.has ? x.금액.toLocaleString() : ''}
-              </td>
-            ))}
-          </tr>
-          <tr>
-            <td className="px-1 py-1 text-left text-slate-500">상태</td>
-            {rows.map((x) => (
-              <td key={x.month} className={`${td} ${x.has ? (x.confirmed ? 'text-emerald-300' : 'text-amber-300') : ''}`}>
-                {x.has ? (x.confirmed ? doneLabel : '대기') : ''}
-              </td>
-            ))}
-          </tr>
-        </tbody>
-      </table>
     </div>
   );
 }

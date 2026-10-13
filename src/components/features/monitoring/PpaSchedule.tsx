@@ -12,7 +12,7 @@ import { getPersona, usePersonaOverride } from '@/lib/persona';
 import { useHydrateTradingPoc, useTradingPocStore } from '@/stores/useTradingPocStore';
 import { scheduleOf, useHydrateOpSchedule, useOpScheduleStore } from '@/stores/useOpScheduleStore';
 import { useEnergySettings, useHolidays } from '@/hooks/common/useSettings';
-import { dayStatus, holidayMap, inOffWindow, monthStatus, opRuleOf, opYear, weekdayOf, type DayStatus } from '@/lib/op-calendar';
+import { dayStatus, holidayMap, inOffWindow, inWindow, monthStatus, opRuleOf, opYear, timeOffOf, weekdayOf, type DayOverride, type DayStatus } from '@/lib/op-calendar';
 
 /**
  * PPA 운전 일정 — 쉬는 날(주말 · 공휴일)은 인버터 자동 OFF, 다음 가동일 자동 ON.
@@ -54,13 +54,32 @@ const by = () => useAuthStore.getState().user?.name ?? '사용자';
 
 /** 날짜 하나의 상태 글자 — 색이 아닌 글자로 구분 */
 const reasonText = (d: DayStatus) =>
-  d.reason === '가동' ? '가동' : d.reason === '수동 ON' ? '가동 (수동)' : d.reason === '수동 OFF' ? 'OFF (수동)' : `OFF (${d.reason})`;
+  d.reason === '가동'
+    ? '가동'
+    : d.reason === '수동 ON'
+      ? '가동 (수동)'
+      : d.reason === '수동 OFF'
+        ? 'OFF (수동)'
+        : d.reason === '시간 OFF' && d.offWindow
+          ? `가동 · ${d.offWindow.from}~${d.offWindow.to} OFF`
+          : `OFF (${d.reason})`;
+/** 지금 시각 HH:MM */
+const nowHHMM = () => {
+  const d = new Date();
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+/** 지금 켜져 있는지 — 그날 가동이어도 시간 OFF 시간대 안이면 OFF */
+const onNow = (d: DayStatus) => d.on && !(d.offWindow && inWindow(d.offWindow, nowHHMM()));
+
+type DayMode = 'auto' | 'ON' | 'OFF' | 'TIME';
 
 /** 운전 일정 카드 — 달력(누르면 그날 가동 / OFF 바꿈) + 해 요약 + 달마다 가동일 */
 export function PpaScheduleCard({ companyId: fixed }: { companyId?: number }) {
   useHydrateOpSchedule();
   // 바로 반영하지 않는다 — 규칙 · 날짜 · 오늘 수동 전부 확인창을 거친다
   const [pendingChange, setPendingChange] = useState<{ title: string; text: string; run: () => void } | null>(null);
+  // 날짜 지정 — 자동 · 하루 가동 · 하루 OFF · 시간 OFF(시작 ~ 끝)
+  const [dayEdit, setDayEdit] = useState<{ date: string; auto: DayStatus; mode: DayMode; from: string; to: string } | null>(null);
   const companies = usePpaCompanies();
   const [pick, setPick] = useState<number | null>(null);
   const companyId = fixed ?? pick ?? companies[0]?.id;
@@ -77,7 +96,19 @@ export function PpaScheduleCard({ companyId: fixed }: { companyId?: number }) {
   const yr = opYear(ym.y, holidays, sch, sch.overrides);
   const lead = weekdayOf(days[0]!.date);
   const move = (d: number) => setYm(({ y, m }) => (m + d < 1 ? { y: y - 1, m: 12 } : m + d > 12 ? { y: y + 1, m: 1 } : { y, m: m + d }));
-  const manual = yr.months.reduce((a, x) => a + x.manualOff + x.manualOn, 0); // 수동으로 바꾼 날(OFF · ON 둘 다)
+  const manual = yr.months.reduce((a, x) => a + x.manualOff + x.manualOn + x.manualTime, 0); // 수동으로 바꾼 날(OFF · ON · 시간 OFF)
+  const openDay = (d: DayStatus) => {
+    const ov = sch.overrides[d.date];
+    const tw = timeOffOf(ov);
+    setDayEdit({
+      date: d.date,
+      auto: dayStatus(d.date, holidays, sch),
+      mode: tw ? 'TIME' : ov === 'ON' ? 'ON' : ov === 'OFF' ? 'OFF' : 'auto',
+      from: tw?.from ?? '13:00',
+      to: tw?.to ?? '18:00',
+    });
+  };
+  const dayValid = !!dayEdit && (dayEdit.mode !== 'TIME' || (!!dayEdit.from && !!dayEdit.to && dayEdit.from !== dayEdit.to));
 
   return (
     <SectionCard
@@ -177,12 +208,11 @@ export function PpaScheduleCard({ companyId: fixed }: { companyId?: number }) {
               <div key={`b${k}`} />
             ))}
             {days.map((d) => {
-              const auto = dayStatus(d.date, holidays, sch).on;
               return (
                 <button
                   key={d.date}
                   type="button"
-                  onClick={() => setPendingChange({ title: d.on ? '인버터 OFF' : '인버터 ON', text: `${d.date} (${WEEK[weekdayOf(d.date)]}) ${reasonText(d)} → ${d.on ? 'OFF' : 'ON'} 로 바꿉니다.`, run: () => store.toggleDay(companyId, d.date, auto, by(), base) })}
+                  onClick={() => openDay(d)}
                   className={cn(
                     'min-h-[58px] rounded-md px-1.5 py-1 text-left ring-1 transition-colors',
                     d.on ? 'bg-white/[0.04] ring-white/[0.08] hover:bg-white/[0.08]' : 'bg-black/30 ring-white/[0.04] hover:bg-white/[0.06]',
@@ -221,6 +251,70 @@ export function PpaScheduleCard({ companyId: fixed }: { companyId?: number }) {
       >
         <p className="text-sm text-slate-200">{pendingChange?.text}</p>
       </Modal>
+      {/* 날짜 지정 — 하루 통째로 또는 그날 시간만 OFF. 적용을 눌러야 반영 */}
+      <Modal
+        open={dayEdit !== null}
+        onClose={() => setDayEdit(null)}
+        title={dayEdit ? `${dayEdit.date} (${WEEK[weekdayOf(dayEdit.date)]}) 운전` : ''}
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="cancel" onClick={() => setDayEdit(null)}>
+              취소
+            </Button>
+            <Button
+              disabled={!dayValid}
+              onClick={() => {
+                if (!dayEdit) return;
+                const v: DayOverride | null =
+                  dayEdit.mode === 'auto' ? null : dayEdit.mode === 'TIME' ? `${dayEdit.from}~${dayEdit.to}` : dayEdit.mode;
+                store.setDay(companyId, dayEdit.date, v, dayEdit.auto.on, by(), base);
+                setDayEdit(null);
+              }}
+            >
+              적용
+            </Button>
+          </div>
+        }
+      >
+        {dayEdit && (
+          <div className="space-y-2.5 text-sm text-slate-200">
+            {(
+              [
+                ['auto', `설정대로 (${reasonText(dayEdit.auto)})`],
+                ['ON', '하루 가동'],
+                ['OFF', '하루 OFF'],
+                ['TIME', '시간 지정 OFF'],
+              ] as const
+            ).map(([m, label]) => (
+              <label key={m} className="flex cursor-pointer items-center gap-2">
+                <input type="radio" name="day-mode" className="h-4 w-4 accent-primary" checked={dayEdit.mode === m} onChange={() => setDayEdit({ ...dayEdit, mode: m })} />
+                {label}
+              </label>
+            ))}
+            {dayEdit.mode === 'TIME' && (
+              <div className="flex items-center gap-2 pl-6">
+                <input
+                  type="time"
+                  aria-label="OFF 시작"
+                  value={dayEdit.from}
+                  onChange={(e) => setDayEdit({ ...dayEdit, from: e.target.value })}
+                  className="h-9 rounded-md bg-white/[0.04] px-2 text-sm text-white ring-1 ring-white/[0.08] [color-scheme:dark] focus:outline-none focus:ring-primary/60"
+                />
+                <span className="text-slate-400">~</span>
+                <input
+                  type="time"
+                  aria-label="OFF 끝"
+                  value={dayEdit.to}
+                  onChange={(e) => setDayEdit({ ...dayEdit, to: e.target.value })}
+                  className="h-9 rounded-md bg-white/[0.04] px-2 text-sm text-white ring-1 ring-white/[0.08] [color-scheme:dark] focus:outline-none focus:ring-primary/60"
+                />
+                <span className="text-xs text-slate-400">OFF</span>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
     </SectionCard>
   );
 }
@@ -237,7 +331,7 @@ export function RemoteControlCard({ companyId }: { companyId: number }) {
   if (!companies.some((c) => c.id === companyId)) return null; // 관리자 · 전기사용자 · 다른 발전사업자는 없음
   const sch = scheduleOf(store, companyId, opRuleOf(es));
   const plan = dayStatus(now, holidays, sch, sch.overrides);
-  const on = plan.on; // 원격 ON / OFF 도 그날 일정으로 들어가 있다
+  const on = onNow(plan); // 원격 ON / OFF 도 그날 일정으로 들어가 있다. 시간 OFF 시간대 안이면 OFF
   const autoOn = dayStatus(now, holidays, sch).on;
   const logs = store.logs.filter((l) => l.companyId === companyId).slice(0, 5);
   return (
@@ -320,7 +414,7 @@ export function PpaScheduleSummary() {
             <div key={c.id} className="space-y-2">
               <p className="text-sm text-slate-300">
                 <span className="font-semibold text-white">{c.plant}</span>
-                <span className="ml-3">지금</span> <b className="text-white">{plan.on ? '가동' : 'OFF'}</b>
+                <span className="ml-3">지금</span> <b className="text-white">{onNow(plan) ? '가동' : 'OFF'}</b>
                 <span className="ml-3">이번 주 OFF</span>{' '}
                 <b className="text-white tabular-nums">{offDays.length ? offDays.map((d) => `${WEEK[weekdayOf(d)]} ${Number(d.slice(8))}일`).join(' · ') : '없음'}</b>
               </p>
@@ -371,7 +465,7 @@ export function PpaOpInfo({ companyId }: { companyId: number }) {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <p className="text-xs text-slate-400">금일</p>
-          <p className="mt-1 text-xl font-bold text-white">{plan.on ? '가동' : 'OFF'}</p>
+          <p className="mt-1 text-xl font-bold text-white">{onNow(plan) ? '가동' : 'OFF'}</p>
           <p className="mt-0.5 text-sm text-slate-300">
             {reasonText(plan)}
             {plan.holiday ? ` · ${plan.holiday}` : ''}
@@ -416,9 +510,19 @@ export function PpaOpInline({ plantId, tu, month }: { plantId: number; tu: 'hour
     return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   })();
   const manualToday = sch.overrides[now];
+  const dayFixed = manualToday === 'ON' || manualToday === 'OFF'; // 하루 통째로 수동
+  const byDayTime = !!plan.offWindow && inWindow(plan.offWindow, hhmm); // 그날 시간 OFF
   const offByTime = !manualToday && inOffWindow(base, hhmm);
-  const isOn = manualToday ? manualToday === 'ON' : plan.on && !offByTime;
-  const why = manualToday ? '수동' : !plan.on ? `설정 · ${plan.reason}` : offByTime ? `설정 · ${base.offStart}~${base.onTime}` : '';
+  const isOn = dayFixed ? manualToday === 'ON' : plan.on && !byDayTime && !offByTime;
+  const why = dayFixed
+    ? '수동'
+    : byDayTime
+      ? `수동 · ${plan.offWindow!.from}~${plan.offWindow!.to}`
+      : !plan.on
+        ? `설정 · ${plan.reason}`
+        : offByTime
+          ? `설정 · ${base.offStart}~${base.onTime}`
+          : '';
   const cell = 'inline-flex h-7 min-w-[30px] items-center justify-center gap-1 rounded-md px-1.5 text-xs tabular-nums ring-1 transition-colors';
   const onCls = 'bg-emerald-500/15 text-emerald-200 ring-emerald-500/30 enabled:hover:bg-emerald-500/25';
   const offCls = 'bg-black/30 text-slate-500 ring-white/[0.06] enabled:hover:bg-white/[0.08]';

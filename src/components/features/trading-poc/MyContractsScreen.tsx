@@ -15,6 +15,7 @@ import { KEPCO_UNIT_PRICE, KIND_OPTIONS, fmtKrw, fmtKw, kindLabel, totalCostOf }
 import { PageHeader, cell, cellNum, cellStrong } from './Bits';
 import { ContractDetailCard, monthOfContract } from './ContractDetailModal';
 import { ChangeRequestModal } from './ChangeRequestModal';
+import { PpaMonthlyCard } from './PpaMonthlyCard';
 
 const YEAR = '2026';
 const arrow = {
@@ -69,25 +70,6 @@ export function MyContractsScreen() {
   const upTo = (c: Contract, k: number, perYear: (year: number) => number) =>
     Array.from({ length: Math.min(k, c.termYears) }, (_, i) => perYear(i + 1)).reduce((a, x) => a + x, 0);
   const kwhYear = (c: Contract) => monthOfContract(c).kwh * 12;
-
-  /**
-   * SPC 가 받는 돈 — 관리자 전체. onsite 사용료만(자가소비는 SPC 수입이 없다) 0년 ~ 20년 누적, 만원 단위.
-   * 계약 기간 내내 사용료 전액을 받는다 — 1구간(기본 1~5년차) 단가, 그 뒤 2구간 단가.
-   */
-  const income = useMemo(() => {
-    const onsite = active.filter((c) => c.kind === 'ONSITE');
-    const years = Math.max(0, ...onsite.map((c) => c.termYears));
-    // 해마다 그 해 구간 단가 × 연 사용량
-    const at = (k: number) => onsite.reduce((a, c) => a + upTo(c, k, (y) => kwhYear(c) * priceIn(c, y)), 0);
-    return {
-      has: onsite.length > 0,
-      data: Array.from({ length: years + 1 }, (_, k) => ({
-        year: k === 0 ? '0년' : `${k}년`,
-        사용료: Math.round(at(k) / 10_000),
-      })),
-      total: at(years),
-    };
-  }, [active]);
 
   const payback = useMemo(() => {
     if (active.length === 0) return { data: [] as Record<string, string | number>[], breakEven: '', total: 0 };
@@ -191,16 +173,9 @@ export function MyContractsScreen() {
         <StatCard label="자가소비 용량" value={stats.self} />
         <StatCard label="PPA 용량" value={stats.onsite} />
       </StatsGrid>
-      {role.isAdmin && !company ? (
-        // 관리자 전체 — SPC 가 받는 돈(onsite 사용료 누적)
-        <SectionCard title="받는 사용료 누적 (만원, PPA)">
-          <RmsPaybackChart
-            data={income.data}
-            xKey="year"
-            lines={[{ key: '사용료', name: 'PPA 사용료' }]}
-            height={260}
-          />
-        </SectionCard>
+      {role.isAdmin ? (
+        // 관리자 — 달마다 얼마 들어와야 하는지(회사 골랐으면 그 회사만). ROI 는 기업 쪽에서만
+        <PpaMonthlyCard contracts={active} mode="income" />
       ) : (
         active.length > 0 && (
           // 기업 — 언제부터 이득인지(ROI = 누적 금액)
@@ -221,7 +196,7 @@ export function MyContractsScreen() {
               xKey="year"
               lines={[
                 ...(active.some((c) => c.kind === 'SELF_CONSUMPTION') ? [{ key: '자가소비', name: '자가소비' }] : []),
-                ...(active.some((c) => c.kind === 'ONSITE') ? [{ key: 'onsite', name: 'onsite' }] : []),
+                ...(active.some((c) => c.kind === 'ONSITE') ? [{ key: 'onsite', name: 'PPA' }] : []),
               ]}
               height={260}
             />

@@ -83,22 +83,34 @@ export const opRuleOf = (es: Record<string, string> | undefined): OpRule => ({
   offStart: es?.PPA_OFF_START ?? OP_RULE_DEFAULT.offStart,
   onTime: es?.PPA_ON_TIME ?? OP_RULE_DEFAULT.onTime,
 });
-/** 지금 시각(HH:MM)이 고정 OFF 시간대 안인지 — 18:00~06:00 처럼 자정을 넘는 구간도 */
+/** 시각(HH:MM)이 시간대 안인지 — 18:00~06:00 처럼 자정을 넘는 구간도 */
+export function inWindow(w: { from: string; to: string }, hhmm: string) {
+  if (!w.from || !w.to || w.from === w.to) return false;
+  return w.from < w.to ? hhmm >= w.from && hhmm < w.to : hhmm >= w.from || hhmm < w.to;
+}
+/** 지금 시각(HH:MM)이 고정 OFF 시간대 안인지 */
 export function inOffWindow(rule: OpRule, hhmm: string) {
-  if (!rule.offStart || !rule.onTime || rule.offStart === rule.onTime) return false;
-  return rule.offStart < rule.onTime ? hhmm >= rule.offStart && hhmm < rule.onTime : hhmm >= rule.offStart || hhmm < rule.onTime;
+  return !!rule.offStart && !!rule.onTime && inWindow({ from: rule.offStart, to: rule.onTime }, hhmm);
 }
 
-/** 날짜별 수동 지정 — 자동 일정 위에 겹쳐 쓴다 */
-export type DayOverride = 'ON' | 'OFF';
+/** 날짜별 수동 지정 — 자동 일정 위에 겹쳐 쓴다. 'ON' 하루 가동 · 'OFF' 하루 OFF · 'HH:MM~HH:MM' 그날 그 시간만 OFF */
+export type DayOverride = 'ON' | 'OFF' | `${string}~${string}`;
+/** 시간 OFF 지정이면 시작 · 끝 */
+export function timeOffOf(ov?: DayOverride): { from: string; to: string } | undefined {
+  if (!ov || ov === 'ON' || ov === 'OFF') return undefined;
+  const [from, to] = ov.split('~');
+  return from && to ? { from, to } : undefined;
+}
 
-export type DayReason = '가동' | '주말' | '공휴일' | '수동 OFF' | '수동 ON';
+export type DayReason = '가동' | '주말' | '공휴일' | '수동 OFF' | '수동 ON' | '시간 OFF';
 export interface DayStatus {
   date: string;
   on: boolean;
   reason: DayReason;
   holiday?: string;
   weekend: boolean;
+  /** 시간 OFF — 그날 이 시간만 OFF(나머지 가동) */
+  offWindow?: { from: string; to: string };
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -114,6 +126,8 @@ export function dayStatus(date: string, holidays: Map<string, string>, rule: OpR
   const ov = overrides?.[date];
   if (ov === 'OFF') return { date, on: false, reason: '수동 OFF', holiday, weekend };
   if (ov === 'ON') return { date, on: true, reason: '수동 ON', holiday, weekend };
+  const offWindow = timeOffOf(ov);
+  if (offWindow) return { date, on: true, reason: '시간 OFF', holiday, weekend, offWindow };
   // 주말과 겹친 공휴일은 주말로 센다(평일 공휴일만 '공휴일')
   if (weekend && rule.weekendOff) return { date, on: false, reason: '주말', holiday, weekend };
   if (holiday && rule.holidayOff) return { date, on: false, reason: '공휴일', holiday, weekend };
@@ -134,6 +148,7 @@ export interface OpMonth {
   holiday: number; // 평일 공휴일로 OFF
   manualOff: number;
   manualOn: number;
+  manualTime: number; // 시간 OFF(그날은 가동일로 센다)
   op: number; // 가동일
 }
 /** 해 하나 — 달마다 가동일 · OFF 사유별 일수 */
@@ -141,7 +156,7 @@ export function opYear(y: number, holidays: Map<string, string>, rule: OpRule, o
   const months: OpMonth[] = Array.from({ length: 12 }, (_, k) => {
     const ds = monthStatus(y, k + 1, holidays, rule, overrides);
     const n = (r: DayReason) => ds.filter((d) => d.reason === r).length;
-    return { m: k + 1, days: ds.length, weekend: n('주말'), holiday: n('공휴일'), manualOff: n('수동 OFF'), manualOn: n('수동 ON'), op: ds.filter((d) => d.on).length };
+    return { m: k + 1, days: ds.length, weekend: n('주말'), holiday: n('공휴일'), manualOff: n('수동 OFF'), manualOn: n('수동 ON'), manualTime: n('시간 OFF'), op: ds.filter((d) => d.on).length };
   });
   const sum = (k: keyof OpMonth) => months.reduce((a, x) => a + x[k], 0);
   return { year: y, months, days: sum('days'), weekend: sum('weekend'), holiday: sum('holiday'), op: sum('op') };

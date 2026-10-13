@@ -920,7 +920,7 @@ function seedChanges(): ContractChange[] {
 }
 
 /* ── 월 정산 — 계약에서 계산 (세금계산서·청구서 화면이 /ppa/settlements 로 읽는다) ───────── */
-const YIELD_KWH_PER_KW = [95, 100, 125, 135, 145, 130, 120, 125, 118, 112, 92, 88]; // 1월~12월, 울산 태양광 월 발전시간 근사
+export const YIELD_KWH_PER_KW = [95, 100, 125, 135, 145, 130, 120, 125, 118, 112, 92, 88]; // 1월~12월, 울산 태양광 월 발전시간 근사
 /** 마지막으로 끝난 달 — 2026-10-02 기준 9월분까지 발행 */
 const LAST_CONFIRMED = '2026-09';
 const CURRENT_PERIOD = LAST_CONFIRMED;
