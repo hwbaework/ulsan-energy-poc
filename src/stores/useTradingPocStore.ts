@@ -25,7 +25,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 36; // 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
+export const SEED_VERSION = 37; // 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -611,7 +611,7 @@ function seedRequests(): TradeRequest[] {
         ev(iso('2026-07-21', '09:00:00'), 'generator', '신청 취소', '설치 일정 보류'),
       ],
     }),
-    // 박발전(한일튜브) — 진행 중 자가소비 1건(PPA 는 id 5), 취소 PPA 1건(자가소비 취소는 id 9)
+    // 박발전(한일튜브) — 접수 자가소비 1건(PPA 미팅 중은 id 5), 취소 PPA 1건(자가소비 취소는 id 9)
     mk({
       id: 18,
       ...gen,
@@ -624,18 +624,14 @@ function seedRequests(): TradeRequest[] {
       capacityKw: 50,
       unitPrice: 0,
       termYears: 0,
-      status: 'REVIEW',
+      // 접수 — 관리자가 미팅을 확정하기 전. 박발전은 여기서 [신청 취소]를 누를 수 있다
+      status: 'SUBMITTED',
       submittedAt: iso('2026-10-02', '09:30:00'),
-      updatedAt: iso('2026-10-06', '14:00:00'),
       surveyDate: '2026-10-14',
       contact: { name: '박발전', phone: '010-2000-0002', email: 'operator@test.com' },
-      events: [
-        ev(iso('2026-10-02', '09:30:00'), 'generator', '신청 접수'),
-        ev(iso('2026-10-06', '14:00:00'), 'spc', '미팅 확정', '2026-10-14 예정'),
-      ],
+      events: [ev(iso('2026-10-02', '09:30:00'), 'generator', '신청 접수')],
       messages: [
-        { at: iso('2026-10-02', '09:35:00'), by: 'generator', byName: CO.HANIL.name, text: '제2공장 지붕 50kW 자가소비 추가 설치 검토 요청드립니다.' },
-        { at: iso('2026-10-06', '14:00:00'), by: 'spc', byName: CO.SPC.name, text: '10월 14일 오후 미팅으로 잡겠습니다.' },
+        { at: iso('2026-10-02', '09:35:00'), by: 'generator', byName: CO.HANIL.name, text: '제2공장 지붕 50kW 자가소비 추가 설치 검토 요청드립니다. 10월 14일 미팅 가능할까요?' },
       ],
     }),
     mk({

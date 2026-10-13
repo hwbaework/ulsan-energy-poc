@@ -240,7 +240,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   const isMine = isMineOf(role, r);
   const admin = role.isAdmin && active;
   // 접수(SUBMITTED): 조건 칸 없음 — 신청한 쪽은 신청 취소, 관리자는 미팅 확정 / 반려
-  // 미팅(REVIEW): 관리자와 신청한 쪽이 같은 칸을 보고 조건을 넣는다(채팅으로 맞추면서). 승인 · 반려는 관리자. 신청 취소는 없다
+  // 미팅(REVIEW): 관리자와 신청한 쪽이 같은 칸을 보고 조건을 넣고 저장한다(채팅으로 맞추면서). 승인 · 반려는 관리자, 신청 취소는 신청한 쪽이 승인 전까지
   const received = r.status === 'SUBMITTED';
   const editing = r.status === 'REVIEW' && (role.isAdmin || isMine);
   const confirmMeeting = useTradingPocStore((s) => s.confirmMeeting);
@@ -354,7 +354,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
           반려
         </Button>
       )}
-      {!role.isAdmin && isMine && received && (
+      {!role.isAdmin && isMine && active && (
         <Button size="sm" variant="danger" onClick={() => setConfirm('cancel')}>
           신청 취소
         </Button>
