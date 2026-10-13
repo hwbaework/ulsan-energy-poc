@@ -100,6 +100,8 @@ export interface SignMark {
   method: 'draw' | 'type';
   image?: string; // 직접 서명 PNG(data URL)
   typedName?: string; // 이름 입력
+  /** 서명한 사람 이름 — 화면엔 '이름 (회사)' */
+  person?: string;
   at: string;
 }
 

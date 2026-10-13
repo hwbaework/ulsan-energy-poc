@@ -157,7 +157,7 @@ function SheetBody({ doc, contract: c, change }: { doc: TradeDocument; contract:
             ['변경 유형', changeTypeLabel(change.type, c.kind)],
             ['요청 내용', changeText(change, c.kind)],
             ['요청', `${change.requestedByName} · ${fmtDateTime(change.requestedAt)}`],
-            ['승인', fmtDateTime(change.decidedAt)],
+            [change.type === 'TERMINATE' ? '해지' : '승인', fmtDateTime(change.decidedAt)],
             ['사유', change.reason],
             ['처리 의견', change.decisionNote],
           ]}

@@ -41,8 +41,11 @@ import type { SignMark } from '@/types/trading-poc';
 type SignData = { method: 'draw' | 'type'; image?: string; typedName?: string };
 
 /** 서명한 칸 — 직접 서명은 그 그림, 이름 입력은 그 이름(손글씨체)과 일시 */
-function SignMarkView({ mark, fallbackAt }: { mark?: SignMark; fallbackAt?: string }) {
+function SignMarkView({ mark, fallbackAt, company }: { mark?: SignMark; fallbackAt?: string; company: string }) {
   const at = mark?.at ?? fallbackAt;
+  // 서명한 사람 — 이름 (회사). 사람 이름이 없으면 회사만
+  const name = mark?.person ?? mark?.typedName ?? company;
+  const who = name !== company ? `${name} (${company})` : company;
   return (
     <div className="mt-3">
       <div className="flex h-24 items-center justify-center rounded-lg bg-[#0d1520] ring-1 ring-white/[0.08]">
@@ -57,9 +60,9 @@ function SignMarkView({ mark, fallbackAt }: { mark?: SignMark; fallbackAt?: stri
         )}
       </div>
       <p className="mt-2 text-xs text-slate-400 tabular-nums">
-        {mark ? (mark.method === 'draw' ? '직접 서명' : '이름 입력') : ''}
-        {mark && at ? ' · ' : ''}
-        {at ? fmtDateTime(at) : ''}
+        {who}
+        {mark ? ` · ${mark.method === 'draw' ? '직접 서명' : '이름 입력'}` : ''}
+        {at ? ` · ${fmtDateTime(at)}` : ''}
       </p>
     </div>
   );
@@ -253,9 +256,11 @@ export function TradeApprovalDetailScreen({ section = 'approvals' }: { section?:
                         mark: c.signMarkGenerator,
                         can: canSign,
                         pad: true,
-                        signer: role.isAdmin ? CO.SPC.name : role.companyName,
+                        company: spcSide ? CO.SPC.name : c.generatorCompanyName,
+                        signer: role.user?.name || (role.isAdmin ? CO.SPC.name : role.companyName),
                         onSign: (d?: SignData) => {
-                          sign(c.id, d && { method: d.method, image: d.image, typedName: d.typedName });
+                          const person = d?.typedName?.trim() || role.user?.name || undefined;
+                          sign(c.id, d && { method: d.method, image: d.image, typedName: d.typedName, person });
                           addToast('success', `${c.no} 전자서명`);
                         },
                         label: '관리자 전자서명',
@@ -266,9 +271,11 @@ export function TradeApprovalDetailScreen({ section = 'approvals' }: { section?:
                         mark: c.signMarkConsumer,
                         can: canSignConsumer,
                         pad: true,
-                        signer: role.companyName,
+                        company: c.consumerCompanyName,
+                        signer: role.user?.name || role.companyName,
                         onSign: (d?: SignData) => {
-                          confirmConsumer(c.id, d && { method: d.method, image: d.image, typedName: d.typedName });
+                          const person = d?.typedName?.trim() || role.user?.name || undefined;
+                          confirmConsumer(c.id, d && { method: d.method, image: d.image, typedName: d.typedName, person });
                           addToast('success', `${c.no} 전자서명`);
                         },
                         label: '기업 전자서명',
@@ -285,7 +292,7 @@ export function TradeApprovalDetailScreen({ section = 'approvals' }: { section?:
                       <p className="text-sm text-slate-300">{side.who}</p>
                       {/* 서명했으면 실제 서명(그림 · 입력한 이름)을 그대로 */}
                       {side.done ? (
-                        <SignMarkView mark={side.mark} fallbackAt={c.signedAt} />
+                        <SignMarkView mark={side.mark} fallbackAt={c.signedAt} company={side.company} />
                       ) : (
                         <p className="mt-2 text-2xl font-bold text-slate-500">서명 전</p>
                       )}

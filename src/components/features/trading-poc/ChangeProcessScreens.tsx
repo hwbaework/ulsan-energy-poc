@@ -73,14 +73,18 @@ function Stepper({ ch }: { ch: ContractChange }) {
 /** 서명 칸 — 서명이 있으면 서명, 내 차례면 서명 패드, 아니면 대기 */
 function SignBox({
   title,
+  company,
   sign,
   mine,
   signerName,
   onSign,
 }: {
   title: string;
+  /** 서명하는 쪽 회사 — 서명 아래 '이름 (회사)' */
+  company: string;
   sign?: ChangeSign;
   mine: boolean;
+  /** 서명하는 사람 이름(로그인 계정) — 이름 입력 기본값 */
   signerName: string;
   onSign: (s: ChangeSign) => void;
 }) {
@@ -99,7 +103,7 @@ function SignBox({
             )}
           </div>
           <p className="text-xs tabular-nums text-slate-400">
-            {sign.image ? '직접 서명' : '이름 입력'} · {fmtDateTime(sign.at)}
+            {sign.name !== company ? `${sign.name} (${company})` : company} · {sign.image ? '직접 서명' : '이름 입력'} · {fmtDateTime(sign.at)}
           </p>
         </div>
       ) : mine ? (
@@ -245,9 +249,10 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
               <div className="grid gap-4 md:grid-cols-2">
                 <SignBox
                   title={`관리자 · ${CO.SPC.name}`}
+                  company={CO.SPC.name}
                   sign={ch.spcSign}
                   mine={role.isAdmin && open && signing}
-                  signerName={CO.SPC.name}
+                  signerName={role.user?.name || CO.SPC.name}
                   onSign={(s) => {
                     signChange(ch.id, 'spc', s);
                     addToast('success', `${ch.no} 관리자 서명`);
@@ -255,9 +260,10 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
                 />
                 <SignBox
                   title={`기업 · ${c.consumerCompanyName}`}
+                  company={c.consumerCompanyName}
                   sign={ch.companySign}
                   mine={isCompany && open && signing}
-                  signerName={c.consumerCompanyName}
+                  signerName={role.user?.name || c.consumerCompanyName}
                   onSign={(s) => {
                     signChange(ch.id, 'company', s);
                     addToast('success', `${ch.no} ${c.consumerCompanyName} 서명`);
