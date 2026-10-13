@@ -45,11 +45,14 @@ function Direction({ fromSpc, company }: { fromSpc: boolean; company: string }) 
  *    받는 쪽이 [변경 동의]를 누르면 바로 조건 입력(거래의 미팅 확정처럼). 미팅은 시스템 밖(통화 등).
  *    해지는 조건이 없어 두 번째 칸이 해지 동의, 동의하면 바로 전자서명 ══ */
 const STEPS = ['신청', '조건 입력', '전자서명', '승인'] as const;
+/** 해지 — 조건이 없어 3칸. 양측 서명하면 바로 해지 */
+const STEPS_TERMINATE = ['신청', '해지 동의', '전자서명'] as const;
+const stepsOf = (ch: Pick<ContractChange, 'type'>) => (ch.type === 'TERMINATE' ? STEPS_TERMINATE : STEPS);
 /** 동의 이름 — 거래의 '조건 동의'처럼 무엇에 동의하는지 */
 const agreeLabel = (ch: Pick<ContractChange, 'type'>) => (ch.type === 'TERMINATE' ? '해지 동의' : '변경 동의');
 /** 지금 단계 번호 — 0 신청(동의 전) · 1 조건 입력 · 조건 동의 · 2 전자서명 · 4 끝 */
 const stepOf = (ch: ContractChange) =>
-  ch.status === 'APPROVED' ? STEPS.length : ch.stage === 'SIGN' ? 2 : ch.stage === 'TERMS' || ch.stage === 'AGREE' ? 1 : 0;
+  ch.status === 'APPROVED' ? stepsOf(ch).length : ch.stage === 'SIGN' ? 2 : ch.stage === 'TERMS' || ch.stage === 'AGREE' ? 1 : 0;
 /** 두 번째 칸 이름 — 해지는 해지 동의, 변경은 조건 입력 → (확정 뒤) 조건 동의 */
 const agreeStepLabel = (ch: ContractChange) => (ch.type === 'TERMINATE' ? '해지 동의' : ch.stage === 'AGREE' ? '조건 동의' : '조건 입력');
 
@@ -59,7 +62,7 @@ function Stepper({ ch }: { ch: ContractChange }) {
   const signed = Number(!!ch.spcSign) + Number(!!ch.companySign);
   return (
     <StepBar
-      steps={STEPS}
+      steps={stepsOf(ch)}
       step={stepOf(ch)}
       failed={failed}
       labelOf={(label) => (label === '조건 입력' ? agreeStepLabel(ch) : label === '전자서명' && ch.stage === 'SIGN' ? `전자서명 ${signed}/2` : label)}

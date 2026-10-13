@@ -39,7 +39,7 @@ export function ContractChangesScreen() {
   const year = String(new Date().getFullYear());
   const stats = {
     pending: role.changes.filter((c) => c.status === 'REQUESTED').length,
-    approved: role.changes.filter((c) => c.status === 'APPROVED' && (c.decidedAt ?? '').startsWith(year)).length,
+    approved: role.changes.filter((c) => c.status === 'APPROVED' && c.type !== 'TERMINATE' && (c.decidedAt ?? '').startsWith(year)).length, // 해지는 해지 완료 계약에
     rejected: role.changes.filter((c) => c.status === 'REJECTED' && (c.decidedAt ?? '').startsWith(year)).length,
     terminated: role.contracts.filter((c) => c.status === 'TERMINATED').length,
   };

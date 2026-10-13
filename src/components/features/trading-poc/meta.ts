@@ -54,8 +54,8 @@ export const CHANGE_STATUS: Record<ChangeStatus, { label: string; tone: StatusTo
 };
 
 /** 변경·해지 한 건의 상태 — 신청 → 변경 동의 → 조건 입력(관리자) → 조건 동의(상대) → 전자서명 → 승인. 해지는 동의 뒤 바로 전자서명. 멈춤은 반려 · 취소 */
-export type ChangeState = '신청' | '조건 입력' | '조건 동의' | '전자서명' | '승인' | '반려' | '취소';
-export const CHANGE_STATES: ChangeState[] = ['신청', '조건 입력', '조건 동의', '전자서명', '승인', '반려', '취소'];
+export type ChangeState = '신청' | '조건 입력' | '조건 동의' | '전자서명' | '승인' | '해지' | '반려' | '취소';
+export const CHANGE_STATES: ChangeState[] = ['신청', '조건 입력', '조건 동의', '전자서명', '승인', '해지', '반려', '취소'];
 export const changeStateOf = (ch: {
   status: ChangeStatus;
   type: ChangeType;
@@ -63,7 +63,7 @@ export const changeStateOf = (ch: {
 }): ChangeState => {
   if (ch.status === 'REJECTED') return '반려';
   if (ch.status === 'CANCELLED') return '취소';
-  if (ch.status === 'APPROVED') return '승인';
+  if (ch.status === 'APPROVED') return ch.type === 'TERMINATE' ? '해지' : '승인'; // 해지는 양측 서명이 곧 끝
   if (ch.stage === 'TERMS') return '조건 입력';
   if (ch.stage === 'AGREE') return '조건 동의';
   return ch.stage === 'SIGN' ? '전자서명' : '신청';
@@ -74,6 +74,7 @@ export const CHANGE_STATE_TONE: Record<ChangeState, StatusTone> = {
   '조건 동의': 'warning',
   전자서명: 'warning',
   승인: 'normal',
+  해지: 'danger',
   반려: 'danger',
   취소: 'muted',
 };
