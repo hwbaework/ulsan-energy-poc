@@ -194,6 +194,24 @@ export function TradeHistoryDetailScreen() {
 
 /* ── 조건 — 미팅 뒤 신청 내용 칸에 그 자리에서 넣는다(관리자): 설치 용량 · 계약 기간 · 단가 ── */
 type Draft = Record<'capacityKw' | 'termYears' | 'price' | 'installUnit' | 'extraCost' | 'omRatePct' | 'tariffPlan', string>;
+/** 조건 칸 범위 — [최소, 최대, 소수 자리]. 추가 설치비용만 0 허용(선택) */
+const TERM_LIM: Record<Exclude<keyof Draft, 'tariffPlan'>, readonly [number, number, number]> = {
+  capacityKw: [1, 10_000, 2], // kW — 거래 신청 · 무료진단과 같은 최대
+  termYears: [1, 25, 0], // 년
+  price: [0.1, 1_000, 1], // ₩/kWh — 무료진단 구간 단가와 같은 최대
+  installUnit: [1, 10_000_000, 0], // 원/kW — 무료진단 설치단가와 같은 최대
+  extraCost: [0, 10_000_000_000, 0], // 원
+  omRatePct: [0.1, 20, 1], // 설치비 대비 %
+};
+/** 숫자 칸 — 숫자와 점 하나, 정해진 소수 자리까지, 최대를 넘으면 최대 */
+const numIn = (raw: string, [, hi, dec]: readonly [number, number, number]) => {
+  let v = raw.replace(dec ? /[^0-9.]/g : /[^0-9]/g, '');
+  const dot = v.indexOf('.');
+  if (dot >= 0) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, '').slice(0, dec);
+  return Number(v) > hi ? String(hi) : v;
+};
+const inLim = (v: number, [lo, hi]: readonly [number, number, number]) => v >= lo && v <= hi;
+
 /** 글자 칸 — 숫자로 비교하지 않는다 */
 const TEXT_KEYS: (keyof Draft)[] = ['tariffPlan'];
 const draftOf = (r: TradeRequest): Draft => ({
@@ -255,7 +273,15 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   );
   const n = (k: keyof Draft) => Number(draft[k]) || 0;
   const self = r.kind === 'SELF_CONSUMPTION';
-  const valid = n('capacityKw') > 0 && n('termYears') > 0 && n('installUnit') > 0 && n('omRatePct') > 0 && !!draft.tariffPlan && (self || n('price') > 0);
+  // 필수 — 설치 용량 · 계약 기간 · 설치 단가 · 연간 O&M · 요금제 (PPA 는 PPA 단가도). 추가 설치비용만 선택
+  const low = (k: Exclude<keyof Draft, 'tariffPlan'>) => (draft[k] !== '' && n(k) < TERM_LIM[k][0] ? `${TERM_LIM[k][0].toLocaleString('ko-KR')} 이상` : undefined);
+  const valid =
+    inLim(n('capacityKw'), TERM_LIM.capacityKw) &&
+    inLim(n('termYears'), TERM_LIM.termYears) &&
+    inLim(n('installUnit'), TERM_LIM.installUnit) &&
+    inLim(n('omRatePct'), TERM_LIM.omRatePct) &&
+    !!draft.tariffPlan &&
+    (self || inLim(n('price'), TERM_LIM.price));
   // 승인 — 조건이 저장돼 있어야(미팅 완료 같은 버튼은 없다. 미팅은 채팅으로, 값은 여기에)
   const termsSaved = r.capacityKw > 0 && r.termYears > 0 && !!r.installUnit && !!r.omRatePct && !!r.tariffPlan && (self || r.unitPrice > 0);
   const confirmTerms = useTradingPocStore((s) => s.confirmTerms);
@@ -267,14 +293,16 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   const [reason, setReason] = useState('');
   const [confirm, setConfirm] = useState<'approve' | null>(null);
 
-  const set = (k: keyof Draft) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setDraft((d) => ({ ...d, [k]: e.target.value }));
-  const money = (k: keyof Draft, label: string) => (
+  const set = (k: Exclude<keyof Draft, 'tariffPlan'>) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setDraft((d) => ({ ...d, [k]: numIn(e.target.value, TERM_LIM[k]) }));
+  const money = (k: 'installUnit' | 'extraCost', label: string, required?: boolean) => (
     <Input
       label={label}
       inputMode="numeric"
+      required={required}
+      error={low(k)}
       value={draft[k] ? Number(draft[k]).toLocaleString('ko-KR') : ''}
-      onChange={(e) => setDraft((d) => ({ ...d, [k]: e.target.value.replace(/[^\d]/g, '') }))}
+      onChange={(e) => setDraft((d) => ({ ...d, [k]: numIn(e.target.value, TERM_LIM[k]) }))}
     />
   );
   const edit: TermsEdit | undefined = editing
@@ -293,18 +321,19 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
           />
         ),
         capacity: (
-          <Input label="설치 용량 (kW)" type="number" min={1} step="0.01" value={draft.capacityKw} onChange={set('capacityKw')} />
+          <Input label="설치 용량 (kW)" inputMode="decimal" required error={low('capacityKw')} value={draft.capacityKw} onChange={set('capacityKw')} />
         ),
-        term: <Input label="계약 기간 (년)" type="number" min={1} max={25} value={draft.termYears} onChange={set('termYears')} />,
-        price: <Input label="PPA 단가 (₩/kWh)" type="number" min={0.1} step="0.1" value={draft.price} onChange={set('price')} />,
-        installUnit: money('installUnit', '설치 단가 (원/kW)'),
+        term: <Input label="계약 기간 (년)" inputMode="numeric" required error={low('termYears')} value={draft.termYears} onChange={set('termYears')} />,
+        price: <Input label="PPA 단가 (₩/kWh)" inputMode="decimal" required error={low('price')} value={draft.price} onChange={set('price')} />,
+        installUnit: money('installUnit', '설치 단가 (원/kW)', true),
         extraCost: money('extraCost', '추가 설치비용 (원)'),
         omRatePct: (
-          <Input label="연간 O&M (설치비 대비, %)" type="number" min={0.1} step="0.1" value={draft.omRatePct} onChange={set('omRatePct')} />
+          <Input label="연간 O&M (설치비 대비, %)" inputMode="decimal" required error={low('omRatePct')} value={draft.omRatePct} onChange={set('omRatePct')} />
         ),
         tariffPlan: (
           <Select
             label="요금제"
+            required
             options={[{ value: '', label: '선택' }, ...Object.values(PLAN_LABEL).map((l) => ({ value: l, label: l }))]}
             value={draft.tariffPlan}
             onChange={(e) => setDraft((d) => ({ ...d, tariffPlan: e.target.value }))}
