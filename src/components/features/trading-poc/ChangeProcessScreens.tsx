@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Send } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Download, Send } from 'lucide-react';
 import { SectionCard } from '@/components/features/SectionCard';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { BackButton } from '@/components/layout/PageTitle';
@@ -12,11 +12,12 @@ import { Textarea } from '@/components/ui/Textarea';
 import { cn } from '@/lib/utils';
 import { useToastStore } from '@/stores/useToastStore';
 import { CO, useTradingPocStore } from '@/stores/useTradingPocStore';
-import type { ChangeSign, Contract, ContractChange } from '@/types/trading-poc';
+import type { ChangeSign, Contract, ContractChange, TradeDocument } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
 import { changeTypeLabel, fmtDateTime, kindLabel } from './meta';
 import { EventTimeline, Info, StepBar, TEXT_MAX } from './Bits';
 import { changeText } from './ChangeDetailModal';
+import { DocumentSheet, printSheet } from './DocumentSheet';
 
 /** 지금(한국 시각) — toISOString 은 UTC 라 9시간 어긋난다 */
 const localNow = () => {
@@ -37,7 +38,9 @@ function Direction({ fromSpc, company }: { fromSpc: boolean; company: string }) 
 }
 
 /* ══ 변경·해지 한 건 — 거래와 같은 말: 신청 → 동의(받는 쪽) → 전자서명(양쪽) → 승인. 요청 내용 · 합의서 · 진행 이력, 옆에 채팅. 팝업 없음 ══ */
-const STEPS = ['신청', '동의', '전자서명', '승인'] as const;
+const STEPS = ['신청', '동의', '전자서명', '승인'] as const; // 동의 칸은 변경 동의 / 해지 동의로 보인다
+/** 동의 이름 — 거래의 '조건 동의'처럼 무엇에 동의하는지 */
+const agreeLabel = (ch: Pick<ContractChange, 'type'>) => (ch.type === 'TERMINATE' ? '해지 동의' : '변경 동의');
 /** 지금 단계 — 1 동의 대기 · 2 전자서명 · 3 승인(끝) */
 const stepOf = (ch: ContractChange) => (ch.status === 'APPROVED' ? 3 : ch.stage === 'SIGN' ? 2 : 1);
 
@@ -52,7 +55,7 @@ function Stepper({ ch }: { ch: ContractChange }) {
       steps={STEPS}
       step={step}
       failed={failed}
-      labelOf={(label, i) => (i === 2 && ch.stage === 'SIGN' ? `전자서명 ${signed}/2` : label)}
+      labelOf={(label, i) => (i === 1 ? agreeLabel(ch) : i === 2 && ch.stage === 'SIGN' ? `전자서명 ${signed}/2` : label)}
     />
   );
 }
@@ -63,14 +66,12 @@ function SignBox({
   sign,
   mine,
   signerName,
-  summary,
   onSign,
 }: {
   title: string;
   sign?: ChangeSign;
   mine: boolean;
   signerName: string;
-  summary: string[];
   onSign: (s: ChangeSign) => void;
 }) {
   return (
@@ -87,17 +88,12 @@ function SignBox({
               </span>
             )}
           </div>
-          <p className="text-sm text-emerald-400">
-            서명 완료 <span className="tabular-nums text-slate-400">· {fmtDateTime(sign.at)}</span>
+          <p className="text-xs tabular-nums text-slate-400">
+            {sign.image ? '직접 서명' : '이름 입력'} · {fmtDateTime(sign.at)}
           </p>
         </div>
       ) : mine ? (
-        <ContractSignature
-          contractTitle="합의 내용"
-          contractSummary={summary}
-          signerName={signerName}
-          onSign={(x) => onSign({ at: localNow(), name: signerName, image: x.image })}
-        />
+        <ContractSignature signerName={signerName} onSign={(x) => onSign({ at: localNow(), name: x.typedName?.trim() || signerName, image: x.image })} />
       ) : (
         <div className="flex h-28 items-center justify-center rounded-lg ring-1 ring-dashed ring-white/[0.1]">
           <span className="text-sm text-slate-500">서명 대기</span>
@@ -144,6 +140,22 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
   const [confirm, setConfirm] = useState<'cancel' | null>(null);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
+  // 합의서 문서 — 양측 서명 뒤는 문서 관리의 서명본, 그 전은 같은 양식의 초안
+  const sheet = useRef<HTMLDivElement>(null);
+  const signedDoc = useTradingPocStore((s) => s.documents.find((d) => d.category === 'CHANGE' && d.fileName.startsWith(`${ch.no}_`)));
+  const agreementDoc: TradeDocument = signedDoc ?? {
+    id: -1,
+    category: 'CHANGE',
+    title: `${ch.type === 'TERMINATE' ? '계약 해지 합의서' : '계약 변경 합의서'} (초안) — ${c.plantName}`,
+    fileName: `${ch.no}_합의서.pdf`,
+    contractId: c.id,
+    contractNo: c.no,
+    plantName: c.plantName,
+    partyCompanyIds: [c.generatorCompanyId, c.consumerCompanyId],
+    issuedAt: localNow().slice(0, 10),
+    fileType: 'PDF',
+    sizeKb: 0,
+  };
 
   const open = ch.status === 'REQUESTED';
   const step = stepOf(ch);
@@ -154,19 +166,13 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
   const receiver = role.isAdmin ? !fromSpc : fromSpc && isCompany;
   const typeLabel = changeTypeLabel(ch.type, c.kind);
 
-  const summary = [
-    `${c.no} · ${c.consumerCompanyName} · ${kindLabel(c.kind)}`,
-    `${typeLabel}: ${changeText(ch, c.kind)}`,
-    ...(ch.effectiveDate ? [`${ch.type === 'TERMINATE' ? '해지일' : '적용일'}: ${ch.effectiveDate}`] : []),
-    `사유: ${ch.reason}`,
-  ];
 
   const actions = (
     <>
       {open && receiver && step === 1 && (
         <>
           <Button size="sm" onClick={() => move(ch.id, 'SIGN', undefined, role.party)}>
-            동의
+            {agreeLabel(ch)}
           </Button>
           <Button size="sm" variant="danger" onClick={() => setRejecting(true)}>
             반려
@@ -176,6 +182,12 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
       {open && mineRequest && step === 1 && (
         <Button size="sm" variant="danger" onClick={() => setConfirm('cancel')}>
           신청 취소
+        </Button>
+      )}
+      {/* 전자서명 중 — 거래 전자서명처럼 신청한 쪽이 사유를 적고 반려(진행 멈춤) */}
+      {open && mineRequest && step === 2 && (
+        <Button size="sm" variant="danger" onClick={() => setRejecting(true)}>
+          반려
         </Button>
       )}
     </>
@@ -201,6 +213,36 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
             <Stepper ch={ch} />
           </div>
         </div>
+
+        {/* 합의서 — 전자서명 단계부터 맨 위. 내용은 아래 요청 칸에 있어 요약을 다시 두지 않는다. 둘 다 서명하면 승인 · 서명본이 문서 관리에 */}
+        {(step >= 2 || ch.spcSign || ch.companySign) && (
+          <SectionCard title={`${ch.type === 'TERMINATE' ? '계약 해지' : '계약 변경'} 합의서`}>
+            <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <SignBox
+                  title={`관리자 · ${CO.SPC.name}`}
+                  sign={ch.spcSign}
+                  mine={role.isAdmin && open && step === 2}
+                  signerName={CO.SPC.name}
+                  onSign={(s) => {
+                    signChange(ch.id, 'spc', s);
+                    addToast('success', `${ch.no} 관리자 서명`);
+                  }}
+                />
+                <SignBox
+                  title={`기업 · ${c.consumerCompanyName}`}
+                  sign={ch.companySign}
+                  mine={isCompany && open && step === 2}
+                  signerName={c.consumerCompanyName}
+                  onSign={(s) => {
+                    signChange(ch.id, 'company', s);
+                    addToast('success', `${ch.no} ${c.consumerCompanyName} 서명`);
+                  }}
+                />
+              </div>
+            </div>
+          </SectionCard>
+        )}
 
         <SectionCard title={<Direction fromSpc={fromSpc} company={c.consumerCompanyName} />} actions={actions}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -232,7 +274,7 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
                   variant="danger"
                   disabled={!reason.trim()}
                   onClick={() => {
-                    reject(ch.id, reason.trim());
+                    reject(ch.id, reason.trim(), role.party);
                     addToast('success', `${ch.no} 반려`);
                     setRejecting(false);
                   }}
@@ -244,40 +286,17 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
           )}
         </SectionCard>
 
-        {/* 합의서 — 서로 확인했다는 서명. 둘 다 서명하면 계약 반영 · 서명본이 문서 관리에 */}
+        {/* 합의서 문서 — 계약서처럼. 전자서명 단계부터 초안, 양측 서명 뒤 서명본(문서 관리에도 남는다) */}
         {(step >= 2 || ch.spcSign || ch.companySign) && (
-          <SectionCard title={`${ch.type === 'TERMINATE' ? '계약 해지' : '계약 변경'} 합의서`}>
-            <div className="space-y-4">
-              <ul className="space-y-1 rounded-lg bg-white/[0.02] p-4 text-sm text-slate-300 ring-1 ring-white/[0.06]">
-                {summary.map((l) => (
-                  <li key={l}>{l}</li>
-                ))}
-              </ul>
-              <div className="grid gap-4 md:grid-cols-2">
-                <SignBox
-                  title={`SPC · ${CO.SPC.name}`}
-                  sign={ch.spcSign}
-                  mine={role.isAdmin && open && step === 2}
-                  signerName={CO.SPC.name}
-                  summary={summary}
-                  onSign={(s) => {
-                    signChange(ch.id, 'spc', s);
-                    addToast('success', `${ch.no} 관리자 서명`);
-                  }}
-                />
-                <SignBox
-                  title={`기업 · ${c.consumerCompanyName}`}
-                  sign={ch.companySign}
-                  mine={isCompany && open && step === 2}
-                  signerName={c.consumerCompanyName}
-                  summary={summary}
-                  onSign={(s) => {
-                    signChange(ch.id, 'company', s);
-                    addToast('success', `${ch.no} ${c.consumerCompanyName} 서명`);
-                  }}
-                />
-              </div>
-            </div>
+          <SectionCard
+            title={signedDoc ? '합의서 (서명본)' : '합의서 (초안)'}
+            actions={
+              <Button size="sm" variant="secondary" onClick={() => printSheet(sheet.current, agreementDoc.fileName.replace(/\.pdf$/, ''))}>
+                <Download size={14} className="mr-1.5" /> 다운로드
+              </Button>
+            }
+          >
+            <DocumentSheet doc={agreementDoc} contract={c} change={ch} sheetRef={sheet} />
           </SectionCard>
         )}
 

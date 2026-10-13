@@ -26,7 +26,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 53; // 2026-10-13 변경·해지도 신청 접수 → 동의 → 전자서명 → 승인 완료. 52 — 2026-10-13 진행 이력 조건 동의(관리자 · 신청한 쪽) → 전자서명 → 승인 완료, 표시 SPC → 관리자. 51 — 2026-10-13 진행 이력 '승인'은 양측 서명 완료만, 동의는 '조건 동의'. 50 — 2026-10-13 서명 흔적(그림 · 이름) 저장. 49 — 2026-10-13 전자서명 자가소비(건호) · PPA(한일튜브) 1건씩. 48 — 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
+export const SEED_VERSION = 55; // 2026-10-13 변경·해지 동의 → 변경 동의 / 해지 동의. 54 — 2026-10-13 승인된 변경·해지 합의서(서명본) 시드. 53 — 2026-10-13 변경·해지도 신청 접수 → 동의 → 전자서명 → 승인 완료. 52 — 2026-10-13 진행 이력 조건 동의(관리자 · 신청한 쪽) → 전자서명 → 승인 완료, 표시 SPC → 관리자. 51 — 2026-10-13 진행 이력 '승인'은 양측 서명 완료만, 동의는 '조건 동의'. 50 — 2026-10-13 서명 흔적(그림 · 이름) 저장. 49 — 2026-10-13 전자서명 자가소비(건호) · PPA(한일튜브) 1건씩. 48 — 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -807,7 +807,7 @@ function seedChanges(): ContractChange[] {
       stage: 'SIGN',
       events: [
         ev(iso('2026-09-10', '10:00:00'), 'spc', '신청 접수', 'O&M ₩622,080 → ₩746,496/년'),
-        ev(iso('2026-09-25', '10:00:00'), 'consumer', '동의'),
+        ev(iso('2026-09-25', '10:00:00'), 'consumer', '변경 동의'),
         ev(iso('2026-09-26', '11:20:00'), 'consumer', '전자서명', `${CO.TAESUNG.name} 서명`),
       ],
       messages: [
@@ -865,7 +865,7 @@ function seedChanges(): ContractChange[] {
       decisionNote: '2026-02 정산분부터 적용',
       events: [
         ev(iso('2026-01-12', '09:00:00'), 'generator', '신청 접수', 'O&M ₩1,078,272 → ₩1,347,840/년'),
-        ev(iso('2026-01-26', '10:00:00'), 'spc', '동의'),
+        ev(iso('2026-01-26', '10:00:00'), 'spc', '변경 동의'),
         ev(iso('2026-01-27', '16:00:00'), 'generator', '전자서명', `${HANIL} 서명`),
         ev(iso('2026-01-28', '15:00:00'), 'spc', '전자서명', `${CO.SPC.name} 서명`),
         ev(
@@ -1055,7 +1055,7 @@ export function settlementsOf(contracts: Contract[]): TradeSettlement[] {
 }
 
 /* ── 문서 — 발행되고 받은 것만: 계약서(서명본) · 청구서 · 세금계산서 ───────────────── */
-function seedDocuments(contracts: Contract[]): TradeDocument[] {
+function seedDocuments(contracts: Contract[], changes: ContractChange[] = []): TradeDocument[] {
   const docs: TradeDocument[] = [];
   let id = 1;
   const push = (d: Omit<TradeDocument, 'id'>) => docs.push({ id: id++, ...d });
@@ -1104,6 +1104,24 @@ function seedDocuments(contracts: Contract[]): TradeDocument[] {
       sizeKb: 268,
     });
   }
+  // 승인된 변경·해지 — 합의서(서명본)
+  for (const ch of changes) {
+    if (ch.status !== 'APPROVED') continue;
+    const c = contracts.find((x) => x.id === ch.contractId);
+    if (!c) continue;
+    push({
+      category: 'CHANGE',
+      title: `${ch.type === 'TERMINATE' ? '계약 해지 합의서' : '계약 변경 합의서'} (서명본) — ${c.plantName}`,
+      fileName: `${ch.no}_합의서.pdf`,
+      contractId: c.id,
+      contractNo: c.no,
+      plantName: c.plantName,
+      partyCompanyIds: parties(c),
+      issuedAt: (ch.decidedAt ?? ch.requestedAt).slice(0, 10),
+      fileType: 'PDF',
+      sizeKb: 640,
+    });
+  }
   return docs.sort((a, b) => b.issuedAt.localeCompare(a.issuedAt) || b.id - a.id);
 }
 function nextMonthDay(period: string, day: number) {
@@ -1121,7 +1139,7 @@ function buildSeed() {
     requests: seedRequests(),
     contracts,
     changes,
-    documents: seedDocuments(contracts),
+    documents: seedDocuments(contracts, changes),
     invoices: {} as Record<string, InvoiceRecord>,
   };
 }
@@ -1206,7 +1224,7 @@ interface TradingPocState {
   ) => void;
   /** 합의서 서명 — 둘 다 서명하면 계약에 반영 · 서명본 합의서가 문서 관리에 */
   signChange: (id: number, side: 'spc' | 'company', sign: ChangeSign) => void;
-  rejectChange: (id: number, note: string) => void;
+  rejectChange: (id: number, note: string, by?: Party) => void;
   cancelChange: (id: number) => void;
   addDocument: (doc: Omit<TradeDocument, 'id' | 'issuedAt'> & { issuedAt?: string }) => void;
   /** 원본 올리기 — 발행된 전자세금계산서 파일을 그 달 문서에 붙인다(다시 올리면 바꾼다) */
@@ -1536,7 +1554,7 @@ export const useTradingPocStore = create<TradingPocState>()(
               ? {
                   ...x,
                   stage,
-                  events: [...(x.events ?? []), ev(nowIso(), by ?? 'spc', '동의', note)],
+                  events: [...(x.events ?? []), ev(nowIso(), by ?? 'spc', x.type === 'TERMINATE' ? '해지 동의' : '변경 동의', note)],
                 }
               : x,
           ),
@@ -1596,7 +1614,7 @@ export const useTradingPocStore = create<TradingPocState>()(
         }
       },
 
-      rejectChange: (id, note) =>
+      rejectChange: (id, note, by = 'spc') =>
         set((s) => ({
           changes: s.changes.map((x) =>
             x.id === id
@@ -1605,7 +1623,7 @@ export const useTradingPocStore = create<TradingPocState>()(
                   status: 'REJECTED',
                   decidedAt: nowIso(),
                   decisionNote: note,
-                  events: [...(x.events ?? []), ev(nowIso(), 'spc', '반려', note)],
+                  events: [...(x.events ?? []), ev(nowIso(), by, '반려', note)],
                 }
               : x,
           ),
