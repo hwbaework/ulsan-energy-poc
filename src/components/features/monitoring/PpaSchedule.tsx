@@ -59,6 +59,8 @@ const reasonText = (d: DayStatus) =>
 /** 운전 일정 카드 — 달력(누르면 그날 가동 / OFF 바꿈) + 해 요약 + 달마다 가동일 */
 export function PpaScheduleCard({ companyId: fixed }: { companyId?: number }) {
   useHydrateOpSchedule();
+  // 바로 반영하지 않는다 — 규칙 · 날짜 · 오늘 수동 전부 확인창을 거친다
+  const [pendingChange, setPendingChange] = useState<{ title: string; text: string; run: () => void } | null>(null);
   const companies = usePpaCompanies();
   const [pick, setPick] = useState<number | null>(null);
   const companyId = fixed ?? pick ?? companies[0]?.id;
@@ -99,7 +101,15 @@ export function PpaScheduleCard({ companyId: fixed }: { companyId?: number }) {
               ] as const
             ).map(([k, label]) => (
               <label key={k} className="flex cursor-pointer items-center gap-2">
-                <input type="checkbox" className="h-4 w-4 accent-primary" checked={sch[k]} onChange={(e) => store.setRule(companyId, { [k]: e.target.checked }, by(), base)} />
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-primary"
+                  checked={sch[k]}
+                  onChange={(e) => {
+                    const v = e.target.checked;
+                    setPendingChange({ title: `${label} ${v ? '켜기' : '끄기'}`, text: `${label}을 ${v ? '적용' : '해제'}합니다. 가동일이 바뀝니다.`, run: () => store.setRule(companyId, { [k]: v }, by(), base) });
+                  }}
+                />
                 {label}
               </label>
             ))}
@@ -172,7 +182,7 @@ export function PpaScheduleCard({ companyId: fixed }: { companyId?: number }) {
                 <button
                   key={d.date}
                   type="button"
-                  onClick={() => store.toggleDay(companyId, d.date, auto, by(), base)}
+                  onClick={() => setPendingChange({ title: d.on ? '인버터 OFF' : '인버터 ON', text: `${d.date} (${WEEK[weekdayOf(d.date)]}) ${reasonText(d)} → ${d.on ? 'OFF' : 'ON'} 로 바꿉니다.`, run: () => store.toggleDay(companyId, d.date, auto, by(), base) })}
                   className={cn(
                     'min-h-[58px] rounded-md px-1.5 py-1 text-left ring-1 transition-colors',
                     d.on ? 'bg-white/[0.04] ring-white/[0.08] hover:bg-white/[0.08]' : 'bg-black/30 ring-white/[0.04] hover:bg-white/[0.06]',
@@ -188,6 +198,29 @@ export function PpaScheduleCard({ companyId: fixed }: { companyId?: number }) {
           </div>
         </div>
       </div>
+      <Modal
+        open={pendingChange !== null}
+        onClose={() => setPendingChange(null)}
+        title={pendingChange?.title ?? ''}
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="cancel" onClick={() => setPendingChange(null)}>
+              취소
+            </Button>
+            <Button
+              onClick={() => {
+                pendingChange?.run();
+                setPendingChange(null);
+              }}
+            >
+              적용
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-slate-200">{pendingChange?.text}</p>
+      </Modal>
     </SectionCard>
   );
 }
@@ -353,7 +386,7 @@ export function PpaOpInfo({ companyId }: { companyId: number }) {
   );
 }
 
-/** 발전소 발전·공급 안(관리자 · 발전사업자) — PPA 운전 한 줄. 토글(글자 없음) + 현재 ON / OFF, 그 옆에 그래프 단위를 따라
+/** 발전소 발전·공급 안(관리자 · 발전사업자) — PPA 운전 한 줄, 조회만(끄고 켜는 건 설정 › 설정). 토글(글자 없음) + 현재 ON / OFF, 그 옆에 그래프 단위를 따라
  *  시간 = 이번 주 요일 칸 · 일 = 그 달 날짜 칸 · 월 = 없음(달 단위로 끄고 켤 수는 없으니 현재만).
  *  칸은 ON 초록 · OFF 어둡게 · 오늘 테두리. 발전사업자가 칸을 누르면 "바꿀까요?" 확인창 → 그날 ON/OFF(수동 지정, 설정 › 설정 달력과 같은 값). 관리자는 조회만. 토글은 오늘 */
 export function PpaOpInline({ plantId, tu, month }: { plantId: number; tu: 'hour' | 'day' | 'month'; month: string }) {
@@ -373,12 +406,10 @@ export function PpaOpInline({ plantId, tu, month }: { plantId: number; tu: 'hour
   const store = useOpScheduleStore();
   const { data: es } = useEnergySettings();
   const [ask, setAsk] = useState<{ date: string; on: boolean; hs: Map<string, string> } | null>(null);
-  const [askToggle, setAskToggle] = useState(false);
   if (companyId === undefined || (persona !== 'admin' && persona !== 'generator')) return null;
   const base = opRuleOf(es);
   const sch = scheduleOf(store, companyId, base);
   const plan = dayStatus(now, holidaysNow, sch, sch.overrides);
-  const autoOn = dayStatus(now, holidaysNow, sch).on;
   // 지금 상태 — 수동으로 껐는지, 설정(쉬는 날 · 고정 시간)으로 꺼졌는지
   const hhmm = (() => {
     const d = new Date();
@@ -391,8 +422,8 @@ export function PpaOpInline({ plantId, tu, month }: { plantId: number; tu: 'hour
   const cell = 'inline-flex h-7 min-w-[30px] items-center justify-center gap-1 rounded-md px-1.5 text-xs tabular-nums ring-1 transition-colors';
   const onCls = 'bg-emerald-500/15 text-emerald-200 ring-emerald-500/30 enabled:hover:bg-emerald-500/25';
   const offCls = 'bg-black/30 text-slate-500 ring-white/[0.06] enabled:hover:bg-white/[0.08]';
-  // 날짜 칸 — 발전사업자는 누르면 확인창 뒤 그날 ON/OFF, 관리자는 조회만
-  const canEdit = persona === 'generator';
+  // 날짜 칸 — 대시보드는 조회만(끄고 켜는 건 설정 › 설정)
+  const canEdit = false;
   const dayCell = (d: string, hs: Map<string, string>, label?: string) => {
     const st = dayStatus(d, hs, sch, sch.overrides);
     return (
@@ -415,18 +446,8 @@ export function PpaOpInline({ plantId, tu, month }: { plantId: number; tu: 'hour
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-300">
       <div className="flex items-center gap-2.5">
-        {/* 토글 — 누르면 바로 바뀌지 않고 확인창을 거친다. 관리자는 조회만 */}
-        <button
-          type="button"
-          role="switch"
-          aria-checked={isOn}
-          aria-label="오늘 인버터 ON / OFF"
-          disabled={!canEdit}
-          onClick={() => setAskToggle(true)}
-          className={cn('relative h-5 w-9 shrink-0 rounded-full ring-1 transition-colors disabled:cursor-default', isOn ? 'bg-emerald-500/80 ring-emerald-400/60' : 'bg-white/10 ring-white/20')}
-        >
-          <span className={cn('absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all', isOn ? 'left-[18px]' : 'left-0.5')} />
-        </button>
+        {/* 조회만 — 끄고 켜는 건 설정 › 설정에서(확인창 거쳐) */}
+        <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', isOn ? 'bg-emerald-400' : 'bg-red-400')} />
         <span>
           현재 <b className={isOn ? 'text-emerald-300' : 'text-red-300'}>{isOn ? 'ON' : 'OFF'}</b>
           {why && <span className="ml-1.5 text-xs text-slate-400">{why}</span>}
@@ -444,36 +465,6 @@ export function PpaOpInline({ plantId, tu, month }: { plantId: number; tu: 'hour
           {monthStatus(Number(month.slice(0, 4)), Number(month.slice(5, 7)), holidays, sch, sch.overrides).map((d) => dayCell(d.date, holidays))}
         </div>
       )}
-      {/* 토글 확인 — 수동 ON / OFF */}
-      <Modal
-        open={askToggle}
-        onClose={() => setAskToggle(false)}
-        title={isOn ? '인버터 OFF' : '인버터 ON'}
-        size="sm"
-        footer={
-          <div className="flex justify-end gap-2">
-            <Button variant="cancel" onClick={() => setAskToggle(false)}>
-              취소
-            </Button>
-            <Button
-              variant={isOn ? 'danger' : 'primary'}
-              onClick={() => {
-                store.setRemote(companyId, now, !isOn, autoOn && !offByTime, by(), base);
-                setAskToggle(false);
-              }}
-            >
-              {isOn ? 'OFF 로 바꾸기' : 'ON 으로 바꾸기'}
-            </Button>
-          </div>
-        }
-      >
-        <p className="text-sm text-slate-200">
-          {`지금 ${isOn ? 'ON' : 'OFF'}${why ? ` (${why})` : ''} 인 인버터를 수동으로 `}
-          <b className="text-white">{isOn ? 'OFF' : 'ON'}</b>
-          {' 합니다. 오늘 하루에만 적용됩니다.'}
-        </p>
-      </Modal>
-
       {/* 바꿀까요? — 그날만 수동 지정 */}
       <Modal
         open={ask !== null}

@@ -26,7 +26,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 50; // 2026-10-13 서명 흔적(그림 · 이름) 저장. 49 — 2026-10-13 전자서명 자가소비(건호) · PPA(한일튜브) 1건씩. 48 — 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
+export const SEED_VERSION = 51; // 2026-10-13 진행 이력 '승인'은 양측 서명 완료만, 동의는 '조건 동의'. 50 — 2026-10-13 서명 흔적(그림 · 이름) 저장. 49 — 2026-10-13 전자서명 자가소비(건호) · PPA(한일튜브) 1건씩. 48 — 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -291,8 +291,8 @@ function seedRequests(): TradeRequest[] {
   const signedEvents = (submitted: string, review: string, approved: string, signed: string) => [
     ev(submitted, 'generator', '신청 접수'),
     ev(review, 'spc', '미팅 확정'),
-    ev(approved, 'spc', '승인', '계약서 초안 생성'),
-    ev(signed, 'generator', '전자서명'),
+    ev(approved, 'generator', '조건 동의', '계약서 초안 생성'),
+    ev(signed, 'spc', '전자서명'),
     ev(signed, 'consumer', '전자서명'),
     ev(signed, 'spc', '승인'),
   ];
@@ -387,8 +387,8 @@ function seedRequests(): TradeRequest[] {
       events: [
         ev(iso('2025-03-15'), 'consumer', '신청 접수'),
         ev(iso('2025-03-17'), 'spc', '미팅 확정'),
-        ev(iso('2025-03-28'), 'spc', '승인', '계약서 초안 생성'),
-        ev(iso('2025-04-18', '10:40:00'), 'generator', '전자서명'),
+        ev(iso('2025-03-28'), 'consumer', '조건 동의', '계약서 초안 생성'),
+        ev(iso('2025-04-18', '10:40:00'), 'spc', '전자서명'),
         ev(iso('2025-04-18', '11:00:00'), 'consumer', '전자서명'),
         ev(iso('2025-04-18', '11:00:00'), 'spc', '승인'),
       ],
@@ -686,7 +686,7 @@ function seedRequests(): TradeRequest[] {
       events: [
         ev(iso('2026-09-02'), 'spc', '신청 접수', '전화 문의 대리 접수'),
         ev(iso('2026-09-04'), 'spc', '미팅 확정'),
-        ev(iso('2026-09-15', '16:00:00'), 'spc', '승인', '계약서 초안 생성 — 양측 전자서명 대기'),
+        ev(iso('2026-09-15', '16:00:00'), 'consumer', '조건 동의', '계약서 초안 생성 — 양측 전자서명 대기'),
       ],
     }),
     // 전자서명 — PPA, 기업 서명 끝 · SPC 남음 (자가소비 전자서명은 id 4 건호이엔씨, 서명 전)
@@ -709,7 +709,7 @@ function seedRequests(): TradeRequest[] {
       events: [
         ev(iso('2026-09-05'), 'generator', '신청 접수'),
         ev(iso('2026-09-08'), 'spc', '미팅 확정'),
-        ev(iso('2026-09-22', '15:00:00'), 'spc', '승인', '계약서 초안 생성 — 양측 전자서명 대기'),
+        ev(iso('2026-09-22', '15:00:00'), 'generator', '조건 동의', '계약서 초안 생성 — 양측 전자서명 대기'),
         ev(iso('2026-09-23', '11:00:00'), 'consumer', '전자서명'),
       ],
     }),
@@ -1402,7 +1402,7 @@ export const useTradingPocStore = create<TradingPocState>()(
                   ...patchReq(
                     { ...x, ...r, events: x.events },
                     'APPROVED',
-                    ev(at, r.applicant, '동의', note ?? '양측 전자서명 대기'),
+                    ev(at, r.applicant, '조건 동의', note ?? '양측 전자서명 대기'),
                   ),
                   contractId: contract.id,
                 }
@@ -1700,8 +1700,10 @@ function sign(set: Set, get: Get, contractId: number, party: 'generator' | 'cons
     next.status = 'ACTIVE';
     next.signedAt = at;
   }
+  // 계약 상대가 플랫폼(SPC)이면 그쪽 서명은 SPC 로 남긴다
+  const by: Party = party === 'consumer' ? 'consumer' : next.generatorCompanyId === CO.SPC.id ? 'spc' : 'generator';
   const events = [
-    ev(at, party, '전자서명', party === 'consumer' ? `${next.consumerCompanyName} 서명` : `${next.generatorCompanyName} 서명`),
+    ev(at, by, '전자서명', party === 'consumer' ? `${next.consumerCompanyName} 서명` : `${next.generatorCompanyName} 서명`),
   ];
   if (done) events.push(ev(at, 'spc', '승인', `계약 ${next.no} 발효 — 시작일 ${next.startDate}`));
   const docs: TradeDocument[] = done
