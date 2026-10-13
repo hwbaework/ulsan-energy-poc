@@ -189,7 +189,10 @@ export function TradeStepper({
 
 /* ── 진행 이력 ── */
 export function EventTimeline({ events }: { events: TradeEvent[] }) {
-  const sorted = [...events].sort((a, b) => b.at.localeCompare(a.at));
+  const sorted = events
+    .map((e, i) => ({ e, i }))
+    .sort((a, b) => b.e.at.localeCompare(a.e.at) || b.i - a.i)
+    .map((x) => x.e);
   if (sorted.length === 0) return <p className="text-sm text-slate-500">이력 없음</p>;
   return (
     <ol className="space-y-3">

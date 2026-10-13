@@ -15,7 +15,7 @@ import { CO, useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { ChangeSign, Contract, ContractChange } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
 import { changeTypeLabel, fmtDateTime, kindLabel } from './meta';
-import { EventTimeline, Info, StepBar } from './Bits';
+import { EventTimeline, Info, StepBar, TEXT_MAX } from './Bits';
 import { changeText } from './ChangeDetailModal';
 
 /** 지금(한국 시각) — toISOString 은 UTC 라 9시간 어긋난다 */
@@ -29,16 +29,16 @@ const baseOf = (admin: boolean) => (admin ? '/platform/trading/changes' : '/gene
 function Direction({ fromSpc, company }: { fromSpc: boolean; company: string }) {
   return (
     <div className="flex items-center gap-2 text-base">
-      <span className="font-semibold text-white">{fromSpc ? 'SPC' : company}</span>
+      <span className="font-semibold text-white">{fromSpc ? '관리자' : company}</span>
       <span className="text-slate-500">→</span>
-      <span className="font-semibold text-white">{fromSpc ? company : 'SPC'}</span>
+      <span className="font-semibold text-white">{fromSpc ? company : '관리자'}</span>
     </div>
   );
 }
 
-/* ══ 변경·해지 한 건 — 신청 → 승인(받는 쪽, 곧 합의) → 서명(양쪽) → 반영. 요청 내용 · 합의서 · 진행 이력, 옆에 채팅. 팝업 없음 ══ */
-const STEPS = ['신청', '승인', '서명', '반영'] as const;
-/** 지금 단계 — 1 승인 대기 · 2 서명 · 3 반영(끝) */
+/* ══ 변경·해지 한 건 — 거래와 같은 말: 신청 → 동의(받는 쪽) → 전자서명(양쪽) → 승인. 요청 내용 · 합의서 · 진행 이력, 옆에 채팅. 팝업 없음 ══ */
+const STEPS = ['신청', '동의', '전자서명', '승인'] as const;
+/** 지금 단계 — 1 동의 대기 · 2 전자서명 · 3 승인(끝) */
 const stepOf = (ch: ContractChange) => (ch.status === 'APPROVED' ? 3 : ch.stage === 'SIGN' ? 2 : 1);
 
 /** 단계 — 거래 이력과 같은 표시줄. 서명 단계는 몇 명 서명했는지 */
@@ -52,7 +52,7 @@ function Stepper({ ch }: { ch: ContractChange }) {
       steps={STEPS}
       step={step}
       failed={failed}
-      labelOf={(label, i) => (i === 2 && ch.stage === 'SIGN' ? `서명 ${signed}/2` : label)}
+      labelOf={(label, i) => (i === 2 && ch.stage === 'SIGN' ? `전자서명 ${signed}/2` : label)}
     />
   );
 }
@@ -166,7 +166,7 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
       {open && receiver && step === 1 && (
         <>
           <Button size="sm" onClick={() => move(ch.id, 'SIGN', undefined, role.party)}>
-            승인
+            동의
           </Button>
           <Button size="sm" variant="danger" onClick={() => setRejecting(true)}>
             반려
@@ -217,6 +217,7 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
             <div className="mt-4 space-y-3 rounded-lg bg-white/[0.03] p-4 ring-1 ring-white/[0.06]">
               <Textarea
                 label="반려 사유"
+                maxLength={TEXT_MAX}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={2}
@@ -261,7 +262,7 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
                   summary={summary}
                   onSign={(s) => {
                     signChange(ch.id, 'spc', s);
-                    addToast('success', `${ch.no} SPC 서명`);
+                    addToast('success', `${ch.no} 관리자 서명`);
                   }}
                 />
                 <SignBox

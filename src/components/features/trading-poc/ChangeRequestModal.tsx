@@ -10,7 +10,7 @@ import { useToastStore } from '@/stores/useToastStore';
 import { useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { ChangeType, Contract, Party } from '@/types/trading-poc';
 import { changeTypeLabel, fmtKw, fmtNum, kindLabel } from './meta';
-import { Info, ModalFooter } from './Bits';
+import { Info, ModalFooter, TEXT_MAX } from './Bits';
 
 interface Props {
   open: boolean;
@@ -108,9 +108,9 @@ export function ChangeRequestModal({
         {/* 누가 → 누구에게 */}
         {c && (
           <div className="flex items-center gap-2 rounded-lg bg-white/[0.03] px-4 py-2.5 text-base ring-1 ring-white/[0.06]">
-            <span className="font-semibold text-white">{requestedBy === 'spc' ? 'SPC' : c.consumerCompanyName}</span>
+            <span className="font-semibold text-white">{requestedBy === 'spc' ? '관리자' : c.consumerCompanyName}</span>
             <span className="text-slate-500">→</span>
-            <span className="font-semibold text-white">{requestedBy === 'spc' ? c.consumerCompanyName : 'SPC'}</span>
+            <span className="font-semibold text-white">{requestedBy === 'spc' ? c.consumerCompanyName : '관리자'}</span>
           </div>
         )}
         <div className="grid grid-cols-2 gap-4">
@@ -185,6 +185,7 @@ export function ChangeRequestModal({
           <div className="col-span-2">
             <Textarea
               label="사유"
+              maxLength={TEXT_MAX}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}

@@ -243,7 +243,7 @@ export function MyContractsScreen() {
               key={c.id}
               contract={c}
               canRequestChange
-              onRequestChange={(ct, type) => setChange({ open: true, contractId: ct.id, type })}
+              onRequestChange={(ct) => setChange({ open: true, contractId: ct.id })}
             />
           ))
       )}

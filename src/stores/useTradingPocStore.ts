@@ -26,7 +26,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 51; // 2026-10-13 진행 이력 '승인'은 양측 서명 완료만, 동의는 '조건 동의'. 50 — 2026-10-13 서명 흔적(그림 · 이름) 저장. 49 — 2026-10-13 전자서명 자가소비(건호) · PPA(한일튜브) 1건씩. 48 — 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
+export const SEED_VERSION = 53; // 2026-10-13 변경·해지도 신청 접수 → 동의 → 전자서명 → 승인 완료. 52 — 2026-10-13 진행 이력 조건 동의(관리자 · 신청한 쪽) → 전자서명 → 승인 완료, 표시 SPC → 관리자. 51 — 2026-10-13 진행 이력 '승인'은 양측 서명 완료만, 동의는 '조건 동의'. 50 — 2026-10-13 서명 흔적(그림 · 이름) 저장. 49 — 2026-10-13 전자서명 자가소비(건호) · PPA(한일튜브) 1건씩. 48 — 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -86,8 +86,8 @@ function seedContracts(): Contract[] {
     createdAt: iso(c.startDate),
     ...seedTermsOf(c),
     // 시드 체결 계약 — 서명한 쪽은 회사 이름을 입력한 서명으로(빈 칸 대신)
-    ...(c.signedByGenerator && !c.signMarkGenerator ? { signMarkGenerator: { method: 'type' as const, typedName: c.generatorCompanyName, at: iso(c.startDate) } } : {}),
-    ...(c.signedByConsumer && !c.signMarkConsumer ? { signMarkConsumer: { method: 'type' as const, typedName: c.consumerCompanyName, at: iso(c.startDate) } } : {}),
+    ...(c.signedByGenerator && !c.signMarkGenerator ? { signMarkGenerator: { method: 'type' as const, typedName: c.generatorCompanyName, at: c.signedAt ?? iso(c.startDate) } } : {}),
+    ...(c.signedByConsumer && !c.signMarkConsumer ? { signMarkConsumer: { method: 'type' as const, typedName: c.consumerCompanyName, at: c.signedAt ?? iso(c.startDate) } } : {}),
   });
   return [
     base({
@@ -291,10 +291,11 @@ function seedRequests(): TradeRequest[] {
   const signedEvents = (submitted: string, review: string, approved: string, signed: string) => [
     ev(submitted, 'generator', '신청 접수'),
     ev(review, 'spc', '미팅 확정'),
+    ev(approved, 'spc', '조건 동의'),
     ev(approved, 'generator', '조건 동의', '계약서 초안 생성'),
     ev(signed, 'spc', '전자서명'),
     ev(signed, 'consumer', '전자서명'),
-    ev(signed, 'spc', '승인'),
+    ev(signed, 'spc', '승인 완료'),
   ];
   // 발전사업자 계정(한일튜브)이 신청한 건 — 계약 상대는 SPC
   const gen = {
@@ -387,10 +388,11 @@ function seedRequests(): TradeRequest[] {
       events: [
         ev(iso('2025-03-15'), 'consumer', '신청 접수'),
         ev(iso('2025-03-17'), 'spc', '미팅 확정'),
+        ev(iso('2025-03-28'), 'spc', '조건 동의'),
         ev(iso('2025-03-28'), 'consumer', '조건 동의', '계약서 초안 생성'),
         ev(iso('2025-04-18', '10:40:00'), 'spc', '전자서명'),
         ev(iso('2025-04-18', '11:00:00'), 'consumer', '전자서명'),
-        ev(iso('2025-04-18', '11:00:00'), 'spc', '승인'),
+        ev(iso('2025-04-18', '11:00:00'), 'spc', '승인 완료'),
       ],
     }),
     mk({
@@ -553,7 +555,7 @@ function seedRequests(): TradeRequest[] {
         ev(iso('2026-09-20'), 'generator', '신청 접수'),
         ev(iso('2026-09-23', '10:30:00'), 'spc', '미팅 확정', '2026-09-26'),
         ev(iso('2026-09-27', '11:00:00'), 'spc', '조건 입력', '329.6 kW · 20년 · PPA ₩138/kWh'),
-        ev(iso('2026-09-27', '11:30:00'), 'spc', '조건 확정', '동의 대기'),
+        ev(iso('2026-09-27', '11:30:00'), 'spc', '조건 동의', '신청한 쪽 동의 대기'),
       ],
       messages: [
         {
@@ -686,6 +688,7 @@ function seedRequests(): TradeRequest[] {
       events: [
         ev(iso('2026-09-02'), 'spc', '신청 접수', '전화 문의 대리 접수'),
         ev(iso('2026-09-04'), 'spc', '미팅 확정'),
+        ev(iso('2026-09-15', '15:00:00'), 'spc', '조건 동의'),
         ev(iso('2026-09-15', '16:00:00'), 'consumer', '조건 동의', '계약서 초안 생성 — 양측 전자서명 대기'),
       ],
     }),
@@ -709,6 +712,7 @@ function seedRequests(): TradeRequest[] {
       events: [
         ev(iso('2026-09-05'), 'generator', '신청 접수'),
         ev(iso('2026-09-08'), 'spc', '미팅 확정'),
+        ev(iso('2026-09-22', '14:00:00'), 'spc', '조건 동의'),
         ev(iso('2026-09-22', '15:00:00'), 'generator', '조건 동의', '계약서 초안 생성 — 양측 전자서명 대기'),
         ev(iso('2026-09-23', '11:00:00'), 'consumer', '전자서명'),
       ],
@@ -737,7 +741,7 @@ function seedChanges(): ContractChange[] {
         ev(
           iso('2026-09-18', '14:00:00'),
           'generator',
-          '요청 접수',
+          '신청 접수',
           '단가 ₩138 → ₩142 · 적용일 2027-01-01',
         ),
       ],
@@ -769,7 +773,7 @@ function seedChanges(): ContractChange[] {
       after: '2046-04-30',
       status: 'REQUESTED',
       events: [
-        ev(iso('2026-10-01', '11:00:00'), 'spc', '요청 접수', '종료일 2045-04-30 → 2046-04-30'),
+        ev(iso('2026-10-01', '11:00:00'), 'spc', '신청 접수', '종료일 2045-04-30 → 2046-04-30'),
       ],
     },
     {
@@ -785,7 +789,7 @@ function seedChanges(): ContractChange[] {
       after: '350',
       status: 'REQUESTED',
       events: [
-        ev(iso('2026-09-28', '16:20:00'), 'generator', '요청 접수', '용량 329.6 kW → 350 kW'),
+        ev(iso('2026-09-28', '16:20:00'), 'generator', '신청 접수', '용량 329.6 kW → 350 kW'),
       ],
     },
     {
@@ -802,9 +806,9 @@ function seedChanges(): ContractChange[] {
       status: 'REQUESTED',
       stage: 'SIGN',
       events: [
-        ev(iso('2026-09-10', '10:00:00'), 'spc', '요청 접수', 'O&M ₩622,080 → ₩746,496/년'),
-        ev(iso('2026-09-25', '10:00:00'), 'consumer', '승인'),
-        ev(iso('2026-09-26', '11:20:00'), 'consumer', '합의서 서명', `${CO.TAESUNG.name} 서명`),
+        ev(iso('2026-09-10', '10:00:00'), 'spc', '신청 접수', 'O&M ₩622,080 → ₩746,496/년'),
+        ev(iso('2026-09-25', '10:00:00'), 'consumer', '동의'),
+        ev(iso('2026-09-26', '11:20:00'), 'consumer', '전자서명', `${CO.TAESUNG.name} 서명`),
       ],
       messages: [
         {
@@ -834,7 +838,7 @@ function seedChanges(): ContractChange[] {
       effectiveDate: '2026-12-31',
       status: 'REQUESTED',
       events: [
-        ev(iso('2026-09-24', '10:30:00'), 'consumer', '요청 접수', '희망 해지일 2026-12-31'),
+        ev(iso('2026-09-24', '10:30:00'), 'consumer', '신청 접수', '희망 해지일 2026-12-31'),
       ],
       messages: [
         {
@@ -860,14 +864,14 @@ function seedChanges(): ContractChange[] {
       decidedAt: iso('2026-01-28', '15:00:00'),
       decisionNote: '2026-02 정산분부터 적용',
       events: [
-        ev(iso('2026-01-12', '09:00:00'), 'generator', '요청 접수', 'O&M ₩1,078,272 → ₩1,347,840/년'),
-        ev(iso('2026-01-26', '10:00:00'), 'spc', '승인'),
-        ev(iso('2026-01-27', '16:00:00'), 'generator', '합의서 서명', `${HANIL} 서명`),
-        ev(iso('2026-01-28', '15:00:00'), 'spc', '합의서 서명', `${CO.SPC.name} 서명`),
+        ev(iso('2026-01-12', '09:00:00'), 'generator', '신청 접수', 'O&M ₩1,078,272 → ₩1,347,840/년'),
+        ev(iso('2026-01-26', '10:00:00'), 'spc', '동의'),
+        ev(iso('2026-01-27', '16:00:00'), 'generator', '전자서명', `${HANIL} 서명`),
+        ev(iso('2026-01-28', '15:00:00'), 'spc', '전자서명', `${CO.SPC.name} 서명`),
         ev(
           iso('2026-01-28', '15:00:00'),
           'spc',
-          '반영',
+          '승인 완료',
           '2026-02 정산분부터 적용 · 합의서(서명본) 문서 관리',
         ),
       ],
@@ -892,7 +896,7 @@ function seedChanges(): ContractChange[] {
         ev(
           iso('2026-07-01', '09:00:00'),
           'generator',
-          '요청 접수',
+          '신청 접수',
           '종료일 2045-02-28 → 2050-02-28',
         ),
         ev(iso('2026-07-10', '16:30:00'), 'spc', '반려', '기간 연장은 만료 1년 전부터 신청 가능'),
@@ -912,7 +916,7 @@ function seedChanges(): ContractChange[] {
       status: 'CANCELLED',
       decidedAt: iso('2026-06-20', '09:00:00'),
       events: [
-        ev(iso('2026-06-02', '09:00:00'), 'generator', '요청 접수', '용량 329.6 kW → 429.44 kW'),
+        ev(iso('2026-06-02', '09:00:00'), 'generator', '신청 접수', '용량 329.6 kW → 429.44 kW'),
         ev(iso('2026-06-20', '09:00:00'), 'generator', '신청 취소'),
       ],
     },
@@ -1282,7 +1286,7 @@ export const useTradingPocStore = create<TradingPocState>()(
               ...r,
               termsConfirmedAt: nowIso(),
               updatedAt: nowIso(),
-              events: [...r.events, ev(nowIso(), 'spc', '조건 확정', summary)],
+              events: [...r.events, ev(nowIso(), 'spc', '조건 동의', summary)],
               messages: [...(r.messages ?? []), { at: nowIso(), by: 'spc', byName: CO.SPC.name, text: `[조건 확정] ${summary} — 확인하시고 동의해 주세요.` }],
             };
           }),
@@ -1480,7 +1484,7 @@ export const useTradingPocStore = create<TradingPocState>()(
           after: input.after,
           effectiveDate: input.effectiveDate,
           status: 'REQUESTED',
-          events: [ev(nowIso(), input.requestedBy, '요청 접수')],
+          events: [ev(nowIso(), input.requestedBy, '신청 접수')],
           messages: [],
         };
         set((s) => ({ changes: [ch, ...s.changes] }));
@@ -1532,7 +1536,7 @@ export const useTradingPocStore = create<TradingPocState>()(
               ? {
                   ...x,
                   stage,
-                  events: [...(x.events ?? []), ev(nowIso(), by ?? 'spc', '승인', note)],
+                  events: [...(x.events ?? []), ev(nowIso(), by ?? 'spc', '동의', note)],
                 }
               : x,
           ),
@@ -1570,7 +1574,7 @@ export const useTradingPocStore = create<TradingPocState>()(
         const ch: ContractChange = {
           ...ch0,
           ...(side === 'spc' ? { spcSign: sg } : { companySign: sg }),
-          events: [...(ch0.events ?? []), ev(sg.at, by, '합의서 서명', `${sg.name} 서명`)],
+          events: [...(ch0.events ?? []), ev(sg.at, by, '전자서명', `${sg.name} 서명`)],
         };
         set((s) => ({ changes: s.changes.map((x) => (x.id === id ? ch : x)) }));
         // 둘 다 서명 — 계약 반영 · 서명본 합의서
@@ -1583,7 +1587,7 @@ export const useTradingPocStore = create<TradingPocState>()(
                     ...x,
                     events: [
                       ...(x.events ?? []),
-                      ev(nowIso(), 'spc', '반영', '합의서(서명본) 문서 관리'),
+                      ev(nowIso(), 'spc', '승인 완료', '합의서(서명본) 문서 관리'),
                     ],
                   }
                 : x,
@@ -1709,7 +1713,7 @@ function sign(set: Set, get: Get, contractId: number, party: 'generator' | 'cons
   const events = [
     ev(at, by, '전자서명', party === 'consumer' ? `${next.consumerCompanyName} 서명` : `${next.generatorCompanyName} 서명`),
   ];
-  if (done) events.push(ev(at, 'spc', '승인', `계약 ${next.no} 발효 — 시작일 ${next.startDate}`));
+  if (done) events.push(ev(at, 'spc', '승인 완료', `계약 ${next.no} 발효 — 시작일 ${next.startDate}`));
   const docs: TradeDocument[] = done
     ? [
         {

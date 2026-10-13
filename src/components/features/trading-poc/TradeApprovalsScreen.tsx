@@ -31,6 +31,7 @@ import {
   cellMuted,
   cellNum,
   cellStrong,
+  TEXT_MAX,
 } from './Bits';
 import { CONTRACT_PDF } from './DocumentsScreen';
 import { TermsInfo } from './TermsInfo';
@@ -247,7 +248,7 @@ export function TradeApprovalDetailScreen({ section = 'approvals' }: { section?:
                   {(
                     [
                       {
-                        who: spcSide ? '플랫폼 (SPC)' : c.generatorCompanyName,
+                        who: spcSide ? '관리자' : c.generatorCompanyName,
                         done: c.signedByGenerator,
                         mark: c.signMarkGenerator,
                         can: canSign,
@@ -257,7 +258,7 @@ export function TradeApprovalDetailScreen({ section = 'approvals' }: { section?:
                           sign(c.id, d && { method: d.method, image: d.image, typedName: d.typedName });
                           addToast('success', `${c.no} 전자서명`);
                         },
-                        label: 'SPC 전자서명',
+                        label: '관리자 전자서명',
                       },
                       {
                         who: `기업 (${c.consumerCompanyName})`,
@@ -363,7 +364,7 @@ export function TradeApprovalDetailScreen({ section = 'approvals' }: { section?:
       {/* 반려 — 조건 확정 뒤 신청한 쪽이 사유를 적고. 서명 대기 계약 초안은 지운다 */}
       <Modal open={cancelOpen} onClose={() => setCancelOpen(false)} title="반려" size="sm">
         <div className="space-y-4">
-          <Textarea label="반려 사유" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} rows={3} className="resize-none" />
+          <Textarea label="반려 사유" maxLength={TEXT_MAX} value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} rows={3} className="resize-none" />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setCancelOpen(false)}>
               닫기

@@ -11,7 +11,7 @@ import type { Contract, ContractChange } from '@/types/trading-poc';
 import type { PlantContractKind } from '@/types/monitoring';
 import { useTradingRole } from './useTradingRole';
 import { PARTY_LABEL, changeTypeLabel, fmtDateTime, fmtKw, fmtNum, fmtPrice, kindLabel } from './meta';
-import { ChangeStatusPill, Info, ModalFooter } from './Bits';
+import { ChangeStatusPill, Info, ModalFooter, TEXT_MAX } from './Bits';
 
 /** 변경 내용 한 줄 — 단가 · 용량 · 기간은 전 → 후, 해지는 해지일 */
 export function changeText(ch: ContractChange, kind?: PlantContractKind) {
@@ -96,7 +96,7 @@ export function ChangeDetailModal({
 
       <Modal open={rejectOpen} onClose={() => setRejectOpen(false)} title="변경·해지 반려" size="sm">
         <div className="space-y-4">
-          <Textarea label="반려 사유" value={note} onChange={(e) => setNote(e.target.value)} rows={3} />
+          <Textarea label="반려 사유" maxLength={TEXT_MAX} value={note} onChange={(e) => setNote(e.target.value)} rows={3} />
           <ModalFooter>
             <Button variant="secondary" onClick={() => setRejectOpen(false)}>
               취소

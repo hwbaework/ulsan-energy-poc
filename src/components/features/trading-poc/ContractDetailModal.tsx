@@ -21,7 +21,7 @@ interface Props {
   contract: Contract;
   /** 운영 중 계약에서만 변경·해지 신청 버튼 */
   canRequestChange: boolean;
-  onRequestChange?: (contract: Contract, type?: 'TERMINATE') => void;
+  onRequestChange?: (contract: Contract) => void;
 }
 
 /** 한 달 — 예상 발전량 · 절감액(자가소비: 한전으로 냈을 요금, onsite: 한전 요금 − 사용료) · 사용료(onsite) */
@@ -39,7 +39,7 @@ export function monthOfContract(c: Contract) {
 /**
  * 계약 상세 — 팝업이 아니라 화면 안의 카드. 신청 때 넣은 계약 조건 · 기간 · 한 달 금액 · 서명.
  * 정산은 수익·정산, 문서는 문서 관리, 변경·해지 진행은 변경·해지 메뉴에서 본다.
- * 변경 · 해지 신청은 카드 제목 오른쪽.
+ * 변경·해지 신청은 카드 제목 오른쪽 버튼 하나(팝업에서 유형을 고른다).
  */
 export function ContractDetailCard({ contract: c, canRequestChange, onRequestChange }: Props) {
   const onsite = c.kind === 'ONSITE';
@@ -56,14 +56,10 @@ export function ContractDetailCard({ contract: c, canRequestChange, onRequestCha
       }
       actions={
         canRequestChange && c.status === 'ACTIVE' ? (
-          <>
-            <Button size="sm" variant="danger" onClick={() => onRequestChange?.(c, 'TERMINATE')}>
-              해지 신청
-            </Button>
-            <Button size="sm" onClick={() => onRequestChange?.(c)}>
-              변경 신청
-            </Button>
-          </>
+          // 변경 · 해지는 같은 팝업(유형에서 고른다) — 버튼 하나
+          <Button size="sm" onClick={() => onRequestChange?.(c)}>
+            변경·해지 신청
+          </Button>
         ) : undefined
       }
     >
