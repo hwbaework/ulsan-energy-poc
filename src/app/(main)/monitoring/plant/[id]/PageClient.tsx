@@ -22,7 +22,7 @@ import { useMonitoringPlantDetail, useMonitoringPlantHistory, useMonitoringPlant
 import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
 import { contractDisplayName, expandByContract } from '@/lib/contract-plants';
 import { ConnectionBanner, InverterDetailSection } from '@/components/features/monitoring/InverterPanels';
-import { PpaOpInfo, RemoteControlCard } from '@/components/features/monitoring/PpaSchedule';
+import { PpaOpInfo } from '@/components/features/monitoring/PpaSchedule';
 import { useHydrateTradingPoc, useTradingPocStore } from '@/stores/useTradingPocStore';
 
 
@@ -577,7 +577,6 @@ export default function PlantDetailPage() {
       {/* PPA — 발전사업자는 인버터 원격 운전, 그 밖(관리자 · 전기사용자)은 운전 안내만 */}
       {ppaCompanyId !== undefined && (!selectedContract || selectedContract === 'ONSITE') && (
         <>
-          <RemoteControlCard companyId={ppaCompanyId} />
           <PpaOpInfo companyId={ppaCompanyId} />
         </>
       )}

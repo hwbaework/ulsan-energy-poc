@@ -19,7 +19,7 @@ import { CO, useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { TradeRequest } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
 import { cn } from '@/lib/utils';
-import { fmtKw, kindLabel } from './meta';
+import { KIND_OPTIONS, fmtKw, kindLabel } from './meta';
 import {
   EventTimeline,
   Info,
@@ -35,12 +35,37 @@ import {
 import { CONTRACT_PDF } from './DocumentsScreen';
 import { TermsInfo } from './TermsInfo';
 import { ContractSignature } from '@/components/features/ContractSignature';
+import type { SignMark } from '@/types/trading-poc';
+
+type SignData = { method: 'draw' | 'type'; image?: string; typedName?: string };
+
+/** 서명한 칸 — 직접 서명은 그 그림, 이름 입력은 그 이름(손글씨체)과 일시 */
+function SignMarkView({ mark, fallbackAt }: { mark?: SignMark; fallbackAt?: string }) {
+  const at = mark?.at ?? fallbackAt;
+  return (
+    <div className="mt-3">
+      <div className="flex h-24 items-center justify-center rounded-lg bg-[#0d1520] ring-1 ring-white/[0.08]">
+        {mark?.method === 'draw' && mark.image ? (
+          <img src={mark.image} alt="서명" className="max-h-20 max-w-full" />
+        ) : mark?.typedName ? (
+          <span className="text-3xl text-white" style={{ fontFamily: "'Nanum Pen Script', 'Gaegu', cursive" }}>
+            {mark.typedName}
+          </span>
+        ) : (
+          <span className="text-sm text-slate-400">서명 기록 없음</span>
+        )}
+      </div>
+      <p className="mt-2 text-xs text-slate-400 tabular-nums">
+        {mark ? (mark.method === 'draw' ? '직접 서명' : '이름 입력') : ''}
+        {mark && at ? ' · ' : ''}
+        {at ? fmtDateTime(at) : ''}
+      </p>
+    </div>
+  );
+}
 import { fmtNum } from './meta';
 import { fmtDateTime } from './meta';
 
-/** 거래 승인 상태 — 4단계(신청 접수 · 미팅 · 전자서명 · 체결) 중 계약서가 만들어진 뒤: 서명 대기 · 전자서명(한쪽 서명) · 체결 */
-const SIGN_STATUS = ['서명 대기', '전자서명', '승인'] as const;
-type SignStatus = (typeof SIGN_STATUS)[number];
 
 const arrow = {
   key: 'go',
@@ -51,36 +76,27 @@ const arrow = {
 
 /**
  * 거래 승인 — 거래 이력에서 승인된 거래만: 전자서명 → 체결. 행을 누르면 거래 한 건 화면(계약서 · 서명).
- *  - 관리자(SPC): 계약 상대가 SPC 면 SPC 전자서명, 기업 서명 확인
+ *  - 관리자(SPC): 계약 상대가 SPC 면 SPC 전자서명만. 기업 서명은 그 기업 계정이 직접
  *  - 발전사업자: 계약 상대가 자기 회사면 전자서명
  * 검토·조건 협의·승인은 거래 이력, 변경·해지 승인은 변경·해지 메뉴에서.
  */
 export function TradeApprovalsScreen() {
   const role = useTradingRole();
-  const [filter, setFilter] = useState('');
+  const [kind, setKind] = useState('');
   const router = useRouter();
   const contractOf = (id?: number) => role.contracts.find((c) => c.id === id);
 
-  const approved = useMemo(
-    () => role.requests.filter((r) => r.status === 'APPROVED' || r.status === 'SIGNED'),
-    [role.requests],
-  );
+  // 승인 — 양측 서명이 끝난 거래만. 서명 대기 · 전자서명은 거래 이력에서
+  const approved = useMemo(() => role.requests.filter((r) => r.status === 'SIGNED'), [role.requests]);
   const rows = useMemo(
-    () =>
-      approved
-        .filter((r) => !filter || signStatusOf(r) === filter)
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [approved, filter, role.contracts],
+    () => approved.filter((r) => !kind || r.kind === kind).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    [approved, kind],
   );
-
-  /** 서명 대기: 아직 서명 없음 / 전자서명: 한쪽 서명 / 체결: 양쪽 서명 */
-  const signStatusOf = (r: TradeRequest): SignStatus => {
-    if (r.status === 'SIGNED') return '승인';
-    const c = contractOf(r.contractId);
-    return c?.signedByGenerator || c?.signedByConsumer ? '전자서명' : '서명 대기';
+  const stats = {
+    all: approved.length,
+    self: approved.filter((r) => r.kind === 'SELF_CONSUMPTION').length,
+    onsite: approved.filter((r) => r.kind === 'ONSITE').length,
   };
-  const count = (st: SignStatus) => approved.filter((r) => signStatusOf(r) === st).length;
 
   const columns: Column<TradeRequest>[] = [
     { key: 'no', header: '신청번호', width: '160px', render: (r) => cellStrong(r.no) },
@@ -99,12 +115,7 @@ export function TradeApprovalsScreen() {
       key: 'status',
       header: '상태',
       width: '150px',
-      render: (r) => (
-        <StatusPill
-          tone={r.status === 'SIGNED' ? 'normal' : 'warning'}
-          label={stepLabel(signStatusOf(r), signStatusOf(r) === '승인' ? TRADE_STEPS.length - 1 : TRADE_STEPS.indexOf('전자서명'))}
-        />
-      ),
+      render: () => <StatusPill tone="normal" label={stepLabel('승인', TRADE_STEPS.length - 1)} />,
     },
     arrow,
   ];
@@ -113,22 +124,22 @@ export function TradeApprovalsScreen() {
     <div className="space-y-6">
       <PageHeader title="거래 승인" />
 
-      {/* 상태별 건수 */}
+      {/* 승인 건수 — 유형별로 따로 */}
       <StatsGrid columns={3}>
-        {SIGN_STATUS.map((st) => (
-          <StatCard key={st} label={st} value={`${count(st)}건`} />
-        ))}
+        <StatCard label="승인" value={`${stats.all}건`} />
+        <StatCard label="자가소비" value={`${stats.self}건`} />
+        <StatCard label="PPA" value={`${stats.onsite}건`} />
       </StatsGrid>
 
       <SectionCard
         title="승인된 거래"
         actions={
           <label className="flex items-center gap-2 text-sm text-slate-400">
-            상태
+            계약 유형
             <Select
-              options={[{ value: '', label: '전체' }, ...SIGN_STATUS.map((v) => ({ value: v, label: v }))]}
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              options={[{ value: '', label: '전체' }, ...KIND_OPTIONS]}
+              value={kind}
+              onChange={(e) => setKind(e.target.value)}
               className="w-32"
             />
           </label>
@@ -148,9 +159,10 @@ export function TradeApprovalsScreen() {
 }
 
 const approvalsBase = (admin: boolean) => (admin ? '/platform/trading/approvals' : '/generator/trading/approvals');
+const historyBase = (admin: boolean) => (admin ? '/platform/trading/history' : '/generator/trading/history');
 
-/** 거래 승인 › 한 건 — ?id=신청 번호. 단계 · 계약 · 서명 · 계약서 · 진행 이력 (팝업 아님) */
-export function TradeApprovalDetailScreen() {
+/** 거래 승인 › 한 건 — ?id=신청 번호. 단계 · 계약 · 서명 · 계약서 · 진행 이력 (팝업 아님). section="history" 면 거래 이력 › 신청 한 건(전자서명 단계) */
+export function TradeApprovalDetailScreen({ section = 'approvals' }: { section?: 'approvals' | 'history' } = {}) {
   const role = useTradingRole();
   const addToast = useToastStore((x) => x.add);
   const sign = useTradingPocStore((x) => x.signAsGenerator);
@@ -161,25 +173,25 @@ export function TradeApprovalDetailScreen() {
   const [termsOpen, setTermsOpen] = useState(false); // 계약 내용 — 접어 둔다
   const [cancelReason, setCancelReason] = useState('');
   const [id, setId] = useState<number | null>(null);
-  const [confirm, setConfirm] = useState<'sign' | 'consumer' | null>(null);
+  const [confirm, setConfirm] = useState<'sign' | null>(null);
   useEffect(() => {
     setId(Number(new URLSearchParams(window.location.search).get('id')));
   }, []);
   const r = id == null ? undefined : role.requests.find((x) => x.id === id);
   const c = r?.contractId ? role.contracts.find((x) => x.id === r.contractId) : undefined;
-  const list = approvalsBase(role.isAdmin);
+  const inHistory = section === 'history';
+  const list = inHistory ? historyBase(role.isAdmin) : approvalsBase(role.isAdmin);
   const signedCount = c ? Number(c.signedByGenerator) + Number(c.signedByConsumer) : 0;
   const spcSide = c?.generatorCompanyId === CO.SPC.id;
 
-  // 지금 할 수 있는 서명 — 관리자: SPC 서명 · 기업 서명 확인 / 그 외: 계약 상대가 자기 회사면 서명
+  // 지금 할 수 있는 서명 — 관리자: SPC 서명 / 그 외: 계약 상대가 자기 회사면 서명
   const canSign =
     !!c &&
     r?.status === 'APPROVED' &&
     !c.signedByGenerator &&
     (role.isAdmin ? spcSide : c.generatorCompanyId === role.companyId);
-  // 기업 쪽 서명 — 그 기업 계정이 직접(관리자는 오프라인 서명을 확인해 줄 수도)
+  // 기업 쪽 서명 — 그 기업 계정이 직접만. 관리자는 기업 대신 서명 · 확인하지 않는다
   const canSignConsumer = !!c && r?.status === 'APPROVED' && !role.isAdmin && c.consumerCompanyId === role.companyId && !c.signedByConsumer;
-  const canConfirmConsumer = !!c && r?.status === 'APPROVED' && role.isAdmin && !c.signedByConsumer;
   // 조건 확정 뒤 신청한 쪽은 동의(서명)하거나 사유를 적고 반려할 수 있다
   const isMine = !!r && !role.isAdmin && [r.applicantCompanyId, r.generatorCompanyId, r.consumerCompanyId].includes(role.companyId);
   const canCancel = !!r && r.status === 'APPROVED' && isMine;
@@ -187,7 +199,7 @@ export function TradeApprovalDetailScreen() {
   return (
     <div className="space-y-6">
       <Breadcrumb
-        items={[{ label: 'RE100', path: '/re100' }, { label: '거래 승인', path: list }, { label: r?.no ?? '거래' }]}
+        items={[{ label: 'RE100', path: '/re100' }, { label: inHistory ? '거래 이력' : '거래 승인', path: list }, { label: r?.no ?? '거래' }]}
       />
       {id != null && !r ? (
         <div className="rounded-2xl bg-[#0d1520] p-10 text-center text-sm text-slate-400 ring-1 ring-white/[0.06]">
@@ -199,7 +211,7 @@ export function TradeApprovalDetailScreen() {
             {/* 제목 · 단계 */}
             <div className="rounded-xl bg-[#0d1520] p-5 ring-1 ring-white/[0.06]">
               <div className="flex items-start gap-3">
-                <BackButton href={list} label="거래 승인으로" />
+                <BackButton href={list} label={inHistory ? '거래 이력으로' : '거래 승인으로'} />
                 <div className="min-w-0">
                   <h1 className="text-2xl font-bold text-white">
                     {r.consumerCompanyName} · {kindLabel(r.kind)}
@@ -237,11 +249,12 @@ export function TradeApprovalDetailScreen() {
                       {
                         who: spcSide ? '플랫폼 (SPC)' : c.generatorCompanyName,
                         done: c.signedByGenerator,
+                        mark: c.signMarkGenerator,
                         can: canSign,
                         pad: true,
                         signer: role.isAdmin ? CO.SPC.name : role.companyName,
-                        onSign: () => {
-                          sign(c.id);
+                        onSign: (d?: SignData) => {
+                          sign(c.id, d && { method: d.method, image: d.image, typedName: d.typedName });
                           addToast('success', `${c.no} 전자서명`);
                         },
                         label: 'SPC 전자서명',
@@ -249,16 +262,15 @@ export function TradeApprovalDetailScreen() {
                       {
                         who: `기업 (${c.consumerCompanyName})`,
                         done: c.signedByConsumer,
-                        can: canSignConsumer || canConfirmConsumer,
-                        pad: canSignConsumer,
+                        mark: c.signMarkConsumer,
+                        can: canSignConsumer,
+                        pad: true,
                         signer: role.companyName,
-                        onSign: () => {
-                          if (canSignConsumer) {
-                            confirmConsumer(c.id);
-                            addToast('success', `${c.no} 전자서명`);
-                          } else setConfirm('consumer');
+                        onSign: (d?: SignData) => {
+                          confirmConsumer(c.id, d && { method: d.method, image: d.image, typedName: d.typedName });
+                          addToast('success', `${c.no} 전자서명`);
                         },
-                        label: '기업 서명 확인',
+                        label: '기업 전자서명',
                       },
                     ] as const
                   ).map((side) => (
@@ -270,27 +282,23 @@ export function TradeApprovalDetailScreen() {
                       )}
                     >
                       <p className="text-sm text-slate-300">{side.who}</p>
-                      <p className={cn('mt-2 text-2xl font-bold', side.done ? 'text-emerald-300' : 'text-slate-500')}>
-                        {side.done ? '서명 완료' : '서명 전'}
-                      </p>
-                      {side.done && c.signedAt && <p className="mt-1 text-xs text-slate-400 tabular-nums">{fmtDateTime(c.signedAt)}</p>}
-                      {/* 서명판 — 자기 칸에서 그려서(또는 이름 입력) 서명. 관리자의 '기업 서명 확인'은 버튼 */}
+                      {/* 서명했으면 실제 서명(그림 · 입력한 이름)을 그대로 */}
+                      {side.done ? (
+                        <SignMarkView mark={side.mark} fallbackAt={c.signedAt} />
+                      ) : (
+                        <p className="mt-2 text-2xl font-bold text-slate-500">서명 전</p>
+                      )}
+                      {/* 서명판 — 자기 칸에서 그려서(또는 이름 입력) 서명. SPC 는 관리자, 기업은 그 기업 계정만 */}
                       {side.can &&
                         (side.pad ? (
                           <div className="mt-4">
                             <ContractSignature
-                              contractTitle={`${c.no} 계약`}
-                              contractSummary={[
-                                `${c.consumerCompanyName} · ${kindLabel(c.kind)} · ${fmtKw(c.capacityKw)} · ${c.termYears}년`,
-                                c.kind === 'ONSITE' ? `PPA 단가 ₩${fmtNum(c.unitPrice, 1)}/kWh` : `설치 단가 ₩${fmtNum(c.installUnit ?? 0)}/kW · 연간 O&M ₩${fmtNum(c.omAnnual ?? 0)}/년`,
-                                `시작일 ${c.startDate} · 종료일 ${c.endDate}`,
-                              ]}
                               signerName={side.signer}
                               onSign={side.onSign}
                             />
                           </div>
                         ) : (
-                          <Button size="sm" className="mt-4" onClick={side.onSign}>
+                          <Button size="sm" className="mt-4" onClick={() => side.onSign()}>
                             {side.label}
                           </Button>
                         ))}
@@ -384,21 +392,12 @@ export function TradeApprovalDetailScreen() {
           if (c && confirm === 'sign') {
             sign(c.id);
             addToast('success', `${c.no} 전자서명`);
-          } else if (c && confirm === 'consumer') {
-            confirmConsumer(c.id);
-            addToast('success', role.isAdmin ? `${c.no} 기업 서명 확인` : `${c.no} 전자서명`);
           }
           setConfirm(null);
         }}
-        title={confirm === 'sign' || !role.isAdmin ? '전자서명' : '기업 서명 확인'}
-        message={
-          confirm === 'sign'
-            ? `${c?.no} 계약서에 ${role.isAdmin ? CO.SPC.name : role.companyName} 명의로 서명합니다.`
-            : role.isAdmin
-              ? `${c?.consumerCompanyName} 전자서명을 확인 처리합니다.`
-              : `${c?.no} 계약서에 ${role.companyName} 명의로 서명합니다.`
-        }
-        confirmLabel={confirm === 'sign' || !role.isAdmin ? '서명' : '확인'}
+        title="전자서명"
+        message={`${c?.no} 계약서에 ${role.isAdmin ? CO.SPC.name : role.companyName} 명의로 서명합니다.`}
+        confirmLabel="서명"
       />
     </div>
   );

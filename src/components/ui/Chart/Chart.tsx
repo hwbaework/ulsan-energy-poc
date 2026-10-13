@@ -315,6 +315,8 @@ interface AreaLineChartProps {
   height?: number;
   className?: string;
   yUnit?: string;
+  /** 세로 기준선 — x 값(예: '18:00')에 선 · 이름 */
+  refLines?: { x: string; label: string; color?: string; dashed?: boolean }[];
 }
 
 export function RmsAreaLineChart({
@@ -328,6 +330,7 @@ export function RmsAreaLineChart({
   height,
   className,
   yUnit,
+  refLines = [],
 }: AreaLineChartProps) {
   return (
     <ChartWrapper title={title} description={description} height={height} className={className}>
@@ -364,6 +367,16 @@ export function RmsAreaLineChart({
             strokeDasharray={l.dashed ? '6 4' : undefined}
             dot={false}
             activeDot={{ r: 4, strokeWidth: 0 }}
+          />
+        ))}
+        {refLines.map((r) => (
+          <ReferenceLine
+            key={r.x + r.label}
+            x={r.x}
+            stroke={r.color ?? '#ef4444'}
+            strokeWidth={2}
+            strokeDasharray={r.dashed ? '6 4' : undefined}
+            label={{ value: r.label, position: 'top', fill: r.color ?? '#ef4444', fontSize: 11 }}
           />
         ))}
       </ComposedChart>

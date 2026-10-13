@@ -71,13 +71,23 @@ export const HOLIDAYS_SEED: Record<number, Holiday[]> = {
 export interface OpRule {
   weekendOff: boolean;
   holidayOff: boolean;
+  /** 매일 고정 OFF 시각 · ON 시각(HH:MM). 둘 다 있으면 그 시간엔 설정으로 꺼진다(2026-10-13 — 날짜가 아니라 시간으로) */
+  offStart?: string;
+  onTime?: string;
 }
-export const OP_RULE_DEFAULT: OpRule = { weekendOff: true, holidayOff: true };
-/** 에너지 설정 값('1' / '0')에서 규칙으로 */
+export const OP_RULE_DEFAULT: OpRule = { weekendOff: true, holidayOff: true, offStart: '18:00', onTime: '06:00' };
+/** 에너지 설정 값('1' / '0' · HH:MM)에서 규칙으로 */
 export const opRuleOf = (es: Record<string, string> | undefined): OpRule => ({
   weekendOff: (es?.PPA_WEEKEND_OFF ?? '1') !== '0',
   holidayOff: (es?.PPA_HOLIDAY_OFF ?? '1') !== '0',
+  offStart: es?.PPA_OFF_START ?? OP_RULE_DEFAULT.offStart,
+  onTime: es?.PPA_ON_TIME ?? OP_RULE_DEFAULT.onTime,
 });
+/** 지금 시각(HH:MM)이 고정 OFF 시간대 안인지 — 18:00~06:00 처럼 자정을 넘는 구간도 */
+export function inOffWindow(rule: OpRule, hhmm: string) {
+  if (!rule.offStart || !rule.onTime || rule.offStart === rule.onTime) return false;
+  return rule.offStart < rule.onTime ? hhmm >= rule.offStart && hhmm < rule.onTime : hhmm >= rule.offStart || hhmm < rule.onTime;
+}
 
 /** 날짜별 수동 지정 — 자동 일정 위에 겹쳐 쓴다 */
 export type DayOverride = 'ON' | 'OFF';

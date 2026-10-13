@@ -13,6 +13,7 @@ import type { PlantContractKind } from '@/types/monitoring';
 import type { PpaSettlement } from '@/types/ppa';
 import type {
   ChangeSign,
+  SignMark,
   ChangeStage,
   ChangeType,
   Contract,
@@ -25,7 +26,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 48; // 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
+export const SEED_VERSION = 50; // 2026-10-13 서명 흔적(그림 · 이름) 저장. 49 — 2026-10-13 전자서명 자가소비(건호) · PPA(한일튜브) 1건씩. 48 — 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -84,6 +85,9 @@ function seedContracts(): Contract[] {
     endDate: addYears(c.startDate, c.termYears),
     createdAt: iso(c.startDate),
     ...seedTermsOf(c),
+    // 시드 체결 계약 — 서명한 쪽은 회사 이름을 입력한 서명으로(빈 칸 대신)
+    ...(c.signedByGenerator && !c.signMarkGenerator ? { signMarkGenerator: { method: 'type' as const, typedName: c.generatorCompanyName, at: iso(c.startDate) } } : {}),
+    ...(c.signedByConsumer && !c.signMarkConsumer ? { signMarkConsumer: { method: 'type' as const, typedName: c.consumerCompanyName, at: iso(c.startDate) } } : {}),
   });
   return [
     base({
@@ -247,21 +251,22 @@ function seedContracts(): Contract[] {
         id: 8,
         no: 'CT-2026-0008',
         requestId: 17,
-        kind: 'SELF_CONSUMPTION',
-        plantName: '한일튜브(자가소비)',
+        kind: 'ONSITE',
+        plantName: '한일튜브(PPA)',
         generatorCompanyId: CO.SPC.id,
         generatorCompanyName: CO.SPC.name,
         consumerCompanyId: 4,
         consumerCompanyName: CO.HANIL.name,
         siteName: '한일튜브 울산공장',
         address: '울산 남구 부곡동 273-6',
-        capacityKw: 99.84,
-        unitPrice: 28,
+        capacityKw: 200,
+        unitPrice: 138,
         termYears: 20,
         startDate: '2026-12-01',
         status: 'PENDING_SIGN',
         signedByGenerator: false,
         signedByConsumer: true,
+        signMarkConsumer: { method: 'type', typedName: '박발전', at: iso('2026-09-23', '11:00:00') },
       }),
       createdAt: iso('2026-09-22', '15:00:00'),
     },
@@ -684,18 +689,18 @@ function seedRequests(): TradeRequest[] {
         ev(iso('2026-09-15', '16:00:00'), 'spc', '승인', '계약서 초안 생성 — 양측 전자서명 대기'),
       ],
     }),
-    // 전자서명 — 기업 서명 끝(거래 승인)
+    // 전자서명 — PPA, 기업 서명 끝 · SPC 남음 (자가소비 전자서명은 id 4 건호이엔씨, 서명 전)
     mk({
       id: 17,
       ...gen,
-      kind: 'SELF_CONSUMPTION',
-      plantName: '한일튜브(자가소비)',
+      kind: 'ONSITE',
+      plantName: '한일튜브(PPA)',
       consumerCompanyId: 4,
       consumerCompanyName: CO.HANIL.name,
       siteName: '한일튜브 울산공장',
       address: '울산 남구 부곡동 273-6',
-      capacityKw: 99.84,
-      unitPrice: 28,
+      capacityKw: 200,
+      unitPrice: 138,
       termYears: 20,
       status: 'APPROVED',
       contractId: 8,
@@ -1178,8 +1183,8 @@ interface TradingPocState {
   /** 반려 — 관리자든 신청한 쪽이든 사유를 적고. 서명 대기 중이면 계약 초안도 지운다 */
   rejectRequest: (id: number, reason: string, by?: Party) => void;
   cancelRequest: (id: number, note?: string) => void;
-  signAsGenerator: (contractId: number) => void;
-  confirmConsumerSign: (contractId: number) => void;
+  signAsGenerator: (contractId: number, mark?: Omit<SignMark, 'at'>) => void;
+  confirmConsumerSign: (contractId: number, mark?: Omit<SignMark, 'at'>) => void;
   requestChange: (input: NewChangeInput) => ContractChange;
   approveChange: (id: number, note?: string) => void;
   /** 승인(받는 쪽) — 곧 합의. 서명 단계로 */
@@ -1438,13 +1443,13 @@ export const useTradingPocStore = create<TradingPocState>()(
           };
         }),
 
-      signAsGenerator: (contractId) => {
+      signAsGenerator: (contractId, mark) => {
         if (get().contracts.some((c) => c.id === contractId))
-          sign(set, get, contractId, 'generator');
+          sign(set, get, contractId, 'generator', mark);
       },
-      confirmConsumerSign: (contractId) => {
+      confirmConsumerSign: (contractId, mark) => {
         if (get().contracts.some((c) => c.id === contractId))
-          sign(set, get, contractId, 'consumer');
+          sign(set, get, contractId, 'consumer', mark);
       },
 
       requestChange: (input) => {
@@ -1680,13 +1685,15 @@ type Set = (fn: (s: TradingPocState) => Partial<TradingPocState>) => void;
 type Get = () => TradingPocState;
 
 /** 전자서명 — 발전사업자·전기사용자 둘 다 서명하면 계약 발효(ACTIVE), 신청은 체결(SIGNED), 서명본 문서 생성 */
-function sign(set: Set, get: Get, contractId: number, party: 'generator' | 'consumer') {
+function sign(set: Set, get: Get, contractId: number, party: 'generator' | 'consumer', mark?: Omit<SignMark, 'at'>) {
   const at = nowIso();
   const c0 = get().contracts.find((c) => c.id === contractId)!;
   const next: Contract = {
     ...c0,
     signedByGenerator: c0.signedByGenerator || party === 'generator',
     signedByConsumer: c0.signedByConsumer || party === 'consumer',
+    ...(mark && party === 'generator' ? { signMarkGenerator: { ...mark, at } } : {}),
+    ...(mark && party === 'consumer' ? { signMarkConsumer: { ...mark, at } } : {}),
   };
   const done = next.signedByGenerator && next.signedByConsumer;
   if (done) {

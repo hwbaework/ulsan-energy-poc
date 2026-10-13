@@ -12,7 +12,7 @@ import { getPersona, usePersonaOverride } from '@/lib/persona';
 import { useHydrateTradingPoc, useTradingPocStore } from '@/stores/useTradingPocStore';
 import { scheduleOf, useHydrateOpSchedule, useOpScheduleStore } from '@/stores/useOpScheduleStore';
 import { useEnergySettings, useHolidays } from '@/hooks/common/useSettings';
-import { dayStatus, holidayMap, monthStatus, opRuleOf, opYear, weekdayOf, type DayStatus } from '@/lib/op-calendar';
+import { dayStatus, holidayMap, inOffWindow, monthStatus, opRuleOf, opYear, weekdayOf, type DayStatus } from '@/lib/op-calendar';
 
 /**
  * PPA 운전 일정 — 쉬는 날(주말 · 공휴일)은 인버터 자동 OFF, 다음 가동일 자동 ON.
@@ -332,7 +332,7 @@ export function PpaOpInfo({ companyId }: { companyId: number }) {
   if (companies.some((c) => c.id === companyId)) return null; // 발전사업자는 원격 운전 카드로
   const sch = scheduleOf(store, companyId, opRuleOf(es));
   const plan = dayStatus(now, holidays, sch, sch.overrides);
-  const rule = [sch.weekendOff && '주말', sch.holidayOff && '공휴일'].filter(Boolean).join(' · ');
+  const rule = [sch.weekendOff && '주말', sch.holidayOff && '공휴일', sch.offStart && sch.onTime && `매일 ${sch.offStart}~${sch.onTime}`].filter(Boolean).join(' · ');
   return (
     <SectionCard title="운전">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -373,11 +373,21 @@ export function PpaOpInline({ plantId, tu, month }: { plantId: number; tu: 'hour
   const store = useOpScheduleStore();
   const { data: es } = useEnergySettings();
   const [ask, setAsk] = useState<{ date: string; on: boolean; hs: Map<string, string> } | null>(null);
+  const [askToggle, setAskToggle] = useState(false);
   if (companyId === undefined || (persona !== 'admin' && persona !== 'generator')) return null;
   const base = opRuleOf(es);
   const sch = scheduleOf(store, companyId, base);
   const plan = dayStatus(now, holidaysNow, sch, sch.overrides);
   const autoOn = dayStatus(now, holidaysNow, sch).on;
+  // 지금 상태 — 수동으로 껐는지, 설정(쉬는 날 · 고정 시간)으로 꺼졌는지
+  const hhmm = (() => {
+    const d = new Date();
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  })();
+  const manualToday = sch.overrides[now];
+  const offByTime = !manualToday && inOffWindow(base, hhmm);
+  const isOn = manualToday ? manualToday === 'ON' : plan.on && !offByTime;
+  const why = manualToday ? '수동' : !plan.on ? `설정 · ${plan.reason}` : offByTime ? `설정 · ${base.offStart}~${base.onTime}` : '';
   const cell = 'inline-flex h-7 min-w-[30px] items-center justify-center gap-1 rounded-md px-1.5 text-xs tabular-nums ring-1 transition-colors';
   const onCls = 'bg-emerald-500/15 text-emerald-200 ring-emerald-500/30 enabled:hover:bg-emerald-500/25';
   const offCls = 'bg-black/30 text-slate-500 ring-white/[0.06] enabled:hover:bg-white/[0.08]';
@@ -405,18 +415,21 @@ export function PpaOpInline({ plantId, tu, month }: { plantId: number; tu: 'hour
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-300">
       <div className="flex items-center gap-2.5">
+        {/* 토글 — 누르면 바로 바뀌지 않고 확인창을 거친다. 관리자는 조회만 */}
         <button
           type="button"
           role="switch"
-          aria-checked={plan.on}
+          aria-checked={isOn}
           aria-label="오늘 인버터 ON / OFF"
-          onClick={() => store.setRemote(companyId, now, !plan.on, autoOn, by(), base)}
-          className={cn('relative h-5 w-9 shrink-0 rounded-full ring-1 transition-colors', plan.on ? 'bg-emerald-500/80 ring-emerald-400/60' : 'bg-white/10 ring-white/20')}
+          disabled={!canEdit}
+          onClick={() => setAskToggle(true)}
+          className={cn('relative h-5 w-9 shrink-0 rounded-full ring-1 transition-colors disabled:cursor-default', isOn ? 'bg-emerald-500/80 ring-emerald-400/60' : 'bg-white/10 ring-white/20')}
         >
-          <span className={cn('absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all', plan.on ? 'left-[18px]' : 'left-0.5')} />
+          <span className={cn('absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all', isOn ? 'left-[18px]' : 'left-0.5')} />
         </button>
         <span>
-          현재 <b className={plan.on ? 'text-emerald-300' : 'text-white'}>{plan.on ? 'ON' : 'OFF'}</b>
+          현재 <b className={isOn ? 'text-emerald-300' : 'text-red-300'}>{isOn ? 'ON' : 'OFF'}</b>
+          {why && <span className="ml-1.5 text-xs text-slate-400">{why}</span>}
         </span>
       </div>
       {tu === 'hour' && (
@@ -431,6 +444,36 @@ export function PpaOpInline({ plantId, tu, month }: { plantId: number; tu: 'hour
           {monthStatus(Number(month.slice(0, 4)), Number(month.slice(5, 7)), holidays, sch, sch.overrides).map((d) => dayCell(d.date, holidays))}
         </div>
       )}
+      {/* 토글 확인 — 수동 ON / OFF */}
+      <Modal
+        open={askToggle}
+        onClose={() => setAskToggle(false)}
+        title={isOn ? '인버터 OFF' : '인버터 ON'}
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="cancel" onClick={() => setAskToggle(false)}>
+              취소
+            </Button>
+            <Button
+              variant={isOn ? 'danger' : 'primary'}
+              onClick={() => {
+                store.setRemote(companyId, now, !isOn, autoOn && !offByTime, by(), base);
+                setAskToggle(false);
+              }}
+            >
+              {isOn ? 'OFF 로 바꾸기' : 'ON 으로 바꾸기'}
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-slate-200">
+          {`지금 ${isOn ? 'ON' : 'OFF'}${why ? ` (${why})` : ''} 인 인버터를 수동으로 `}
+          <b className="text-white">{isOn ? 'OFF' : 'ON'}</b>
+          {' 합니다. 오늘 하루에만 적용됩니다.'}
+        </p>
+      </Modal>
+
       {/* 바꿀까요? — 그날만 수동 지정 */}
       <Modal
         open={ask !== null}

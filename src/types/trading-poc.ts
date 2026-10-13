@@ -95,6 +95,14 @@ export interface TradeRequest extends ContractTerms {
 
 export type ContractStatus = 'PENDING_SIGN' | 'ACTIVE' | 'TERMINATED';
 
+/** 전자서명 한 쪽 — 직접 서명(그림) 또는 이름 입력 */
+export interface SignMark {
+  method: 'draw' | 'type';
+  image?: string; // 직접 서명 PNG(data URL)
+  typedName?: string; // 이름 입력
+  at: string;
+}
+
 export interface Contract extends ContractTerms {
   id: number;
   no: string; // CT-2026-0001
@@ -116,6 +124,9 @@ export interface Contract extends ContractTerms {
   status: ContractStatus;
   signedByGenerator: boolean;
   signedByConsumer: boolean;
+  /** 실제 서명 — 그린 서명(이미지) 또는 입력한 이름. 화면에 그대로 보여 준다 */
+  signMarkGenerator?: SignMark;
+  signMarkConsumer?: SignMark;
   signedAt?: string;
   terminatedAt?: string;
   createdAt: string;

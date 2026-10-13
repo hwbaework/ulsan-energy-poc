@@ -7,10 +7,11 @@ import { StatCard, StatsGrid } from '@/components/features/StatCard';
 import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { Input } from '@/components/ui/Input';
-import { RmsBarChart } from '@/components/ui/Chart';
+import { RmsBarChart, RmsPaybackChart } from '@/components/ui/Chart';
+import { settlementsOf } from '@/stores/useTradingPocStore';
 import type { Contract } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
-import { estimateMonthlyKwh, fmtKrw, fmtKw, kindLabel } from './meta';
+import { KEPCO_UNIT_PRICE, estimateMonthlyKwh, fmtKrw, fmtKw, kindLabel, totalCostOf } from './meta';
 import { PageHeader, cell, cellMuted, cellNum, cellStrong } from './Bits';
 
 const kw = (xs: Contract[]) => xs.reduce((s, c) => s + c.capacityKw, 0);
@@ -58,7 +59,28 @@ export function ContractOverviewScreen() {
   }, [active]);
   type Co = (typeof companies)[number];
   const shownCos = companies.filter((c) => !q.trim() || c.name.includes(q.trim()));
-  const chart = companies.map((c) => ({ name: c.name, 자가소비: c.selfKw, onsite: c.onsiteKw }));
+  // 자가소비 ROI — −설치비에서 시작해 해마다 절감(한전 요금)만큼 쌓인다(만원). 흑자 전환 시점
+  const roi = useMemo(() => {
+    if (self.length === 0) return { data: [] as Record<string, string | number>[], breakEven: '', cost: 0 };
+    const years = Math.max(...self.map((c) => c.termYears));
+    const cost = self.reduce((a, c) => a + totalCostOf(c), 0);
+    const perYear = self.reduce((a, c) => a + estimateMonthlyKwh(c.capacityKw) * 12 * KEPCO_UNIT_PRICE, 0);
+    const data = Array.from({ length: years + 1 }, (_, k) => ({ year: k === 0 ? '0년(투자)' : `${k}년`, 자가소비: Math.round((perYear * k - cost) / 10_000) }));
+    const m = perYear > 0 ? Math.ceil(cost / (perYear / 12)) : 0;
+    const breakEven = m ? `${Math.floor(m / 12)}년 ${m % 12}개월` : '';
+    return { data, breakEven, cost };
+  }, [self]);
+  // PPA 월별 — 들어온 실적만(정산). 관리자 = 수입, 기업 = 납부
+  const ppaMonthly = useMemo(() => {
+    const st = settlementsOf(onsite);
+    const months = [...new Set(st.map((x) => x.period))].sort();
+    return months.map((m) => {
+      const rows = st.filter((x) => x.period === m);
+      return { month: `${Number(m.slice(5, 7))}월`, period: m, 금액: Math.round(rows.reduce((a, x) => a + x.total, 0) / 10_000), confirmed: rows.every((x) => x.status === 'CONFIRMED') };
+    });
+  }, [onsite]);
+  const ppaYear = ppaMonthly.reduce((a, x) => a + x.금액, 0);
+  const ppaChart = ppaMonthly.map((x) => ({ month: x.month, 금액: x.금액 }));
 
   const coCols: Column<Co>[] = [
     { key: 'name', header: '기업', render: (c) => cellStrong(c.name) },
@@ -106,18 +128,26 @@ export function ContractOverviewScreen() {
 
       {role.isAdmin ? (
         <>
-          <SectionCard title="기업별 계약 용량 (kW)">
-            <RmsBarChart
-              data={chart}
-              xKey="name"
-              bars={[
-                { key: '자가소비', name: '자가소비' },
-                { key: 'onsite', name: 'PPA' },
-              ]}
-              stacked
-              height={260}
-            />
-          </SectionCard>
+          {/* 자가소비 — ROI 만 */}
+          {self.length > 0 && (
+            <SectionCard title="자가소비 ROI (만원)">
+              <p className="mb-3 text-sm text-slate-300 tabular-nums">
+                설치비 {fmtKrw(roi.cost)}
+                {roi.breakEven && (
+                  <>
+                    {' · '}흑자 전환 <span className="font-semibold text-white">{roi.breakEven}</span>
+                  </>
+                )}
+              </p>
+              <RmsPaybackChart data={roi.data} xKey="year" lines={[{ key: '자가소비', name: '누적 (설치비 차감)' }]} height={260} />
+            </SectionCard>
+          )}
+          {/* PPA — 달마다 얼마 들어왔는지(정산 실적) */}
+          {onsite.length > 0 && (
+            <SectionCard title={`PPA 월별 수입 (만원) · 금년 ${fmtKrw(ppaYear * 10_000)}`}>
+              <RmsBarChart data={ppaChart} xKey="month" bars={[{ key: '금액', name: '수입 (만원)' }]} height={240} />
+            </SectionCard>
+          )}
           <SectionCard
             title={`기업별 계약 (${shownCos.length})`}
             actions={
@@ -141,6 +171,16 @@ export function ContractOverviewScreen() {
           </SectionCard>
         </>
       ) : (
+        <>
+          {/* 기업 — PPA 달마다 얼마 냈는지 · 내야 하는지 */}
+          {onsite.length > 0 && (
+            <SectionCard title={`PPA 월별 납부 (만원) · 금년 ${fmtKrw(ppaYear * 10_000)}`}>
+              <RmsBarChart data={ppaChart} xKey="month" bars={[{ key: '금액', name: '납부 (만원)' }]} height={240} />
+              <p className="mt-2 text-xs text-slate-400 tabular-nums">
+                {ppaMonthly.map((x) => `${x.month} ${x.confirmed ? '납부' : '대기'}`).join(' · ')}
+              </p>
+            </SectionCard>
+          )}
         <SectionCard title={`내 계약 (${active.length})`} noPadding>
           <DataTable
             columns={contractCols}
@@ -150,6 +190,7 @@ export function ContractOverviewScreen() {
             onRowClick={() => router.push(contractsBase)}
           />
         </SectionCard>
+        </>
       )}
     </div>
   );

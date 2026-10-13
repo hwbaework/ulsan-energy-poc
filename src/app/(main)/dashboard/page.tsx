@@ -7,6 +7,7 @@ import { useOnboardingStore } from '@/stores';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { getPersona, usePersonaOverride } from '@/lib/persona';
 import { PpaOpInline } from '@/components/features/monitoring/PpaSchedule';
+import { opRuleOf } from '@/lib/op-calendar';
 import {
   FileText,
   Zap,
@@ -479,7 +480,17 @@ export default function DashboardPage() {
     genCtl.date,
     genCtl.date,
   );
-  const hourlyData = useMemo(() => buildHourlyGenData(historyData), [historyData]);
+  // 시간 보기 — 아직 안 온 시간도 0~23시 칸을 둔다(예상 선 · OFF/ON 기준선이 하루 전체에 보이게)
+  const hourlyData = useMemo(() => {
+    const rows = buildHourlyGenData(historyData);
+    const have = new Set(rows.map((r) => r.x));
+    const padded: { x: string; generation?: number }[] = [...rows];
+    for (let h = 0; h < 24; h++) {
+      const x = `${String(h).padStart(2, '0')}:00`;
+      if (!have.has(x)) padded.push({ x });
+    }
+    return padded.sort((a, b) => a.x.localeCompare(b.x));
+  }, [historyData]);
 
   const genChartData = useMemo(() => {
     const base =
@@ -863,7 +874,16 @@ export default function DashboardPage() {
                   <PpaOpInline plantId={(isAdmin ? selectedCompany?.plantId : ppaContracts[0]?.plantId) as number} tu={genCtl.tu} month={genCtl.month} />
                 </div>
               )}
+              {/* PPA 시간 보기 — 설정으로 꺼지는 시각(빨강) · 켜지는 시각(초록 점선) */}
               <RmsAreaLineChart
+                refLines={
+                  genCtl.tu === 'hour' && viewKind === 'ONSITE' && opRuleOf(energySettings).offStart && opRuleOf(energySettings).onTime
+                    ? [
+                        { x: opRuleOf(energySettings).offStart!, label: 'OFF', color: '#ef4444' },
+                        { x: opRuleOf(energySettings).onTime!, label: 'ON', color: '#10b981', dashed: true },
+                      ]
+                    : []
+                }
                 data={genChartData as Array<Record<string, string | number>>}
                 xKey="x"
                 stacked={false}

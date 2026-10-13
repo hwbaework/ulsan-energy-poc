@@ -21,6 +21,7 @@ import { useTradingPocStore } from '@/stores/useTradingPocStore';
 import { PLAN_LABEL } from '@/lib/solar-sim';
 import type { TradeRequest } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
+import { TradeApprovalDetailScreen } from './TradeApprovalsScreen';
 import { KIND_OPTIONS, PARTY_LABEL, fmtDate, fmtDateTime, fmtKw, fmtNum, kindLabel } from './meta';
 import {
   EventTimeline,
@@ -40,15 +41,16 @@ import {
 import { TermsInfo, type TermsEdit } from './TermsInfo';
 
 const IN_TALK: TradeRequest['status'][] = ['SUBMITTED', 'REVIEW'];
-const IN_APPROVALS: TradeRequest['status'][] = ['APPROVED', 'SIGNED'];
+const IN_APPROVALS: TradeRequest['status'][] = ['SIGNED']; // 승인(양측 서명 완료)만 거래 승인으로 — 전자서명까지는 거래 이력
 
-/** 거래 이력 상태 — 승인 전까지. 신청(미팅일 확정 전) → 미팅(미팅일 확정 ~ 조건 동의 전) + 반려 · 취소. 승인부터는 거래 승인에 */
-const HISTORY_STATUS = ['신청', '미팅', '반려'] as const;
+/** 거래 이력 상태 — 승인 전까지. 신청(미팅일 확정 전) → 미팅(미팅일 확정 ~ 조건 동의 전) → 전자서명(동의 ~ 양측 서명 전) + 반려 · 취소. 승인은 거래 승인에 */
+const HISTORY_STATUS = ['신청', '미팅', '전자서명', '반려'] as const;
 type HistoryStatus = (typeof HISTORY_STATUS)[number];
-const HISTORY_TONE: Record<HistoryStatus, StatusTone> = { 신청: 'muted', 미팅: 'warning', 반려: 'danger' };
+const HISTORY_TONE: Record<HistoryStatus, StatusTone> = { 신청: 'muted', 미팅: 'warning', 전자서명: 'warning', 반려: 'danger' };
 function historyStatusOf(r: TradeRequest): HistoryStatus {
   if (r.status === 'REJECTED' || r.status === 'CANCELLED') return '반려';
   if (r.status === 'SUBMITTED') return '신청';
+  if (r.status === 'APPROVED') return '전자서명';
   return '미팅';
 }
 const HistoryPill = ({ r }: { r: TradeRequest }) => {
@@ -164,7 +166,6 @@ export function TradeHistoryScreen() {
   );
 }
 
-const approvalsBase = (admin: boolean) => (admin ? '/platform/trading/approvals' : '/generator/trading/approvals');
 
 /** 거래 이력 › 신청 한 건 — ?id=신청 번호. 위: 단계 / 신청 내용(조건 협의 때 그 자리에서 고침) / 진행 이력, 옆: 협의 채팅 */
 export function TradeHistoryDetailScreen() {
@@ -175,6 +176,8 @@ export function TradeHistoryDetailScreen() {
   }, []);
   const r = id == null ? undefined : role.requests.find((x) => x.id === id);
   const list = base(role.isAdmin);
+  // 전자서명(동의 뒤) · 승인 — 서명 화면을 거래 이력 안에서 그대로
+  if (r && (r.status === 'APPROVED' || r.status === 'SIGNED')) return <TradeApprovalDetailScreen section="history" />;
 
   return (
     <div className="space-y-6">
@@ -249,7 +252,6 @@ function changeNote(r: TradeRequest, t: ReturnType<typeof termsOfDraft>) {
  * 미팅 단계: 관리자 · 신청한 쪽 둘 다 같은 칸에 조건을 넣고 저장(채팅으로 맞춘다) → 승인 / 반려는 관리자, 신청 취소는 신청한 쪽. 미팅 완료 버튼은 없다(2026-10-12)
  */
 function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
-  const router = useRouter();
   const role = useTradingRole();
   const addToast = useToastStore((s) => s.add);
   const updateTerms = useTradingPocStore((s) => s.updateTerms);
@@ -527,7 +529,6 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
         onConfirm={() => {
           approve(r.id);
           addToast('success', `${r.no} 동의 — 전자서명 대기`);
-          router.push(`${approvalsBase(role.isAdmin)}/view?id=${r.id}`);
           setConfirm(null);
         }}
         title="동의"

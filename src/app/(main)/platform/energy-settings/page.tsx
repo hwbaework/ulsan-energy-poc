@@ -5,6 +5,7 @@ import { Check, Loader2, Plus, Save, Trash2 } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { SectionCard } from '@/components/features';
 import { Button } from '@/components/ui/Button';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Select } from '@/components/ui/Select';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useToastStore } from '@/stores/useToastStore';
@@ -83,6 +84,7 @@ export default function EnergySettingsPage() {
   // 무료진단 PPA 쉬는 날 — 이 규칙 · 금년 공휴일(특일 정보)로 가동일을 센다
   const [opRule, setOpRule] = useState<OpRule | null>(null);
   const [opDirty, setOpDirty] = useState(false);
+  const [saveAsk, setSaveAsk] = useState(false); // 저장 전 확인 — 바로 반영하지 않는다
   useEffect(() => {
     if (energy && !opDirty) setOpRule(opRuleOf(energy));
   }, [energy, opDirty]);
@@ -175,7 +177,8 @@ export default function EnergySettingsPage() {
     }
     try {
       if (baseDirty) await saveEnergy.mutateAsync(Object.fromEntries(BASE_FIELDS.map((f) => [f.key, (base[f.key] ?? '').trim()])));
-      if (opDirty && opRule) await saveEnergy.mutateAsync({ PPA_WEEKEND_OFF: opRule.weekendOff ? '1' : '0', PPA_HOLIDAY_OFF: opRule.holidayOff ? '1' : '0' });
+      if (opDirty && opRule)
+        await saveEnergy.mutateAsync({ PPA_WEEKEND_OFF: opRule.weekendOff ? '1' : '0', PPA_HOLIDAY_OFF: opRule.holidayOff ? '1' : '0', PPA_OFF_START: opRule.offStart ?? '', PPA_ON_TIME: opRule.onTime ?? '' });
       if (holDirty) await saveHol.mutateAsync(hol);
       setOpDirty(false);
       setHolDirty(false);
@@ -195,11 +198,22 @@ export default function EnergySettingsPage() {
   return (
     <div className="space-y-6">
       <Breadcrumb items={[{ label: '관리' }, { label: '에너지 설정' }]} />
+      <ConfirmDialog
+        open={saveAsk}
+        onClose={() => setSaveAsk(false)}
+        onConfirm={() => {
+          setSaveAsk(false);
+          void onSave();
+        }}
+        title="에너지 설정 저장"
+        message="바꾼 값을 저장합니다. 무료진단 · 가동일 · 대시보드가 이 값을 씁니다."
+        confirmLabel="저장"
+      />
 
       {/* 제목 · 오른쪽 저장 — 스크롤해도 상단(헤더 100px 아래)에 따라다닌다 */}
       <div className="sticky top-[100px] z-20 flex flex-wrap items-center justify-between gap-3 py-3 backdrop-blur">
         <h1 className="text-2xl font-bold text-white">에너지 설정</h1>
-        <Button onClick={onSave} disabled={!anyDirty || pending || energyLoading || kepcoLoading}>
+        <Button onClick={() => setSaveAsk(true)} disabled={!anyDirty || pending || energyLoading || kepcoLoading}>
           {pending ? <Loader2 size={14} className="mr-1 animate-spin" /> : anyDirty ? <Save size={14} className="mr-1" /> : <Check size={14} className="mr-1" />}
           {pending ? '저장 중…' : anyDirty ? '저장' : '저장됨'}
         </Button>
@@ -276,6 +290,28 @@ export default function EnergySettingsPage() {
             <p className="text-sm text-slate-300 tabular-nums">
               {opYearNo}년 가동일 <b className="text-lg text-white">{opYr.op}</b>일 / {opYr.days}일 · OFF 주말 {opYr.weekend} · 공휴일 {opYr.holiday}
             </p>
+          </div>
+          {/* 매일 고정 OFF · ON 시각 — 날짜가 아니라 시간으로 끈다 */}
+          <div className="mt-4 flex flex-wrap items-center gap-6 text-sm text-slate-200">
+            {(
+              [
+                ['offStart', '매일 OFF 시각'],
+                ['onTime', '매일 ON 시각'],
+              ] as const
+            ).map(([k, label]) => (
+              <label key={k} className="flex items-center gap-2">
+                {label}
+                <input
+                  type="time"
+                  value={opRule[k] ?? ''}
+                  onChange={(e) => {
+                    setOpRule({ ...opRule, [k]: e.target.value });
+                    setOpDirty(true);
+                  }}
+                  className={`${FIELD} w-32 text-left [color-scheme:dark]`}
+                />
+              </label>
+            ))}
           </div>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[640px] text-xs tabular-nums">
