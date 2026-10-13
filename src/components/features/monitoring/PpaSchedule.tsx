@@ -483,7 +483,7 @@ export function PpaOpInfo({ companyId }: { companyId: number }) {
 /** 발전소 발전·공급 안(관리자 · 발전사업자) — PPA 운전 한 줄, 조회만(끄고 켜는 건 설정 › 설정). 토글(글자 없음) + 현재 ON / OFF, 그 옆에 그래프 단위를 따라
  *  시간 = 이번 주 요일 칸 · 일 = 그 달 날짜 칸 · 월 = 없음(달 단위로 끄고 켤 수는 없으니 현재만).
  *  칸은 ON 초록 · OFF 어둡게 · 오늘 테두리. 발전사업자가 칸을 누르면 "바꿀까요?" 확인창 → 그날 ON/OFF(수동 지정, 설정 › 설정 달력과 같은 값). 관리자는 조회만. 토글은 오늘 */
-export function PpaOpInline({ plantId, tu, month }: { plantId: number; tu: 'hour' | 'day' | 'month'; month: string }) {
+export function PpaOpInline({ plantId }: { plantId: number }) {
   useHydrateOpSchedule();
   useHydrateTradingPoc();
   // 관리자 · 발전사업자만 — 전기사용자는 운전을 안 본다
@@ -492,14 +492,10 @@ export function PpaOpInline({ plantId, tu, month }: { plantId: number; tu: 'hour
   const persona = override ?? getPersona(user);
   const companyId = useTradingPocStore((s) => s.contracts.find((c) => c.kind === 'ONSITE' && c.status === 'ACTIVE' && c.plantId === plantId)?.consumerCompanyId);
   const now = today();
-  const viewYear = tu === 'day' ? Number(month.slice(0, 4)) : Number(now.slice(0, 4));
-  const { data: hol } = useHolidays(viewYear);
   const { data: holNow } = useHolidays(Number(now.slice(0, 4)));
-  const holidays = useMemo(() => holidayMap(hol), [hol]);
   const holidaysNow = useMemo(() => holidayMap(holNow), [holNow]);
   const store = useOpScheduleStore();
   const { data: es } = useEnergySettings();
-  const [ask, setAsk] = useState<{ date: string; on: boolean; hs: Map<string, string> } | null>(null);
   if (companyId === undefined || (persona !== 'admin' && persona !== 'generator')) return null;
   const base = opRuleOf(es);
   const sch = scheduleOf(store, companyId, base);
@@ -514,91 +510,13 @@ export function PpaOpInline({ plantId, tu, month }: { plantId: number; tu: 'hour
   const byDayTime = !!plan.offWindow && inWindow(plan.offWindow, hhmm); // 그날 시간 OFF
   const offByTime = !manualToday && inOffWindow(base, hhmm);
   const isOn = dayFixed ? manualToday === 'ON' : plan.on && !byDayTime && !offByTime;
-  const why = dayFixed
-    ? '수동'
-    : byDayTime
-      ? `수동 · ${plan.offWindow!.from}~${plan.offWindow!.to}`
-      : !plan.on
-        ? `설정 · ${plan.reason}`
-        : offByTime
-          ? `설정 · ${base.offStart}~${base.onTime}`
-          : '';
-  const cell = 'inline-flex h-7 min-w-[30px] items-center justify-center gap-1 rounded-md px-1.5 text-xs tabular-nums ring-1 transition-colors';
-  const onCls = 'bg-emerald-500/15 text-emerald-200 ring-emerald-500/30 enabled:hover:bg-emerald-500/25';
-  const offCls = 'bg-black/30 text-slate-500 ring-white/[0.06] enabled:hover:bg-white/[0.08]';
-  // 날짜 칸 — 대시보드는 조회만(끄고 켜는 건 설정 › 설정)
-  const canEdit = false;
-  const dayCell = (d: string, hs: Map<string, string>, label?: string) => {
-    const st = dayStatus(d, hs, sch, sch.overrides);
-    return (
-      <button
-        key={d}
-        type="button"
-        disabled={!canEdit}
-        title={`${d} (${WEEK[weekdayOf(d)]}) ${reasonText(st)}${canEdit ? ` — 누르면 ${st.on ? 'OFF' : 'ON'} 로` : ''}`}
-        onClick={() => setAsk({ date: d, on: st.on, hs })}
-        className={cn(cell, label && 'min-w-[50px]', st.on ? onCls : offCls, d === now && 'ring-2 ring-primary/70', !canEdit && 'cursor-default')}
-      >
-        {label && <span className={st.on ? 'text-emerald-300/80' : 'text-slate-500'}>{label}</span>}
-        {Number(d.slice(8))}
-      </button>
-    );
-  };
-  const t = new Date(`${now}T00:00:00Z`);
-  const mon = new Date(t.getTime() - ((t.getUTCDay() + 6) % 7) * 86_400_000);
-  const week = Array.from({ length: 7 }, (_, k) => new Date(mon.getTime() + k * 86_400_000).toISOString().slice(0, 10));
+  // 대시보드는 한 줄만 — 지금 ON 인지 OFF 인지, 수동인지 설정인지(2026-10-13). 날짜 칸 · 이번 주 · 월 없음
+  const reason = dayFixed || byDayTime ? '수동' : !plan.on ? `설정 · ${plan.reason}` : offByTime ? `설정 · ${base.offStart}~${base.onTime}` : '';
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-300">
-      <div className="flex items-center gap-2.5">
-        {/* 조회만 — 끄고 켜는 건 설정 › 설정에서(확인창 거쳐) */}
-        <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', isOn ? 'bg-emerald-400' : 'bg-red-400')} />
-        <span>
-          현재 <b className={isOn ? 'text-emerald-300' : 'text-red-300'}>{isOn ? 'ON' : 'OFF'}</b>
-          {why && <span className="ml-1.5 text-xs text-slate-400">{why}</span>}
-        </span>
-      </div>
-      {tu === 'hour' && (
-        <div className="flex flex-wrap items-center gap-1">
-          <span className="mr-1 text-xs text-slate-400">이번 주</span>
-          {week.map((d) => dayCell(d, holidaysNow, WEEK[weekdayOf(d)]))}
-        </div>
-      )}
-      {tu === 'day' && (
-        <div className="flex flex-wrap items-center gap-1">
-          <span className="mr-1 text-xs text-slate-400">{`${Number(month.slice(5, 7))}월`}</span>
-          {monthStatus(Number(month.slice(0, 4)), Number(month.slice(5, 7)), holidays, sch, sch.overrides).map((d) => dayCell(d.date, holidays))}
-        </div>
-      )}
-      {/* 바꿀까요? — 그날만 수동 지정 */}
-      <Modal
-        open={ask !== null}
-        onClose={() => setAsk(null)}
-        title="운전 변경"
-        size="sm"
-        footer={
-          <div className="flex justify-end gap-2">
-            <Button variant="cancel" onClick={() => setAsk(null)}>
-              취소
-            </Button>
-            <Button
-              onClick={() => {
-                if (ask) store.toggleDay(companyId, ask.date, dayStatus(ask.date, ask.hs, sch).on, by(), base);
-                setAsk(null);
-              }}
-            >
-              {ask?.on ? 'OFF 로 바꾸기' : 'ON 으로 바꾸기'}
-            </Button>
-          </div>
-        }
-      >
-        {ask && (
-          <p className="text-sm text-slate-200">
-            {`${ask.date} (${WEEK[weekdayOf(ask.date)]}) 인버터를 ${ask.on ? 'ON' : 'OFF'} 에서 `}
-            <b className="text-white">{ask.on ? 'OFF' : 'ON'}</b>
-            {' 로 바꿉니다.'}
-          </p>
-        )}
-      </Modal>
-    </div>
+    <span className="inline-flex items-center gap-1.5 text-sm text-slate-400">
+      <span className={cn('h-2 w-2 rounded-full', isOn ? 'bg-emerald-400' : 'bg-red-400')} />
+      인버터 <b className={isOn ? 'text-emerald-300' : 'text-red-300'}>{isOn ? 'ON' : 'OFF'}</b>
+      {reason && <span>{reason}</span>}
+    </span>
   );
 }

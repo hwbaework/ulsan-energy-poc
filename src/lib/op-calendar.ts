@@ -75,7 +75,7 @@ export interface OpRule {
   offStart?: string;
   onTime?: string;
 }
-export const OP_RULE_DEFAULT: OpRule = { weekendOff: true, holidayOff: true, offStart: '18:00', onTime: '06:00' };
+export const OP_RULE_DEFAULT: OpRule = { weekendOff: true, holidayOff: true, offStart: '18:00', onTime: '10:00' };
 /** 에너지 설정 값('1' / '0' · HH:MM)에서 규칙으로 */
 export const opRuleOf = (es: Record<string, string> | undefined): OpRule => ({
   weekendOff: (es?.PPA_WEEKEND_OFF ?? '1') !== '0',

@@ -7,17 +7,15 @@ import { StatCard, StatsGrid } from '@/components/features/StatCard';
 import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { Input } from '@/components/ui/Input';
-import { RmsPaybackChart } from '@/components/ui/Chart';
 import { PpaMonthlyCard } from './PpaMonthlyCard';
 import type { Contract } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
-import { KEPCO_UNIT_PRICE, estimateMonthlyKwh, fmtKrw, fmtKw, kindLabel, totalCostOf } from './meta';
-import { PageHeader, cell, cellMuted, cellNum, cellStrong } from './Bits';
+import { estimateMonthlyKwh, fmtKrw, fmtKw } from './meta';
+import { PageHeader, cellMuted, cellNum, cellStrong } from './Bits';
 
 const kw = (xs: Contract[]) => xs.reduce((s, c) => s + c.capacityKw, 0);
 /** 월 사용료 — onsite 만(예상 월 사용량 × 1구간 단가). 자가소비는 매달 내는 돈이 없다 */
-const returnOf = (c: Contract) =>
-  c.kind === 'ONSITE' ? estimateMonthlyKwh(c.capacityKw) * c.unitPrice : 0;
+const returnOf = (c: Contract) => (c.kind === 'ONSITE' ? estimateMonthlyKwh(c.capacityKw) * c.unitPrice : 0);
 const arrow = {
   key: 'go',
   header: '',
@@ -59,19 +57,7 @@ export function ContractOverviewScreen() {
   }, [active]);
   type Co = (typeof companies)[number];
   const shownCos = companies.filter((c) => !q.trim() || c.name.includes(q.trim()));
-  // PPA 월별 — 들어온 실적만(정산). 관리자 = 수입, 기업 = 납부
-  // 자가소비 ROI — 기업만(관리자는 안 봄). −설치비에서 시작해 해마다 절감(한전 요금)만큼 쌓인다(만원)
-  const roi = useMemo(() => {
-    if (self.length === 0) return { data: [] as Record<string, string | number>[], breakEven: '', cost: 0 };
-    const years = Math.max(...self.map((c) => c.termYears));
-    const cost = self.reduce((a, c) => a + totalCostOf(c), 0);
-    const perYear = self.reduce((a, c) => a + estimateMonthlyKwh(c.capacityKw) * 12 * KEPCO_UNIT_PRICE, 0);
-    const data = Array.from({ length: years + 1 }, (_, k) => ({ year: k === 0 ? '0년(투자)' : `${k}년`, 자가소비: Math.round((perYear * k - cost) / 10_000) }));
-    const m = perYear > 0 ? Math.ceil(cost / (perYear / 12)) : 0;
-    const breakEven = m ? `${Math.floor(m / 12)}년 ${m % 12}개월` : '';
-    return { data, breakEven, cost };
-  }, [self]);
-
+  /* 관리자 — 기업마다 한 줄 */
   const coCols: Column<Co>[] = [
     { key: 'name', header: '기업', render: (c) => cellStrong(c.name) },
     { key: 'self', header: '자가소비', width: '130px', render: (c) => cellNum(c.selfKw ? fmtKw(c.selfKw) : '-') },
@@ -88,22 +74,6 @@ export function ContractOverviewScreen() {
     arrow,
   ];
 
-  /* 기업 계정 — 계약마다 한 줄 */
-  const contractCols: Column<Contract>[] = [
-    { key: 'no', header: '계약번호', width: '160px', render: (c) => cellStrong(c.no) },
-    { key: 'kind', header: '계약 유형', width: '100px', render: (c) => cell(kindLabel(c.kind)) },
-    { key: 'capacity', header: '용량', width: '130px', render: (c) => cellNum(fmtKw(c.capacityKw)) },
-    { key: 'term', header: '계약 기간', width: '100px', render: (c) => cellNum(`${c.termYears}년`) },
-    { key: 'start', header: '시작일', width: '130px', render: (c) => cellMuted(c.startDate) },
-    { key: 'end', header: '종료일', width: '130px', render: (c) => cellMuted(c.endDate) },
-    {
-      key: 'monthly',
-      header: '월 사용료',
-      width: '140px',
-      render: (c) => cellNum(returnOf(c) ? fmtKrw(returnOf(c)) : '-'),
-    },
-  ];
-
   const contractsBase = role.isAdmin ? '/platform/ppa/contracts' : '/generator/ppa/contracts';
 
   return (
@@ -116,61 +86,31 @@ export function ContractOverviewScreen() {
         <StatCard label="월 사용료 (PPA)" value={fmtKrw(monthly)} />
       </StatsGrid>
 
-      {role.isAdmin ? (
-        <>
-          {/* PPA — 달마다 얼마 들어왔는지(정산 실적) */}
-          <PpaMonthlyCard contracts={onsite} mode="income" />
-          <SectionCard
-            title={`기업별 계약 (${shownCos.length})`}
-            actions={
-              <div className="relative w-64">
-                <Search
-                  size={14}
-                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500"
-                />
-                <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="기업 검색" className="pl-8" />
-              </div>
-            }
-            noPadding
-          >
-            <DataTable
-              columns={coCols}
-              data={shownCos}
-              rowKey={(c) => c.id}
-              emptyMessage="계약 없음"
-              onRowClick={(c) => router.push(`${contractsBase}?company=${c.id}`)}
-            />
-          </SectionCard>
-        </>
-      ) : (
-        <>
-          {/* 자가소비 기업 — 설치비 언제 뽑는지 */}
-          {self.length > 0 && (
-            <SectionCard title="자가소비 ROI (만원)">
-              <p className="mb-3 text-sm text-slate-300 tabular-nums">
-                설치비 {fmtKrw(roi.cost)}
-                {roi.breakEven && (
-                  <>
-                    {' · '}흑자 전환 <span className="font-semibold text-white">{roi.breakEven}</span>
-                  </>
-                )}
-              </p>
-              <RmsPaybackChart data={roi.data} xKey="year" lines={[{ key: '자가소비', name: '누적 (설치비 차감)' }]} height={260} />
-            </SectionCard>
-          )}
-          {/* PPA 기업 — 달마다 얼마 썼고 얼마 냈는지 */}
-          <PpaMonthlyCard contracts={onsite} mode="pay" />
-        <SectionCard title={`내 계약 (${active.length})`} noPadding>
+      <>
+        {/* PPA — 달마다 얼마 들어왔는지(정산 실적) */}
+        <PpaMonthlyCard contracts={onsite} mode="income" label="전체" />
+        <SectionCard
+          title={`기업별 계약 (${shownCos.length})`}
+          actions={
+            <div className="relative w-64">
+              <Search
+                size={14}
+                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500"
+              />
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="기업 검색" className="pl-8" />
+            </div>
+          }
+          noPadding
+        >
           <DataTable
-            columns={contractCols}
-            data={[...active].sort((a, b) => a.startDate.localeCompare(b.startDate))}
+            columns={coCols}
+            data={shownCos}
             rowKey={(c) => c.id}
             emptyMessage="계약 없음"
-            onRowClick={() => router.push(contractsBase)}
+            onRowClick={(c) => router.push(`${contractsBase}?company=${c.id}`)}
           />
         </SectionCard>
-        </>
-      )}
+      </>
     </div>
   );
 }

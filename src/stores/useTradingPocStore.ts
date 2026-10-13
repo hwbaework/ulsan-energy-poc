@@ -1001,10 +1001,14 @@ export function settlementsOf(contracts: Contract[]): TradeSettlement[] {
   let id = 1;
   for (const c of contracts) {
     if (c.status === 'PENDING_SIGN' || c.kind !== 'ONSITE') continue; // 자가소비는 월 청구 없음(O&M 은 계약에 포함)
-    const firstMonth = c.startDate.slice(0, 7) > '2026-01' ? c.startDate.slice(0, 7) : '2026-01';
+    // 계약 시작 달부터 지금(또는 해지 달)까지 — 해마다(연도별 보기, 2026-10-13)
+    const firstMonth = c.startDate.slice(0, 7);
     const lastMonth = c.terminatedAt ? c.terminatedAt.slice(0, 7) : CURRENT_PERIOD;
-    for (let m = 1; m <= 12; m++) {
-      const period = `2026-${String(m).padStart(2, '0')}`;
+    const periods: string[] = [];
+    for (let y = Number(firstMonth.slice(0, 4)); y <= Number(lastMonth.slice(0, 4)); y++)
+      for (let m = 1; m <= 12; m++) periods.push(`${y}-${String(m).padStart(2, '0')}`);
+    for (const period of periods) {
+      const m = Number(period.slice(5, 7));
       if (period < firstMonth || period > lastMonth) continue;
       const variance = 1 + (((c.id * 7 + m * 3) % 9) - 4) / 100; // ±4% 계약·월별 편차
       const kwh = Math.round(c.capacityKw * (YIELD_KWH_PER_KW[m - 1] ?? 100) * variance);

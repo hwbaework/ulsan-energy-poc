@@ -677,7 +677,13 @@ export default function DashboardPage() {
           <div className="rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] overflow-hidden">
             <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between flex-wrap gap-2">
               <div>
-                <h3 className="text-md font-semibold text-white">발전소 발전·공급</h3>
+                <div className="flex items-center gap-3">
+                  <h3 className="text-md font-semibold text-white">발전소 발전·공급</h3>
+                  {/* PPA 인버터 지금 ON/OFF · 수동/설정 — 글자 한 줄(관리자 · 발전사업자) */}
+                  {viewKind === 'ONSITE' && (isAdmin ? selectedCompany?.plantId : ppaContracts[0]?.plantId) !== undefined && (
+                    <PpaOpInline plantId={(isAdmin ? selectedCompany?.plantId : ppaContracts[0]?.plantId) as number} />
+                  )}
+                </div>
                 <p className="mt-0.5 text-xs text-slate-400">
                   {genCtl.tu === 'hour' && '금일 시간대별 발전량 (kW)'}
                   {genCtl.tu === 'day' && '최근 30일 일별 발전량 (kWh)'}
@@ -867,20 +873,13 @@ export default function DashboardPage() {
                   })()}
                 </div>
               </div>
-              {/* PPA 운전 한 줄(관리자 · 발전사업자) — 토글 + 현재 ON/OFF, 그래프 단위를 따라 시간 = 이번 주 · 일 = 그 달 날짜 칸(누르면 그날 ON/OFF) · 월 = 현재만.
-                  관리자는 고른 회사의 발전소, 발전사업자는 자기 PPA 발전소. 따로 있던 PPA 운전 카드는 없앴다(같은 걸 여기서) */}
-              {viewKind === 'ONSITE' && (isAdmin ? selectedCompany?.plantId : ppaContracts[0]?.plantId) !== undefined && (
-                <div className="mb-3">
-                  <PpaOpInline plantId={(isAdmin ? selectedCompany?.plantId : ppaContracts[0]?.plantId) as number} tu={genCtl.tu} month={genCtl.month} />
-                </div>
-              )}
-              {/* PPA 시간 보기 — 설정으로 꺼지는 시각(빨강) · 켜지는 시각(초록 점선) */}
+              {/* PPA 시간 보기 — 설정으로 꺼지는 시각(빨강 실선) · 켜지는 시각(빨강 점선) */}
               <RmsAreaLineChart
                 refLines={
                   genCtl.tu === 'hour' && viewKind === 'ONSITE' && opRuleOf(energySettings).offStart && opRuleOf(energySettings).onTime
                     ? [
-                        { x: opRuleOf(energySettings).offStart!, label: 'OFF', color: '#ef4444' },
-                        { x: opRuleOf(energySettings).onTime!, label: 'ON', color: '#10b981', dashed: true },
+                        { x: opRuleOf(energySettings).offStart!, label: `OFF ${opRuleOf(energySettings).offStart}`, color: '#ef4444' },
+                        { x: opRuleOf(energySettings).onTime!, label: `ON ${opRuleOf(energySettings).onTime}`, color: '#ef4444', dashed: true },
                       ]
                     : []
                 }

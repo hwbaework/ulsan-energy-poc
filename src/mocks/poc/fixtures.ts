@@ -281,7 +281,7 @@ let ENERGY: Record<string, string> = {
   PPA_WEEKEND_OFF: '1', // 무료진단 PPA — 주말 인버터 OFF
   PPA_HOLIDAY_OFF: '1', // 무료진단 PPA — 공휴일 인버터 OFF
   PPA_OFF_START: '18:00', // PPA 인버터 매일 OFF 시각
-  PPA_ON_TIME: '06:00', // PPA 인버터 매일 ON 시각
+  PPA_ON_TIME: '10:00', // PPA 인버터 매일 ON 시각
   FUEL_ADJ: '5.0', // ₩/kWh — 연료비조정요금 (2026 3분기)
   KEPCO_UNIT_PRICE: '152.3', // ₩/kWh — 한전 산업용 단가. 자가소비 절감액 = 발전량 × 이 값
   PPA_UNIT_PRICE: '138.0', // ₩/kWh — 온사이트 PPA 계약 단가. PPA 요금 = 발전량 × 이 값
@@ -290,6 +290,7 @@ if (typeof window !== 'undefined') {
   try {
     const saved = JSON.parse(window.localStorage.getItem(ENERGY_KEY) ?? 'null');
     if (saved && typeof saved === 'object') ENERGY = { ...ENERGY, ...saved };
+    if (ENERGY.PPA_ON_TIME === '06:00') ENERGY.PPA_ON_TIME = '10:00'; // 2026-10-13 ON 시각 06 → 10
   } catch {
     /* 저장본이 깨졌으면 기본값으로 시작 */
   }

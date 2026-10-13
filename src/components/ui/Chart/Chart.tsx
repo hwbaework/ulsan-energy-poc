@@ -98,7 +98,7 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
   );
 }
 
-const axisStyle = { fontSize: 11, fill: '#64748b' };
+const axisStyle = { fontSize: 13, fill: '#cbd5e1' }; // 2026-10-13 숫자 안 보인다 → 키우고 밝게
 const gridStyle = { stroke: 'rgba(255,255,255,0.04)' };
 
 // ── Line Chart ──
@@ -123,9 +123,9 @@ export function RmsLineChart({ data, xKey, lines, title, description, height, cl
       <LineChart data={data}>
         <CartesianGrid strokeDasharray="3 3" {...gridStyle} />
         <XAxis dataKey={xKey} tick={axisStyle} axisLine={false} tickLine={false} />
-        <YAxis tick={axisStyle} axisLine={false} tickLine={false} width={45} />
+        <YAxis tick={axisStyle} axisLine={false} tickLine={false} width={52} />
         <Tooltip content={<CustomTooltip />} />
-        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: '#94a3b8' }} />
+        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 13, color: '#e2e8f0' }} />
         {lines.map((line, i) => (
           <Line
             key={line.key}
@@ -173,9 +173,9 @@ export function RmsAreaChart({ data, xKey, areas, title, description, height, cl
         </defs>
         <CartesianGrid strokeDasharray="3 3" {...gridStyle} />
         <XAxis dataKey={xKey} tick={axisStyle} axisLine={false} tickLine={false} />
-        <YAxis tick={axisStyle} axisLine={false} tickLine={false} width={45} />
+        <YAxis tick={axisStyle} axisLine={false} tickLine={false} width={52} />
         <Tooltip content={<CustomTooltip />} />
-        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: '#94a3b8' }} />
+        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 13, color: '#e2e8f0' }} />
         {areas.map((area, i) => (
           <Area
             key={area.key}
@@ -212,9 +212,9 @@ export function RmsBarChart({ data, xKey, bars, title, description, height, clas
       <BarChart data={data} barGap={2}>
         <CartesianGrid strokeDasharray="3 3" {...gridStyle} />
         <XAxis dataKey={xKey} tick={axisStyle} axisLine={false} tickLine={false} />
-        <YAxis tick={axisStyle} axisLine={false} tickLine={false} width={45} />
+        <YAxis tick={axisStyle} axisLine={false} tickLine={false} width={52} />
         <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: '#94a3b8' }} />
+        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 13, color: '#e2e8f0' }} />
         {bars.map((bar, i) => (
           <Bar
             key={bar.key}
@@ -339,7 +339,7 @@ export function RmsAreaLineChart({
         <XAxis dataKey={xKey} tick={axisStyle} axisLine={false} tickLine={false} />
         <YAxis tick={axisStyle} axisLine={false} tickLine={false} width={45} unit={yUnit} />
         <Tooltip content={<CustomTooltip />} />
-        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: '#94a3b8' }} />
+        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 13, color: '#e2e8f0' }} />
         {areas.map((a, i) => {
           const color = a.color ?? CHART_COLORS[i % CHART_COLORS.length];
           return (
@@ -376,7 +376,7 @@ export function RmsAreaLineChart({
             stroke={r.color ?? '#ef4444'}
             strokeWidth={2}
             strokeDasharray={r.dashed ? '6 4' : undefined}
-            label={{ value: r.label, position: 'top', fill: r.color ?? '#ef4444', fontSize: 11 }}
+            label={{ value: r.label, position: 'top', fill: r.color ?? '#ef4444', fontSize: 12 }}
           />
         ))}
       </ComposedChart>
@@ -418,7 +418,7 @@ export function RmsBarLineChart({
         <XAxis dataKey={xKey} tick={axisStyle} axisLine={false} tickLine={false} />
         <YAxis tick={axisStyle} axisLine={false} tickLine={false} width={45} unit={yUnit} domain={yDomain} />
         <Tooltip content={<CustomTooltip />} />
-        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: '#94a3b8' }} />
+        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 13, color: '#e2e8f0' }} />
         {bars.map((b, i) => (
           <Bar
             key={b.key}

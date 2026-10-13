@@ -1,8 +1,13 @@
 'use client';
 
-// RE100 › 계약 현황 — 발전사업자 (요약판 · 보기만)
-import { ContractOverviewScreen } from '@/components/features/trading-poc/ContractOverviewScreen';
+// 계약 현황은 관리자만(2026-10-13) — 발전사업자는 내 계약으로
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function Page() {
-  return <ContractOverviewScreen />;
+  const router = useRouter();
+  useEffect(() => {
+    router.replace('/generator/ppa/contracts');
+  }, [router]);
+  return null;
 }

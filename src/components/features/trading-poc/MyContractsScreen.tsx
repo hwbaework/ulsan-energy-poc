@@ -175,7 +175,7 @@ export function MyContractsScreen() {
       </StatsGrid>
       {role.isAdmin ? (
         // 관리자 — 달마다 얼마 들어와야 하는지(회사 골랐으면 그 회사만). ROI 는 기업 쪽에서만
-        <PpaMonthlyCard contracts={active} mode="income" />
+        <PpaMonthlyCard contracts={active} mode="income" label={companies.find(([id]) => String(id) === company)?.[1] ?? '전체'} />
       ) : (
         active.length > 0 && (
           // 기업 — 언제부터 이득인지(ROI = 누적 금액)
@@ -203,6 +203,8 @@ export function MyContractsScreen() {
           </SectionCard>
         )
       )}
+      {/* 기업 — PPA 달마다 얼마 냈는지(계약 현황은 관리자만) */}
+      {!role.isAdmin && <PpaMonthlyCard contracts={active} mode="pay" />}
 
       {role.isAdmin && !company ? (
         <SectionCard
