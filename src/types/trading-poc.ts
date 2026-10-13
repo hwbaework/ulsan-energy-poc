@@ -2,7 +2,7 @@
  * 전력거래(RE100 2.1) — 울산 에자자 POC 도메인.
  * 계약 유형은 자가소비 · onsite 두 가지뿐이고, 발전소 1 ↔ 전기사용자 사업장 1 이다 (매칭 바스켓·Offsite·Lease 없음).
  *
- * 흐름(두 유형 공통, 2026-10-12): 신청 접수 → 미팅(조건 입력) → 승인(계약 생성) → 전자서명(발전사업자·전기사용자) → 체결 → 월 정산
+ * 흐름(두 유형 공통, 2026-10-13): 신청 접수 → 미팅(오프라인 협의 · 관리자 조건 입력 · 계약서 작성) → 전자서명(양쪽, 계약서 보고 확인) → 승인(둘 다 서명) → 월 정산
  *  - onsite  : 발전사업자가 전기사용자 사업장에 설비를 두고 전력을 공급. 계약 단가(₩/kWh) × 공급량 으로 월 청구
  *  - 자가소비 : 전기사용자 소유 설비를 발전사업자가 설치·운영 관리. 운영관리 단가(₩/kWh) × 발전량 으로 월 청구
  */
@@ -13,8 +13,8 @@ export type Party = 'generator' | 'consumer' | 'spc';
 export type TradeRequestStatus =
   | 'SUBMITTED' // 접수
   | 'REVIEW' // 미팅 — 미팅 완료 · 조건 입력(승인 전)
-  | 'APPROVED' // 승인 — 계약 생성, 서명 대기
-  | 'SIGNED' // 체결 (양측 서명 완료)
+  | 'APPROVED' // 계약서 작성 — 서명 대기
+  | 'SIGNED' // 승인 (양측 서명 완료)
   | 'REJECTED' // 반려
   | 'CANCELLED'; // 신청 취소
 
@@ -86,9 +86,11 @@ export interface TradeRequest extends ContractTerms {
   /** 승인 시 생성되는 계약 */
   contractId?: number;
   events: TradeEvent[];
-  /** 계약 현황 — 소통 · 미팅 완료일 */
+  /** 계약 현황 — 소통 · 미팅 완료일 · 조건 동의(신청한 쪽이 관리자가 넣은 조건에 동의한 때) */
   messages?: TradeMessage[];
   surveyDoneAt?: string;
+  /** 관리자가 조건을 확정한 때 — 이때부터 신청한 쪽이 동의 / 반려. 값을 다시 고치면 풀린다 */
+  termsConfirmedAt?: string;
 }
 
 export type ContractStatus = 'PENDING_SIGN' | 'ACTIVE' | 'TERMINATED';

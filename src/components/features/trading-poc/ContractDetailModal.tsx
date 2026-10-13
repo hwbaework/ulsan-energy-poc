@@ -79,7 +79,7 @@ export function ContractDetailCard({ contract: c, canRequestChange, onRequestCha
                 : `${c.endDate} (${left > 0 ? `${left.toLocaleString()}일 남음` : '만료'})`
             }
           />
-          <Info label="체결일" value={fmtDateTime(c.signedAt)} />
+          <Info label="승인일" value={fmtDateTime(c.signedAt)} />
         </div>
 
         {/* 한 달 — 예상 */}

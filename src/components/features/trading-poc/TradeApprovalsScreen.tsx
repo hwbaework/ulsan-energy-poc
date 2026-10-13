@@ -10,13 +10,16 @@ import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { BackButton } from '@/components/layout/PageTitle';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
+import { Textarea } from '@/components/ui/Textarea';
 import { StatusPill } from '@/components/ui/Design';
 import { useToastStore } from '@/stores/useToastStore';
 import { CO, useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { TradeRequest } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
-import { fmtDate, fmtKw, kindLabel } from './meta';
+import { cn } from '@/lib/utils';
+import { fmtKw, kindLabel } from './meta';
 import {
   EventTimeline,
   Info,
@@ -30,9 +33,13 @@ import {
   cellStrong,
 } from './Bits';
 import { CONTRACT_PDF } from './DocumentsScreen';
+import { TermsInfo } from './TermsInfo';
+import { ContractSignature } from '@/components/features/ContractSignature';
+import { fmtNum } from './meta';
+import { fmtDateTime } from './meta';
 
-/** 거래 승인 상태 — 진행 5단계(신청 접수 · 미팅 · 승인 · 전자서명 · 체결)의 뒤 3단계 */
-const SIGN_STATUS = ['승인', '전자서명', '체결'] as const;
+/** 거래 승인 상태 — 4단계(신청 접수 · 미팅 · 전자서명 · 체결) 중 계약서가 만들어진 뒤: 서명 대기 · 전자서명(한쪽 서명) · 체결 */
+const SIGN_STATUS = ['서명 대기', '전자서명', '승인'] as const;
 type SignStatus = (typeof SIGN_STATUS)[number];
 
 const arrow = {
@@ -67,11 +74,11 @@ export function TradeApprovalsScreen() {
     [approved, filter, role.contracts],
   );
 
-  /** 승인: 아직 서명 없음 / 전자서명: 한쪽 서명 / 체결: 양쪽 서명 */
+  /** 서명 대기: 아직 서명 없음 / 전자서명: 한쪽 서명 / 체결: 양쪽 서명 */
   const signStatusOf = (r: TradeRequest): SignStatus => {
-    if (r.status === 'SIGNED') return '체결';
+    if (r.status === 'SIGNED') return '승인';
     const c = contractOf(r.contractId);
-    return c?.signedByGenerator || c?.signedByConsumer ? '전자서명' : '승인';
+    return c?.signedByGenerator || c?.signedByConsumer ? '전자서명' : '서명 대기';
   };
   const count = (st: SignStatus) => approved.filter((r) => signStatusOf(r) === st).length;
 
@@ -95,7 +102,7 @@ export function TradeApprovalsScreen() {
       render: (r) => (
         <StatusPill
           tone={r.status === 'SIGNED' ? 'normal' : 'warning'}
-          label={stepLabel(signStatusOf(r), TRADE_STEPS.indexOf(signStatusOf(r)))}
+          label={stepLabel(signStatusOf(r), signStatusOf(r) === '승인' ? TRADE_STEPS.length - 1 : TRADE_STEPS.indexOf('전자서명'))}
         />
       ),
     },
@@ -148,6 +155,11 @@ export function TradeApprovalDetailScreen() {
   const addToast = useToastStore((x) => x.add);
   const sign = useTradingPocStore((x) => x.signAsGenerator);
   const confirmConsumer = useTradingPocStore((x) => x.confirmConsumerSign);
+  const router = useRouter();
+  const rejectRequest = useTradingPocStore((x) => x.rejectRequest);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false); // 계약 내용 — 접어 둔다
+  const [cancelReason, setCancelReason] = useState('');
   const [id, setId] = useState<number | null>(null);
   const [confirm, setConfirm] = useState<'sign' | 'consumer' | null>(null);
   useEffect(() => {
@@ -165,7 +177,12 @@ export function TradeApprovalDetailScreen() {
     r?.status === 'APPROVED' &&
     !c.signedByGenerator &&
     (role.isAdmin ? spcSide : c.generatorCompanyId === role.companyId);
+  // 기업 쪽 서명 — 그 기업 계정이 직접(관리자는 오프라인 서명을 확인해 줄 수도)
+  const canSignConsumer = !!c && r?.status === 'APPROVED' && !role.isAdmin && c.consumerCompanyId === role.companyId && !c.signedByConsumer;
   const canConfirmConsumer = !!c && r?.status === 'APPROVED' && role.isAdmin && !c.signedByConsumer;
+  // 조건 확정 뒤 신청한 쪽은 동의(서명)하거나 사유를 적고 반려할 수 있다
+  const isMine = !!r && !role.isAdmin && [r.applicantCompanyId, r.generatorCompanyId, r.consumerCompanyId].includes(role.companyId);
+  const canCancel = !!r && r.status === 'APPROVED' && isMine;
 
   return (
     <div className="space-y-6">
@@ -195,39 +212,116 @@ export function TradeApprovalDetailScreen() {
               <TradeStepper r={r} signedCount={signedCount} className="mt-5" />
             </div>
 
-            {/* 계약 — 기간 · 시작일 · 서명 */}
+            {/* 전자서명 — 맨 위. 왼쪽 플랫폼 · 오른쪽 기업. 누구든 먼저 서명할 수 있고, 둘 다 하면 승인 */}
             {c && (
               <SectionCard
-                title="계약"
+                title="전자서명"
                 actions={
-                  <>
-                    {canConfirmConsumer && (
-                      <Button size="sm" variant="secondary" onClick={() => setConfirm('consumer')}>
-                        기업 서명 확인
-                      </Button>
-                    )}
-                    {canSign && (
-                      <Button size="sm" onClick={() => setConfirm('sign')}>
-                        {role.isAdmin ? 'SPC 전자서명' : '전자서명'}
-                      </Button>
-                    )}
-                  </>
+                  canCancel ? (
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => {
+                        setCancelReason('');
+                        setCancelOpen(true);
+                      }}
+                    >
+                      반려
+                    </Button>
+                  ) : undefined
                 }
               >
-                <div className="grid grid-cols-3 gap-4">
-                  <Info label="계약번호" value={c.no} />
-                  <Info label="기업명" value={c.consumerCompanyName} />
-                  <Info label="계약 유형" value={kindLabel(c.kind)} />
-                  <Info label="설치 용량" value={fmtKw(c.capacityKw)} />
-                  <Info label="계약 기간" value={`${c.termYears}년`} />
-                  <Info label="시작일" value={c.startDate} />
-                  <Info
-                    label={spcSide ? 'SPC 서명' : `${c.generatorCompanyName} 서명`}
-                    value={c.signedByGenerator ? '완료' : '전'}
-                  />
-                  <Info label="기업 서명" value={c.signedByConsumer ? '완료' : '전'} />
-                  <Info label="체결일" value={c.signedAt ? fmtDate(c.signedAt) : undefined} />
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {(
+                    [
+                      {
+                        who: spcSide ? '플랫폼 (SPC)' : c.generatorCompanyName,
+                        done: c.signedByGenerator,
+                        can: canSign,
+                        pad: true,
+                        signer: role.isAdmin ? CO.SPC.name : role.companyName,
+                        onSign: () => {
+                          sign(c.id);
+                          addToast('success', `${c.no} 전자서명`);
+                        },
+                        label: 'SPC 전자서명',
+                      },
+                      {
+                        who: `기업 (${c.consumerCompanyName})`,
+                        done: c.signedByConsumer,
+                        can: canSignConsumer || canConfirmConsumer,
+                        pad: canSignConsumer,
+                        signer: role.companyName,
+                        onSign: () => {
+                          if (canSignConsumer) {
+                            confirmConsumer(c.id);
+                            addToast('success', `${c.no} 전자서명`);
+                          } else setConfirm('consumer');
+                        },
+                        label: '기업 서명 확인',
+                      },
+                    ] as const
+                  ).map((side) => (
+                    <div
+                      key={side.who}
+                      className={cn(
+                        'rounded-xl p-5 ring-1',
+                        side.done ? 'bg-emerald-500/[0.06] ring-emerald-500/30' : 'bg-white/[0.03] ring-white/[0.08]',
+                      )}
+                    >
+                      <p className="text-sm text-slate-300">{side.who}</p>
+                      <p className={cn('mt-2 text-2xl font-bold', side.done ? 'text-emerald-300' : 'text-slate-500')}>
+                        {side.done ? '서명 완료' : '서명 전'}
+                      </p>
+                      {side.done && c.signedAt && <p className="mt-1 text-xs text-slate-400 tabular-nums">{fmtDateTime(c.signedAt)}</p>}
+                      {/* 서명판 — 자기 칸에서 그려서(또는 이름 입력) 서명. 관리자의 '기업 서명 확인'은 버튼 */}
+                      {side.can &&
+                        (side.pad ? (
+                          <div className="mt-4">
+                            <ContractSignature
+                              contractTitle={`${c.no} 계약`}
+                              contractSummary={[
+                                `${c.consumerCompanyName} · ${kindLabel(c.kind)} · ${fmtKw(c.capacityKw)} · ${c.termYears}년`,
+                                c.kind === 'ONSITE' ? `PPA 단가 ₩${fmtNum(c.unitPrice, 1)}/kWh` : `설치 단가 ₩${fmtNum(c.installUnit ?? 0)}/kW · 연간 O&M ${c.omRatePct ?? 0}%`,
+                                `시작일 ${c.startDate} · 종료일 ${c.endDate}`,
+                              ]}
+                              signerName={side.signer}
+                              onSign={side.onSign}
+                            />
+                          </div>
+                        ) : (
+                          <Button size="sm" className="mt-4" onClick={side.onSign}>
+                            {side.label}
+                          </Button>
+                        ))}
+                    </div>
+                  ))}
                 </div>
+              </SectionCard>
+            )}
+
+            {/* 계약 내용 — 접어 두고 펼쳐 본다(거래 이력과 같은 칸) */}
+            {c && (
+              <SectionCard
+                title="계약 내용"
+                actions={
+                  <Button size="sm" variant="secondary" onClick={() => setTermsOpen((v) => !v)}>
+                    {termsOpen ? '접기' : '펼치기'}
+                  </Button>
+                }
+              >
+                {termsOpen ? (
+                  <div className="grid grid-cols-3 gap-4">
+                    <Info label="계약번호" value={c.no} />
+                    <Info label="시작일" value={c.startDate} />
+                    <Info label="종료일" value={c.endDate} />
+                    <TermsInfo x={c} />
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-300 tabular-nums">
+                    {[c.no, kindLabel(c.kind), fmtKw(c.capacityKw), `${c.termYears}년`, c.kind === 'ONSITE' ? `PPA ₩${fmtNum(c.unitPrice, 1)}/kWh` : `설치 ₩${fmtNum(c.installUnit ?? 0)}/kW · O&M ${c.omRatePct ?? 0}%`].join(' · ')}
+                  </p>
+                )}
               </SectionCard>
             )}
 
@@ -258,6 +352,31 @@ export function TradeApprovalDetailScreen() {
         </div>
       ) : null}
 
+      {/* 반려 — 조건 확정 뒤 신청한 쪽이 사유를 적고. 서명 대기 계약 초안은 지운다 */}
+      <Modal open={cancelOpen} onClose={() => setCancelOpen(false)} title="반려" size="sm">
+        <div className="space-y-4">
+          <Textarea label="반려 사유" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} rows={3} className="resize-none" />
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setCancelOpen(false)}>
+              닫기
+            </Button>
+            <Button
+              variant="danger"
+              disabled={!cancelReason.trim() || !r}
+              onClick={() => {
+                if (!r) return;
+                rejectRequest(r.id, cancelReason.trim(), role.party);
+                addToast('success', `${r.no} 반려`);
+                setCancelOpen(false);
+                router.push(list);
+              }}
+            >
+              반려
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       <ConfirmDialog
         open={!!confirm}
         onClose={() => setConfirm(null)}
@@ -267,17 +386,19 @@ export function TradeApprovalDetailScreen() {
             addToast('success', `${c.no} 전자서명`);
           } else if (c && confirm === 'consumer') {
             confirmConsumer(c.id);
-            addToast('success', `${c.no} 기업 서명 확인`);
+            addToast('success', role.isAdmin ? `${c.no} 기업 서명 확인` : `${c.no} 전자서명`);
           }
           setConfirm(null);
         }}
-        title={confirm === 'sign' ? '전자서명' : '기업 서명 확인'}
+        title={confirm === 'sign' || !role.isAdmin ? '전자서명' : '기업 서명 확인'}
         message={
           confirm === 'sign'
             ? `${c?.no} 계약서에 ${role.isAdmin ? CO.SPC.name : role.companyName} 명의로 서명합니다.`
-            : `${c?.consumerCompanyName} 전자서명을 확인 처리합니다.`
+            : role.isAdmin
+              ? `${c?.consumerCompanyName} 전자서명을 확인 처리합니다.`
+              : `${c?.no} 계약서에 ${role.companyName} 명의로 서명합니다.`
         }
-        confirmLabel={confirm === 'sign' ? '서명' : '확인'}
+        confirmLabel={confirm === 'sign' || !role.isAdmin ? '서명' : '확인'}
       />
     </div>
   );

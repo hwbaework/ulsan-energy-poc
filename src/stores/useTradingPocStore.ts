@@ -25,7 +25,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 37; // 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
+export const SEED_VERSION = 46; // 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -71,7 +71,7 @@ const ev = (at: string, by: Party, label: string, note?: string) => ({
 /* ── 시드: 체결 = 실제 6건(자가소비 5 · onsite 1) / 상태별 샘플 1건씩(실제 기업·용량·조건) ───────────────────────────────────────── */
 /** 시드 계약 조건 — 두 유형 모두 설치 단가 ₩1,350,000/kW · 연간 O&M 1%, PPA 단가는 계약의 unitPrice */
 export function seedTermsOf(_x: { kind: PlantContractKind; unitPrice: number; termYears: number }): ContractTerms {
-  return { installUnit: 1_350_000, omRatePct: 1, tariffPlan: '고압A 선택Ⅱ', omIncluded: true };
+  return { installUnit: 1_350_000, extraCost: 0, omRatePct: 1, tariffPlan: '고압A 선택Ⅱ', omIncluded: true };
 }
 
 function seedContracts(): Contract[] {
@@ -288,7 +288,7 @@ function seedRequests(): TradeRequest[] {
     ev(approved, 'spc', '승인', '계약서 초안 생성'),
     ev(signed, 'generator', '전자서명'),
     ev(signed, 'consumer', '전자서명'),
-    ev(signed, 'spc', '체결'),
+    ev(signed, 'spc', '승인'),
   ];
   // 발전사업자 계정(한일튜브)이 신청한 건 — 계약 상대는 SPC
   const gen = {
@@ -384,7 +384,7 @@ function seedRequests(): TradeRequest[] {
         ev(iso('2025-03-28'), 'spc', '승인', '계약서 초안 생성'),
         ev(iso('2025-04-18', '10:40:00'), 'generator', '전자서명'),
         ev(iso('2025-04-18', '11:00:00'), 'consumer', '전자서명'),
-        ev(iso('2025-04-18', '11:00:00'), 'spc', '체결'),
+        ev(iso('2025-04-18', '11:00:00'), 'spc', '승인'),
       ],
     }),
     mk({
@@ -507,7 +507,7 @@ function seedRequests(): TradeRequest[] {
       submittedAt: iso('2026-09-25', '10:00:00'),
       updatedAt: iso('2026-09-26', '09:30:00'),
       surveyDate: '2026-10-08',
-      contact: { name: '설비 담당', phone: '052-000-0000' },
+      contact: { name: '설비 담당', phone: '052-000-0000', email: 'facility@taesung.co.kr' },
       events: [
         ev(iso('2026-09-25', '10:00:00'), 'spc', '신청 접수', '전화 문의 대리 접수'),
         ev(iso('2026-09-26', '09:30:00'), 'spc', '미팅 확정'),
@@ -540,11 +540,14 @@ function seedRequests(): TradeRequest[] {
       updatedAt: iso('2026-09-27', '11:00:00'),
       surveyDate: '2026-09-26',
       surveyDoneAt: '2026-09-26',
-      contact: { name: '시설 담당', phone: '052-000-0000' },
+      // 관리자가 조건을 확정 — 박발전 동의 대기([동의] · [반려])
+      termsConfirmedAt: iso('2026-09-27', '11:30:00'),
+      contact: { name: '박발전', phone: '010-2000-0002', email: 'operator@test.com' },
       events: [
         ev(iso('2026-09-20'), 'generator', '신청 접수'),
-        ev(iso('2026-09-23', '10:30:00'), 'spc', '미팅 확정'),
-        ev(iso('2026-09-26', '12:00:00'), 'spc', '미팅 완료', '2026-09-26'),
+        ev(iso('2026-09-23', '10:30:00'), 'spc', '미팅 확정', '2026-09-26'),
+        ev(iso('2026-09-27', '11:00:00'), 'spc', '조건 입력', '329.6 kW · 20년 · PPA ₩138/kWh'),
+        ev(iso('2026-09-27', '11:30:00'), 'spc', '조건 확정', '동의 대기'),
       ],
       messages: [
         {
@@ -563,7 +566,7 @@ function seedRequests(): TradeRequest[] {
           at: iso('2026-09-27', '11:00:00'),
           by: 'spc',
           byName: CO.SPC.name,
-          text: '미팅 결과 조건(329.6 kW · 20년 · PPA ₩138/kWh)을 넣었습니다. 승인 뒤 전자서명 요청드리겠습니다.',
+          text: '[조건 확정] 329.6 kW · 20년 · PPA ₩138/kWh · 설치 ₩1,350,000/kW · O&M 1% · 고압A 선택Ⅱ — 확인하시고 동의해 주세요.',
         },
       ],
     }),
@@ -590,7 +593,7 @@ function seedRequests(): TradeRequest[] {
         ev(iso('2026-08-12', '17:20:00'), 'spc', '반려', '설치 위치 도면 미제출 — 보완 후 재신청'),
       ],
     }),
-    // 취소
+    // 반려(신청한 쪽이 사유 적고)
     mk({
       id: 9,
       ...gen,
@@ -603,15 +606,16 @@ function seedRequests(): TradeRequest[] {
       capacityKw: 99.84,
       unitPrice: 0,
       termYears: 0,
-      status: 'CANCELLED',
+      status: 'REJECTED',
+      rejectReason: '설치 일정 보류',
       submittedAt: iso('2026-07-08'),
       updatedAt: iso('2026-07-21', '09:00:00'),
       events: [
         ev(iso('2026-07-08'), 'generator', '신청 접수'),
-        ev(iso('2026-07-21', '09:00:00'), 'generator', '신청 취소', '설치 일정 보류'),
+        ev(iso('2026-07-21', '09:00:00'), 'generator', '반려', '설치 일정 보류'),
       ],
     }),
-    // 박발전(한일튜브) — 접수 자가소비 1건(PPA 미팅 중은 id 5), 취소 PPA 1건(자가소비 취소는 id 9)
+    // 박발전(한일튜브) — 접수 자가소비 1건(PPA 미팅 중은 id 5), 반려 PPA 1건(자가소비 반려는 id 9)
     mk({
       id: 18,
       ...gen,
@@ -646,13 +650,14 @@ function seedRequests(): TradeRequest[] {
       capacityKw: 200,
       unitPrice: 0,
       termYears: 0,
-      status: 'CANCELLED',
+      status: 'REJECTED',
+      rejectReason: '지붕 구조 보강 필요로 보류',
       submittedAt: iso('2026-08-12', '10:00:00'),
       updatedAt: iso('2026-08-28', '16:00:00'),
       contact: { name: '박발전', phone: '010-2000-0002', email: 'operator@test.com' },
       events: [
         ev(iso('2026-08-12', '10:00:00'), 'generator', '신청 접수'),
-        ev(iso('2026-08-28', '16:00:00'), 'generator', '신청 취소', '지붕 구조 보강 필요로 보류'),
+        ev(iso('2026-08-28', '16:00:00'), 'generator', '반려', '지붕 구조 보강 필요로 보류'),
       ],
     }),
     // 승인 — 서명 전(거래 승인)
@@ -1159,6 +1164,9 @@ interface TradingPocState {
   addMessage: (id: number, by: Party, byName: string, text: string) => void;
   /** 미팅 확정(관리자) — 접수 → 미팅. 이때부터 양쪽이 조건을 넣는다 */
   confirmMeeting: (id: number, date: string) => void;
+  /** 조건 확정(관리자) — 신청한 쪽에 동의를 구한다. 채팅에도 자동으로 남긴다. 확정 뒤엔 못 고친다 → 확정 취소로 다시 연다 */
+  confirmTerms: (id: number) => void;
+  unconfirmTerms: (id: number) => void;
   markSurveyDone: (id: number, date: string) => void;
   /** 미팅 뒤 조건 입력 — 신청 내용에 그 자리에서 저장(접수 상태면 미팅 상태로) */
   updateTerms: (
@@ -1167,7 +1175,8 @@ interface TradingPocState {
     note?: string,
     by?: Party,
   ) => void;
-  rejectRequest: (id: number, reason: string) => void;
+  /** 반려 — 관리자든 신청한 쪽이든 사유를 적고. 서명 대기 중이면 계약 초안도 지운다 */
+  rejectRequest: (id: number, reason: string, by?: Party) => void;
   cancelRequest: (id: number, note?: string) => void;
   signAsGenerator: (contractId: number) => void;
   confirmConsumerSign: (contractId: number) => void;
@@ -1246,6 +1255,45 @@ export const useTradingPocStore = create<TradingPocState>()(
           ),
         })),
 
+      confirmTerms: (id) =>
+        set((s) => ({
+          requests: s.requests.map((r) => {
+            if (r.id !== id) return r;
+            const summary = [
+              `${r.capacityKw} kW`,
+              `${r.termYears}년`,
+              r.kind === 'ONSITE' ? `PPA ₩${r.unitPrice}/kWh` : '',
+              r.installUnit ? `설치 ₩${r.installUnit.toLocaleString('ko-KR')}/kW` : '',
+              r.omRatePct ? `O&M ${r.omRatePct}%` : '',
+              r.tariffPlan ?? '',
+            ]
+              .filter(Boolean)
+              .join(' · ');
+            return {
+              ...r,
+              termsConfirmedAt: nowIso(),
+              updatedAt: nowIso(),
+              events: [...r.events, ev(nowIso(), 'spc', '조건 확정', summary)],
+              messages: [...(r.messages ?? []), { at: nowIso(), by: 'spc', byName: CO.SPC.name, text: `[조건 확정] ${summary} — 확인하시고 동의해 주세요.` }],
+            };
+          }),
+        })),
+
+      unconfirmTerms: (id) =>
+        set((s) => ({
+          requests: s.requests.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  termsConfirmedAt: undefined,
+                  updatedAt: nowIso(),
+                  events: [...r.events, ev(nowIso(), 'spc', '확정 취소', '조건 다시 입력')],
+                  messages: [...(r.messages ?? []), { at: nowIso(), by: 'spc', byName: CO.SPC.name, text: '[확정 취소] 조건을 다시 정리해 보내드리겠습니다.' }],
+                }
+              : r,
+          ),
+        })),
+
       confirmMeeting: (id, date) =>
         set((s) => ({
           requests: s.requests.map((r) =>
@@ -1255,7 +1303,7 @@ export const useTradingPocStore = create<TradingPocState>()(
                   status: 'REVIEW',
                   surveyDate: date,
                   updatedAt: nowIso(),
-                  events: [...r.events, ev(nowIso(), 'spc', '미팅 확정', date)],
+                  events: [...r.events, ev(nowIso(), 'spc', r.status === 'SUBMITTED' ? '미팅 확정' : '미팅일 변경', date)],
                 }
               : r,
           ),
@@ -1283,6 +1331,7 @@ export const useTradingPocStore = create<TradingPocState>()(
               ? {
                   ...r,
                   ...terms,
+                  termsConfirmedAt: undefined, // 값이 바뀌면 다시 확정 · 동의
                   status: r.status === 'SUBMITTED' ? 'REVIEW' : r.status,
                   updatedAt: nowIso(),
                   events: [...r.events, ev(nowIso(), by, '조건 입력', note)],
@@ -1348,7 +1397,7 @@ export const useTradingPocStore = create<TradingPocState>()(
                   ...patchReq(
                     { ...x, ...r, events: x.events },
                     'APPROVED',
-                    ev(at, 'spc', '승인', note ?? '계약서 초안 생성 — 양측 전자서명 대기'),
+                    ev(at, r.applicant, '동의', note ?? '양측 전자서명 대기'),
                   ),
                   contractId: contract.id,
                 }
@@ -1357,26 +1406,37 @@ export const useTradingPocStore = create<TradingPocState>()(
         }));
       },
 
-      rejectRequest: (id, reason) =>
-        set((s) => ({
-          requests: s.requests.map((r) =>
-            r.id === id
-              ? {
-                  ...patchReq(r, 'REJECTED', ev(nowIso(), 'spc', '반려', reason)),
-                  rejectReason: reason,
-                }
-              : r,
-          ),
-        })),
+      rejectRequest: (id, reason, by = 'spc') =>
+        set((s) => {
+          const r0 = s.requests.find((r) => r.id === id);
+          const pendingContractId = r0?.contractId && s.contracts.find((c) => c.id === r0.contractId && c.status === 'PENDING_SIGN')?.id;
+          return {
+            requests: s.requests.map((r) =>
+              r.id === id
+                ? {
+                    ...patchReq({ ...r, contractId: pendingContractId ? undefined : r.contractId }, 'REJECTED', ev(nowIso(), by, '반려', reason)),
+                    rejectReason: reason,
+                  }
+                : r,
+            ),
+            contracts: pendingContractId ? s.contracts.filter((c) => c.id !== pendingContractId) : s.contracts,
+            documents: pendingContractId ? s.documents.filter((d) => d.contractId !== pendingContractId) : s.documents,
+          };
+        }),
 
       cancelRequest: (id, note) =>
-        set((s) => ({
-          requests: s.requests.map((r) =>
-            r.id === id
-              ? patchReq(r, 'CANCELLED', ev(nowIso(), r.applicant, '신청 취소', note))
-              : r,
-          ),
-        })),
+        set((s) => {
+          // 서명 대기 중 취소면 아직 서명 안 한 계약(초안)도 지운다
+          const r0 = s.requests.find((r) => r.id === id);
+          const pendingContractId = r0?.contractId && s.contracts.find((c) => c.id === r0.contractId && c.status === 'PENDING_SIGN')?.id;
+          return {
+            requests: s.requests.map((r) =>
+              r.id === id ? patchReq({ ...r, contractId: pendingContractId ? undefined : r.contractId }, 'CANCELLED', ev(nowIso(), r.applicant, '신청 취소', note)) : r,
+            ),
+            contracts: pendingContractId ? s.contracts.filter((c) => c.id !== pendingContractId) : s.contracts,
+            documents: pendingContractId ? s.documents.filter((d) => d.contractId !== pendingContractId) : s.documents,
+          };
+        }),
 
       signAsGenerator: (contractId) => {
         if (get().contracts.some((c) => c.id === contractId))
@@ -1634,9 +1694,9 @@ function sign(set: Set, get: Get, contractId: number, party: 'generator' | 'cons
     next.signedAt = at;
   }
   const events = [
-    ev(at, party, '전자서명', party === 'consumer' ? '전기사용자 서명 확인 (SPC)' : undefined),
+    ev(at, party, '전자서명', party === 'consumer' ? `${next.consumerCompanyName} 서명` : `${next.generatorCompanyName} 서명`),
   ];
-  if (done) events.push(ev(at, 'spc', '체결', `계약 ${next.no} 발효 — 시작일 ${next.startDate}`));
+  if (done) events.push(ev(at, 'spc', '승인', `계약 ${next.no} 발효 — 시작일 ${next.startDate}`));
   const docs: TradeDocument[] = done
     ? [
         {

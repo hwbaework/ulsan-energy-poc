@@ -76,16 +76,16 @@ export const cellMuted = (v: ReactNode) => (
 );
 
 /* ── 진행 단계 — 거래 이력 · 거래 승인이 같은 단계를 쓴다 ── */
-export const TRADE_STEPS = ['신청 접수', '미팅', '승인', '전자서명', '체결'] as const;
+export const TRADE_STEPS = ['신청 접수', '미팅', '전자서명', '승인'] as const;
 
 /** 단계 표기 — 미팅 (2/5) */
 export const stepLabel = (label: string, i: number) => `${label} (${i + 1}/${TRADE_STEPS.length})`;
 
-/** 지금 단계(TRADE_STEPS 번호). 신청하면 곧 미팅(조건 입력), 승인되면 전자서명, 체결되면 TRADE_STEPS.length — 전부 끝 */
+/** 지금 단계(TRADE_STEPS 번호). 신청하면 곧 미팅(조건 입력), 계약서를 만들면 전자서명, 둘 다 서명하면 승인(둘 다 서명) — TRADE_STEPS.length */
 export function tradeStepOf(r: TradeRequest): number {
   switch (r.status) {
     case 'APPROVED':
-      return 3;
+      return 2;
     case 'SIGNED':
       return TRADE_STEPS.length;
     default:
@@ -171,7 +171,7 @@ export function TradeStepper({
       steps={TRADE_STEPS}
       step={tradeStepOf(r)}
       failed={failed}
-      labelOf={(label, i) => (i === 3 && r.status === 'APPROVED' ? `전자서명 ${signedCount}/2` : label)}
+      labelOf={(label, i) => (i === 2 && r.status === 'APPROVED' ? `전자서명 ${signedCount}/2` : label)}
       className={className}
     />
   );

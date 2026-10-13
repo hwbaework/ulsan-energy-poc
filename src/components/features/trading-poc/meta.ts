@@ -27,7 +27,7 @@ export const REQUEST_STATUS: Record<TradeRequestStatus, { label: string; tone: S
   SUBMITTED: { label: '접수', tone: 'muted' },
   REVIEW: { label: '미팅', tone: 'warning' },
   APPROVED: { label: '서명 대기', tone: 'warning' },
-  SIGNED: { label: '체결', tone: 'normal' },
+  SIGNED: { label: '승인', tone: 'normal' },
   REJECTED: { label: '반려', tone: 'danger' },
   CANCELLED: { label: '취소', tone: 'muted' },
 };

@@ -41,12 +41,11 @@ const IN_TALK: TradeRequest['status'][] = ['SUBMITTED', 'REVIEW'];
 const IN_APPROVALS: TradeRequest['status'][] = ['APPROVED', 'SIGNED'];
 
 /** 거래 이력 상태 — 승인 전까지(미팅 = 접수부터 조건 입력까지) + 반려 · 취소. 승인부터는 거래 승인에 */
-const HISTORY_STATUS = ['미팅', '반려', '취소'] as const;
+const HISTORY_STATUS = ['미팅', '반려'] as const;
 type HistoryStatus = (typeof HISTORY_STATUS)[number];
-const HISTORY_TONE: Record<HistoryStatus, StatusTone> = { 미팅: 'warning', 반려: 'danger', 취소: 'muted' };
+const HISTORY_TONE: Record<HistoryStatus, StatusTone> = { 미팅: 'warning', 반려: 'danger' };
 function historyStatusOf(r: TradeRequest): HistoryStatus {
-  if (r.status === 'REJECTED') return '반려';
-  if (r.status === 'CANCELLED') return '취소';
+  if (r.status === 'REJECTED' || r.status === 'CANCELLED') return '반려';
   return '미팅';
 }
 const HistoryPill = ({ r }: { r: TradeRequest }) => {
@@ -234,15 +233,14 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   const updateTerms = useTradingPocStore((s) => s.updateTerms);
   const approve = useTradingPocStore((s) => s.approveRequest);
   const reject = useTradingPocStore((s) => s.rejectRequest);
-  const cancel = useTradingPocStore((s) => s.cancelRequest);
 
   const active = IN_TALK.includes(r.status);
   const isMine = isMineOf(role, r);
   const admin = role.isAdmin && active;
   // 접수(SUBMITTED): 조건 칸 없음 — 신청한 쪽은 신청 취소, 관리자는 미팅 확정 / 반려
-  // 미팅(REVIEW): 관리자와 신청한 쪽이 같은 칸을 보고 조건을 넣고 저장한다(채팅으로 맞추면서). 승인 · 반려는 관리자, 신청 취소는 신청한 쪽이 승인 전까지
+  // 미팅(REVIEW): 관리자가 오프라인에서 정한 조건(금액)을 넣고 저장 → [조건 확정] → 전자서명. 신청한 쪽은 같은 화면에서 값을 보고, 서명 때 확인한다. 신청 취소(사유)는 서명 전까지
   const received = r.status === 'SUBMITTED';
-  const editing = r.status === 'REVIEW' && (role.isAdmin || isMine);
+  const editing = r.status === 'REVIEW' && role.isAdmin && !r.termsConfirmedAt; // 확정하면 못 고친다 — 확정 취소로 다시 연다
   const confirmMeeting = useTradingPocStore((s) => s.confirmMeeting);
   const [meetDate, setMeetDate] = useState(r.surveyDate ?? '');
 
@@ -256,11 +254,14 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   const valid = n('capacityKw') > 0 && n('termYears') > 0 && n('installUnit') > 0 && n('omRatePct') > 0 && !!draft.tariffPlan && (self || n('price') > 0);
   // 승인 — 조건이 저장돼 있어야(미팅 완료 같은 버튼은 없다. 미팅은 채팅으로, 값은 여기에)
   const termsSaved = r.capacityKw > 0 && r.termYears > 0 && !!r.installUnit && !!r.omRatePct && !!r.tariffPlan && (self || r.unitPrice > 0);
-  const canApprove = !dirty && termsSaved;
+  const confirmTerms = useTradingPocStore((s) => s.confirmTerms);
+  const unconfirmTerms = useTradingPocStore((s) => s.unconfirmTerms);
+  const canConfirm = !dirty && termsSaved && !r.termsConfirmedAt; // 관리자 조건 확정 → 신청한 쪽 동의
+  const agreeOpen = r.status === 'REVIEW' && !!r.termsConfirmedAt; // 동의 대기
 
   const [rejectOpen, setRejectOpen] = useState(false);
   const [reason, setReason] = useState('');
-  const [confirm, setConfirm] = useState<'approve' | 'cancel' | null>(null);
+  const [confirm, setConfirm] = useState<'approve' | null>(null);
 
   const set = (k: keyof Draft) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setDraft((d) => ({ ...d, [k]: e.target.value }));
@@ -274,6 +275,17 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   );
   const edit: TermsEdit | undefined = editing
     ? {
+        meetDate: (
+          <Input
+            label="미팅일"
+            type="date"
+            value={meetDate}
+            onChange={(e) => {
+              setMeetDate(e.target.value);
+              if (e.target.value) confirmMeeting(r.id, e.target.value);
+            }}
+          />
+        ),
         capacity: (
           <Input label="설치 용량 (kW)" type="number" min={1} step="0.01" value={draft.capacityKw} onChange={set('capacityKw')} />
         ),
@@ -302,8 +314,37 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   };
 
   // 단계별 처리 — 신청 내용 위에 고정
+  // 지금 상태 — 신청 내용 안 첫 줄에(제목 · 버튼 자리가 아니라)
+  const stageLabel = received
+    ? '미팅 확정 대기'
+    : r.status === 'REVIEW'
+      ? agreeOpen
+        ? '동의 대기'
+        : termsSaved
+          ? '조건 확정 대기'
+          : '조건 입력 중'
+      : r.status === 'APPROVED'
+        ? '전자서명 대기'
+        : undefined;
   const actions = (
     <>
+      {!role.isAdmin && isMine && agreeOpen && (
+        <Button size="sm" onClick={() => setConfirm('approve')}>
+          동의
+        </Button>
+      )}
+      {admin && agreeOpen && (
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => {
+            unconfirmTerms(r.id);
+            addToast('success', `${r.no} 확정 취소 — 조건 다시 입력`);
+          }}
+        >
+          확정 취소
+        </Button>
+      )}
       {admin && received && (
         <>
           <label className="flex items-center gap-2 text-sm text-slate-400">
@@ -336,8 +377,15 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
             저장
           </Button>
           {role.isAdmin && (
-            <Button size="sm" disabled={!canApprove} onClick={() => setConfirm('approve')}>
-              승인
+            <Button
+              size="sm"
+              disabled={!canConfirm}
+              onClick={() => {
+                confirmTerms(r.id);
+                addToast('success', `${r.no} 조건 확정 — 동의 대기`);
+              }}
+            >
+              조건 확정
             </Button>
           )}
         </>
@@ -354,9 +402,16 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
           반려
         </Button>
       )}
-      {!role.isAdmin && isMine && active && (
-        <Button size="sm" variant="danger" onClick={() => setConfirm('cancel')}>
-          신청 취소
+      {!role.isAdmin && isMine && (active || r.status === 'APPROVED') && (
+        <Button
+          size="sm"
+          variant="danger"
+          onClick={() => {
+            setReason('');
+            setRejectOpen(true);
+          }}
+        >
+          반려
         </Button>
       )}
     </>
@@ -384,6 +439,11 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
 
         <SectionCard title="신청 내용" actions={actions}>
           <div className="grid grid-cols-3 gap-4">
+            {agreeOpen ? (
+              <Info label="진행" value={`조건 확정 ${fmtDateTime(r.termsConfirmedAt!)} · 동의 대기`} className="col-span-3" />
+            ) : (
+              stageLabel && <Info label="진행" value={stageLabel} className="col-span-3" />
+            )}
             <TermsInfo x={editing ? { ...r, ...termsOfDraft(draft, r) } : r} edit={edit} />
             {r.status === 'REJECTED' && <Info label="반려 사유" value={r.rejectReason} className="col-span-3" />}
             {r.note && <Info label="비고" value={r.note} className="col-span-3" />}
@@ -397,7 +457,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
 
       <ChatPanel r={r} canSend={active && (role.isAdmin || isMine)} />
 
-      {/* 반려 — 사유를 신청자에게 전달 */}
+      {/* 반려 — 관리자 · 신청한 쪽 누구든 사유를 적고. 말은 '반려' 하나로 */}
       <Modal open={rejectOpen} onClose={() => setRejectOpen(false)} title="신청 반려" size="sm">
         <div className="space-y-4">
           <Textarea
@@ -415,7 +475,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
               variant="danger"
               disabled={!reason.trim()}
               onClick={() => {
-                reject(r.id, reason.trim());
+                reject(r.id, reason.trim(), role.party);
                 addToast('success', `${r.no} 반려`);
                 setRejectOpen(false);
               }}
@@ -430,22 +490,15 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
         open={!!confirm}
         onClose={() => setConfirm(null)}
         onConfirm={() => {
-          if (confirm === 'approve') {
-            approve(r.id);
-            addToast('success', `${r.no} 승인`);
-            router.push(`${approvalsBase(role.isAdmin)}/view?id=${r.id}`);
-          } else if (confirm === 'cancel') {
-            cancel(r.id);
-            addToast('success', `${r.no} 신청 취소`);
-          }
+          approve(r.id);
+          addToast('success', `${r.no} 동의 — 전자서명 대기`);
+          router.push(`${approvalsBase(role.isAdmin)}/view?id=${r.id}`);
           setConfirm(null);
         }}
-        title={confirm === 'approve' ? '승인' : '신청 취소'}
-        message={
-          confirm === 'approve' ? `${r.no} 를 승인합니다. 거래 승인으로 넘어갑니다.` : `${r.no} 신청을 취소합니다.`
-        }
-        confirmLabel={confirm === 'approve' ? '승인' : '신청 취소'}
-        variant={confirm === 'cancel' ? 'danger' : 'primary'}
+        title="동의"
+        message={`${r.no} 조건에 동의합니다. 전자서명으로 넘어갑니다.`}
+        confirmLabel="동의"
+        variant="primary"
       />
     </div>
   );
