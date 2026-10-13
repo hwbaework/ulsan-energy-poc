@@ -60,12 +60,16 @@ export const changeStateOf = (ch: {
   status: ChangeStatus;
   type: ChangeType;
   stage?: string;
+  spcSign?: unknown;
+  companySign?: unknown;
 }): ChangeState => {
   if (ch.status === 'REJECTED') return '반려';
   if (ch.status === 'CANCELLED') return '취소';
   if (ch.status === 'APPROVED') return ch.type === 'TERMINATE' ? '해지' : '승인'; // 해지는 양측 서명이 곧 끝
   if (ch.stage === 'TERMS') return '조건 입력';
   if (ch.stage === 'AGREE') return '조건 동의';
+  // 해지는 신청하면 서명 칸이 바로 열리지만, 아무도 서명 안 했으면 아직 '신청'
+  if (ch.type === 'TERMINATE' && ch.stage === 'SIGN' && !ch.spcSign && !ch.companySign) return '신청';
   return ch.stage === 'SIGN' ? '전자서명' : '신청';
 };
 export const CHANGE_STATE_TONE: Record<ChangeState, StatusTone> = {

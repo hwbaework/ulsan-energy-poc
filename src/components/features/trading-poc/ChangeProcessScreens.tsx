@@ -54,7 +54,9 @@ const agreeLabel = (ch: Pick<ContractChange, 'type'>) => (ch.type === 'TERMINATE
 const stepOf = (ch: ContractChange) =>
   ch.status === 'APPROVED'
     ? stepsOf(ch).length
-    : ch.stage === 'SIGN'
+    : ch.type === 'TERMINATE' && ch.stage === 'SIGN' && !ch.spcSign && !ch.companySign
+      ? 0 // 해지 — 아무도 서명 안 했으면 아직 신청(서명 칸은 열려 있음)
+      : ch.stage === 'SIGN'
       ? (stepsOf(ch) as readonly string[]).indexOf('전자서명')
       : ch.stage === 'TERMS' || ch.stage === 'AGREE'
         ? 1
@@ -322,12 +324,21 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
           </SectionCard>
         )}
 
-        <SectionCard title="진행 이력">
-          <EventTimeline events={ch.events ?? []} />
-        </SectionCard>
+        {/* 진행 이력 — 전자서명 전에는 아래, 전자서명부터는 오른쪽(거래 전자서명 화면과 같게) */}
+        {!showSign && (
+          <SectionCard title="진행 이력">
+            <EventTimeline events={ch.events ?? []} />
+          </SectionCard>
+        )}
       </div>
 
-      <ChangeChat ch={ch} canSend={open && (role.isAdmin || isCompany)} />
+      {showSign ? (
+        <SectionCard title="진행 이력" className="lg:sticky lg:top-6">
+          <EventTimeline events={ch.events ?? []} />
+        </SectionCard>
+      ) : (
+        <ChangeChat ch={ch} canSend={open && (role.isAdmin || isCompany)} />
+      )}
 
       {/* 반려 — 거래와 같은 팝업. 사유 필수 */}
       <Modal open={rejecting} onClose={() => setRejecting(false)} title="요청 반려" size="sm">
