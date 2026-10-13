@@ -20,8 +20,9 @@ export function TermsInfo({ x, edit }: { x: TradeRequest | Contract; edit?: Term
   const self = x.kind === 'SELF_CONSUMPTION';
   const total = totalCostOf(x);
   const hasTerms = !!x.installUnit || !!x.omRatePct || !!x.tariffPlan || x.unitPrice > 0;
-  // 접수 · 미팅 중인 신청 — 값이 아직 없으면 빈칸 대신 '협의 후 작성'. 취소 · 반려는 조건 칸을 안 그린다
-  const pending = 'status' in x && (x.status === 'SUBMITTED' || x.status === 'REVIEW');
+  // 미팅 중인 신청 — 값이 아직 없으면 빈칸 대신 '협의 후 작성'. 신청(미팅일 확정 전) · 취소 · 반려는 조건 칸을 안 그린다
+  const received = 'status' in x && x.status === 'SUBMITTED';
+  const pending = 'status' in x && x.status === 'REVIEW';
   const LATER = '협의 후 작성'; // 현업이 미팅해서 정한 뒤 넣는다
   const cell = (editNode: ReactNode | undefined, label: string, value?: string) =>
     editNode ?? (value !== undefined && value !== '' ? <Info label={label} value={value} /> : pending ? <Info label={label} value={LATER} /> : null);
@@ -31,7 +32,7 @@ export function TermsInfo({ x, edit }: { x: TradeRequest | Contract; edit?: Term
       <Info label="기업명" value={x.consumerCompanyName} />
       <div />
       <Info label="기업 주소" value={x.address} className="col-span-3" />
-      {edit?.capacity ?? <Info label="설치 용량" value={x.capacityKw > 0 ? fmtKw(x.capacityKw) : undefined} />}
+      {edit?.capacity ?? <Info label={received ? '희망 설치 용량' : '설치 용량'} value={x.capacityKw > 0 ? fmtKw(x.capacityKw) : undefined} />}
       {cell(edit?.term, '계약 기간', x.termYears > 0 ? `${x.termYears}년` : undefined)}
       {/* 실제 거래에 필요한 값 — 두 유형 모두: 설치 단가 · 추가 설치비용 → 예상 설치비, 연간 O&M. PPA 는 단가도(사용분 × 단가) */}
       {/* 조건 칸 — 넣는 중이거나 값이 있을 때만. 취소 · 반려 · 미팅 전처럼 값이 없으면 아예 안 보인다 */}

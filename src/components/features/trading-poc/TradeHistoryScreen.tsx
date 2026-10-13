@@ -40,12 +40,13 @@ import { TermsInfo, type TermsEdit } from './TermsInfo';
 const IN_TALK: TradeRequest['status'][] = ['SUBMITTED', 'REVIEW'];
 const IN_APPROVALS: TradeRequest['status'][] = ['APPROVED', 'SIGNED'];
 
-/** 거래 이력 상태 — 승인 전까지(미팅 = 접수부터 조건 입력까지) + 반려 · 취소. 승인부터는 거래 승인에 */
-const HISTORY_STATUS = ['미팅', '반려'] as const;
+/** 거래 이력 상태 — 승인 전까지. 신청(미팅일 확정 전) → 미팅(미팅일 확정 ~ 조건 동의 전) + 반려 · 취소. 승인부터는 거래 승인에 */
+const HISTORY_STATUS = ['신청', '미팅', '반려'] as const;
 type HistoryStatus = (typeof HISTORY_STATUS)[number];
-const HISTORY_TONE: Record<HistoryStatus, StatusTone> = { 미팅: 'warning', 반려: 'danger' };
+const HISTORY_TONE: Record<HistoryStatus, StatusTone> = { 신청: 'muted', 미팅: 'warning', 반려: 'danger' };
 function historyStatusOf(r: TradeRequest): HistoryStatus {
   if (r.status === 'REJECTED' || r.status === 'CANCELLED') return '반려';
+  if (r.status === 'SUBMITTED') return '신청';
   return '미팅';
 }
 const HistoryPill = ({ r }: { r: TradeRequest }) => {
@@ -88,11 +89,12 @@ export function TradeHistoryScreen() {
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [mine, filter, kind],
   );
-  // 들어온 신청 — 몇 건, 유형별로 따로
+  // 들어온 신청 — 아직 미팅일을 잡지 않은 신청 접수 건만. 유형별로 따로
+  const received = mine.filter((r) => r.status === 'SUBMITTED');
   const stats = {
-    all: mine.length,
-    self: mine.filter((r) => r.kind === 'SELF_CONSUMPTION').length,
-    onsite: mine.filter((r) => r.kind === 'ONSITE').length,
+    all: received.length,
+    self: received.filter((r) => r.kind === 'SELF_CONSUMPTION').length,
+    onsite: received.filter((r) => r.kind === 'ONSITE').length,
   };
 
   const columns: Column<TradeRequest>[] = [

@@ -81,15 +81,17 @@ export const TRADE_STEPS = ['신청 접수', '미팅', '전자서명', '승인']
 /** 단계 표기 — 미팅 (2/5) */
 export const stepLabel = (label: string, i: number) => `${label} (${i + 1}/${TRADE_STEPS.length})`;
 
-/** 지금 단계(TRADE_STEPS 번호). 신청하면 곧 미팅(조건 입력), 계약서를 만들면 전자서명, 둘 다 서명하면 승인(둘 다 서명) — TRADE_STEPS.length */
+/** 지금 단계(TRADE_STEPS 번호). 신청하면 신청 접수, 관리자가 미팅일을 확정하면 미팅(조건 입력), 계약서를 만들면 전자서명, 둘 다 서명하면 승인(둘 다 서명) — TRADE_STEPS.length */
 export function tradeStepOf(r: TradeRequest): number {
   switch (r.status) {
+    case 'SUBMITTED':
+      return 0; // 신청 접수 — 관리자가 미팅일을 확정하면 미팅
     case 'APPROVED':
       return 2;
     case 'SIGNED':
       return TRADE_STEPS.length;
     default:
-      return 1; // 접수 · 미팅 · 반려 · 취소(멈춘 자리)
+      return 1; // 미팅 · 반려 · 취소(멈춘 자리)
   }
 }
 

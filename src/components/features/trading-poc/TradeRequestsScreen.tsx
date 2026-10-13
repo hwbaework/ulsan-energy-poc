@@ -14,6 +14,28 @@ import type { PlantContractKind } from '@/types/monitoring';
 import { useTradingRole } from './useTradingRole';
 import { fmtKw, kindLabel } from './meta';
 
+/** 입력 제한 — 기업명 · 기업 주소는 무료진단과 같은 최대값 */
+const LIMIT = {
+  company: [2, 50],
+  address: [5, 100],
+  capacity: [1, 10_000], // kW — 산단 지붕 태양광 기준
+  name: [2, 20],
+  phone: [9, 13], // 하이픈 포함 글자 수
+  email: 100,
+  note: 500,
+} as const;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const lenOk = (v: string, [lo, hi]: readonly [number, number]) => v.trim().length >= lo && v.trim().length <= hi;
+/** 용량 — 숫자와 점 하나, 소수 둘째 자리까지. 최대값을 넘으면 최대값으로 */
+const capInput = (raw: string) => {
+  let v = raw.replace(/[^0-9.]/g, '');
+  const dot = v.indexOf('.');
+  if (dot >= 0) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, '').slice(0, 2);
+  return Number(v) > LIMIT.capacity[1] ? String(LIMIT.capacity[1]) : v;
+};
+/** 연락처 — 숫자와 하이픈만 */
+const phoneInput = (raw: string) => raw.replace(/[^0-9-]/g, '').slice(0, LIMIT.phone[1]);
+
 /** 계약 유형 카드 — 전기사용자가 얻는 것(장점)과 참고할 것 */
 const KIND_CARDS: { value: PlantContractKind; title: string; headline: string; points: string[]; note: string }[] = [
   {
@@ -124,8 +146,24 @@ export function TradeRequestsScreen() {
     set(c ? { consumerPick: v, consumerName: c.name, address: c.address } : { consumerPick: '' });
   };
   const cap = Number(f.capacity) || 0;
+  // 입력했는데 범위를 벗어난 칸 — 칸 아래 안내. 빈 칸은 신청 버튼만 막는다
+  const err = {
+    company: f.consumerName.trim() && !lenOk(f.consumerName, LIMIT.company) ? `${LIMIT.company[0]}~${LIMIT.company[1]}자` : undefined,
+    address: f.address.trim() && !lenOk(f.address, LIMIT.address) ? `${LIMIT.address[0]}~${LIMIT.address[1]}자` : undefined,
+    capacity: f.capacity && cap < LIMIT.capacity[0] ? `${LIMIT.capacity[0]} kW 이상` : undefined,
+    name: f.contactName.trim() && !lenOk(f.contactName, LIMIT.name) ? `${LIMIT.name[0]}~${LIMIT.name[1]}자` : undefined,
+    phone: f.contactPhone.trim() && !lenOk(f.contactPhone, LIMIT.phone) ? `${LIMIT.phone[0]}~${LIMIT.phone[1]}자` : undefined,
+    email: f.contactEmail.trim() && !EMAIL_RE.test(f.contactEmail.trim()) ? '이메일 형식' : undefined,
+  };
   const valid =
-    !!kind && !!f.consumerName.trim() && !!f.address.trim() && cap > 0 && !!f.contactName.trim() && !!f.contactPhone.trim();
+    !!kind &&
+    lenOk(f.consumerName, LIMIT.company) &&
+    lenOk(f.address, LIMIT.address) &&
+    cap >= LIMIT.capacity[0] &&
+    cap <= LIMIT.capacity[1] &&
+    lenOk(f.contactName, LIMIT.name) &&
+    lenOk(f.contactPhone, LIMIT.phone) &&
+    !err.email;
 
   const handleSubmit = () => {
     if (!kind || !valid) return;
@@ -253,8 +291,8 @@ export function TradeRequestsScreen() {
                   </>
                 ) : (
                   <>
-                    <Input label="기업명" value={f.consumerName} onChange={(e) => set({ consumerName: e.target.value })} required />
-                    <Input label="기업 주소" value={f.address} onChange={(e) => set({ address: e.target.value })} required />
+                    <Input label="기업명" value={f.consumerName} maxLength={LIMIT.company[1]} error={err.company} onChange={(e) => set({ consumerName: e.target.value })} required />
+                    <Input label="기업 주소" value={f.address} maxLength={LIMIT.address[1]} error={err.address} onChange={(e) => set({ address: e.target.value })} required />
                   </>
                 )}
               </div>
@@ -265,11 +303,10 @@ export function TradeRequestsScreen() {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <Input
                   label="희망 설치 용량 (kW)"
-                  type="number"
-                  min={1}
-                  step="0.01"
+                  inputMode="decimal"
                   value={f.capacity}
-                  onChange={(e) => set({ capacity: e.target.value })}
+                  error={err.capacity}
+                  onChange={(e) => set({ capacity: capInput(e.target.value) })}
                   required
                 />
                 <Input label="미팅 희망일" type="date" value={f.surveyDate} onChange={(e) => set({ surveyDate: e.target.value })} />
@@ -278,14 +315,14 @@ export function TradeRequestsScreen() {
 
             <Section title="담당자">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <Input label="이름" value={f.contactName} onChange={(e) => set({ contactName: e.target.value })} required />
-                <Input label="연락처" type="tel" value={f.contactPhone} onChange={(e) => set({ contactPhone: e.target.value })} required />
-                <Input label="이메일" type="email" value={f.contactEmail} onChange={(e) => set({ contactEmail: e.target.value })} />
+                <Input label="이름" value={f.contactName} maxLength={LIMIT.name[1]} error={err.name} onChange={(e) => set({ contactName: e.target.value })} required />
+                <Input label="연락처" type="tel" value={f.contactPhone} error={err.phone} onChange={(e) => set({ contactPhone: phoneInput(e.target.value) })} required />
+                <Input label="이메일" type="email" value={f.contactEmail} maxLength={LIMIT.email} error={err.email} onChange={(e) => set({ contactEmail: e.target.value })} />
               </div>
             </Section>
 
             <Section title="비고" last>
-              <Textarea value={f.note} onChange={(e) => set({ note: e.target.value })} rows={3} className="min-h-[88px] resize-none" />
+              <Textarea value={f.note} maxLength={LIMIT.note} onChange={(e) => set({ note: e.target.value })} rows={3} className="min-h-[88px] resize-none" />
             </Section>
           </>
         </div>

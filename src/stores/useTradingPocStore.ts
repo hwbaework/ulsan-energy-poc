@@ -25,7 +25,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 46; // 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
+export const SEED_VERSION = 47; // 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -615,12 +615,12 @@ function seedRequests(): TradeRequest[] {
         ev(iso('2026-07-21', '09:00:00'), 'generator', '반려', '설치 일정 보류'),
       ],
     }),
-    // 박발전(한일튜브) — 접수 자가소비 1건(PPA 미팅 중은 id 5), 반려 PPA 1건(자가소비 반려는 id 9)
+    // 박발전(한일튜브) — 신청 PPA 1건(자가소비 신청은 id 6 한길, PPA 미팅 중은 id 5), 반려 PPA 1건(자가소비 반려는 id 9)
     mk({
       id: 18,
       ...gen,
-      kind: 'SELF_CONSUMPTION',
-      plantName: '한일튜브(자가소비)',
+      kind: 'ONSITE',
+      plantName: '한일튜브(PPA)',
       consumerCompanyId: 4,
       consumerCompanyName: CO.HANIL.name,
       siteName: '한일튜브 울산공장',
@@ -635,7 +635,7 @@ function seedRequests(): TradeRequest[] {
       contact: { name: '박발전', phone: '010-2000-0002', email: 'operator@test.com' },
       events: [ev(iso('2026-10-02', '09:30:00'), 'generator', '신청 접수')],
       messages: [
-        { at: iso('2026-10-02', '09:35:00'), by: 'generator', byName: CO.HANIL.name, text: '제2공장 지붕 50kW 자가소비 추가 설치 검토 요청드립니다. 10월 14일 미팅 가능할까요?' },
+        { at: iso('2026-10-02', '09:35:00'), by: 'generator', byName: CO.HANIL.name, text: '제2공장 지붕 50kW PPA 추가 설치 검토 요청드립니다. 10월 14일 미팅 가능할까요?' },
       ],
     }),
     mk({

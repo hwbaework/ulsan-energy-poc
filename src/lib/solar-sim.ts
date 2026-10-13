@@ -256,7 +256,7 @@ export const LIM = {
   roof: [0, 1_000_000], areaPerKw: [1, 30], avgH: [0, 8], deg: [0, 5],
   kau: [0, 1_000_000], kauEsc: [0, 50], co2f: [0, 2],
   facKw: [0, 100_000], facKwh: [0, 10_000_000_000],
-  cap: [1, 100_000], ctr: [0, 1_000_000], usage: [0, 1_000_000_000], pct: [0, 100], esc: [0, 30],
+  cap: [1, 10_000], ctr: [0, 1_000_000], usage: [0, 1_000_000_000], pct: [0, 100], esc: [0, 30],
   capexUnit: [0, 10_000_000], extraCost: [0, 100_000_000_000], segPrice: [0, 1_000], b: [0, 20],
   climateChg: [0, 100], fuelAdj: [-100, 100], remain: [0, 100_000],
 } as const satisfies Record<string, readonly [number, number]>;
