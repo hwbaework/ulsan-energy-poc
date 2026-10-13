@@ -8,6 +8,7 @@ import { BackButton } from '@/components/layout/PageTitle';
 import { ContractSignature } from '@/components/features/ContractSignature';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Modal } from '@/components/ui/Modal';
 import { Textarea } from '@/components/ui/Textarea';
 import { cn } from '@/lib/utils';
 import { useToastStore } from '@/stores/useToastStore';
@@ -15,7 +16,7 @@ import { CO, useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { ChangeSign, Contract, ContractChange, TradeDocument } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
 import { changeTypeLabel, fmtDateTime, kindLabel } from './meta';
-import { EventTimeline, Info, StepBar, TEXT_MAX } from './Bits';
+import { EventTimeline, Info, ModalFooter, StepBar, TEXT_MAX } from './Bits';
 import { changeText } from './ChangeDetailModal';
 import { DocumentSheet, printSheet } from './DocumentSheet';
 
@@ -171,10 +172,19 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
     <>
       {open && receiver && step === 1 && (
         <>
-          <Button size="sm" onClick={() => move(ch.id, 'SIGN', undefined, role.party)}>
+          <Button
+            size="sm"
+            onClick={() => {
+              move(ch.id, 'SIGN', undefined, role.party);
+              addToast('success', `${ch.no} ${agreeLabel(ch)} — 전자서명 대기`);
+            }}
+          >
             {agreeLabel(ch)}
           </Button>
-          <Button size="sm" variant="danger" onClick={() => setRejecting(true)}>
+          <Button size="sm" variant="danger" onClick={() => {
+            setReason('');
+            setRejecting(true);
+          }}>
             반려
           </Button>
         </>
@@ -186,7 +196,10 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
       )}
       {/* 전자서명 중 — 거래 전자서명처럼 신청한 쪽이 사유를 적고 반려(진행 멈춤) */}
       {open && mineRequest && step === 2 && (
-        <Button size="sm" variant="danger" onClick={() => setRejecting(true)}>
+        <Button size="sm" variant="danger" onClick={() => {
+            setReason('');
+            setRejecting(true);
+          }}>
           반려
         </Button>
       )}
@@ -255,35 +268,6 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
             <Info label="사유" value={ch.reason} className="md:col-span-3" />
             {ch.status === 'REJECTED' && <Info label="반려 사유" value={ch.decisionNote} className="md:col-span-3" />}
           </div>
-          {rejecting && (
-            <div className="mt-4 space-y-3 rounded-lg bg-white/[0.03] p-4 ring-1 ring-white/[0.06]">
-              <Textarea
-                label="반려 사유"
-                maxLength={TEXT_MAX}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                rows={2}
-                className="resize-none"
-              />
-              <div className="flex justify-end gap-2">
-                <Button size="sm" variant="secondary" onClick={() => setRejecting(false)}>
-                  취소
-                </Button>
-                <Button
-                  size="sm"
-                  variant="danger"
-                  disabled={!reason.trim()}
-                  onClick={() => {
-                    reject(ch.id, reason.trim(), role.party);
-                    addToast('success', `${ch.no} 반려`);
-                    setRejecting(false);
-                  }}
-                >
-                  반려
-                </Button>
-              </div>
-            </div>
-          )}
         </SectionCard>
 
         {/* 합의서 문서 — 계약서처럼. 전자서명 단계부터 초안, 양측 서명 뒤 서명본(문서 관리에도 남는다) */}
@@ -306,6 +290,36 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
       </div>
 
       <ChangeChat ch={ch} canSend={open && (role.isAdmin || isCompany)} />
+
+      {/* 반려 — 거래와 같은 팝업. 사유 필수 */}
+      <Modal open={rejecting} onClose={() => setRejecting(false)} title="요청 반려" size="sm">
+        <div className="space-y-4">
+          <Textarea
+            label="반려 사유"
+            maxLength={TEXT_MAX}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={3}
+            className="resize-none"
+          />
+          <ModalFooter>
+            <Button variant="secondary" onClick={() => setRejecting(false)}>
+              취소
+            </Button>
+            <Button
+              variant="danger"
+              disabled={!reason.trim()}
+              onClick={() => {
+                reject(ch.id, reason.trim(), role.party);
+                addToast('success', `${ch.no} 반려`);
+                setRejecting(false);
+              }}
+            >
+              반려
+            </Button>
+          </ModalFooter>
+        </div>
+      </Modal>
 
       <ConfirmDialog
         open={confirm === 'cancel'}
@@ -370,6 +384,7 @@ function ChangeChat({ ch, canSend }: { ch: ContractChange; canSend: boolean }) {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.nativeEvent.isComposing) send();
             }}
+            maxLength={TEXT_MAX}
             placeholder="메시지 입력"
             className="h-9 flex-1 rounded-md bg-white/[0.04] px-3 text-sm text-white ring-1 ring-white/[0.08] focus:outline-none focus:ring-primary/60"
           />
