@@ -30,7 +30,7 @@ interface Props {
 /**
  * 변경·해지 신청 — 계약 조건에 맞춰:
  *  - onsite 단가 변경: 적용일부터 남은 기간 단가를 바꾼다(구간을 고르지 않는다 — 실제로 구간만 바꾸는 일은 없다)
- *  - 자가소비 O&M 변경: 연간 O&M(총사업비 대비 %)을 바꾼다
+ *  - 자가소비 O&M 변경: 연간 O&M 금액(원/년)을 바꾼다
  *  - 용량 · 기간 변경, 해지(희망 해지일)
  * SPC(관리자)와 기업 양쪽 다 신청한다. 위에 누가 → 누구에게(SPC → 한일튜브)를 보인다.
  * 신청은 팝업(짧은 양식), 그 뒤 승인 · 서명 · 반영은 상세 화면.
@@ -64,13 +64,13 @@ export function ChangeRequestModal({
 
   const c = contracts.find((x) => String(x.id) === cid);
   const self = c?.kind === 'SELF_CONSUMPTION';
-  // 지금 값 — PPA 단가 · 자가소비 연간 O&M %
+  // 지금 값 — PPA 단가 · 자가소비 연간 O&M 금액
   const before = !c
     ? ''
     : ctype === 'PRICE'
       ? self
-        ? c.omRatePct != null
-          ? `${c.omRatePct}%`
+        ? c.omAnnual != null
+          ? `₩${fmtNum(c.omAnnual)}/년`
           : ''
         : `₩${fmtNum(c.unitPrice, 1)}/kWh`
       : ctype === 'CAPACITY'
@@ -136,12 +136,10 @@ export function ChangeRequestModal({
           {ctype === 'PRICE' &&
             (self ? (
               <Input
-                label="변경 후 연간 O&M (총사업비 대비, %)"
-                type="number"
-                min={0.1}
-                step="0.1"
-                value={after}
-                onChange={(e) => setAfter(e.target.value)}
+                label="변경 후 연간 O&M (원/년)"
+                inputMode="numeric"
+                value={after ? Number(after).toLocaleString('ko-KR') : ''}
+                onChange={(e) => setAfter(e.target.value.replace(/[^\d]/g, '').slice(0, 10))}
                 required
               />
             ) : (

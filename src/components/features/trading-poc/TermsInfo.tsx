@@ -9,7 +9,7 @@ const won = (n: number) => `₩${fmtNum(Math.round(n))}`;
 import { Info } from './Bits';
 
 /** 미팅 단계에서 그 자리에서 넣는 칸 — 주면 그 칸은 입력으로 바뀐다 */
-export type TermsEdit = Partial<Record<'capacity' | 'term' | 'price' | 'installUnit' | 'extraCost' | 'omRatePct' | 'tariffPlan' | 'meetDate', ReactNode>>;
+export type TermsEdit = Partial<Record<'capacity' | 'term' | 'price' | 'installUnit' | 'extraCost' | 'omAnnual' | 'tariffPlan' | 'meetDate', ReactNode>>;
 
 /**
  * 신청 내용 — 거래 신청에서 넣은 것(유형 · 기업 · 주소 · 희망 용량 · 미팅 희망일 · 담당자)과
@@ -19,7 +19,7 @@ export type TermsEdit = Partial<Record<'capacity' | 'term' | 'price' | 'installU
 export function TermsInfo({ x, edit }: { x: TradeRequest | Contract; edit?: TermsEdit }) {
   const self = x.kind === 'SELF_CONSUMPTION';
   const total = totalCostOf(x);
-  const hasTerms = !!x.installUnit || !!x.omRatePct || !!x.tariffPlan || x.unitPrice > 0;
+  const hasTerms = !!x.installUnit || !!x.omAnnual || !!x.tariffPlan || x.unitPrice > 0;
   // 미팅 중인 신청 — 값이 아직 없으면 빈칸 대신 '협의 후 작성'. 신청(미팅일 확정 전) · 취소 · 반려는 조건 칸을 안 그린다
   const received = 'status' in x && x.status === 'SUBMITTED';
   const pending = 'status' in x && x.status === 'REVIEW';
@@ -39,7 +39,7 @@ export function TermsInfo({ x, edit }: { x: TradeRequest | Contract; edit?: Term
       {!self && cell(edit?.price, 'PPA 단가', x.unitPrice > 0 ? `₩${fmtNum(x.unitPrice, 1)}/kWh` : undefined)}
       {cell(edit?.installUnit, '설치 단가', x.installUnit ? `${won(x.installUnit)}/kW` : undefined)}
       {cell(edit?.extraCost, '추가 설치비용', x.extraCost != null ? won(x.extraCost) : undefined)}
-      {cell(edit?.omRatePct, '연간 O&M (설치비 대비)', x.omRatePct ? `${x.omRatePct}%` : undefined)}
+      {cell(edit?.omAnnual, '연간 O&M', x.omAnnual ? `${won(x.omAnnual)}/년` : undefined)}
       {cell(edit?.tariffPlan, '요금제', x.tariffPlan)}
       {(edit || hasTerms || pending) && <Info label="O&M 포함" value={<Checkbox label="포함 (설치비에 포함 · 필수)" checked={!!x.omIncluded} onChange={() => {}} />} />}
       {/* 설치비 — 민감한 금액이라 색으로만 살짝 포인트. O&M 은 설치비에 포함이라 따로 금액 없음. 월 사용료는 실제 쓴 만큼 내는 거라 미리 적지 않는다 */}

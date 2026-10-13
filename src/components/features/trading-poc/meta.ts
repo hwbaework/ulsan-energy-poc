@@ -101,10 +101,10 @@ export const estimateMonthlyKwh = (capacityKw: number) =>
 export const estimateMonthlyAmount = (capacityKw: number, unitPrice: number) =>
   Math.round(capacityKw * MONTHLY_KWH_PER_KW * unitPrice);
 
-/** 계약 조건 한 줄 — 자가소비: 설치 ₩1,350,000/kW · O&M 1% / PPA: ₩138/kWh */
-export const termsText = (t: { kind: PlantContractKind; unitPrice: number; installUnit?: number; omRatePct?: number }) =>
-  t.kind === 'SELF_CONSUMPTION' && (t.installUnit || t.omRatePct)
-    ? [t.installUnit ? `설치 ₩${fmtNum(t.installUnit)}/kW` : '', t.omRatePct ? `O&M ${t.omRatePct}%` : ''].filter(Boolean).join(' · ')
+/** 계약 조건 한 줄 — 자가소비: 설치 ₩1,350,000/kW · O&M ₩1,347,840/년 / PPA: ₩138/kWh */
+export const termsText = (t: { kind: PlantContractKind; unitPrice: number; installUnit?: number; omAnnual?: number }) =>
+  t.kind === 'SELF_CONSUMPTION' && (t.installUnit || t.omAnnual)
+    ? [t.installUnit ? `설치 ₩${fmtNum(t.installUnit)}/kW` : '', t.omAnnual ? `O&M ₩${fmtNum(t.omAnnual)}/년` : ''].filter(Boolean).join(' · ')
     : fmtPrice(t.unitPrice);
 /** 예상 설치비 — 자가소비: 용량 × 설치 단가 + 추가 시공비 */
 export const totalCostOf = (t: { capacityKw: number; installUnit?: number; extraCost?: number }) =>

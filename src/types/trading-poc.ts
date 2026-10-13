@@ -43,8 +43,8 @@ export interface ContractTerms {
   installUnit?: number;
   /** 자가소비 추가 시공비(원) — 있으면 */
   extraCost?: number;
-  /** 연간 O&M — 설치비 대비 % */
-  omRatePct?: number;
+  /** 연간 O&M 금액(원/년) — 미팅 뒤 관리자가 금액으로 넣는다 */
+  omAnnual?: number;
   /** 한전 요금제 — 고압A 선택Ⅰ · Ⅱ */
   tariffPlan?: string;
   /** O&M 포함 — 필수 */

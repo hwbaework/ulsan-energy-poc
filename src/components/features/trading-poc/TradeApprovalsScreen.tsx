@@ -282,7 +282,7 @@ export function TradeApprovalDetailScreen() {
                               contractTitle={`${c.no} 계약`}
                               contractSummary={[
                                 `${c.consumerCompanyName} · ${kindLabel(c.kind)} · ${fmtKw(c.capacityKw)} · ${c.termYears}년`,
-                                c.kind === 'ONSITE' ? `PPA 단가 ₩${fmtNum(c.unitPrice, 1)}/kWh` : `설치 단가 ₩${fmtNum(c.installUnit ?? 0)}/kW · 연간 O&M ${c.omRatePct ?? 0}%`,
+                                c.kind === 'ONSITE' ? `PPA 단가 ₩${fmtNum(c.unitPrice, 1)}/kWh` : `설치 단가 ₩${fmtNum(c.installUnit ?? 0)}/kW · 연간 O&M ₩${fmtNum(c.omAnnual ?? 0)}/년`,
                                 `시작일 ${c.startDate} · 종료일 ${c.endDate}`,
                               ]}
                               signerName={side.signer}
@@ -319,7 +319,7 @@ export function TradeApprovalDetailScreen() {
                   </div>
                 ) : (
                   <p className="text-sm text-slate-300 tabular-nums">
-                    {[c.no, kindLabel(c.kind), fmtKw(c.capacityKw), `${c.termYears}년`, c.kind === 'ONSITE' ? `PPA ₩${fmtNum(c.unitPrice, 1)}/kWh` : `설치 ₩${fmtNum(c.installUnit ?? 0)}/kW · O&M ${c.omRatePct ?? 0}%`].join(' · ')}
+                    {[c.no, kindLabel(c.kind), fmtKw(c.capacityKw), `${c.termYears}년`, c.kind === 'ONSITE' ? `PPA ₩${fmtNum(c.unitPrice, 1)}/kWh` : `설치 ₩${fmtNum(c.installUnit ?? 0)}/kW · O&M ₩${fmtNum(c.omAnnual ?? 0)}/년`].join(' · ')}
                   </p>
                 )}
               </SectionCard>
