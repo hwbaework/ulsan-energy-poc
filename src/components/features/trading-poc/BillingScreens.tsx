@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { StatusPill } from '@/components/ui/Design';
 import { Button } from '@/components/ui/Button';
+import { Textarea } from '@/components/ui/Textarea';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import {
   CO,
@@ -25,12 +26,14 @@ import {
 } from '@/stores/useTradingPocStore';
 import { useTradingRole } from './useTradingRole';
 import { fmtKrw, fmtKwh, fmtNum } from './meta';
-import { Info, PageHeader, cell, cellMuted, cellNum, cellStrong } from './Bits';
+import { Info, PageHeader, TEXT_MAX, cell, cellMuted, cellNum, cellStrong } from './Bits';
 import { BILLING_LABEL } from './DocumentSheet';
 import { BillingPaper, UploadButton, useTaxOriginal } from './BillingPaper';
 
 type Kind = 'TAX' | 'INVOICE';
 const NAME: Record<Kind, string> = { TAX: '세금계산서', INVOICE: '청구서' };
+/** 차액 표시 — +₩69,000 / −₩69,000 */
+const signed = (n: number, f: (v: number) => string) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${f(Math.abs(n))}`;
 const baseOf = (kind: Kind, admin: boolean) =>
   admin
     ? `/platform/ppa/billing/${kind === 'TAX' ? 'tax-invoice' : 'invoices'}`
@@ -64,9 +67,29 @@ function InvoiceEditor({ b }: { b: Bill }) {
   const issue = useTradingPocStore((s) => s.issueInvoice);
   const pay = useTradingPocStore((s) => s.payInvoice);
   const [confirm, setConfirm] = useState<'issue' | 'pay' | null>(null);
-  const [kwh, setKwh] = useState(String(b.generationKwh));
-  useEffect(() => setKwh(String(b.generationKwh)), [key, b.generationKwh]);
   const draft = b.billStatus === 'DRAFT';
+  // 정산 차액 — 지난달 중 고를 달, 차액 kWh(±), 사유. 사용량은 못 고친다
+  const rec = useTradingPocStore((s) => s.invoices[key]);
+  const adj = rec?.adjust;
+  const [adjOpen, setAdjOpen] = useState(!!adj);
+  useEffect(() => setAdjOpen(!!adj), [key, adj]);
+  const prevPeriods = useMemo(() => {
+    const out: string[] = [];
+    let [y, m] = b.period.split('-').map(Number) as [number, number];
+    for (let i = 0; i < 12; i++) {
+      m -= 1;
+      if (m < 1) {
+        m = 12;
+        y -= 1;
+      }
+      out.push(`${y}-${String(m).padStart(2, '0')}`);
+    }
+    return out;
+  }, [b.period]);
+  const adjKwhText = adj ? String(adj.kwh) : '';
+  const setAdj = (patch: Partial<NonNullable<typeof adj>>) =>
+    save(key, { adjust: { period: adj?.period ?? prevPeriods[0]!, kwh: adj?.kwh ?? 0, reason: adj?.reason ?? '', ...patch } });
+  const adjInvalid = !!adj && adj.kwh !== 0 && (!adj.reason.trim() || !adj.period);
   return (
     <SectionCard
       title="청구서 작성"
@@ -74,7 +97,7 @@ function InvoiceEditor({ b }: { b: Bill }) {
         <div className="flex items-center gap-2">
           <StatePill s={b} />
           {draft && (
-            <Button size="sm" onClick={() => setConfirm('issue')} disabled={!(b.generationKwh > 0)}>
+            <Button size="sm" onClick={() => setConfirm('issue')} disabled={!(b.generationKwh > 0) || adjInvalid}>
               발행
             </Button>
           )}
@@ -87,44 +110,113 @@ function InvoiceEditor({ b }: { b: Bill }) {
       }
     >
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Input
-            label="사용량 (kWh)"
-            inputMode="numeric"
-            value={draft ? kwh : b.generationKwh.toLocaleString('ko-KR')}
-            disabled={!draft}
-            onChange={(e) => {
-              const v = e.target.value.replace(/[^0-9]/g, '');
-              setKwh(v);
-              save(key, { kwh: Number(v) });
-            }}
-          />
-          <p className="mt-1 text-xs tabular-nums text-slate-500">발전량 {fmtKwh(b.meterKwh)}</p>
-        </div>
+        {/* 사용량 — 통합관제 발전량 그대로, 못 고친다. 틀린 달은 아래 정산 차액으로 */}
+        <Info label="사용량 (통합관제 발전량)" value={fmtKwh(b.generationKwh)} />
         <Info label="단가" value={`₩${fmtNum(b.smpUnitPrice, 1)}/kWh`} />
-        <Input
-          label="청구일"
-          type="date"
-          value={b.issueDate}
-          disabled={!draft}
-          onChange={(e) => save(key, { issueDate: e.target.value })}
-        />
-        <Input
-          label="납부 기한"
-          type="date"
-          value={b.dueDate}
-          disabled={!draft}
-          onChange={(e) => save(key, { dueDate: e.target.value })}
-        />
-        <div className="col-span-2">
-          <Input
-            label="결제 계좌"
-            placeholder="은행 · 계좌번호 · 예금주"
-            value={b.bankAccount}
-            disabled={!draft}
-            onChange={(e) => save(key, { bankAccount: e.target.value })}
-          />
+        {/* 작성 중만 입력 칸 — 발행한 뒤(납부 대기 · 납부 완료)는 정해진 값이라 글자로 */}
+        {draft ? (
+          <>
+            <Input label="청구일" type="date" value={b.issueDate} onChange={(e) => save(key, { issueDate: e.target.value })} />
+            <Input label="납부 기한" type="date" value={b.dueDate} onChange={(e) => save(key, { dueDate: e.target.value })} />
+            <div className="col-span-2">
+              <Input
+                label="결제 계좌"
+                placeholder="은행 · 계좌번호 · 예금주"
+                value={b.bankAccount}
+                onChange={(e) => save(key, { bankAccount: e.target.value })}
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <Info label="청구일" value={b.issueDate} />
+            <Info label="납부 기한" value={b.dueDate} />
+            <Info label="결제 계좌" value={b.bankAccount || '-'} className="col-span-2" />
+          </>
+        )}
+        {/* 정산 차액 — 작성 중엔 넣고 고치는 칸, 발행한 뒤엔 정해진 값 한 줄(없으면 0) */}
+        {draft ? (
+        <div className="col-span-2 rounded-lg bg-white/[0.03] p-4 ring-1 ring-white/[0.06]">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-white">정산 차액</p>
+            {draft &&
+              (adjOpen ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    save(key, { adjust: undefined });
+                    setAdjOpen(false);
+                  }}
+                >
+                  차액 지우기
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setAdj({});
+                    setAdjOpen(true);
+                  }}
+                >
+                  차액 추가
+                </Button>
+              ))}
+          </div>
+          {adjOpen && adj ? (
+            <div className="mt-3 grid grid-cols-2 gap-4">
+              {draft ? (
+                <>
+                  <Select
+                    label="바로잡는 달"
+                    options={prevPeriods.map((p) => ({ value: p, label: p }))}
+                    value={adj.period}
+                    onChange={(e) => setAdj({ period: e.target.value })}
+                  />
+                  <Input
+                    label="차액 (kWh, 돌려줄 땐 −)"
+                    inputMode="numeric"
+                    value={adjKwhText}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^0-9-]/g, '').replace(/(?!^)-/g, '');
+                      const n = raw === '-' || raw === '' ? 0 : Math.max(-1_000_000, Math.min(1_000_000, Number(raw)));
+                      setAdj({ kwh: n });
+                    }}
+                  />
+                  <div className="col-span-2">
+                    <Textarea
+                      label="사유"
+                      required
+                      maxLength={TEXT_MAX}
+                      rows={2}
+                      className="resize-none"
+                      value={adj.reason}
+                      onChange={(e) => setAdj({ reason: e.target.value })}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Info label="바로잡는 달" value={adj.period} />
+                  <Info label="차액" value={signed(adj.kwh, fmtKwh)} />
+                  <Info label="사유" value={adj.reason} className="col-span-2" />
+                </>
+              )}
+              <Info label="차액 금액" value={signed(b.adjustAmount, fmtKrw)} />
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-slate-500">없음</p>
+          )}
         </div>
+        ) : (
+          <Info
+            label={adj && adj.kwh !== 0 ? `정산 차액 (${adj.period})` : '정산 차액'}
+            value={adj && adj.kwh !== 0 ? `${signed(adj.kwh, fmtKwh)}, ${signed(b.adjustAmount, fmtKrw)}, ${adj.reason}` : '0'}
+            className="col-span-2"
+          />
+        )}
+        <Info label="사용량 금액" value={fmtKrw(b.usageAmount)} />
         <Info label="공급가액" value={fmtKrw(b.supplyAmount)} />
         <Info label="부가세 (10%)" value={fmtKrw(b.vat)} />
         <Info label="청구 금액" value={fmtKrw(b.total)} />
@@ -498,8 +590,15 @@ function BillingDetailScreen({ kind }: { kind: Kind }) {
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
                   <Info label="청구하는 곳" value={CO.SPC.name} />
                   <Info label="청구 대상" value={s.consumerCompanyName} />
-                  <Info label="사용량" value={fmtKwh(s.generationKwh)} />
+                  <Info label="사용량 (통합관제 발전량)" value={fmtKwh(s.generationKwh)} />
                   <Info label="단가" value={`₩${fmtNum(s.smpUnitPrice, 1)}/kWh`} />
+                  {s.adjust && (
+                    <Info
+                      label={`정산 차액 (${s.adjust.period})`}
+                      value={`${signed(s.adjust.kwh, fmtKwh)}, ${signed(s.adjustAmount, fmtKrw)}, ${s.adjust.reason}`}
+                      className="md:col-span-3"
+                    />
+                  )}
                   <Info label="공급가액" value={fmtKrw(s.supplyAmount)} />
                   <Info label="부가세 (10%)" value={fmtKrw(s.vat)} />
                   <Info label="청구일" value={s.issueDate} />

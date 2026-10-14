@@ -27,7 +27,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 67; // 2026-10-14 변경·해지 신청은 모두 기업(태성산업 · 한길 · 용인금속 진행 이력). 66 — 2026-10-14 받는 쪽은 변경 동의 / 해지 동의, 승인은 마지막에만. 65 — 2026-10-13 관리자는 변경·해지 신청 안 함(받아서 승인 · 반려 · 서명만), 신청 단계엔 합의서 · 서명 없음. 63 — 2026-10-13 한일튜브 해지 신청(CH-2026-0014). 62 — 2026-10-13 관리자가 신청한 해지(용인금속, 전자서명 1/2). 61 — 2026-10-13 해지: 신청 → 전자서명 → 해지 승인, 문서 분류 변경 합의서 · 해지 합의서. 60 — 2026-10-13 해지 완료 1건(한길 예전 계약 CT-2024-0001 · CH-2025-0001). 59 — 2026-10-13 해지 3칸 · 상태 해지. 58 — 2026-10-13 신청 상태 PPA(CH-2026-0012) 추가. 57 — 2026-10-13 변경 조건은 지금 계약 값으로 시작. 56 — 2026-10-13 변경: 변경 동의 → 조건 입력(관리자) → 조건 동의 → 전자서명 → 승인. 55 — 2026-10-13 변경·해지 동의 → 변경 동의 / 해지 동의. 54 — 2026-10-13 승인된 변경·해지 합의서(서명본) 시드. 53 — 2026-10-13 변경·해지도 신청 접수 → 동의 → 전자서명 → 승인 완료. 52 — 2026-10-13 진행 이력 조건 동의(관리자 · 신청한 쪽) → 전자서명 → 승인 완료, 표시 SPC → 관리자. 51 — 2026-10-13 진행 이력 '승인'은 양측 서명 완료만, 동의는 '조건 동의'. 50 — 2026-10-13 서명 흔적(그림 · 이름) 저장. 49 — 2026-10-13 전자서명 자가소비(건호) · PPA(한일튜브) 1건씩. 48 — 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
+export const SEED_VERSION = 68; // 2026-10-14 세금계산서 원본 1건(한일튜브 PPA 2026-09). 67 — 2026-10-14 변경·해지 신청은 모두 기업(태성산업 · 한길 · 용인금속 진행 이력). 66 — 2026-10-14 받는 쪽은 변경 동의 / 해지 동의, 승인은 마지막에만. 65 — 2026-10-13 관리자는 변경·해지 신청 안 함(받아서 승인 · 반려 · 서명만), 신청 단계엔 합의서 · 서명 없음. 63 — 2026-10-13 한일튜브 해지 신청(CH-2026-0014). 62 — 2026-10-13 관리자가 신청한 해지(용인금속, 전자서명 1/2). 61 — 2026-10-13 해지: 신청 → 전자서명 → 해지 승인, 문서 분류 변경 합의서 · 해지 합의서. 60 — 2026-10-13 해지 완료 1건(한길 예전 계약 CT-2024-0001 · CH-2025-0001). 59 — 2026-10-13 해지 3칸 · 상태 해지. 58 — 2026-10-13 신청 상태 PPA(CH-2026-0012) 추가. 57 — 2026-10-13 변경 조건은 지금 계약 값으로 시작. 56 — 2026-10-13 변경: 변경 동의 → 조건 입력(관리자) → 조건 동의 → 전자서명 → 승인. 55 — 2026-10-13 변경·해지 동의 → 변경 동의 / 해지 동의. 54 — 2026-10-13 승인된 변경·해지 합의서(서명본) 시드. 53 — 2026-10-13 변경·해지도 신청 접수 → 동의 → 전자서명 → 승인 완료. 52 — 2026-10-13 진행 이력 조건 동의(관리자 · 신청한 쪽) → 전자서명 → 승인 완료, 표시 SPC → 관리자. 51 — 2026-10-13 진행 이력 '승인'은 양측 서명 완료만, 동의는 '조건 동의'. 50 — 2026-10-13 서명 흔적(그림 · 이름) 저장. 49 — 2026-10-13 전자서명 자가소비(건호) · PPA(한일튜브) 1건씩. 48 — 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -1101,8 +1101,10 @@ export const billingStatusOf = (period: string): BillingStatus =>
   period === LAST_CONFIRMED ? 'DRAFT' : period === '2026-08' ? 'BILLED' : 'PAID';
 /** 청구서 작성 값 — 관리자가 고친 것만 저장한다(없으면 기본값). 키 = 계약 id : 달 */
 export interface InvoiceRecord {
-  /** 사용량 — 기본은 그 달 발전량(onsite 몫) */
+  /** (안 씀) 예전 저장본의 사용량 고침 — 사용량은 통합관제 발전량 고정(2026-10-14) */
   kwh?: number;
+  /** 정산 차액 — 지난달 사용량이 틀렸을 때 이번 청구서에 한 줄(± kWh × 단가). 사유 필수 */
+  adjust?: InvoiceAdjust;
   issueDate?: string;
   dueDate?: string;
   bankAccount?: string;
@@ -1110,24 +1112,42 @@ export interface InvoiceRecord {
   issuedAt?: string;
   paidAt?: string;
 }
+export interface InvoiceAdjust {
+  /** 바로잡는 달 — YYYY-MM */
+  period: string;
+  /** 차액 kWh — 더 받을 땐 +, 돌려줄 땐 − */
+  kwh: number;
+  reason: string;
+}
 export const invoiceKey = (contractId: number, period: string) => `${contractId}:${period}`;
-/** 청구서 — 그 달 정산에 작성 값을 얹는다. 사용량을 고치면 금액도 다시 계산 */
+/** 청구서 — 사용량은 통합관제 발전량 그대로(못 고침). 틀린 달이 있으면 정산 차액 한 줄을 더한다 */
 export type Bill = TradeSettlement & {
   billStatus: BillingStatus;
   issueDate: string;
   dueDate: string;
   bankAccount: string;
   meterKwh: number;
+  /** 그 달 사용량 금액(사용량 × 단가) */
+  usageAmount: number;
+  adjust?: InvoiceAdjust;
+  /** 정산 차액 금액(차액 kWh × 단가) */
+  adjustAmount: number;
   paidAt?: string;
 };
 export function billOf(s: TradeSettlement, r?: InvoiceRecord): Bill {
-  const kwh = r?.kwh ?? s.generationKwh;
-  const supply = Math.round(kwh * s.smpUnitPrice);
+  const kwh = s.generationKwh; // 통합관제 발전량 고정
+  const usageAmount = Math.round(kwh * s.smpUnitPrice);
+  const adjust = r?.adjust && r.adjust.kwh !== 0 ? r.adjust : undefined;
+  const adjustAmount = adjust ? Math.round(adjust.kwh * s.smpUnitPrice) : 0;
+  const supply = usageAmount + adjustAmount;
   const vat = Math.round(supply * 0.1);
   return {
     ...s,
     meterKwh: s.generationKwh,
     generationKwh: kwh,
+    usageAmount,
+    adjust,
+    adjustAmount,
     supplyAmount: supply,
     vatBase: supply,
     vat,
@@ -1249,6 +1269,10 @@ function seedDocuments(contracts: Contract[], changes: ContractChange[] = []): T
       issuedAt: issueDateOf(s.period),
       fileType: 'PDF',
       sizeKb: 268,
+      // 데모 — 한일튜브 PPA 2026-09 원본을 올려 둔 것(40,060 kWh × ₩138, 관리자는 조회)
+      ...(c.no === 'CT-2025-0001' && s.period === '2026-09'
+        ? { original: { name: '세금계산서_2026-09_한일튜브.pdf', url: '/docs/tax-invoice-2026-09-hanil.pdf', sizeKb: 330, by: CO.HANIL.name, at: '2026-10-02 10:00' } }
+        : {}),
     });
   }
   // 승인된 변경·해지 — 합의서(서명본)

@@ -176,9 +176,23 @@ function InvoicePaper({ contract: c, period, autoPdf }: { contract: Contract; pe
           quantity: Math.round(s.generationKwh),
           unit: 'kWh',
           unitPrice: s.smpUnitPrice,
-          supplyAmount: s.supplyAmount,
+          supplyAmount: s.usageAmount,
           note: c.no,
         },
+        // 정산 차액 — 지난달을 바로잡는 한 줄
+        ...(s.adjust
+          ? [
+              {
+                date: end.slice(5),
+                name: `정산 차액 (${s.adjust.period})`,
+                quantity: s.adjust.kwh,
+                unit: 'kWh',
+                unitPrice: s.smpUnitPrice,
+                supplyAmount: s.adjustAmount,
+                note: s.adjust.reason,
+              },
+            ]
+          : []),
       ],
       supplyTotal: s.supplyAmount,
       vatTotal: s.vat,
