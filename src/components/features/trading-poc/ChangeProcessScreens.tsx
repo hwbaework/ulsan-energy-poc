@@ -191,6 +191,19 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
 
   /** 반려 — 누구든 한 번만. 받는 쪽은 신청 단계에서, 신청한 쪽은 서명 전까지(2026-10-13 반려 두 개 · 신청 취소 삭제) */
   const canReject = open && (receiver || mineRequest) && (step === 0 || signing);
+  const rejectButton = (
+    <Button
+      size="sm"
+      variant="danger"
+      onClick={() => {
+        setReason('');
+        setRejecting(true);
+      }}
+    >
+      반려
+    </Button>
+  );
+  // 버튼은 지금 처리하는 칸 위에 — 신청은 요청 내용, 전자서명은 합의서(거래 전자서명과 같게). 요청 내용은 전자서명 때 내용만
   const actions = (
     <>
       {open && receiver && step === 0 && (
@@ -204,18 +217,7 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
           {agreeLabel(ch)}
         </Button>
       )}
-      {canReject && (
-        <Button
-          size="sm"
-          variant="danger"
-          onClick={() => {
-            setReason('');
-            setRejecting(true);
-          }}
-        >
-          반려
-        </Button>
-      )}
+      {canReject && !signing && rejectButton}
     </>
   );
 
@@ -242,7 +244,10 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
 
         {/* 합의서 — 전자서명 단계부터 맨 위. 내용은 아래 요청 칸에 있어 요약을 다시 두지 않는다. 둘 다 서명하면 승인 · 서명본이 문서 관리에 */}
         {showSign && (
-          <SectionCard title={`${ch.type === 'TERMINATE' ? '계약 해지' : '계약 변경'} 합의서`}>
+          <SectionCard
+            title={`${ch.type === 'TERMINATE' ? '계약 해지' : '계약 변경'} 합의서`}
+            actions={canReject && signing ? rejectButton : undefined}
+          >
             <div className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <SignBox
