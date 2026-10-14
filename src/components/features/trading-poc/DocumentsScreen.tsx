@@ -2,20 +2,16 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronRight, Download, Search, Star, Upload } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download, Search, Star } from 'lucide-react';
 import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
-import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Modal } from '@/components/ui/Modal';
-import { Select } from '@/components/ui/Select';
 import { cn } from '@/lib/utils';
-import { useToastStore } from '@/stores/useToastStore';
 import { billingStatusOf, invoiceKey, useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { Contract, DocCategory, TradeDocument } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
 import { kindLabel } from './meta';
-import { ModalFooter, PageHeader, cell, cellNum } from './Bits';
+import { PageHeader, cell, cellNum } from './Bits';
 import { periodOf } from './DocumentSheet';
 
 /** 계약서 원문(양식) — 계약서는 이 PDF */
@@ -90,15 +86,14 @@ function FolderRow({
 const iconBtn = 'inline-flex rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-white';
 
 /**
- * 문서 관리 — 전력거래에서 발행되고 받은 문서(계약서 · 청구서 · 세금계산서).
+ * 문서 관리 — 전력거래에서 생긴 문서만 모아 본다(계약서 · 청구서 · 세금계산서 · 변경 합의서 · 해지 합의서).
+ * 여기서 등록하지 않는다 — 각자 전자서명 · 발행 · 청구서의 세금계산서 원본 올리기에서 들어온다.
  * 왼쪽 폴더(전체 · 카테고리 · 기업별), 오른쪽 문서 표(다른 화면과 같은 표 · 검색). 줄을 누르면 보기, 오른쪽 끝 PDF.
  * ?company=기업 번호 로 기업 폴더를 열 수 있다.
  */
 export function DocumentsScreen({ initialCompany }: { initialCompany?: number }) {
   const router = useRouter();
   const role = useTradingRole();
-  const addToast = useToastStore((s) => s.add);
-  const addDocument = useTradingPocStore((s) => s.addDocument);
   const invoices = useTradingPocStore((s) => s.invoices);
   const base = docsBase(role.isAdmin);
 
@@ -106,14 +101,6 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
   const [open, setOpen] = useState<Set<string>>(new Set(['cat', 'company']));
   const [query, setQuery] = useState('');
   const [favs, setFavs] = useState<Set<number>>(new Set());
-  const [uploadOpen, setUploadOpen] = useState(false);
-  const [up, setUp] = useState<{ title: string; category: Category; contractId: string; fileName: string }>({
-    title: '',
-    category: 'SIGNED',
-    contractId: '',
-    fileName: '',
-  });
-
   useEffect(() => {
     setFavs(readFavs());
     const id = initialCompany ?? Number(new URLSearchParams(window.location.search).get('company'));
@@ -185,24 +172,6 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
       : folder.startsWith('cat:')
         ? CATEGORY_META[folder.slice(4) as Category].label
         : (companies.find((c) => c.id === Number(folder.slice(8)))?.name ?? '');
-
-  const submitUpload = () => {
-    const c = role.contracts.find((x) => String(x.id) === up.contractId);
-    addDocument({
-      category: up.category,
-      title: up.title.trim(),
-      fileName: up.fileName.trim() || `${up.title.trim()}.pdf`,
-      contractId: c?.id,
-      contractNo: c?.no,
-      plantName: c?.plantName,
-      partyCompanyIds: c ? [c.generatorCompanyId, c.consumerCompanyId] : [],
-      fileType: up.fileName.toLowerCase().endsWith('.xlsx') ? 'XLSX' : 'PDF',
-      sizeKb: 420 + Math.floor(Math.random() * 900),
-      uploadedBy: role.companyName,
-    });
-    addToast('success', `${up.title.trim()} 등록`);
-    setUploadOpen(false);
-  };
 
   const columns: Column<Row>[] = [
     {
@@ -285,25 +254,7 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="문서 관리"
-        actions={
-          // 거래 신청을 할 수 있는 계정(관리자 · 발전사업자)은 문서도 등록한다 — 계약은 자기 계약만 고른다
-          <Button
-            onClick={() => {
-              setUp({
-                title: '',
-                category: 'SIGNED',
-                contractId: String(role.contracts.find((c) => c.status === 'ACTIVE')?.id ?? ''),
-                fileName: '',
-              });
-              setUploadOpen(true);
-            }}
-          >
-            <Upload size={16} className="mr-1" /> 문서 등록
-          </Button>
-        }
-      />
+      <PageHeader title="문서 관리" />
 
       <div className="grid items-start gap-6 xl:grid-cols-[220px_minmax(0,1fr)]">
         {/* 폴더 */}
@@ -370,51 +321,6 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
         </div>
       </div>
 
-      {/* 문서 등록 — 계약은 그 계정의 계약만, 올린 쪽(uploadedBy)을 남긴다 */}
-      <Modal open={uploadOpen} onClose={() => setUploadOpen(false)} title="문서 등록" size="md">
-        <div className="space-y-5">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <Input
-                label="문서명"
-                value={up.title}
-                onChange={(e) => setUp({ ...up, title: e.target.value })}
-                required
-              />
-            </div>
-            <Select
-              label="카테고리"
-              options={CATEGORIES.map((c) => ({ value: c, label: CATEGORY_META[c].label }))}
-              value={up.category}
-              onChange={(e) => setUp({ ...up, category: e.target.value as Category })}
-            />
-            <Select
-              label="계약"
-              options={role.contracts
-                .filter((c) => c.status === 'ACTIVE')
-                .map((c) => ({ value: String(c.id), label: `${c.consumerCompanyName} · ${kindLabel(c.kind)}` }))}
-              value={up.contractId}
-              onChange={(e) => setUp({ ...up, contractId: e.target.value })}
-            />
-            <div className="col-span-2">
-              <Input
-                label="파일명"
-                placeholder="계약서.pdf"
-                value={up.fileName}
-                onChange={(e) => setUp({ ...up, fileName: e.target.value })}
-              />
-            </div>
-          </div>
-          <ModalFooter>
-            <Button variant="secondary" onClick={() => setUploadOpen(false)}>
-              취소
-            </Button>
-            <Button disabled={!up.title.trim() || !up.contractId} onClick={submitUpload}>
-              등록
-            </Button>
-          </ModalFooter>
-        </div>
-      </Modal>
     </div>
   );
 }
