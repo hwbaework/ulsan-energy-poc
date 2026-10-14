@@ -43,13 +43,13 @@ function Direction({ fromSpc, company }: { fromSpc: boolean; company: string }) 
 /* ══ 변경·해지 한 건 — 거래(신청 접수 → 미팅 → 전자서명 → 승인)와 같은 4칸: 신청 → 조건 입력 → 전자서명 → 승인.
  *    받는 쪽이 [변경 동의]를 누르면 바로 조건 입력(거래의 미팅 확정처럼). 미팅은 시스템 밖(통화 등).
  *    해지는 조건이 없어 두 번째 칸이 해지 동의, 동의하면 바로 전자서명 ══ */
-const STEPS = ['신청', '조건 입력', '전자서명', '완료'] as const;
+const STEPS = ['신청', '조건 입력', '전자서명', '승인'] as const; // 승인은 마지막(양측 서명 끝)에만
 /** 해지 — 조건이 없어 3칸. 신청(내용만 · 합의서 없음) → 받는 쪽 해지 동의 → 전자서명(합의서 + 서명) → 둘 다 서명하면 해지 승인 (2026-10-13 신청 단계에 서명 금지) */
-const STEPS_TERMINATE = ['신청', '전자서명', '해지 완료'] as const;
+const STEPS_TERMINATE = ['신청', '전자서명', '해지 승인'] as const;
 const stepsOf = (ch: Pick<ContractChange, 'type'>) => (ch.type === 'TERMINATE' ? STEPS_TERMINATE : STEPS);
 /** 동의 이름 — 거래의 '조건 동의'처럼 무엇에 동의하는지 */
 /** 받는 쪽(관리자) 버튼 — 승인 · 반려 둘만(2026-10-13). 관리자는 신청하지 않는다 */
-const agreeLabel = (_ch: Pick<ContractChange, 'type'>) => '승인';
+const agreeLabel = (ch: Pick<ContractChange, 'type'>) => (ch.type === 'TERMINATE' ? '해지 동의' : '변경 동의'); // 승인은 마지막에만 — 받는 쪽은 동의
 /** 지금 단계 번호 — 0 신청(동의 전) · 1 조건 입력 · 조건 동의 · 2 전자서명 · 4 끝 */
 const stepOf = (ch: ContractChange) =>
   ch.status === 'APPROVED'
