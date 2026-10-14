@@ -242,7 +242,7 @@ export function MyContractsScreen() {
             <ContractDetailCard
               key={c.id}
               contract={c}
-              canRequestChange
+              canRequestChange={!role.isAdmin}
               onRequestChange={(ct) => setChange({ open: true, contractId: ct.id })}
             />
           ))

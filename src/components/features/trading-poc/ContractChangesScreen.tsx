@@ -20,9 +20,6 @@ export function ContractChangesScreen() {
   const role = useTradingRole();
   const [status, setStatus] = useState('all');
   const [newOpen, setNewOpen] = useState(false);
-  const [side, setSide] = useState('all');
-  /** 지금 계정 기준 — 보낸 요청(내가 신청) / 받은 요청(상대가 신청). 관리자는 SPC 신청이 보낸 요청 */
-  const sentByMe = (c: ContractChange) => (role.isAdmin ? c.requestedBy === 'spc' : c.requestedBy !== 'spc');
   const base = role.isAdmin ? '/platform/trading/changes' : '/generator/trading/changes';
 
   const active = useMemo(() => role.contracts.filter((c) => c.status === 'ACTIVE'), [role.contracts]);
@@ -31,10 +28,8 @@ export function ContractChangesScreen() {
     () =>
       [...role.changes]
         .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))
-        .filter((c) => status === 'all' || changeStateOf(c) === status)
-        .filter((c) => side === 'all' || (side === 'sent') === sentByMe(c)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [role.changes, status, side, role.isAdmin],
+        .filter((c) => status === 'all' || changeStateOf(c) === status),
+    [role.changes, status],
   );
   const year = String(new Date().getFullYear());
   const stats = {
@@ -46,13 +41,6 @@ export function ContractChangesScreen() {
 
   const columns: Column<ContractChange>[] = [
     { key: 'no', header: '요청번호', width: '160px', render: (c) => cellStrong(c.no) },
-    {
-      key: 'side',
-      header: '구분',
-      width: '110px',
-      render: (c) =>
-        sentByMe(c) ? cell('보낸 요청', 'font-medium text-sky-400') : cell('받은 요청', 'font-medium text-amber-400'),
-    },
     { key: 'contract', header: '계약번호', width: '160px', render: (c) => cell(contractOf(c.contractId)?.no ?? '') },
     // 어느 기업인지만 — 요청한 쪽은 계약한 그 기업이라 따로 보이지 않는다. 내용은 줄을 눌러 안에서
     {
@@ -89,7 +77,7 @@ export function ContractChangesScreen() {
       <PageHeader
         title="변경·해지"
         actions={
-          active.length > 0 && (
+          !role.isAdmin && active.length > 0 && (
             <Button onClick={() => setNewOpen(true)}>
               <FileEdit size={16} className="mr-1" /> 변경·해지 신청
             </Button>
@@ -108,19 +96,6 @@ export function ContractChangesScreen() {
         title="변경·해지 요청"
         actions={
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-slate-400">
-              구분
-              <Select
-                options={[
-                  { value: 'all', label: '전체' },
-                  { value: 'sent', label: '보낸 요청' },
-                  { value: 'received', label: '받은 요청' },
-                ]}
-                value={side}
-                onChange={(e) => setSide(e.target.value)}
-                className="w-32"
-              />
-            </label>
             <label className="flex items-center gap-2 text-sm text-slate-400">
               상태
               <Select

@@ -27,7 +27,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 63; // 2026-10-13 한일튜브 해지 신청(CH-2026-0014). 62 — 2026-10-13 관리자가 신청한 해지(용인금속, 전자서명 1/2). 61 — 2026-10-13 해지: 신청 → 전자서명 → 해지 승인, 문서 분류 변경 합의서 · 해지 합의서. 60 — 2026-10-13 해지 완료 1건(한길 예전 계약 CT-2024-0001 · CH-2025-0001). 59 — 2026-10-13 해지 3칸 · 상태 해지. 58 — 2026-10-13 신청 상태 PPA(CH-2026-0012) 추가. 57 — 2026-10-13 변경 조건은 지금 계약 값으로 시작. 56 — 2026-10-13 변경: 변경 동의 → 조건 입력(관리자) → 조건 동의 → 전자서명 → 승인. 55 — 2026-10-13 변경·해지 동의 → 변경 동의 / 해지 동의. 54 — 2026-10-13 승인된 변경·해지 합의서(서명본) 시드. 53 — 2026-10-13 변경·해지도 신청 접수 → 동의 → 전자서명 → 승인 완료. 52 — 2026-10-13 진행 이력 조건 동의(관리자 · 신청한 쪽) → 전자서명 → 승인 완료, 표시 SPC → 관리자. 51 — 2026-10-13 진행 이력 '승인'은 양측 서명 완료만, 동의는 '조건 동의'. 50 — 2026-10-13 서명 흔적(그림 · 이름) 저장. 49 — 2026-10-13 전자서명 자가소비(건호) · PPA(한일튜브) 1건씩. 48 — 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
+export const SEED_VERSION = 65; // 2026-10-13 관리자는 변경·해지 신청 안 함(받아서 승인 · 반려 · 서명만), 신청 단계엔 합의서 · 서명 없음. 63 — 2026-10-13 한일튜브 해지 신청(CH-2026-0014). 62 — 2026-10-13 관리자가 신청한 해지(용인금속, 전자서명 1/2). 61 — 2026-10-13 해지: 신청 → 전자서명 → 해지 승인, 문서 분류 변경 합의서 · 해지 합의서. 60 — 2026-10-13 해지 완료 1건(한길 예전 계약 CT-2024-0001 · CH-2025-0001). 59 — 2026-10-13 해지 3칸 · 상태 해지. 58 — 2026-10-13 신청 상태 PPA(CH-2026-0012) 추가. 57 — 2026-10-13 변경 조건은 지금 계약 값으로 시작. 56 — 2026-10-13 변경: 변경 동의 → 조건 입력(관리자) → 조건 동의 → 전자서명 → 승인. 55 — 2026-10-13 변경·해지 동의 → 변경 동의 / 해지 동의. 54 — 2026-10-13 승인된 변경·해지 합의서(서명본) 시드. 53 — 2026-10-13 변경·해지도 신청 접수 → 동의 → 전자서명 → 승인 완료. 52 — 2026-10-13 진행 이력 조건 동의(관리자 · 신청한 쪽) → 전자서명 → 승인 완료, 표시 SPC → 관리자. 51 — 2026-10-13 진행 이력 '승인'은 양측 서명 완료만, 동의는 '조건 동의'. 50 — 2026-10-13 서명 흔적(그림 · 이름) 저장. 49 — 2026-10-13 전자서명 자가소비(건호) · PPA(한일튜브) 1건씩. 48 — 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -795,7 +795,7 @@ function seedChanges(): ContractChange[] {
           '신청 접수',
           '단가 ₩138 → ₩142 · 적용일 2027-01-01',
         ),
-        ev(iso('2026-09-23', '10:00:00'), 'spc', '변경 동의'),
+        ev(iso('2026-09-23', '10:00:00'), 'spc', '승인'),
       ],
       messages: [
         {
@@ -817,8 +817,8 @@ function seedChanges(): ContractChange[] {
       no: 'CH-2026-0008',
       contractId: 3,
       type: 'TERM',
-      requestedBy: 'spc',
-      requestedByName: CO.SPC.name,
+      requestedBy: 'consumer',
+      requestedByName: CO.CONSUMER_LOGIN.name,
       requestedAt: iso('2026-10-01', '11:00:00'),
       reason: '설비 교체 일정에 맞춰 종료일 조정',
       before: '2045-04-30',
@@ -863,7 +863,7 @@ function seedChanges(): ContractChange[] {
       terms: { capacityKw: 350, termYears: 20, unitPrice: 138, installUnit: 1_350_000, extraCost: 0, omAnnual: Math.round(350 * 1_350_000 * 0.01), tariffPlan: '고압A 선택Ⅱ' },
       events: [
         ev(iso('2026-09-28', '16:20:00'), 'generator', '신청 접수', '용량 329.6 kW → 350 kW'),
-        ev(iso('2026-09-30', '10:00:00'), 'spc', '변경 동의'),
+        ev(iso('2026-09-30', '10:00:00'), 'spc', '승인'),
         ev(iso('2026-10-02', '11:00:00'), 'spc', '조건 입력', '설치 용량 329.6 kW → 350 kW · 연간 O&M 함께 조정'),
         ev(iso('2026-10-02', '11:10:00'), 'spc', '조건 동의', '상대 조건 동의 대기'),
       ],
@@ -873,8 +873,8 @@ function seedChanges(): ContractChange[] {
       no: 'CH-2026-0010',
       contractId: 5,
       type: 'PRICE',
-      requestedBy: 'spc',
-      requestedByName: CO.SPC.name,
+      requestedBy: 'consumer',
+      requestedByName: CO.TAESUNG.name,
       requestedAt: iso('2026-09-10', '10:00:00'),
       reason: '인버터 정기 점검을 O&M 범위에 포함',
       before: '622080',
@@ -885,7 +885,7 @@ function seedChanges(): ContractChange[] {
       terms: { capacityKw: 46.08, termYears: 20, unitPrice: 0, installUnit: 1_350_000, extraCost: 0, omAnnual: 746496, tariffPlan: '고압A 선택Ⅱ' },
       events: [
         ev(iso('2026-09-10', '10:00:00'), 'spc', '신청 접수', 'O&M ₩622,080 → ₩746,496/년'),
-        ev(iso('2026-09-15', '10:00:00'), 'consumer', '변경 동의'),
+        ev(iso('2026-09-15', '10:00:00'), 'spc', '승인'),
         ev(iso('2026-09-22', '10:00:00'), 'spc', '조건 입력', '연간 O&M ₩622,080 → ₩746,496'),
         ev(iso('2026-09-22', '10:10:00'), 'spc', '조건 동의', '상대 조건 동의 대기'),
         ev(iso('2026-09-25', '10:00:00'), 'consumer', '조건 동의', '전자서명 대기'),
@@ -917,8 +917,7 @@ function seedChanges(): ContractChange[] {
       requestedAt: iso('2026-09-24', '10:30:00'),
       reason: '공장 이전으로 설비 철거 예정',
       effectiveDate: '2026-12-31',
-      status: 'REQUESTED',
-      stage: 'SIGN', // 해지 — 신청하면 바로 전자서명
+      status: 'REQUESTED', // 해지 — 신청 단계(관리자 해지 동의 대기)
       events: [
         ev(iso('2026-09-24', '10:30:00'), 'consumer', '신청 접수', '희망 해지일 2026-12-31'),
       ],
@@ -949,7 +948,7 @@ function seedChanges(): ContractChange[] {
       decisionNote: '2026-02 정산분부터 적용',
       events: [
         ev(iso('2026-01-12', '09:00:00'), 'generator', '신청 접수', 'O&M ₩1,078,272 → ₩1,347,840/년'),
-        ev(iso('2026-01-14', '10:00:00'), 'spc', '변경 동의'),
+        ev(iso('2026-01-14', '10:00:00'), 'spc', '승인'),
         ev(iso('2026-01-20', '10:00:00'), 'spc', '조건 입력', '연간 O&M ₩1,078,272 → ₩1,347,840'),
         ev(iso('2026-01-20', '10:10:00'), 'spc', '조건 동의', '상대 조건 동의 대기'),
         ev(iso('2026-01-26', '10:00:00'), 'generator', '조건 동의', '전자서명 대기'),
@@ -1018,18 +1017,17 @@ function seedChanges(): ContractChange[] {
       requestedAt: iso('2026-10-10', '14:00:00'),
       reason: '공장 증축으로 지붕 설비 이전 예정',
       effectiveDate: '2027-06-30',
-      status: 'REQUESTED',
-      stage: 'SIGN',
+      status: 'REQUESTED', // 신청 단계 — 관리자 해지 동의 대기
       events: [ev(iso('2026-10-10', '14:00:00'), 'generator', '신청 접수', '희망 해지일 2027-06-30')],
     },
-    // 해지 — 관리자가 신청(보낸 요청). 신청하면 바로 전자서명, 관리자 서명 끝 · 용인금속 서명 남음
+    // 해지 — 용인금속이 신청, 관리자 승인 → 전자서명, 관리자 서명 끝 · 용인금속 서명 남음
     {
       id: 14,
       no: 'CH-2026-0013',
       contractId: 4,
       type: 'TERMINATE',
-      requestedBy: 'spc',
-      requestedByName: CO.SPC.name,
+      requestedBy: 'consumer',
+      requestedByName: CO.YONGIN.name,
       requestedAt: iso('2026-10-06', '10:00:00'),
       reason: '공장 지붕 보수 공사로 설비 철거 예정',
       effectiveDate: '2027-03-31',
@@ -1037,6 +1035,7 @@ function seedChanges(): ContractChange[] {
       stage: 'SIGN',
       events: [
         ev(iso('2026-10-06', '10:00:00'), 'spc', '신청 접수', '희망 해지일 2027-03-31'),
+        ev(iso('2026-10-06', '10:20:00'), 'spc', '승인'),
         ev(iso('2026-10-06', '10:30:00'), 'spc', '전자서명', '김관리 서명'),
       ],
       messages: [
@@ -1721,7 +1720,7 @@ export const useTradingPocStore = create<TradingPocState>()(
                   stage: terminate ? 'SIGN' : 'TERMS',
                   // 지금 계약 값 그대로 시작 — 관리자가 고친 칸만 '변경'으로 보인다(요청 값은 요청 내용에)
                   ...(terminate ? {} : { termsBefore: changeTermsOf(c), terms: changeTermsOf(c) }),
-                  events: [...(x.events ?? []), ev(nowIso(), by, terminate ? '해지 동의' : '변경 동의')],
+                  events: [...(x.events ?? []), ev(nowIso(), by, '승인')],
                 }
               : x,
           ),

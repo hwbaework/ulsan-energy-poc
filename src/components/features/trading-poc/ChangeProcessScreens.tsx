@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { PLAN_LABEL } from '@/lib/solar-sim';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Modal } from '@/components/ui/Modal';
 import { Textarea } from '@/components/ui/Textarea';
 import { cn } from '@/lib/utils';
@@ -44,25 +43,24 @@ function Direction({ fromSpc, company }: { fromSpc: boolean; company: string }) 
 /* ══ 변경·해지 한 건 — 거래(신청 접수 → 미팅 → 전자서명 → 승인)와 같은 4칸: 신청 → 조건 입력 → 전자서명 → 승인.
  *    받는 쪽이 [변경 동의]를 누르면 바로 조건 입력(거래의 미팅 확정처럼). 미팅은 시스템 밖(통화 등).
  *    해지는 조건이 없어 두 번째 칸이 해지 동의, 동의하면 바로 전자서명 ══ */
-const STEPS = ['신청', '조건 입력', '전자서명', '승인'] as const;
-/** 해지 — 조건이 없어 3칸. 신청하면 바로 전자서명(양쪽 서명 = 동의), 둘 다 서명하면 해지 승인 */
-const STEPS_TERMINATE = ['신청', '전자서명', '해지 승인'] as const;
+const STEPS = ['신청', '조건 입력', '전자서명', '완료'] as const;
+/** 해지 — 조건이 없어 3칸. 신청(내용만 · 합의서 없음) → 받는 쪽 해지 동의 → 전자서명(합의서 + 서명) → 둘 다 서명하면 해지 승인 (2026-10-13 신청 단계에 서명 금지) */
+const STEPS_TERMINATE = ['신청', '전자서명', '해지 완료'] as const;
 const stepsOf = (ch: Pick<ContractChange, 'type'>) => (ch.type === 'TERMINATE' ? STEPS_TERMINATE : STEPS);
 /** 동의 이름 — 거래의 '조건 동의'처럼 무엇에 동의하는지 */
-const agreeLabel = (ch: Pick<ContractChange, 'type'>) => (ch.type === 'TERMINATE' ? '해지 동의' : '변경 동의');
+/** 받는 쪽(관리자) 버튼 — 승인 · 반려 둘만(2026-10-13). 관리자는 신청하지 않는다 */
+const agreeLabel = (_ch: Pick<ContractChange, 'type'>) => '승인';
 /** 지금 단계 번호 — 0 신청(동의 전) · 1 조건 입력 · 조건 동의 · 2 전자서명 · 4 끝 */
 const stepOf = (ch: ContractChange) =>
   ch.status === 'APPROVED'
     ? stepsOf(ch).length
-    : ch.type === 'TERMINATE' && ch.stage === 'SIGN' && !ch.spcSign && !ch.companySign
-      ? 0 // 해지 — 아무도 서명 안 했으면 아직 신청(서명 칸은 열려 있음)
-      : ch.stage === 'SIGN'
+    : ch.stage === 'SIGN'
       ? (stepsOf(ch) as readonly string[]).indexOf('전자서명')
       : ch.stage === 'TERMS' || ch.stage === 'AGREE'
         ? 1
         : 0;
 /** 두 번째 칸 이름 — 해지는 해지 동의, 변경은 조건 입력 → (확정 뒤) 조건 동의 */
-const agreeStepLabel = (ch: ContractChange) => (ch.type === 'TERMINATE' ? '해지 동의' : ch.stage === 'AGREE' ? '조건 동의' : '조건 입력');
+const agreeStepLabel = (ch: ContractChange) => (ch.stage === 'AGREE' ? '조건 동의' : '조건 입력');
 
 /** 단계 — 거래 이력과 같은 표시줄. 서명 단계는 몇 명 서명했는지, 조건 단계는 입력 / 동의 대기 */
 function Stepper({ ch }: { ch: ContractChange }) {
@@ -158,8 +156,6 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
   const agree = useTradingPocStore((s) => s.agreeChange);
   const signChange = useTradingPocStore((s) => s.signChange);
   const reject = useTradingPocStore((s) => s.rejectChange);
-  const cancel = useTradingPocStore((s) => s.cancelChange);
-  const [confirm, setConfirm] = useState<'cancel' | null>(null);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
   // 합의서 문서 — 양측 서명 뒤는 문서 관리의 서명본, 그 전은 같은 양식의 초안
@@ -193,38 +189,30 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
   const typeLabel = changeTypeLabel(ch.type, c.kind);
 
 
+  /** 반려 — 누구든 한 번만. 받는 쪽은 신청 단계에서, 신청한 쪽은 서명 전까지(2026-10-13 반려 두 개 · 신청 취소 삭제) */
+  const canReject = open && (receiver || mineRequest) && (step === 0 || signing);
   const actions = (
     <>
       {open && receiver && step === 0 && (
-        <>
-          <Button
-            size="sm"
-            onClick={() => {
-              agree(ch.id, role.party);
-              addToast('success', `${ch.no} ${agreeLabel(ch)} — ${ch.type === 'TERMINATE' ? '전자서명 대기' : '조건 입력 대기'}`);
-            }}
-          >
-            {agreeLabel(ch)}
-          </Button>
-          <Button size="sm" variant="danger" onClick={() => {
-            setReason('');
-            setRejecting(true);
-          }}>
-            반려
-          </Button>
-        </>
-      )}
-      {open && mineRequest && step === 0 && (
-        <Button size="sm" variant="danger" onClick={() => setConfirm('cancel')}>
-          신청 취소
+        <Button
+          size="sm"
+          onClick={() => {
+            agree(ch.id, role.party);
+            addToast('success', `${ch.no} ${agreeLabel(ch)} — ${ch.type === 'TERMINATE' ? '전자서명 대기' : '조건 입력 대기'}`);
+          }}
+        >
+          {agreeLabel(ch)}
         </Button>
       )}
-      {/* 전자서명 중 — 거래 전자서명처럼 신청한 쪽이 사유를 적고 반려(진행 멈춤) */}
-      {open && (mineRequest || (ch.type === 'TERMINATE' && receiver)) && signing && (
-        <Button size="sm" variant="danger" onClick={() => {
+      {canReject && (
+        <Button
+          size="sm"
+          variant="danger"
+          onClick={() => {
             setReason('');
             setRejecting(true);
-          }}>
+          }}
+        >
           반려
         </Button>
       )}
@@ -305,6 +293,7 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
               label={ch.type === 'TERMINATE' ? '희망 해지일' : '적용일'}
               value={ch.effectiveDate ?? (ch.type === 'TERM' ? ch.after : undefined)}
             />
+            {ch.type === 'TERMINATE' && <Info label="계약 종료일" value={c.endDate} />}
             <Info label="사유" value={ch.reason} className="md:col-span-3" />
             {ch.status === 'REJECTED' && <Info label="반려 사유" value={ch.decisionNote} className="md:col-span-3" />}
           </div>
@@ -324,21 +313,14 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
           </SectionCard>
         )}
 
-        {/* 진행 이력 — 전자서명 전에는 아래, 전자서명부터는 오른쪽(거래 전자서명 화면과 같게) */}
-        {!showSign && (
-          <SectionCard title="진행 이력">
-            <EventTimeline events={ch.events ?? []} />
-          </SectionCard>
-        )}
-      </div>
-
-      {showSign ? (
-        <SectionCard title="진행 이력" className="lg:sticky lg:top-6">
+        {/* 진행 이력 — 항상 아래 */}
+        <SectionCard title="진행 이력">
           <EventTimeline events={ch.events ?? []} />
         </SectionCard>
-      ) : (
-        <ChangeChat ch={ch} canSend={open && (role.isAdmin || isCompany)} />
-      )}
+      </div>
+
+      {/* 협의 채팅 — 항상 오른쪽(서명 중에도 대화는 된다, 2026-10-13) */}
+      <ChangeChat ch={ch} canSend={open && (role.isAdmin || isCompany)} />
 
       {/* 반려 — 거래와 같은 팝업. 사유 필수 */}
       <Modal open={rejecting} onClose={() => setRejecting(false)} title="요청 반려" size="sm">
@@ -370,19 +352,6 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
         </div>
       </Modal>
 
-      <ConfirmDialog
-        open={confirm === 'cancel'}
-        onClose={() => setConfirm(null)}
-        onConfirm={() => {
-          cancel(ch.id);
-          addToast('success', `${ch.no} 신청 취소`);
-          setConfirm(null);
-        }}
-        title="신청 취소"
-        message={`${ch.no} 요청을 취소합니다.`}
-        confirmLabel="신청 취소"
-        variant="danger"
-      />
     </div>
   );
 }
