@@ -313,14 +313,22 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
           </SectionCard>
         )}
 
-        {/* 진행 이력 — 항상 아래 */}
-        <SectionCard title="진행 이력">
-          <EventTimeline events={ch.events ?? []} />
-        </SectionCard>
+        {/* 진행 이력 — 전자서명 전에는 아래 */}
+        {!showSign && (
+          <SectionCard title="진행 이력">
+            <EventTimeline events={ch.events ?? []} />
+          </SectionCard>
+        )}
       </div>
 
-      {/* 협의 채팅 — 항상 오른쪽(서명 중에도 대화는 된다, 2026-10-13) */}
-      <ChangeChat ch={ch} canSend={open && (role.isAdmin || isCompany)} />
+      {/* 오른쪽 — 거래와 같게: 신청 · 조건 단계는 협의 채팅, 전자서명부터는 채팅 없이 진행 이력(2026-10-14) */}
+      {showSign ? (
+        <SectionCard title="진행 이력" className="lg:sticky lg:top-6">
+          <EventTimeline events={ch.events ?? []} />
+        </SectionCard>
+      ) : (
+        <ChangeChat ch={ch} canSend={open && (role.isAdmin || isCompany)} />
+      )}
 
       {/* 반려 — 거래와 같은 팝업. 사유 필수 */}
       <Modal open={rejecting} onClose={() => setRejecting(false)} title="요청 반려" size="sm">
