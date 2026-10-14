@@ -190,7 +190,8 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
 
 
   /** 반려 — 누구든 한 번만. 받는 쪽은 신청 단계에서, 신청한 쪽은 서명 전까지(2026-10-13 반려 두 개 · 신청 취소 삭제) */
-  const canReject = open && (receiver || mineRequest) && (step === 0 || signing);
+  // 반려 — 신청 단계는 받는 쪽 · 신청한 쪽 모두, 전자서명은 신청한 쪽만(관리자는 이미 동의 · 조건 확정한 쪽, 거래 전자서명과 같게)
+  const canReject = open && ((step === 0 && (receiver || mineRequest)) || (signing && mineRequest));
   const rejectButton = (
     <Button
       size="sm"
