@@ -295,8 +295,8 @@ export default function EnergySettingsPage() {
           <div className="mt-4 flex flex-wrap items-center gap-6 text-sm text-slate-200">
             {(
               [
-                ['offStart', '매일 OFF 시각'],
                 ['onTime', '매일 ON 시각'],
+                ['offStart', '매일 OFF 시각'],
               ] as const
             ).map(([k, label]) => (
               <label key={k} className="flex items-center gap-2">

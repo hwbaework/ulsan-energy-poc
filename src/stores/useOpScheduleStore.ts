@@ -2,13 +2,17 @@ import { useEffect } from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { ssrSafeStorage } from '@/lib/ssr-storage';
-import { OP_RULE_DEFAULT, type DayOverride, type OpRule } from '@/lib/op-calendar';
+import { OP_RULE_DEFAULT, weekText, type DayOverride, type OpRule } from '@/lib/op-calendar';
 
 /**
- * PPA 운전 일정 — 발전사업자가 자기 발전소(PPA 계약 기업)마다 쉬는 날 OFF 규칙 · 날짜별 수동 지정, 발전소마다 원격 ON / OFF 이력.
- * 쉬는 날은 자동 OFF, 다음 가동일 자동 ON. POC 는 브라우저에 저장
+ * PPA 운전 일정 — 발전사업자가 자기 발전소(PPA 계약 기업)마다 요일별 운전 시간 · 공휴일 OFF · 날짜별 지정.
+ * 기업이 고친 값만 저장하고 나머지는 관리자 기본값(관리 › 에너지 설정)을 따른다. POC 는 브라우저에 저장
  */
-export interface CompanySchedule extends OpRule {
+export interface CompanySchedule extends Partial<OpRule> {
+  overrides: Record<string, DayOverride>;
+}
+/** 기본값 위에 기업 값을 얹은 일정 */
+export interface ResolvedSchedule extends OpRule {
   overrides: Record<string, DayOverride>;
 }
 export interface RemoteLog {
@@ -21,26 +25,33 @@ export interface RemoteLog {
   note?: string;
 }
 
-const SEED_VERSION = 2; // 2 — 원격 ON / OFF 를 그날 일정(수동 지정)으로 합침
+const SEED_VERSION = 3; // 3 — 요일별 운전 시간 · 날짜 지정은 그날 운전 시간(2026-10-15). 2 — 원격 ON / OFF 를 그날 일정으로 합침
 const nowIso = () => new Date().toISOString();
+
+/**
+ * 데모 — 한일튜브(박발전) PPA 발전소. 요일표는 기본값(월~금 10:00~17:00 · 토·일 OFF)을 그대로 두고 날짜 지정만 두 건:
+ * 금요일 하루 OFF · 토요일 하루 10:00~14:00 운전
+ */
+const SEED_SCHEDULES: Record<number, CompanySchedule> = {
+  4: { overrides: { '2026-10-23': 'OFF', '2026-10-24': '10:00~14:00' } },
+};
 
 interface OpScheduleState {
   version: number;
   schedules: Record<number, CompanySchedule>;
-
   logs: RemoteLog[];
+  /** 요일표 · 공휴일 OFF 저장 — 고친 값만 */
   setRule: (companyId: number, patch: Partial<OpRule>, by: string, base?: OpRule) => void;
-  /** 날짜 지정 — null 이면 자동(설정대로). 하루 가동 · 하루 OFF · 시간 OFF('HH:MM~HH:MM'). 자동과 같으면 지정을 지운다 */
-  setDay: (companyId: number, date: string, value: DayOverride | null, autoOn: boolean, by: string, base?: OpRule) => void;
-  /** 날짜 누르기 — 자동 일정과 반대로 수동 지정, 이미 수동이면 자동으로 되돌린다 */
-  toggleDay: (companyId: number, date: string, autoOn: boolean, by: string, base?: OpRule) => void;
-  /** 원격 ON / OFF — 그날 일정에 바로 반영(자동과 같으면 수동 지정을 지운다). 운전 일정 · 대시보드 · 발전소 상세가 같은 값 */
-  setRemote: (companyId: number, date: string, on: boolean, autoOn: boolean, by: string, base?: OpRule) => void;
+  /** 날짜 지정 — null 이면 요일 설정대로. 'OFF' 그날 OFF · 'HH:MM~HH:MM' 그날 운전 시간. 요일 설정과 같은 값(auto)이면 지정을 지운다 */
+  setDay: (companyId: number, date: string, value: DayOverride | null, auto: DayOverride, by: string, base?: OpRule) => void;
 }
 
-/** 기업 일정 — 아직 안 고쳤으면 관리자 전체 기준(관리 › 에너지 설정 가동일)을 그대로 */
-export const scheduleOf = (s: Pick<OpScheduleState, 'schedules'>, companyId: number, base: OpRule = OP_RULE_DEFAULT): CompanySchedule =>
-  s.schedules[companyId] ?? { ...base, overrides: {} };
+/** 기업 일정 — 기업이 고친 값 위로, 나머지는 관리자 기본값(관리 › 에너지 설정) */
+export const scheduleOf = (s: Pick<OpScheduleState, 'schedules'>, companyId: number, base: OpRule = OP_RULE_DEFAULT): ResolvedSchedule => {
+  const own = s.schedules[companyId];
+  const picked = Object.fromEntries(Object.entries(own ?? {}).filter(([k, v]) => k !== 'overrides' && v !== undefined));
+  return { ...base, ...picked, overrides: own?.overrides ?? {} };
+};
 
 export const useOpScheduleStore = create<OpScheduleState>()(
   persist(
@@ -49,57 +60,28 @@ export const useOpScheduleStore = create<OpScheduleState>()(
         const id = get().logs.reduce((m, x) => Math.max(m, x.id), 0) + 1;
         return [{ ...l, id, at: nowIso() }, ...get().logs].slice(0, 200);
       };
+      const own = (companyId: number): CompanySchedule => get().schedules[companyId] ?? { overrides: {} };
       return {
         version: SEED_VERSION,
-        schedules: {},
+        schedules: SEED_SCHEDULES,
         logs: [],
-        setRule: (companyId, patch, by, base) => {
-          const cur = scheduleOf(get(), companyId, base);
-          const note = [
-            patch.weekendOff !== undefined ? `주말 ${patch.weekendOff ? 'OFF' : '가동'}` : '',
-            patch.holidayOff !== undefined ? `공휴일 ${patch.holidayOff ? 'OFF' : '가동'}` : '',
-          ].filter(Boolean).join(' · ');
+        setRule: (companyId, patch, by) => {
+          const note = [patch.week ? `요일별 운전 ${weekText(patch.week)}` : '', patch.holidayOff !== undefined ? `공휴일 ${patch.holidayOff ? 'OFF' : '운전'}` : '']
+            .filter(Boolean)
+            .join(' · ');
           set({
-            schedules: { ...get().schedules, [companyId]: { ...cur, ...patch } },
-            logs: log({ companyId, action: patch.weekendOff === false || patch.holidayOff === false ? 'ON' : 'OFF', how: '일정 변경', by, note }),
+            schedules: { ...get().schedules, [companyId]: { ...own(companyId), ...patch } },
+            logs: log({ companyId, action: patch.holidayOff === false ? 'ON' : 'OFF', how: '일정 변경', by, note }),
           });
         },
-        setDay: (companyId, date, value, autoOn, by, base) => {
-          const cur = scheduleOf(get(), companyId, base);
+        setDay: (companyId, date, value, auto, by) => {
+          const cur = own(companyId);
           const overrides = { ...cur.overrides };
-          const asAuto = value === null || (value === 'ON' && autoOn) || (value === 'OFF' && !autoOn);
-          if (asAuto) delete overrides[date];
+          if (value === null || value === auto) delete overrides[date];
           else overrides[date] = value;
-          const timeOff = value && value !== 'ON' && value !== 'OFF' ? value : '';
           set({
             schedules: { ...get().schedules, [companyId]: { ...cur, overrides } },
-            logs: log({ companyId, action: value === 'ON' || (value === null && autoOn) ? 'ON' : 'OFF', how: '일정 변경', by, note: timeOff ? `${date} ${timeOff}` : date }),
-          });
-        },
-        toggleDay: (companyId, date, autoOn, by, base) => {
-          const cur = scheduleOf(get(), companyId, base);
-          const overrides = { ...cur.overrides };
-          let action: 'ON' | 'OFF';
-          if (overrides[date]) {
-            delete overrides[date];
-            action = autoOn ? 'ON' : 'OFF';
-          } else {
-            overrides[date] = autoOn ? 'OFF' : 'ON';
-            action = overrides[date]!;
-          }
-          set({
-            schedules: { ...get().schedules, [companyId]: { ...cur, overrides } },
-            logs: log({ companyId, action, how: '일정 변경', by, note: date }),
-          });
-        },
-        setRemote: (companyId, date, on, autoOn, by, base) => {
-          const cur = scheduleOf(get(), companyId, base);
-          const overrides = { ...cur.overrides };
-          if (on === autoOn) delete overrides[date];
-          else overrides[date] = on ? 'ON' : 'OFF';
-          set({
-            schedules: { ...get().schedules, [companyId]: { ...cur, overrides } },
-            logs: log({ companyId, action: on ? 'ON' : 'OFF', how: '원격', by, note: date }),
+            logs: log({ companyId, action: value === 'OFF' ? 'OFF' : 'ON', how: '일정 변경', by, note: `${date} ${value ?? '요일 설정대로'}` }),
           });
         },
       };

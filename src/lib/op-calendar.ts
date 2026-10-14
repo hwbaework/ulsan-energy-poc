@@ -67,13 +67,54 @@ export const HOLIDAYS_SEED: Record<number, Holiday[]> = {
   ],
 };
 
-/** 쉬는 날 OFF 규칙 — 관리 › 에너지 설정 */
+/** 요일 하루의 운전 — 운전하는 날인지 · 켜는 시각 · 끄는 시각(HH:MM) */
+export interface WeekDayRun {
+  on: boolean;
+  from: string;
+  to: string;
+}
+/**
+ * 운전 규칙.
+ *  - 관리 › 에너지 설정 = 기본값(주말 OFF · 공휴일 OFF · 매일 ON / OFF 시각)
+ *  - 설정 › 설정(발전사업자) = 요일별 운전(week) · 공휴일 OFF · 날짜별 지정 — 고치기 전엔 기본값으로 만든 요일표(2026-10-15)
+ */
 export interface OpRule {
   weekendOff: boolean;
   holidayOff: boolean;
-  /** 매일 고정 OFF 시각 · ON 시각(HH:MM). 둘 다 있으면 그 시간엔 설정으로 꺼진다(2026-10-13 — 날짜가 아니라 시간으로) */
+  /** 매일 고정 OFF 시각 · ON 시각(HH:MM) — 요일표가 없을 때의 기본 운전 시간(ON ~ OFF) */
   offStart?: string;
   onTime?: string;
+  /** 요일별 운전 — 0 일 ~ 6 토. 있으면 weekendOff · onTime · offStart 대신 이것 */
+  week?: WeekDayRun[];
+}
+/** 요일표 — 없으면 기본값(주말 OFF · 매일 ON ~ OFF)으로 만든다 */
+export function weekOf(rule: OpRule): WeekDayRun[] {
+  if (rule.week && rule.week.length === 7) return rule.week;
+  return Array.from({ length: 7 }, (_, wd) => ({
+    on: !((wd === 0 || wd === 6) && rule.weekendOff),
+    from: rule.onTime || '00:00',
+    to: rule.offStart || '24:00',
+  }));
+}
+/** 요일 이름 — 0 일 ~ 6 토 */
+export const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'] as const;
+/** 월요일부터 — 화면 순서 */
+export const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
+/** 요일표 한 줄 — 같은 날끼리 묶어서 '월~금 10:00~17:00 · 토~일 OFF' */
+export function weekText(week: WeekDayRun[]) {
+  const key = (r: WeekDayRun) => (r.on ? `${r.from}~${r.to}` : 'OFF');
+  const parts: string[] = [];
+  let i = 0;
+  while (i < WEEK_ORDER.length) {
+    const k = key(week[WEEK_ORDER[i]!]!);
+    let j = i;
+    while (j + 1 < WEEK_ORDER.length && key(week[WEEK_ORDER[j + 1]!]!) === k) j++;
+    const a = WEEKDAY[WEEK_ORDER[i]!];
+    const b = WEEKDAY[WEEK_ORDER[j]!];
+    parts.push(`${i === j ? a : j === i + 1 ? `${a}·${b}` : `${a}~${b}`} ${k}`);
+    i = j + 1;
+  }
+  return parts.join(' · ');
 }
 export const OP_RULE_DEFAULT: OpRule = { weekendOff: true, holidayOff: true, offStart: '17:00', onTime: '10:00' };
 /** 에너지 설정 값('1' / '0' · HH:MM)에서 규칙으로 */
@@ -93,24 +134,24 @@ export function inOffWindow(rule: OpRule, hhmm: string) {
   return !!rule.offStart && !!rule.onTime && inWindow({ from: rule.offStart, to: rule.onTime }, hhmm);
 }
 
-/** 날짜별 수동 지정 — 자동 일정 위에 겹쳐 쓴다. 'ON' 하루 가동 · 'OFF' 하루 OFF · 'HH:MM~HH:MM' 그날 그 시간만 OFF */
+/** 날짜별 수동 지정 — 요일 설정 위에 겹쳐 쓴다. 'OFF' 그날 OFF · 'HH:MM~HH:MM' 그날 운전 시간(쉬는 날이어도 운전) · 'ON' 그날 요일 시간대로 운전 */
 export type DayOverride = 'ON' | 'OFF' | `${string}~${string}`;
-/** 시간 OFF 지정이면 시작 · 끝 */
-export function timeOffOf(ov?: DayOverride): { from: string; to: string } | undefined {
+/** 그날 운전 시간 지정이면 시작 · 끝 */
+export function runOfOverride(ov?: DayOverride): { from: string; to: string } | undefined {
   if (!ov || ov === 'ON' || ov === 'OFF') return undefined;
   const [from, to] = ov.split('~');
   return from && to ? { from, to } : undefined;
 }
 
-export type DayReason = '가동' | '주말' | '공휴일' | '수동 OFF' | '수동 ON' | '시간 OFF';
+export type DayReason = '가동' | '주말' | '요일 OFF' | '공휴일' | '수동 OFF' | '수동 ON' | '수동 시간';
 export interface DayStatus {
   date: string;
   on: boolean;
   reason: DayReason;
   holiday?: string;
   weekend: boolean;
-  /** 시간 OFF — 그날 이 시간만 OFF(나머지 가동) */
-  offWindow?: { from: string; to: string };
+  /** 그날 운전 시간(켜는 시각 ~ 끄는 시각). 운전하는 날만 */
+  run?: { from: string; to: string };
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -118,21 +159,34 @@ export const ymd = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)
 export const daysIn = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate(); // m: 1~12
 export const weekdayOf = (date: string) => new Date(`${date}T00:00:00Z`).getUTCDay(); // 0 일 ~ 6 토
 
-/** 하루 — 수동 지정 → 주말 → 공휴일 → 가동 순 */
+/** 하루 — 날짜 지정 → 요일 설정(운전 안 하는 요일) → 공휴일 → 요일 운전 시간 순 */
 export function dayStatus(date: string, holidays: Map<string, string>, rule: OpRule, overrides?: Record<string, DayOverride>): DayStatus {
   const wd = weekdayOf(date);
   const weekend = wd === 0 || wd === 6;
   const holiday = holidays.get(date);
+  const day = weekOf(rule)[wd]!;
   const ov = overrides?.[date];
   if (ov === 'OFF') return { date, on: false, reason: '수동 OFF', holiday, weekend };
-  if (ov === 'ON') return { date, on: true, reason: '수동 ON', holiday, weekend };
-  const offWindow = timeOffOf(ov);
-  if (offWindow) return { date, on: true, reason: '시간 OFF', holiday, weekend, offWindow };
-  // 주말과 겹친 공휴일은 주말로 센다(평일 공휴일만 '공휴일')
-  if (weekend && rule.weekendOff) return { date, on: false, reason: '주말', holiday, weekend };
+  if (ov === 'ON') return { date, on: true, reason: '수동 ON', holiday, weekend, run: { from: day.from, to: day.to } };
+  const run = runOfOverride(ov);
+  if (run) return { date, on: true, reason: '수동 시간', holiday, weekend, run };
+  if (!day.on) return { date, on: false, reason: weekend ? '주말' : '요일 OFF', holiday, weekend };
   if (holiday && rule.holidayOff) return { date, on: false, reason: '공휴일', holiday, weekend };
-  return { date, on: true, reason: '가동', holiday, weekend };
+  return { date, on: true, reason: '가동', holiday, weekend, run: { from: day.from, to: day.to } };
 }
+
+/**
+ * 그날 그 시각(HH:MM)에 인버터가 꺼져 있는지 — 대시보드 상태 · 그래프 · 발전소 상세가 같은 답을 쓴다
+ *  - 운전 안 하는 날(요일 · 공휴일 · 그날 OFF) → 종일 OFF
+ *  - 운전하는 날 → 그날 운전 시간(요일 시간 또는 그날 지정 시간) 밖이면 OFF
+ */
+export function offAt(d: DayStatus, hhmm: string) {
+  if (!d.on) return true;
+  if (!d.run) return false;
+  return !inWindow(d.run, hhmm);
+}
+/** 수동으로 정한 날인지(그날 OFF · 그날 운전 시간 · 그날 운전) */
+export const isManual = (d: DayStatus) => d.reason === '수동 OFF' || d.reason === '수동 ON' || d.reason === '수동 시간';
 
 export const holidayMap = (hs: Holiday[] | undefined) => new Map((hs ?? []).map((h) => [h.date, h.name]));
 
@@ -145,10 +199,11 @@ export interface OpMonth {
   m: number;
   days: number;
   weekend: number; // 주말로 OFF
-  holiday: number; // 평일 공휴일로 OFF
+  weekdayOff: number; // 운전 안 하는 평일 요일로 OFF
+  holiday: number; // 공휴일로 OFF
   manualOff: number;
   manualOn: number;
-  manualTime: number; // 시간 OFF(그날은 가동일로 센다)
+  manualTime: number; // 그날 운전 시간 지정(가동일로 센다)
   op: number; // 가동일
 }
 /** 해 하나 — 달마다 가동일 · OFF 사유별 일수 */
@@ -156,10 +211,10 @@ export function opYear(y: number, holidays: Map<string, string>, rule: OpRule, o
   const months: OpMonth[] = Array.from({ length: 12 }, (_, k) => {
     const ds = monthStatus(y, k + 1, holidays, rule, overrides);
     const n = (r: DayReason) => ds.filter((d) => d.reason === r).length;
-    return { m: k + 1, days: ds.length, weekend: n('주말'), holiday: n('공휴일'), manualOff: n('수동 OFF'), manualOn: n('수동 ON'), manualTime: n('시간 OFF'), op: ds.filter((d) => d.on).length };
+    return { m: k + 1, days: ds.length, weekend: n('주말'), weekdayOff: n('요일 OFF'), holiday: n('공휴일'), manualOff: n('수동 OFF'), manualOn: n('수동 ON'), manualTime: n('수동 시간'), op: ds.filter((d) => d.on).length };
   });
   const sum = (k: keyof OpMonth) => months.reduce((a, x) => a + x[k], 0);
-  return { year: y, months, days: sum('days'), weekend: sum('weekend'), holiday: sum('holiday'), op: sum('op') };
+  return { year: y, months, days: sum('days'), weekend: sum('weekend'), weekdayOff: sum('weekdayOff'), holiday: sum('holiday'), op: sum('op') };
 }
 /** 달마다 가동 비율(가동일 ÷ 그 달 일수) — 무료진단 PPA 발전량에 곱한다 */
 export const opRatios = (yr: ReturnType<typeof opYear>) => yr.months.map((x) => x.op / x.days);

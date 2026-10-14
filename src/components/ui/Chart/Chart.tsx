@@ -368,7 +368,7 @@ export function RmsAreaLineChart({
                   {p.value}
                 </li>
               ))}
-              {refLines.map((r) => (
+              {refLines.filter((r, i, a) => a.findIndex((q) => (q.legend ?? q.label) === (r.legend ?? r.label)) === i).map((r) => (
                 <li key={`${r.x}${r.label}`} className="inline-flex items-center gap-1.5">
                   <span
                     className="inline-block h-0 w-4 border-t-2"

@@ -6,7 +6,7 @@ import { useQueries } from '@tanstack/react-query';
 import { useOnboardingStore } from '@/stores';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { getPersona, usePersonaOverride } from '@/lib/persona';
-import { PpaOpInline } from '@/components/features/monitoring/PpaSchedule';
+import { PpaOpInline, usePpaOffAt } from '@/components/features/monitoring/PpaSchedule';
 import { inOffWindow, opRuleOf } from '@/lib/op-calendar';
 import {
   FileText,
@@ -347,6 +347,24 @@ export default function DashboardPage() {
   // 관리자 PPA — 플랫폼(SPC)이 보유한 설비와 받는 PPA 요금(금년 · 금월 · 금일)
   const adminPpa = isAdmin && viewKind === 'ONSITE';
   const ppaContracts = (multiKind ? pickedContracts : allContractPlants).filter((p) => p.contractKind === 'ONSITE');
+  // PPA 시간 보기 — 그 발전소 그날 일정(주말 · 공휴일 · 매일 OFF 시간 · 수동)으로 시각마다 꺼졌는지. 없으면 에너지 설정 기준
+  const ppaOffAtPlant = usePpaOffAt(isAdmin ? selectedCompany?.plantId : ppaContracts[0]?.plantId, genCtl.date);
+  const ppaOff = useMemo(() => {
+    if (ppaOffAtPlant) return ppaOffAtPlant;
+    const rule = opRuleOf(energySettings);
+    return (hhmm: string) => inOffWindow(rule, hhmm);
+  }, [ppaOffAtPlant, energySettings]);
+  // 켜지는 · 꺼지는 시각(빨간 점선 · 실선) — 그날 일정에서 바뀌는 곳마다
+  const ppaEdges = useMemo(() => {
+    const hh = (h: number) => `${String(h).padStart(2, '0')}:00`;
+    const out: { h: number; on: boolean }[] = [];
+    for (let h = 1; h < 24; h++) {
+      const a = ppaOff(hh(h - 1));
+      const b = ppaOff(hh(h));
+      if (a !== b) out.push({ h, on: !b });
+    }
+    return out;
+  }, [ppaOff]);
   // 관리자 PPA — 금년 · 금월 발전량(PPA 몫), 금액은 금일만
   const yearKwh = ppaContracts.reduce((a, p) => a + (kpiByPlant[p.plantId]?.[todayYear]?.total ?? 0) * p.share, 0);
   // 금일 금액 — PPA 몫의 금일 발전량 × PPA 단가
@@ -528,25 +546,27 @@ export default function DashboardPage() {
     }
     const merged = rows.map((r) => ({ ...r, ...(perPlant.get(r.x) ?? {}) }));
     // PPA 시간 보기 — 인버터가 설정으로 꺼진 시간(18:00~10:00)엔 발전이 없다. 실적 · 예상 · 발전소별 전부 0 (2026-10-14)
-    if (genCtl.tu === 'hour' && viewKind === 'ONSITE') {
-      const rule = opRuleOf(energySettings);
-      // 꺼진 시간은 전부 0. 켜는 시각(10:00)은 0 → 값, 끄는 시각(17:00)은 값 → 0 으로 같은 자리에서 수직.
+    if (ppaHour) {
+      // 꺼진 시간은 전부 0. 켜지는 시각은 0 → 값, 꺼지는 시각은 값 → 0 으로 같은 자리에서 수직(주말 · 공휴일은 종일 0).
       // x 는 숫자 시각 h(0~23) — 같은 시각에 점이 둘이어도 칸 간격은 그대로(2026-10-14)
       const zero = (r: Record<string, unknown>) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, k !== 'x' && typeof v === 'number' ? 0 : v]));
       const out: typeof merged = [];
+      let prevOff: boolean | undefined;
       for (const r of merged) {
         const h = Number(r.x.slice(0, 2));
+        const off = ppaOff(r.x);
         const at = (v: Record<string, unknown>) => ({ ...v, x: r.x, h }) as typeof r;
-        if (r.x === rule.onTime) out.push(at(zero(r)), at(r));
-        else if (r.x === rule.offStart) out.push(at(r), at(zero(r)));
-        else out.push(at(inOffWindow(rule, r.x) ? zero(r) : r));
+        if (prevOff === true && !off) out.push(at(zero(r)), at(r));
+        else if (prevOff === false && off) out.push(at(r), at(zero(r)));
+        else out.push(at(off ? zero(r) : r));
+        prevOff = off;
       }
       return out;
     }
     return merged;
   }, [
-    viewKind,
-    energySettings,
+    ppaHour,
+    ppaOff,
     genCtl.tu,
     genCtl.month,
     genCtl.year,
@@ -900,11 +920,12 @@ export default function DashboardPage() {
               {/* PPA 시간 보기 — 설정으로 꺼지는 시각(빨강 실선) · 켜지는 시각(빨강 점선) */}
               <RmsAreaLineChart
                 refLines={
-                  genCtl.tu === 'hour' && viewKind === 'ONSITE' && opRuleOf(energySettings).offStart && opRuleOf(energySettings).onTime
-                    ? [
-                        { x: Number(opRuleOf(energySettings).onTime!.slice(0, 2)), label: 'ON', legend: '인버터 ON', color: '#ef4444', dashed: true },
-                        { x: Number(opRuleOf(energySettings).offStart!.slice(0, 2)), label: 'OFF', legend: '인버터 OFF', color: '#ef4444' },
-                      ]
+                  ppaHour
+                    ? ppaEdges.map((e) =>
+                        e.on
+                          ? { x: e.h, label: 'ON', legend: '인버터 ON', color: '#ef4444', dashed: true }
+                          : { x: e.h, label: 'OFF', legend: '인버터 OFF', color: '#ef4444' },
+                      )
                     : []
                 }
                 data={genChartData as Array<Record<string, string | number>>}
