@@ -150,7 +150,7 @@ export function MyContractsScreen() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={role.isAdmin ? '계약' : '내 계약'}
+        title="내 계약"
         actions={
           role.isAdmin ? (
             <div className="w-48">
