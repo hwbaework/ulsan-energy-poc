@@ -7,7 +7,7 @@ import { useOnboardingStore } from '@/stores';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { getPersona, usePersonaOverride } from '@/lib/persona';
 import { PpaOpInline } from '@/components/features/monitoring/PpaSchedule';
-import { opRuleOf } from '@/lib/op-calendar';
+import { inOffWindow, opRuleOf } from '@/lib/op-calendar';
 import {
   FileText,
   Zap,
@@ -55,8 +55,11 @@ function withForecast(rows: Array<Record<string, unknown> & { x: string }>, tu: 
   return rows.map((row, i) => {
     let forecast: number;
     if (tu === 'hour') {
+      // 해 있는 시간 07~19시 곡선 — 13시 최대, 17시 최대의 절반(설비 329.6 kW 면 10시 약 210, 17시 약 150). 2026-10-14 사용자 확인
       const hour = Number(String(row.x).slice(0, 2));
-      const sun = hour >= 6 && hour <= 18 ? Math.sin(((hour - 6) / 12) * Math.PI) : 0;
+      const RISE = 7;
+      const SET = 19;
+      const sun = hour > RISE && hour < SET ? Math.sin(((hour - RISE) / (SET - RISE)) * Math.PI) : 0;
       forecast = Math.round(peak * sun * 10) / 10;
     } else if (tu === 'day') {
       // 일별: 3.4h 등가 가동 ± 완만한 기상 변동
@@ -338,6 +341,8 @@ export default function DashboardPage() {
   // 카드는 계약 유형을 따른다 — 자가소비: 설비 용량 · 전년 · 금월 · 금일 발전량(전기사용자 대시보드와 같다)
   //                         PPA · 관리자: 설비 용량 · 금월 · 금일 발전량 · 금일 금액
   const viewKind: PlantContractKind | undefined = multiKind ? kindSel : kindChoices[0];
+  // PPA 시간 보기 — 인버터 ON · OFF 를 그래프에 그리는 경우(숫자 시각 축)
+  const ppaHour = genCtl.tu === 'hour' && viewKind === 'ONSITE';
   const selfCards = isConsumer || viewKind === 'SELF_CONSUMPTION';
   // 관리자 PPA — 플랫폼(SPC)이 보유한 설비와 받는 PPA 요금(금년 · 금월 · 금일)
   const adminPpa = isAdmin && viewKind === 'ONSITE';
@@ -521,8 +526,27 @@ export default function DashboardPage() {
         perPlant.set(r.x, cur);
       }
     }
-    return rows.map((r) => ({ ...r, ...(perPlant.get(r.x) ?? {}) }));
+    const merged = rows.map((r) => ({ ...r, ...(perPlant.get(r.x) ?? {}) }));
+    // PPA 시간 보기 — 인버터가 설정으로 꺼진 시간(18:00~10:00)엔 발전이 없다. 실적 · 예상 · 발전소별 전부 0 (2026-10-14)
+    if (genCtl.tu === 'hour' && viewKind === 'ONSITE') {
+      const rule = opRuleOf(energySettings);
+      // 꺼진 시간은 전부 0. 켜는 시각(10:00)은 0 → 값, 끄는 시각(17:00)은 값 → 0 으로 같은 자리에서 수직.
+      // x 는 숫자 시각 h(0~23) — 같은 시각에 점이 둘이어도 칸 간격은 그대로(2026-10-14)
+      const zero = (r: Record<string, unknown>) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, k !== 'x' && typeof v === 'number' ? 0 : v]));
+      const out: typeof merged = [];
+      for (const r of merged) {
+        const h = Number(r.x.slice(0, 2));
+        const at = (v: Record<string, unknown>) => ({ ...v, x: r.x, h }) as typeof r;
+        if (r.x === rule.onTime) out.push(at(zero(r)), at(r));
+        else if (r.x === rule.offStart) out.push(at(r), at(zero(r)));
+        else out.push(at(inOffWindow(rule, r.x) ? zero(r) : r));
+      }
+      return out;
+    }
+    return merged;
   }, [
+    viewKind,
+    energySettings,
     genCtl.tu,
     genCtl.month,
     genCtl.year,
@@ -878,13 +902,14 @@ export default function DashboardPage() {
                 refLines={
                   genCtl.tu === 'hour' && viewKind === 'ONSITE' && opRuleOf(energySettings).offStart && opRuleOf(energySettings).onTime
                     ? [
-                        { x: opRuleOf(energySettings).offStart!, label: `OFF ${opRuleOf(energySettings).offStart}`, color: '#ef4444' },
-                        { x: opRuleOf(energySettings).onTime!, label: `ON ${opRuleOf(energySettings).onTime}`, color: '#ef4444', dashed: true },
+                        { x: Number(opRuleOf(energySettings).onTime!.slice(0, 2)), label: 'ON', legend: '인버터 ON', color: '#ef4444', dashed: true },
+                        { x: Number(opRuleOf(energySettings).offStart!.slice(0, 2)), label: 'OFF', legend: '인버터 OFF', color: '#ef4444' },
                       ]
                     : []
                 }
                 data={genChartData as Array<Record<string, string | number>>}
-                xKey="x"
+                xKey={ppaHour ? 'h' : 'x'}
+                numericX={ppaHour ? { min: 0, max: 23, format: (v) => `${String(v).padStart(2, '0')}:00` } : undefined}
                 stacked={false}
                 areas={
                   hiddenGenSeries.has('generation')

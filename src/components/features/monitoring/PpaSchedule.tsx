@@ -510,13 +510,29 @@ export function PpaOpInline({ plantId }: { plantId: number }) {
   const byDayTime = !!plan.offWindow && inWindow(plan.offWindow, hhmm); // 그날 시간 OFF
   const offByTime = !manualToday && inOffWindow(base, hhmm);
   const isOn = dayFixed ? manualToday === 'ON' : plan.on && !byDayTime && !offByTime;
-  // 대시보드는 한 줄만 — 지금 ON 인지 OFF 인지, 수동인지 설정인지(2026-10-13). 날짜 칸 · 이번 주 · 월 없음
-  const reason = dayFixed || byDayTime ? '수동' : !plan.on ? `설정 · ${plan.reason}` : offByTime ? `설정 · ${base.offStart}~${base.onTime}` : '';
+  // 대시보드는 한 줄만 — [지금 상태 · 수동/설정] + 운전 시간(켜져 있는 시간) 글자(2026-10-14). 조회만, 버튼 아님
+  const reason = dayFixed || byDayTime ? '수동' : '설정';
+  const opText =
+    manualToday === 'ON'
+      ? '운전 종일 · 수동'
+      : !plan.on
+        ? `운전 없음 · ${plan.reason}`
+        : base.onTime && base.offStart
+          ? `운전 ${base.onTime}~${base.offStart}`
+          : '운전 종일';
   return (
-    <span className="inline-flex items-center gap-1.5 text-sm text-slate-400">
-      <span className={cn('h-2 w-2 rounded-full', isOn ? 'bg-emerald-400' : 'bg-red-400')} />
-      인버터 <b className={isOn ? 'text-emerald-300' : 'text-red-300'}>{isOn ? 'ON' : 'OFF'}</b>
-      {reason && <span>{reason}</span>}
+    <span className="inline-flex items-center gap-2.5">
+      <span
+        className={cn(
+          'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm ring-1',
+          isOn ? 'text-emerald-100 ring-emerald-400/70 bg-emerald-500/10' : 'text-red-100 ring-red-400/70 bg-red-500/10',
+        )}
+      >
+        <span className={cn('h-2 w-2 rounded-full', isOn ? 'bg-emerald-400' : 'bg-red-400')} />
+        인버터 <b className={isOn ? 'text-emerald-300' : 'text-red-300'}>{isOn ? 'ON' : 'OFF'}</b>
+        <span className={isOn ? 'text-emerald-200/80' : 'text-red-200/80'}>· {reason}</span>
+      </span>
+      <span className="text-sm tabular-nums text-slate-400">{opText}</span>
     </span>
   );
 }

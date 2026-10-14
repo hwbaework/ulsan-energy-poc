@@ -57,7 +57,7 @@ function ChartWrapper({ title, description, children, height = 300, className }:
 
 type TooltipEntry = { color?: string; name?: string; value?: number };
 
-function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: TooltipEntry[]; label?: string }) {
+function CustomTooltip({ active, payload, label, labelFormat }: { active?: boolean; payload?: TooltipEntry[]; label?: string; labelFormat?: (v: unknown) => string }) {
   const [visible, setVisible] = useState(false);
   const [cached, setCached] = useState<{ payload: TooltipEntry[]; label?: string } | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -86,7 +86,7 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
         transform: visible ? 'scale(1) translateY(0)' : 'scale(0.95) translateY(4px)',
       }}
     >
-      <p className="font-medium text-slate-400 mb-1">{cached.label}</p>
+      <p className="font-medium text-slate-400 mb-1">{labelFormat ? labelFormat(cached.label) : cached.label}</p>
       {cached.payload.map((entry, i) => (
         <div key={i} className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
@@ -316,7 +316,9 @@ interface AreaLineChartProps {
   className?: string;
   yUnit?: string;
   /** 세로 기준선 — x 값(예: '18:00')에 선 · 이름 */
-  refLines?: { x: string; label: string; color?: string; dashed?: boolean }[];
+  refLines?: { x: string | number; label: string; color?: string; dashed?: boolean; /** 범례 글자(없으면 label) */ legend?: string }[];
+  /** 숫자 x 축 — 시간 보기에서 같은 시각에 점 두 개(켜는 · 끄는 순간 수직)를 두어도 간격이 같게 */
+  numericX?: { min: number; max: number; format: (v: number) => string };
 }
 
 export function RmsAreaLineChart({
@@ -331,15 +333,53 @@ export function RmsAreaLineChart({
   className,
   yUnit,
   refLines = [],
+  numericX,
 }: AreaLineChartProps) {
   return (
     <ChartWrapper title={title} description={description} height={height} className={className}>
       <ComposedChart data={data}>
         <CartesianGrid strokeDasharray="3 3" {...gridStyle} />
-        <XAxis dataKey={xKey} tick={axisStyle} axisLine={false} tickLine={false} />
+        {/* 눈금은 전부(시간 보기 22:00 이 빠지지 않게) */}
+        {numericX ? (
+          <XAxis
+            dataKey={xKey}
+            type="number"
+            domain={[numericX.min, numericX.max]}
+            ticks={Array.from({ length: numericX.max - numericX.min + 1 }, (_, i) => numericX.min + i)}
+            tickFormatter={(v) => numericX.format(Number(v))}
+            tick={axisStyle}
+            axisLine={false}
+            tickLine={false}
+            interval={0}
+          />
+        ) : (
+          <XAxis dataKey={xKey} tick={axisStyle} axisLine={false} tickLine={false} interval={0} />
+        )}
         <YAxis tick={axisStyle} axisLine={false} tickLine={false} width={45} unit={yUnit} />
-        <Tooltip content={<CustomTooltip />} />
-        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 13, color: '#e2e8f0' }} />
+        <Tooltip content={<CustomTooltip labelFormat={numericX ? (v) => numericX.format(Number(v)) : undefined} />} />
+        {/* 범례 — 계열(원) 뒤에 기준선(빨간 점선 · 실선)도 같은 줄에 */}
+        <Legend
+          wrapperStyle={{ fontSize: 13, color: '#e2e8f0' }}
+          content={({ payload }) => (
+            <ul className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 pt-1">
+              {(payload ?? []).map((p) => (
+                <li key={String(p.value)} className="inline-flex items-center gap-1.5">
+                  <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />
+                  {p.value}
+                </li>
+              ))}
+              {refLines.map((r) => (
+                <li key={`${r.x}${r.label}`} className="inline-flex items-center gap-1.5">
+                  <span
+                    className="inline-block h-0 w-4 border-t-2"
+                    style={{ borderColor: r.color ?? '#ef4444', borderStyle: r.dashed ? 'dashed' : 'solid' }}
+                  />
+                  {r.legend ?? r.label}
+                </li>
+              ))}
+            </ul>
+          )}
+        />
         {areas.map((a, i) => {
           const color = a.color ?? CHART_COLORS[i % CHART_COLORS.length];
           return (
@@ -371,7 +411,7 @@ export function RmsAreaLineChart({
         ))}
         {refLines.map((r) => (
           <ReferenceLine
-            key={r.x + r.label}
+            key={`${r.x}${r.label}`}
             x={r.x}
             stroke={r.color ?? '#ef4444'}
             strokeWidth={2}
