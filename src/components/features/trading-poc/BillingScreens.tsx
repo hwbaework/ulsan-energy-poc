@@ -90,6 +90,8 @@ function InvoiceEditor({ b }: { b: Bill }) {
   const setAdj = (patch: Partial<NonNullable<typeof adj>>) =>
     save(key, { adjust: { period: adj?.period ?? prevPeriods[0]!, kwh: adj?.kwh ?? 0, reason: adj?.reason ?? '', ...patch } });
   const adjInvalid = !!adj && adj.kwh !== 0 && (!adj.reason.trim() || !adj.period);
+  // 납부 기한은 청구일 이후
+  const dateInvalid = !b.issueDate || !b.dueDate || b.dueDate < b.issueDate;
   return (
     <SectionCard
       title="청구서 작성"
@@ -97,7 +99,7 @@ function InvoiceEditor({ b }: { b: Bill }) {
         <div className="flex items-center gap-2">
           <StatePill s={b} />
           {draft && (
-            <Button size="sm" onClick={() => setConfirm('issue')} disabled={!(b.generationKwh > 0) || adjInvalid}>
+            <Button size="sm" onClick={() => setConfirm('issue')} disabled={!(b.generationKwh > 0) || adjInvalid || dateInvalid}>
               발행
             </Button>
           )}
@@ -117,11 +119,19 @@ function InvoiceEditor({ b }: { b: Bill }) {
         {draft ? (
           <>
             <Input label="청구일" type="date" value={b.issueDate} onChange={(e) => save(key, { issueDate: e.target.value })} />
-            <Input label="납부 기한" type="date" value={b.dueDate} onChange={(e) => save(key, { dueDate: e.target.value })} />
+            <Input
+              label="납부 기한"
+              type="date"
+              min={b.issueDate}
+              value={b.dueDate}
+              error={b.dueDate && b.issueDate && b.dueDate < b.issueDate ? '청구일 이후' : undefined}
+              onChange={(e) => save(key, { dueDate: e.target.value })}
+            />
             <div className="col-span-2">
               <Input
                 label="결제 계좌"
                 placeholder="은행 · 계좌번호 · 예금주"
+                maxLength={100}
                 value={b.bankAccount}
                 onChange={(e) => save(key, { bankAccount: e.target.value })}
               />
