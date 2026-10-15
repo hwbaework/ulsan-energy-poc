@@ -41,7 +41,6 @@ import { getPersona } from '@/lib/persona';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { chargeBilling } from '@/lib/toss-billing';
 import { cardText, cardsOf, localNow, useBillingStore, useHydrateBilling } from '@/stores/useBillingStore';
-import { accountText, useHydrateSettleAccount, useSettleAccountStore } from '@/stores/useSettleAccountStore';
 import { useIsCompanyAdmin } from '@/hooks/org/useCompanyRole';
 import { useToastStore } from '@/stores/useToastStore';
 import {
@@ -1147,7 +1146,7 @@ function DataTradesAdmin() {
  *    기업 계정: 내 정산 내역(받을 금액 · 낼 금액). 표 제목은 '이름 (개수)'까지만 ══ */
 export function DataSettlementScreen() {
   const role = useDataRole();
-  useHydrateSettleAccount();
+  const router = useRouter();
   const all = useMemo(() => settleRows(role.tradesAll), [role.tradesAll]);
   // 트리의 달 — 관리자는 전체, 기업은 자기 정산이 있는 달만
   const periods = useMemo(
@@ -1201,7 +1200,6 @@ export function DataSettlementScreen() {
   const me = role.isAdmin ? company : role.companyId;
 
   /* 결제(낼 금액) — 그 달 이용분은 시작한 날, 그다음 달부터 매달 1일 카드 자동결제 */
-  const account = useSettleAccountStore((st) => (me == null ? undefined : st.accounts[me]));
   const chargeDate = (r: SettleRow) => (r.trade.startedAt.slice(0, 7) === r.period ? day(r.trade.startedAt) : `${r.period}-01`);
 
   /* KPI — 관리자 월 전체 / 기업 하나 */
@@ -1259,17 +1257,24 @@ export function DataSettlementScreen() {
   /* 표 2 · 3 — 기업 하나: 제공(내 데이터를 쓴 곳에서 받을 돈) · 사용(내가 쓴 데이터에 낸 돈) */
   const mine = me == null ? null : of(me);
   const done = (date: string) => date <= DM_TODAY;
-  const getCols: Column<SettleRow>[] = [
-    { key: 'name', header: '데이터', render: (r) => cell(r.trade.datasetName, 'font-medium text-white') },
-    { key: 'buyer', header: '쓰는 기업', width: '160px', render: (r) => cell(r.trade.buyerCompanyName, 'text-white') },
-    { key: 'amt', header: '금액', width: '120px', render: (r) => cell(won(r.amount - fee(r.amount)), 'tabular-nums text-white') },
-    { key: 'date', header: '받는 날', width: '130px', render: (r) => num(r.payDate) },
-    {
-      key: 'st',
-      header: '상태',
-      width: '110px',
-      render: (r) => (done(r.payDate) ? <StatusPill tone="normal" label="받음" /> : <StatusPill tone="muted" label="받을 예정" />),
-    },
+  // 제공 — 내 데이터마다 한 줄(쓰는 곳은 건수만). 누르면 거래 상세에서 누가 쓰는지
+  type Give = { id: number; name: string; n: number; amount: number; payDate: string };
+  const gives: Give[] = [
+    ...(mine?.get ?? [])
+      .reduce((m, r) => {
+        const g = m.get(r.trade.datasetId) ?? { id: r.trade.datasetId, name: r.trade.datasetName, n: 0, amount: 0, payDate: r.payDate };
+        g.n += 1;
+        g.amount += r.amount - fee(r.amount);
+        return m.set(r.trade.datasetId, g);
+      }, new Map<number, Give>())
+      .values(),
+  ].sort((x, y) => x.name.localeCompare(y.name, 'ko'));
+  const getCols: Column<Give>[] = [
+    { key: 'name', header: '데이터', render: (g) => cell(g.name, 'font-medium text-white') },
+    { key: 'n', header: '쓰는 곳', width: '110px', render: (g) => num(`${g.n}건`) },
+    { key: 'amt', header: '금액', width: '120px', render: (g) => cell(won(g.amount), 'tabular-nums text-white') },
+    { key: 'date', header: '받는 날', width: '130px', render: (g) => num(g.payDate) },
+    arrow,
   ];
   const payCols: Column<SettleRow>[] = [
     { key: 'name', header: '데이터', render: (r) => cell(r.trade.datasetName, 'font-medium text-white') },
@@ -1377,15 +1382,16 @@ export function DataSettlementScreen() {
             </div>
           )}
           <SectionCard
-            title={`제공 (${mine?.get.length ?? 0})`}
-            actions={
-              <span className="text-sm tabular-nums text-slate-300">
-                {account ? `정산 계좌 ${accountText(account)}` : '정산 계좌 없음 · 기업 정보에서 등록'}
-              </span>
-            }
+            title={`제공 (${gives.length})`}
             noPadding
           >
-            <DataTable columns={getCols} data={mine?.get ?? []} rowKey={(r) => r.key} emptyMessage="제공 없음" />
+            <DataTable
+              columns={getCols}
+              data={gives}
+              rowKey={(g) => g.id}
+              emptyMessage="제공 없음"
+              onRowClick={(g) => router.push(`${TRADING}/view?id=${g.id}`)}
+            />
           </SectionCard>
           <SectionCard title={`사용 (${mine?.pay.length ?? 0})`} noPadding>
             <DataTable columns={payCols} data={mine?.pay ?? []} rowKey={(r) => r.key} emptyMessage="사용 없음" />
