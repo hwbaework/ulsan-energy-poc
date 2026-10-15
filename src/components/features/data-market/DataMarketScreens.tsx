@@ -15,7 +15,15 @@ import {
 } from 'lucide-react';
 import { StatCard, StatsGrid } from '@/components/features/StatCard';
 import { SectionCard } from '@/components/features/SectionCard';
-import { DataTable, type Column, TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
+import {
+  DataTable,
+  type Column,
+  TABLE,
+  TABLE_HEAD_ROW,
+  TABLE_TH,
+  TABLE_ROW,
+  TABLE_TD,
+} from '@/components/features/DataList';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { BackButton } from '@/components/layout/PageTitle';
@@ -291,7 +299,12 @@ function SheetTable({ sheet }: { sheet: DataSheet }) {
               {sheet.columns.map((c, i) => (
                 <td
                   key={c.key}
-                  className={cn(TABLE_TD, 'whitespace-nowrap tabular-nums', i && 'text-right', c.strong && 'font-semibold')}
+                  className={cn(
+                    TABLE_TD,
+                    'whitespace-nowrap tabular-nums',
+                    i && 'text-right',
+                    c.strong && 'font-semibold',
+                  )}
                 >
                   {r[c.key]}
                 </td>
@@ -735,25 +748,34 @@ function PayModal({
   const cards = useMemo(() => cardsOf(all, companyId), [all, companyId]);
   const [pick, setPick] = useState('');
   const card = cards.find((c) => c.id === pick) ?? cards[0];
-  // 승인 결과 — 결제 요청 → 토스 승인 → 결과를 보여 준 뒤 [확인]에서 토큰 발급
-  const [done, setDone] = useState<{ orderId: string; paymentKey: string; approvedAt: string } | null>(null);
   const isCompanyAdmin = useIsCompanyAdmin();
   const addToast = useToastStore((s) => s.add);
   const [busy, setBusy] = useState(false);
+  // 결제일 — 오늘 첫 달, 그다음부터 매달 1일
+  const today = localNow().slice(0, 10);
+  const nextDate = (() => {
+    let [y = 2026, m = 1] = today.split('-').map(Number);
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+    return `${y}-${String(m).padStart(2, '0')}-01`;
+  })();
+  // 결제 = 신청 — 승인되면 바로 이용 시작(결과 창을 따로 띄우지 않는다)
   const pay = async () => {
     if (!card) return;
     try {
       setBusy(true);
-      const orderId = `dm-${d.id}-${companyId}-${Date.now()}`;
       const r = await chargeBilling({
         billingKey: card.billingKey,
         customerKey: card.customerKey,
         amount: d.price,
-        orderId,
+        orderId: `dm-${d.id}-${companyId}-${Date.now()}`,
         orderName: d.name,
       });
       if (r.status !== 'DONE') throw new Error('결제가 승인되지 않았습니다');
-      setDone({ orderId, paymentKey: r.paymentKey, approvedAt: localNow() });
+      onPaid(user?.name ?? '', { paymentKey: r.paymentKey, approvedAt: localNow() }, card.id);
     } catch (e) {
       addToast('error', e instanceof Error ? e.message : '결제 실패');
     } finally {
@@ -770,77 +792,54 @@ function PayModal({
     <Modal
       open
       onClose={onClose}
-      title={done ? '결제 완료' : '결제 · 신청'}
+      title="결제 · 신청"
       size="md"
       footer={
-        done ? (
-          <div className="flex justify-end">
-            <Button onClick={() => card && onPaid(user?.name ?? '', done, card.id)}>확인 · 토큰 받기</Button>
-          </div>
-        ) : (
-          <div className="flex justify-end gap-2">
-            <Button variant="cancel" onClick={onClose}>
-              취소
+        <div className="flex justify-end gap-2">
+          <Button variant="cancel" onClick={onClose}>
+            취소
+          </Button>
+          {card ? (
+            <Button onClick={() => void pay()} disabled={busy}>
+              {`${priceText(d)} 결제하고 신청`}
             </Button>
-            {card ? (
-              <Button onClick={() => void pay()} disabled={busy}>
-                {`${priceText(d)} 결제하고 신청`}
-              </Button>
-            ) : isCompanyAdmin ? (
-              <Button onClick={() => router.push('/org')}>카드 등록하러 가기</Button>
-            ) : null}
-          </div>
-        )
+          ) : isCompanyAdmin ? (
+            <Button onClick={() => router.push('/org')}>카드 등록하러 가기</Button>
+          ) : null}
+        </div>
       }
     >
-      {done && card ? (
-        <dl className="divide-y divide-white/[0.06] rounded-xl text-sm ring-1 ring-white/[0.06]">
-          {row('결과', <span className="font-semibold text-emerald-300">승인</span>)}
-          {row('데이터', d.name)}
-          {row('결제 금액', priceText(d))}
-          {row('결제 카드', cardText(card))}
-          {row('주문번호', <span className="font-mono text-xs">{done.orderId}</span>)}
-          {row('승인 일시', done.approvedAt.replace('T', ' '))}
-          {row('다음 결제', '매달 1일 자동결제')}
-        </dl>
-      ) : (
-        <>
-          <dl className="divide-y divide-white/[0.06] rounded-xl text-sm ring-1 ring-white/[0.06]">
-            {row('데이터', d.name)}
-            {row('금액', `${priceText(d)} (첫 달 지금 결제)`)}
-            {row('다음 결제', '매달 1일 자동결제 · 이용 취소하면 멈춤')}
-            {row(
-              '결제 카드',
-              cards.length === 0 ? (
-                <span className="text-amber-300">등록된 기업 카드 없음</span>
-              ) : (
-                <div className="space-y-1.5">
-                  {cards.map((c) => (
-                    <label key={c.id} className="flex cursor-pointer items-center gap-2">
-                      <input
-                        type="radio"
-                        name="pay-card"
-                        className="h-4 w-4 accent-primary"
-                        checked={card?.id === c.id}
-                        onChange={() => setPick(c.id)}
-                      />
-                      {cardText(c)}
-                      {c.isDefault && <span className="text-xs text-slate-400">기본</span>}
-                    </label>
-                  ))}
-                </div>
-              ),
-            )}
-            {row('신청', user?.name ?? '-')}
-          </dl>
-          {!card && (
-            <p className="mt-3 text-sm text-slate-300">
-              {isCompanyAdmin
-                ? '기업 정보 › 결제 수단에서 카드를 먼저 등록하세요.'
-                : '기업관리자에게 카드 등록을 요청하세요.'}
-            </p>
-          )}
-        </>
+      <dl className="divide-y divide-white/[0.06] rounded-xl text-sm ring-1 ring-white/[0.06]">
+        {row('데이터', d.name)}
+        {row('금액', priceText(d))}
+        {row('결제일', `${today} · 다음 ${nextDate}부터 매달 1일`)}
+        {row(
+          '결제 카드',
+          cards.length === 0 ? (
+            <span className="text-amber-300">등록된 기업 카드 없음</span>
+          ) : (
+            <div className="space-y-1.5">
+              {cards.map((c) => (
+                <label key={c.id} className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    name="pay-card"
+                    className="h-4 w-4 accent-primary"
+                    checked={card?.id === c.id}
+                    onChange={() => setPick(c.id)}
+                  />
+                  {cardText(c)}
+                  {c.isDefault && <span className="text-xs text-slate-400">기본</span>}
+                </label>
+              ))}
+            </div>
+          ),
+        )}
+      </dl>
+      {!card && (
+        <p className="mt-3 text-sm text-slate-300">
+          {isCompanyAdmin ? '기업 정보 › 결제 수단에서 카드를 먼저 등록하세요.' : '기업관리자에게 카드 등록을 요청하세요.'}
+        </p>
       )}
     </Modal>
   );

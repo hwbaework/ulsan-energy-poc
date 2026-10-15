@@ -81,6 +81,9 @@ interface BillingState {
   /** 삭제 — 기본 카드를 지우면 남은 카드 중 먼저 등록한 것이 기본 */
   removeCard: (cardId: string) => void;
   addCharge: (c: Omit<Charge, 'id'>) => void;
+  /** 서비스(거래)마다 매달 자동결제할 카드 — 없으면 기본 카드. 신청 때 고른 카드로 시작, 결제 수단에서 바꾼다 */
+  subCard: Record<number, string>;
+  setSubCard: (tradeId: number, cardId: string) => void;
 }
 
 export const useBillingStore = create<BillingState>()(
@@ -117,13 +120,19 @@ export const useBillingStore = create<BillingState>()(
         }
         set({ cards: rest });
       },
-      addCharge: (c) => set({ charges: [{ ...c, id: get().charges.reduce((m, x) => Math.max(m, x.id), 0) + 1 }, ...get().charges] }),
+      addCharge: (c) =>
+        set({
+          charges: [{ ...c, id: get().charges.reduce((m, x) => Math.max(m, x.id), 0) + 1 }, ...get().charges],
+          subCard: { ...get().subCard, [c.tradeId]: c.cardId },
+        }),
+      subCard: {},
+      setSubCard: (tradeId, cardId) => set({ subCard: { ...get().subCard, [tradeId]: cardId } }),
     }),
     {
       name: 'ulsan-billing-poc',
       storage: createJSONStorage(() => ssrSafeStorage),
       skipHydration: true,
-      partialize: (s) => ({ version: s.version, cards: s.cards, charges: s.charges, salts: s.salts }),
+      partialize: (s) => ({ version: s.version, cards: s.cards, charges: s.charges, salts: s.salts, subCard: s.subCard }),
       merge: (persisted, current) => {
         const p = persisted as Partial<BillingState> | undefined;
         if (!p || p.version !== SEED_VERSION) return current;

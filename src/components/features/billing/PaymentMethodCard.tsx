@@ -6,6 +6,7 @@ import { SectionCard } from '@/components/features';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { Select } from '@/components/ui/Select';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
@@ -37,6 +38,10 @@ export function PaymentMethodCard({ companyId, canEdit }: { companyId: number; c
   const all = useBillingStore((s) => s.cards);
   const cards = useMemo(() => cardsOf(all, companyId), [all, companyId]);
   const setDefault = useBillingStore((s) => s.setDefault);
+  const subCard = useBillingStore((s) => s.subCard);
+  const setSubCard = useBillingStore((s) => s.setSubCard);
+  // 서비스마다 결제 카드 — 따로 고른 게 없거나 지운 카드면 기본 카드
+  const cardOfSub = (tradeId: number) => cards.find((c) => c.id === subCard[tradeId]) ?? cards.find((c) => c.isDefault);
   const removeCard = useBillingStore((s) => s.removeCard);
   const trades = useDataMarketStore((s) => s.trades);
   const user = useAuthStore((s) => s.user);
@@ -125,6 +130,25 @@ export function PaymentMethodCard({ companyId, canEdit }: { companyId: number; c
     { key: 'name', header: '내용', render: (u) => <span className="text-white">{u.t.datasetName}</span> },
     { key: 'amt', header: '월 금액', width: '110px', align: 'right', render: (u) => <span className="tabular-nums text-white">{won(u.t.price)}</span> },
     { key: 'start', header: '시작일', width: '130px', render: (u) => <span className="tabular-nums text-slate-300">{day(u.t.startedAt)}</span> },
+    {
+      key: 'card',
+      header: '결제 카드',
+      width: '300px',
+      render: (u) =>
+        canEdit && cards.length > 1 ? (
+          <Select
+            options={cards.map((c) => ({ value: c.id, label: cardText(c) }))}
+            value={cardOfSub(u.t.id)?.id ?? ''}
+            onChange={(e) => {
+              setSubCard(u.t.id, e.target.value);
+              const c = cards.find((x) => x.id === e.target.value);
+              if (c) addToast('success', `${u.t.datasetName} — 다음 결제부터 ${cardText(c)}`);
+            }}
+          />
+        ) : (
+          <span className="tabular-nums text-slate-300">{cardOfSub(u.t.id) ? cardText(cardOfSub(u.t.id)!) : '-'}</span>
+        ),
+    },
     { key: 'next', header: '다음 결제일', width: '130px', render: () => <span className="tabular-nums text-white">{nextPayDate()}</span> },
   ];
 
