@@ -41,6 +41,7 @@ import { getPersona } from '@/lib/persona';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { chargeBilling } from '@/lib/toss-billing';
 import { cardText, cardsOf, localNow, useBillingStore, useHydrateBilling } from '@/stores/useBillingStore';
+import { accountText, useHydrateSettleAccount, useSettleAccountStore } from '@/stores/useSettleAccountStore';
 import { useIsCompanyAdmin } from '@/hooks/org/useCompanyRole';
 import { useToastStore } from '@/stores/useToastStore';
 import {
@@ -210,7 +211,8 @@ function UsageCard({
 }: {
   range: Range;
   groups: { key: string; label: string; trades: DataTrade[] }[];
-  allLabel: string;
+  /** '전체' 고르기 이름 — 없으면 전체 없이 그룹(기업)마다만 */
+  allLabel?: string;
   /** 내 토큰 — 있으면 '내 호출'도 보인다 */
   mine?: DataTrade[];
   /** 위 표에서 줄을 눌러 고를 때 — 없으면 카드 안 셀렉트만 */
@@ -220,7 +222,9 @@ function UsageCard({
   totalLabel?: string;
 }) {
   const [own, setOwn] = useState('');
-  const which = value ?? own;
+  const picked = value ?? own;
+  // 전체가 없으면 고른 게 없을 때 첫 그룹
+  const which = allLabel === undefined && !groups.some((g) => g.key === picked) ? (groups[0]?.key ?? '') : picked;
   const setWhich = onChange ?? setOwn;
   const trades = groups.filter((g) => !which || g.key === which).flatMap((g) => g.trades);
   const my = mine ? trades.filter((t) => mine.some((m) => m.id === t.id)) : undefined;
@@ -239,13 +243,13 @@ function UsageCard({
   );
   return (
     <SectionCard
-      title={`사용량 · ${groups.find((g) => g.key === which)?.label ?? allLabel}`}
+      title={`사용량 · ${groups.find((g) => g.key === which)?.label ?? allLabel ?? ''}`}
       actions={
         <div className="flex flex-wrap items-center justify-end gap-3">
           <RangePicker r={range} />
           <div className="w-60">
             <Select
-              options={[{ value: '', label: allLabel }, ...groups.map((g) => ({ value: g.key, label: g.label }))]}
+              options={[...(allLabel !== undefined ? [{ value: '', label: allLabel }] : []), ...groups.map((g) => ({ value: g.key, label: g.label }))]}
               value={which}
               onChange={(e) => setWhich(e.target.value)}
             />
@@ -1143,6 +1147,7 @@ function DataTradesAdmin() {
  *    기업 계정: 내 정산 내역(받을 금액 · 낼 금액). 표 제목은 '이름 (개수)'까지만 ══ */
 export function DataSettlementScreen() {
   const role = useDataRole();
+  useHydrateSettleAccount();
   const all = useMemo(() => settleRows(role.tradesAll), [role.tradesAll]);
   // 트리의 달 — 관리자는 전체, 기업은 자기 정산이 있는 달만
   const periods = useMemo(
@@ -1172,7 +1177,6 @@ export function DataSettlementScreen() {
   const fee = (n: number) => Math.round(n * DM_FEE_RATE);
   const feePct = `${Math.round(DM_FEE_RATE * 1000) / 10}%`;
   const total = (xs: SettleRow[]) => xs.reduce((a, r) => a + r.amount, 0);
-  const sign = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${won(Math.abs(n))}`;
   const payDate = payDateOf(period);
   const inMonth = all.filter((r) => r.period === period);
   /** 기업 쪽에서 본 그 달 — 받을 금액(내 데이터를 남이 씀) · 낼 금액(내가 남의 데이터를 씀) */
@@ -1180,7 +1184,7 @@ export function DataSettlementScreen() {
     const get = inMonth.filter((r) => r.trade.sellerCompanyId === id);
     const pay = inMonth.filter((r) => r.trade.buyerCompanyId === id);
     const getAmt = total(get) - fee(total(get));
-    return { get, pay, getAmt, payAmt: total(pay), net: getAmt - total(pay) };
+    return { get, pay, getAmt, payAmt: total(pay) };
   };
   const companiesIn = (rows: SettleRow[]) =>
     [
@@ -1196,6 +1200,10 @@ export function DataSettlementScreen() {
   const monthCompanies = companiesIn(inMonth);
   const me = role.isAdmin ? company : role.companyId;
 
+  /* 결제(낼 금액) — 그 달 이용분은 시작한 날, 그다음 달부터 매달 1일 카드 자동결제 */
+  const account = useSettleAccountStore((st) => (me == null ? undefined : st.accounts[me]));
+  const chargeDate = (r: SettleRow) => (r.trade.startedAt.slice(0, 7) === r.period ? day(r.trade.startedAt) : `${r.period}-01`);
+
   /* KPI — 관리자 월 전체 / 기업 하나 */
   const kpi =
     me == null
@@ -1207,11 +1215,12 @@ export function DataSettlementScreen() {
         ]
       : (() => {
           const x = of(me);
+          const firstPay = x.pay.map(chargeDate).sort()[0];
           return [
             { label: '받을 금액', value: won(x.getAmt) },
+            { label: '받는 날', value: x.get.length ? payDate : '-' },
             { label: '낼 금액', value: won(x.payAmt) },
-            { label: '정산 금액', value: sign(x.net) },
-            { label: '정산일', value: payDate },
+            { label: '결제일', value: firstPay ?? '-' },
           ];
         })();
 
@@ -1220,13 +1229,13 @@ export function DataSettlementScreen() {
   const coRows = monthCompanies
     .map((c) => {
       const x = of(c.id);
-      return { ...c, payN: x.pay.length, payAmt: x.payAmt, getN: x.get.length, getAmt: x.getAmt, net: x.net };
+      return { ...c, payN: x.pay.length, payAmt: x.payAmt, getN: x.get.length, getAmt: x.getAmt };
     })
     .filter((c) => !s || c.name.includes(s));
   type Co = (typeof coRows)[number];
   const coCols: Column<Co>[] = [
     { key: 'name', header: '기업', render: (c) => cell(c.name, 'font-medium text-white') },
-    { key: 'payN', header: '이용 건수', width: '100px', render: (c) => num(`${c.payN}건`) },
+    { key: 'payN', header: '사용 건수', width: '100px', render: (c) => num(`${c.payN}건`) },
     {
       key: 'payAmt',
       header: '낼 금액',
@@ -1235,7 +1244,7 @@ export function DataSettlementScreen() {
       sortValue: (c) => c.payAmt,
       render: (c) => cell(won(c.payAmt), 'tabular-nums text-amber-400'),
     },
-    { key: 'getN', header: '판매 건수', width: '100px', render: (c) => num(`${c.getN}건`) },
+    { key: 'getN', header: '제공 건수', width: '100px', render: (c) => num(`${c.getN}건`) },
     {
       key: 'getAmt',
       header: '받을 금액',
@@ -1244,55 +1253,35 @@ export function DataSettlementScreen() {
       sortValue: (c) => c.getAmt,
       render: (c) => cell(won(c.getAmt), 'tabular-nums text-emerald-400'),
     },
-    {
-      key: 'net',
-      header: '정산 금액',
-      width: '120px',
-      sortable: true,
-      sortValue: (c) => c.net,
-      render: (c) => strong(sign(c.net)),
-    },
     arrow,
   ];
 
-  /* 표 2 — 기업 하나: 정산 내역(받을 금액은 이용 기업마다, 낼 금액은 데이터마다) */
-  const lines =
-    me == null
-      ? []
-      : [...of(me).get, ...of(me).pay].filter((r) => {
-          if (!s) return true;
-          const other = r.trade.sellerCompanyId === me ? r.trade.buyerCompanyName : r.trade.sellerCompanyName;
-          return [other, r.trade.datasetName].some((v) => v.includes(s));
-        });
-  const lineCols: Column<SettleRow>[] = [
+  /* 표 2 · 3 — 기업 하나: 제공(내 데이터를 쓴 곳에서 받을 돈) · 사용(내가 쓴 데이터에 낸 돈) */
+  const mine = me == null ? null : of(me);
+  const done = (date: string) => date <= DM_TODAY;
+  const getCols: Column<SettleRow>[] = [
+    { key: 'name', header: '데이터', render: (r) => cell(r.trade.datasetName, 'font-medium text-white') },
+    { key: 'buyer', header: '쓰는 기업', width: '160px', render: (r) => cell(r.trade.buyerCompanyName, 'text-white') },
+    { key: 'amt', header: '금액', width: '120px', render: (r) => cell(won(r.amount - fee(r.amount)), 'tabular-nums text-white') },
+    { key: 'date', header: '받는 날', width: '130px', render: (r) => num(r.payDate) },
     {
-      key: 'side',
-      header: '구분',
-      width: '100px',
-      render: (r) =>
-        r.trade.sellerCompanyId === me
-          ? cell('받을 금액', 'font-medium text-emerald-400')
-          : cell('낼 금액', 'font-medium text-amber-400'),
+      key: 'st',
+      header: '상태',
+      width: '110px',
+      render: (r) => (done(r.payDate) ? <StatusPill tone="normal" label="받음" /> : <StatusPill tone="muted" label="받을 예정" />),
     },
+  ];
+  const payCols: Column<SettleRow>[] = [
+    { key: 'name', header: '데이터', render: (r) => cell(r.trade.datasetName, 'font-medium text-white') },
+    { key: 'seller', header: '제공 기업', width: '140px', render: (r) => cell(r.trade.sellerCompanyName, 'text-white') },
+    { key: 'amt', header: '금액', width: '110px', render: (r) => cell(won(r.amount), 'tabular-nums text-white') },
+    { key: 'date', header: '결제일', width: '120px', render: (r) => num(chargeDate(r)) },
     {
-      key: 'other',
-      header: '상대 기업',
-      width: '140px',
+      key: 'st',
+      header: '상태',
+      width: '110px',
       render: (r) =>
-        cell(r.trade.sellerCompanyId === me ? r.trade.buyerCompanyName : r.trade.sellerCompanyName, 'text-white'),
-    },
-    { key: 'name', header: '데이터', render: (r) => cell(r.trade.datasetName) },
-    { key: 'start', header: '이용 시작일', width: '120px', render: (r) => num(day(r.trade.startedAt)) },
-    {
-      key: 'use',
-      header: '이용',
-      width: '100px',
-      render: (r) =>
-        r.trade.cancelledAt && r.trade.cancelledAt.slice(0, 7) === r.period ? (
-          <StatusPill tone="muted" label="취소" />
-        ) : (
-          <StatusPill tone="normal" label="이용 중" />
-        ),
+        done(chargeDate(r)) ? <StatusPill tone="normal" label="결제 완료" /> : <StatusPill tone="muted" label="결제 예정" />,
     },
   ];
 
@@ -1373,29 +1362,35 @@ export function DataSettlementScreen() {
           />
         </SectionCard>
       ) : (
-        <SectionCard
-          title={
-            role.isAdmin ? (
-              <span className="flex items-center gap-2">
-                <button
-                  type="button"
-                  aria-label="기업별로"
-                  onClick={() => pick(period, null)}
-                  className="rounded-md p-1 text-slate-400 hover:bg-white/[0.06] hover:text-white"
-                >
-                  <ArrowLeft size={16} />
-                </button>
-                {monthCompanies.find((c) => c.id === me)?.name} 정산 내역 ({lines.length}건)
+        <>
+          {role.isAdmin && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="기업별로"
+                onClick={() => pick(period, null)}
+                className="rounded-md p-1 text-slate-400 hover:bg-white/[0.06] hover:text-white"
+              >
+                <ArrowLeft size={16} />
+              </button>
+              <span className="text-lg font-semibold text-white">{monthCompanies.find((c) => c.id === me)?.name}</span>
+            </div>
+          )}
+          <SectionCard
+            title={`제공 (${mine?.get.length ?? 0})`}
+            actions={
+              <span className="text-sm tabular-nums text-slate-300">
+                {account ? `정산 계좌 ${accountText(account)}` : '정산 계좌 없음 · 기업 정보에서 등록'}
               </span>
-            ) : (
-              `정산 내역 (${lines.length}건)`
-            )
-          }
-          actions={search('기업 · 데이터 검색')}
-          noPadding
-        >
-          <DataTable columns={lineCols} data={lines} rowKey={(r) => r.key} emptyMessage="정산 없음" />
-        </SectionCard>
+            }
+            noPadding
+          >
+            <DataTable columns={getCols} data={mine?.get ?? []} rowKey={(r) => r.key} emptyMessage="제공 없음" />
+          </SectionCard>
+          <SectionCard title={`사용 (${mine?.pay.length ?? 0})`} noPadding>
+            <DataTable columns={payCols} data={mine?.pay ?? []} rowKey={(r) => r.key} emptyMessage="사용 없음" />
+          </SectionCard>
+        </>
       )}
     </div>
   );
@@ -1607,7 +1602,7 @@ export function DataTradeDetailScreen({ fixedId }: { fixedId?: number } = {}) {
     {
       key: 'who',
       header: '이용 기업',
-      render: (t) => cell(label(t), String(t.id) === which ? 'font-semibold text-primary' : 'font-medium text-white'),
+      render: (t) => cell(label(t), 'font-medium text-white'),
     },
     {
       key: 'state',
@@ -1677,13 +1672,12 @@ export function DataTradeDetailScreen({ fixedId }: { fixedId?: number } = {}) {
               data={trades}
               rowKey={(t) => t.id}
               emptyMessage="이용 없음"
-              onRowClick={(t) => isActive(t) && setWhich(String(t.id) === which ? '' : String(t.id))}
+              onRowClick={(t) => isActive(t) && setWhich(String(t.id))}
             />
           </SectionCard>
           <UsageCard
             range={range}
             groups={on.map((t) => ({ key: String(t.id), label: t.buyerCompanyName, trades: [t] }))}
-            allLabel="전체 기업"
             value={which}
             onChange={setWhich}
           />

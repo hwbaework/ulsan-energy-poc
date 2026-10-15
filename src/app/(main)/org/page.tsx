@@ -16,6 +16,7 @@ import { useUsers } from '@/hooks/platform/useUsers';
 import { usePersonaOverride, getPersona } from '@/lib/persona';
 import { PpaScheduleCard } from '@/components/features/monitoring/PpaSchedule';
 import { PaymentMethodCard } from '@/components/features/billing/PaymentMethodCard';
+import { SettleAccountCard } from '@/components/features/billing/SettleAccountCard';
 import { useIsCompanyAdmin } from '@/hooks/org/useCompanyRole';
 import { FIELD_LABEL, LICENSE_FIELDS, useCompanyChangeStore, useHydrateCompanyChange, type CompanyFields } from '@/stores/useCompanyChangeStore';
 import { localNow } from '@/stores/useBillingStore';
@@ -350,6 +351,9 @@ export default function OrgInfoPage() {
 
       {/* 결제 수단 — E-데이터마켓 신청 · 월 이용료 자동결제(토스페이먼츠) */}
       {persona !== 'admin' && <PaymentMethodCard companyId={companyId} canEdit={isCompanyAdmin} />}
+
+      {/* 정산 계좌 — 데이터마켓에서 받을 금액이 들어오는 계좌 */}
+      {persona !== 'admin' && <SettleAccountCard companyId={companyId} companyName={company?.name ?? ''} canEdit={isCompanyAdmin} />}
 
       <SectionCard title={`소속 멤버 (${members.length})`} noPadding>
         <DataTable
