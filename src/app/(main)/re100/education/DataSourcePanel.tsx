@@ -159,7 +159,7 @@ export function DataSourcePanel() {
         </div>
       </div>
 
-      {/* 수집 소스 — 어디서 가져오는지 (API·크롤링) */}
+      {/* 수집 소스 — 어디서 가져오는지(기관 · 이름만, 수집 방식 글자 없음 2026-10-15) */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-white/[0.06] px-5 py-2.5 text-sm">
         <span className="text-slate-500 shrink-0">수집 소스</span>
         {feedSources.map((s) => (
@@ -171,7 +171,6 @@ export function DataSourcePanel() {
             className="inline-flex items-center gap-1 text-slate-300 hover:text-sky-300 transition-colors"
           >
             {s.org} {s.name}
-            <span className="text-xs text-slate-500">· {s.method}</span>
             <ExternalLink size={11} className="text-slate-600" />
           </a>
         ))}

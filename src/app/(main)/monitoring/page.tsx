@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge, StatusPill, ContractBadge } from '@/components/ui/Design';
+import { PpaOpBadge, usePpaOpNow } from '@/components/features/monitoring/PpaSchedule';
 
 const MapboxMapView = dynamic(() => import('@/components/ui/MapboxMapView').then((mod) => mod.MapboxMapView), {
   ssr: false,
@@ -255,6 +256,7 @@ function MarkerTooltip({ plant, position }: { plant: MonitoringPlant; position: 
           <span className="text-xs font-medium text-white">{plant.name}</span>
           <StatusDot status={plant.status} />
           <span className="text-xs text-slate-400">{STATUS_LABELS_MAP[plant.status]}</span>
+          <PpaOpBadge plantId={plant.plantId} compact />
         </div>
         <div className="text-xs text-slate-300 mt-0.5 tabular-nums">{plant.currentOutput.toLocaleString()} kW</div>
       </div>
@@ -265,6 +267,24 @@ function MarkerTooltip({ plant, position }: { plant: MonitoringPlant; position: 
 /* ────────────────────────────────────────────────────────────────── */
 /*  Side Panel                                                       */
 /* ────────────────────────────────────────────────────────────────── */
+
+/** 통신 상태 — 인버터 줄. PPA 를 설정 · 수동으로 꺼 둔 동안은 통신 오류가 아니라 '꺼짐 · 설정/수동' */
+function InverterCommRow({ plantId, normal, total }: { plantId: number; normal: number; total: number }) {
+  const op = usePpaOpNow(plantId);
+  const off = !!op && !op.on;
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-sm text-slate-300">인버터</span>
+      {off ? (
+        <StatusPill tone="muted" label={`꺼짐 · ${op!.manual ? '수동' : '설정'}`} />
+      ) : (
+        <span className={cn('text-sm font-medium tabular-nums', normal === total ? 'text-emerald-400' : 'text-amber-400')}>
+          {normal}/{total} 정상
+        </span>
+      )}
+    </div>
+  );
+}
 
 function SidePanel({
   plants,
@@ -311,6 +331,11 @@ function SidePanel({
             ))}
             <StatusBadge status={plant.status} />
           </div>
+          {(!picked || picked.kind === 'ONSITE') && (
+            <div className="mt-1.5">
+              <PpaOpBadge plantId={plant.plantId} />
+            </div>
+          )}
           <p className="mt-0.5 text-sm text-slate-400">{plant.address}</p>
         </div>
 
@@ -367,20 +392,11 @@ function SidePanel({
                   <StatusPill tone="danger" label="오류" />
                 )}
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300">인버터</span>
-                <span
-                  className={cn(
-                    'text-sm font-medium tabular-nums',
-                    plant.connectionStatus.inverterConnections.every((c) => c.state === 'NORMAL')
-                      ? 'text-emerald-400'
-                      : 'text-amber-400',
-                  )}
-                >
-                  {plant.connectionStatus.inverterConnections.filter((c) => c.state === 'NORMAL').length}/
-                  {plant.connectionStatus.inverterConnections.length} 정상
-                </span>
-              </div>
+              <InverterCommRow
+                plantId={plant.plantId}
+                normal={plant.connectionStatus.inverterConnections.filter((c) => c.state === 'NORMAL').length}
+                total={plant.connectionStatus.inverterConnections.length}
+              />
             </div>
           </div>
         )}
@@ -533,6 +549,7 @@ function SidePanel({
                     );
                   })()}
                   {row.kind && <ContractBadge kind={row.kind} size="md" boxed />}
+                  {row.kind === 'ONSITE' && <PpaOpBadge plantId={plant.plantId} compact />}
                 </div>
                 <ChevronRight size={14} className="text-slate-500" />
               </div>

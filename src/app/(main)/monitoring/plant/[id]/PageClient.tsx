@@ -309,7 +309,7 @@ export default function PlantDetailPage() {
 
       {/* Connection Status Banner (LASEE plants only) */}
       {hasLasee && plant.connectionStatus && (
-        <ConnectionBanner status={plant.connectionStatus} />
+        <ConnectionBanner status={plant.connectionStatus} plantId={numId} />
       )}
 
       {/* KPI Row */}

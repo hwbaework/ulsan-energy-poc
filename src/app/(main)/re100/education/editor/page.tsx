@@ -438,7 +438,7 @@ function EducationEditor() {
                 onChange={(e) =>
                   setSources((prev) => prev.map((s, idx) => (idx === i ? { ...s, label: e.target.value } : s)))
                 }
-                placeholder="출처명 (예: 산업통상자원부 보도자료, 2026.7.)"
+                placeholder="출처명 (예: 기후에너지환경부 보도자료, 2026-07)"
               />
             </div>
             <div className="flex-1">

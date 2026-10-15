@@ -41,7 +41,7 @@ const SEED_SOURCES: EduDataSource[] = [
     name: '입법예고',
     method: 'API',
     url: 'https://www.lawmaking.go.kr/rest/ogLmPp.xml',
-    keywords: '산업통상자원부 소관 · 재생에너지, 전기사업법, 분산에너지',
+    keywords: '기후에너지환경부 소관 · 전기사업법, 신재생에너지, 분산에너지',
     endpoint: '/api/collect/legislation?type=leg',
   },
   {
@@ -50,7 +50,7 @@ const SEED_SOURCES: EduDataSource[] = [
     name: '행정예고',
     method: 'API',
     url: 'https://www.lawmaking.go.kr/rest/ptcpAdmPp.xml',
-    keywords: '산업통상자원부 소관 · 재생에너지, RE100, 고시·훈령',
+    keywords: '기후에너지환경부 소관 · 재생에너지, RE100, PPA, 전력',
     endpoint: '/api/collect/legislation?type=admin',
   },
   {
@@ -61,15 +61,6 @@ const SEED_SOURCES: EduDataSource[] = [
     url: 'https://open.law.go.kr',
     keywords: '재생에너지, 전기사업, 사용 확인',
     endpoint: '/api/collect/admrul',
-  },
-  {
-    id: 'src-knrec-guide',
-    org: '한국에너지공단',
-    name: 'K-RE100 제도 안내',
-    method: '원전',
-    url: 'https://www.knrec.or.kr/biz/introduce/new_policy/intro_kre100.do?gubun=A',
-    keywords: '이행수단 5종 정의·절차·FAQ',
-    reference: true,
   },
   {
     id: 'src-knrec-notice',

@@ -308,7 +308,7 @@ export default function EnergySettingsPage() {
                     setOpRule({ ...opRule, [k]: e.target.value });
                     setOpDirty(true);
                   }}
-                  className={`${FIELD} w-32 text-left [color-scheme:dark]`}
+                  className={`${FIELD} w-[150px] text-left [color-scheme:dark]`}
                 />
               </label>
             ))}

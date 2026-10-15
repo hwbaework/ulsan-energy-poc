@@ -30,7 +30,7 @@ const LAW_ADMRUL = 'https://open.law.go.kr';
 export const MOCK_COLLECTED: CollectedItem[] = [
   { id: 'col-knrec-7167', org: '한국에너지공단', title: '2027년도 재생에너지 금융지원사업 사전 수요조사 안내', link: KNREC_7167, pubDate: '2026-10-01', summary: '공지사항' },
   { id: 'col-mcee-0926', org: '기후에너지환경부', dept: '재생에너지정책과', title: '재생에너지 직접 PPA 활성화를 위한 제도 개선방안 발표', link: `${MCEE_PRESS}#0926`, pubDate: '2026-09-26', summary: '보도자료' },
-  { id: 'col-leg-0918', org: '국민참여입법센터', title: '전기사업법 시행령 일부개정령안 입법예고', link: `${LAW_LEG}#0918`, pubDate: '2026-09-18', summary: '입법예고 · 산업통상자원부' },
+  { id: 'col-leg-0918', org: '국민참여입법센터', title: '전기사업법 시행령 일부개정령안 입법예고', link: `${LAW_LEG}#0918`, pubDate: '2026-09-18', summary: '입법예고 · 기후에너지환경부' },
   { id: 'col-admin-0910', org: '국민참여입법센터', title: '신·재생에너지 공급인증서 발급 및 거래시장 운영에 관한 규칙 개정 행정예고', link: `${LAW_ADMIN}#0910`, pubDate: '2026-09-10', summary: '행정예고' },
   { id: 'col-admrul-0903', org: '기후에너지환경부', title: '한국형 RE100(K-RE100) 제도 운영지침 일부개정 고시', link: `${LAW_ADMRUL}#0903`, pubDate: '2026-09-03', summary: '고시·훈령·예규' },
 ];

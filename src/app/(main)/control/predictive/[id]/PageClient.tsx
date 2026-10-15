@@ -128,7 +128,7 @@ export default function PredictiveDetailPage() {
         <h1 className="text-xl font-bold text-white">{plant.name}</h1>
       </div>
 
-      {plant.connectionStatus && <ConnectionBanner status={plant.connectionStatus} />}
+      {plant.connectionStatus && <ConnectionBanner status={plant.connectionStatus} plantId={plant.plantId} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* AI 점검 제안 */}

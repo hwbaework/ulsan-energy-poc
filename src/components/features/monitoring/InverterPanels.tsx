@@ -5,6 +5,7 @@ import { Wifi, WifiOff, Power, Radio, ChevronDown, ChevronUp } from 'lucide-reac
 import { cn } from '@/lib/utils';
 import { StatusPill } from '@/components/ui/Design';
 import type { InverterStatus, PlantConnectionStatus } from '@/types/monitoring';
+import { PpaOpBadge, usePpaOpNow } from './PpaSchedule';
 
 /** ISO 시각 → HH:MM (초 표시 안 함) */
 export function fmtHm(iso: string): string {
@@ -15,11 +16,14 @@ export function fmtHm(iso: string): string {
 
 /* ── Connection Status Banner ── */
 
-export function ConnectionBanner({ status }: { status: PlantConnectionStatus }) {
+/** plantId — PPA 발전소면 인버터 운전 상태도. 설정 · 수동으로 꺼 둔 동안은 인버터 통신을 오류로 보지 않는다(꺼짐 · 설정) */
+export function ConnectionBanner({ status, plantId }: { status: PlantConnectionStatus; plantId?: number }) {
+  const op = usePpaOpNow(plantId);
+  const invOff = !!op && !op.on; // 일부러 꺼 둠 — 통신이 안 들어와도 고장 아님
   const normalCount = status.inverterConnections.filter((c) => c.state === 'NORMAL').length;
   const totalCount = status.inverterConnections.length;
   const invAllNormal = normalCount === totalCount;
-  const allNormal = status.rtuPower === 'ON' && status.rtuConnection === 'NORMAL' && invAllNormal;
+  const allNormal = status.rtuPower === 'ON' && status.rtuConnection === 'NORMAL' && (invAllNormal || invOff);
 
   return (
     <div
@@ -49,10 +53,24 @@ export function ConnectionBanner({ status }: { status: PlantConnectionStatus }) 
       <div className="w-px h-4 bg-white/10" />
 
       <div className="flex items-center gap-2">
-        <Radio size={14} className={invAllNormal ? 'text-emerald-400' : 'text-amber-400'} />
+        <Radio size={14} className={invOff ? 'text-slate-400' : invAllNormal ? 'text-emerald-400' : 'text-amber-400'} />
         <span className="text-sm text-slate-300">인버터 통신</span>
-        <StatusPill tone={invAllNormal ? 'normal' : 'warning'} label={`${normalCount}/${totalCount} 정상`} />
+        {invOff ? (
+          <StatusPill tone="muted" label={`꺼짐 · ${op!.manual ? '수동' : '설정'}`} />
+        ) : (
+          <StatusPill tone={invAllNormal ? 'normal' : 'warning'} label={`${normalCount}/${totalCount} 정상`} />
+        )}
       </div>
+
+      {op && (
+        <>
+          <div className="w-px h-4 bg-white/10" />
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-slate-300">인버터 운전</span>
+            <PpaOpBadge plantId={plantId} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
