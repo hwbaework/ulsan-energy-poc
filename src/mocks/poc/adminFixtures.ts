@@ -28,6 +28,9 @@ interface MockCompany {
   employeeCount: number;
   createdAt: string;
   updatedAt: string;
+  /** 가입 때 올린 사업자등록증 — 이름 · 파일(data URL). POC 는 브라우저에, 실서비스는 파일 저장소 */
+  licenseFileName?: string;
+  licenseFileUrl?: string;
 }
 export const COMPANIES: MockCompany[] = [
   { id: 1, name: '울산 에너지 플랫폼', businessNumber: '610-88-00001', representativeName: '김운영', bizType: '전기업', bizCategory: '태양광 발전', address: '울산 남구 처용로 1', phone: '052-100-1000', email: 'admin@test.com', status: 'ACTIVE', businessTypes: ['SPC', '운영사'], employeeCount: 24, createdAt: daysAgo(400), updatedAt: daysAgo(10) },
@@ -203,11 +206,40 @@ function byStatus<T extends { status: string }>(rows: T[], status: string | null
 function setCompanyStatus(id: number, status: string) {
   const c = COMPANIES.find((x) => x.id === id);
   if (c) { c.status = status; c.updatedAt = new Date().toISOString().slice(0, 19); }
+  persistAll();
   return {};
 }
+/* ── 저장 — 가입 · 승인 · 기업 정보 변경이 새로고침해도 남게(브라우저 localStorage). 시드가 바뀌면 키 버전을 올린다 ── */
+const ADMIN_KEY = 'ulsan-admin-poc-v1';
+function persistAll() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(ADMIN_KEY, JSON.stringify({ companies: COMPANIES, users: USERS }));
+  } catch {
+    // 등록증 파일이 커서 저장 공간을 넘으면 파일만 빼고 저장
+    try {
+      window.localStorage.setItem(ADMIN_KEY, JSON.stringify({ companies: COMPANIES.map((c) => ({ ...c, licenseFileUrl: undefined })), users: USERS }));
+    } catch {
+      /* 저장 못 하면 이번 화면에서만 */
+    }
+  }
+}
+if (typeof window !== 'undefined') {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(ADMIN_KEY) ?? 'null') as { companies?: MockCompany[]; users?: MockUser[] } | null;
+    if (saved?.companies && saved.users) {
+      COMPANIES.splice(0, COMPANIES.length, ...saved.companies);
+      USERS.splice(0, USERS.length, ...saved.users);
+    }
+  } catch {
+    /* 깨졌으면 시드로 */
+  }
+}
+
 function setUserStatus(id: number, status: string) {
   const u = USERS.find((x) => x.id === id);
   if (u) { u.status = status; u.isActive = status === 'ACTIVE'; u.updatedAt = new Date().toISOString().slice(0, 19); }
+  persistAll();
   return {};
 }
 function updateCompanyFixture(id: number, body: unknown) {
@@ -223,6 +255,7 @@ function updateCompanyFixture(id: number, body: unknown) {
     if (typeof d.bizCategory === 'string') c.bizCategory = d.bizCategory;
     c.updatedAt = new Date().toISOString().slice(0, 19);
   }
+  persistAll();
   return c ?? COMPANIES[0];
 }
 
@@ -258,6 +291,7 @@ registerMock(/^\/users$/, ({ body }) => {
     updatedAt: now,
   };
   USERS.unshift(u);
+  persistAll();
   return u;
 }, 'POST');
 registerMock(/^\/users\/(\d+)$/, ({ match }) => USERS.find((u) => u.id === Number(match[1])) ?? USERS[0]);
@@ -265,6 +299,56 @@ registerMock(/^\/users\/(\d+)\/activate$/, ({ match }) => setUserStatus(Number(m
 registerMock(/^\/users\/(\d+)\/suspend$/, ({ match }) => setUserStatus(Number(match[1]), 'SUSPENDED'), 'PATCH');
 // 비밀번호 초기화 — 관리자가 초기화하면 a123456789 로 바뀐다(목업은 응답만)
 registerMock(/^\/users\/(\d+)\/reset-password$/, () => ({}), 'PATCH');
+
+// 회원가입 — 기업 회원. 신규 기업이면 기업(대기)도 함께 만든다. 둘 다 승인 관리에서 검토 뒤 활성
+registerMock(/^\/auth\/signup$/, ({ body }) => {
+  const b = (body ?? {}) as Record<string, string | number | undefined>;
+  const now = new Date().toISOString().slice(0, 19);
+  let company = b.existingCompanyId ? COMPANIES.find((c) => c.id === Number(b.existingCompanyId)) : undefined;
+  const isNew = !company;
+  if (!company) {
+    const role = String(b.enterpriseRole ?? '');
+    company = {
+      id: Math.max(0, ...COMPANIES.map((x) => x.id)) + 1,
+      name: String(b.companyName ?? ''),
+      businessNumber: String(b.businessNumber ?? ''),
+      representativeName: String(b.representative ?? ''),
+      bizType: String(b.bizType ?? ''),
+      bizCategory: String(b.bizCategory ?? ''),
+      address: String(b.companyAddress ?? ''),
+      phone: String(b.companyPhone ?? ''),
+      email: String(b.email ?? ''),
+      status: 'PENDING',
+      businessTypes: [role === 'POWER_OPERATOR' ? '발전사업자' : '전기사용자'],
+      employeeCount: 0,
+      createdAt: now,
+      updatedAt: now,
+      licenseFileName: b.licenseFileName ? String(b.licenseFileName) : undefined,
+      licenseFileUrl: b.licenseFileUrl ? String(b.licenseFileUrl) : undefined,
+    };
+    COMPANIES.push(company);
+  }
+  const u: MockUser = {
+    id: Math.max(0, ...USERS.map((x) => x.id)) + 1,
+    email: String(b.email ?? ''),
+    name: String(b.name ?? ''),
+    phone: String(b.phone ?? ''),
+    status: 'PENDING',
+    companyId: company.id,
+    companyName: company.name,
+    roles: [],
+    isActive: false,
+    department: String(b.department ?? ''),
+    position: '',
+    accountType: isNew ? 'COMPANY_ADMIN' : 'COMPANY_MEMBER',
+    lastLoginAt: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  USERS.unshift(u);
+  persistAll();
+  return {};
+}, 'POST');
 
 // 기업
 registerMock(/^\/companies$/, ({ query }) => {

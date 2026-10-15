@@ -16,6 +16,8 @@ export type CompanyFields = {
   phone: string;
   address: string;
 };
+/** 사업자등록증에 적힌 항목 — 바뀌면 새 등록증 + 관리자 검토. 그 밖(연락처)은 바로 반영 */
+export const LICENSE_FIELDS: (keyof CompanyFields)[] = ['name', 'representativeName', 'bizType', 'bizCategory', 'address'];
 export const FIELD_LABEL: Record<keyof CompanyFields, string> = {
   name: '기업명',
   representativeName: '대표자',
@@ -49,15 +51,19 @@ interface State {
   reject: (id: number, note: string, at: string) => void;
 }
 
-const SEED_VERSION = 2; // 2 — 데모 변경 요청 한 건
-/** 데모 — 한길 기업관리자(이수용)가 대표 연락처를 바꾸며 새 등록증을 올린 요청(확인 대기) */
+const SEED_VERSION = 4; // 4 — 데모 요청은 등록증 항목(업태 · 종목). 3 — 등록증 파일. 2 — 데모 변경 요청 한 건
+/** 데모 — 한길 기업관리자(이수용)가 업태 · 종목을 새 등록증과 함께 바꾼 요청(검토 대기) */
 const SEED: CompanyChangeRequest[] = [
   {
     id: 1,
     companyId: 3,
     companyName: '한길',
-    changes: [{ key: 'phone', before: '052-300-3000', after: '052-300-3010' }],
-    fileName: '사업자등록증_한길.pdf',
+    changes: [
+      { key: 'bizType', before: '', after: '제조업' },
+      { key: 'bizCategory', before: '', after: '금속 가공' },
+    ],
+    fileName: '사업자등록증_한길.webp',
+    fileUrl: '/samples/biz-license-sample.webp',
     requestedAt: '2026-10-14T16:20:00',
     requestedBy: '이수용',
     status: 'PENDING',

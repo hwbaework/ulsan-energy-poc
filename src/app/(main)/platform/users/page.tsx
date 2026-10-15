@@ -176,7 +176,8 @@ export default function UsersPage() {
     {
       key: 'actions' as keyof UserRow,
       header: '',
-      width: '130px',
+      // 아이콘 4개(26px) + 사이 + 셀 여백 32px — 130px 이면 삭제 아이콘이 잘린다
+      width: '170px',
       render: (row) => (
         <div className="flex items-center gap-1">
           <button

@@ -6,8 +6,8 @@ import { Modal } from '@/components/ui/Modal';
 import { Textarea } from '@/components/ui/Textarea';
 import { DataTable, type Column, TABLE, TABLE_HEAD_ROW, TABLE_ROW, TABLE_TD, TABLE_TH } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features/SectionCard';
-import { BizLicenseSheet } from './BizLicenseSheet';
-import { useCompany, useUpdateCompany } from '@/hooks/platform/useCompanies';
+import { LicenseBox } from './BizLicenseSheet';
+import { useUpdateCompany } from '@/hooks/platform/useCompanies';
 import { useToastStore } from '@/stores/useToastStore';
 import { localNow } from '@/stores/useBillingStore';
 import { FIELD_LABEL, useCompanyChangeStore, useHydrateCompanyChange, type CompanyChangeRequest } from '@/stores/useCompanyChangeStore';
@@ -25,8 +25,8 @@ export function CompanyChangeApprovals() {
     { key: 'co', header: '기업', width: '140px', render: (r) => r.companyName },
     {
       key: 'chg',
-      header: '바뀌는 항목',
-      render: (r) => <span className="text-slate-300">{r.changes.map((c) => FIELD_LABEL[c.key]).join(', ')}</span>,
+      header: '내용',
+      render: (r) => <span className="text-slate-300">{`사업자등록증 변경 · ${r.changes.map((c) => FIELD_LABEL[c.key]).join(', ')}`}</span>,
     },
     { key: 'file', header: '새 등록증', width: '220px', render: (r) => <span className="text-slate-300">{r.fileName}</span> },
     { key: 'by', header: '요청', width: '160px', render: (r) => <span className="tabular-nums text-slate-300">{`${r.requestedAt.slice(0, 10)} · ${r.requestedBy}`}</span> },
@@ -58,7 +58,6 @@ export function CompanyChangeReviewModal({ r, onClose }: { r: CompanyChangeReque
   const approve = useCompanyChangeStore((s) => s.approve);
   const reject = useCompanyChangeStore((s) => s.reject);
   const updateCompany = useUpdateCompany();
-  const { data: company } = useCompany(r.companyId);
   const [rejecting, setRejecting] = useState(false);
   const [note, setNote] = useState('');
 
@@ -77,8 +76,6 @@ export function CompanyChangeReviewModal({ r, onClose }: { r: CompanyChangeReque
     );
   };
 
-  // 등록증 — 올린 파일이 있으면 그대로(이미지 · PDF), 데모 요청은 등록증 양식으로 그린다(요청 값 기준)
-  const after = (k: keyof typeof FIELD_LABEL, cur?: string) => r.changes.find((c) => c.key === k)?.after ?? cur ?? '-';
 
   return (
     <Modal
@@ -118,21 +115,7 @@ export function CompanyChangeReviewModal({ r, onClose }: { r: CompanyChangeReque
     >
       <div className="grid gap-5 lg:grid-cols-[1.1fr_1fr]">
         {/* 등록증 */}
-        <div className="space-y-2">
-          <BizLicenseSheet
-            fileUrl={r.fileUrl}
-            fileName={r.fileName}
-            f={{
-              businessNumber: company?.businessNumber,
-              name: after('name', company?.name),
-              representativeName: after('representativeName', company?.representativeName),
-              address: after('address', company?.address),
-              bizType: after('bizType', company?.bizType),
-              bizCategory: after('bizCategory', company?.bizCategory),
-              phone: after('phone', company?.phone),
-            }}
-          />
-        </div>
+        <LicenseBox fileUrl={r.fileUrl} fileName={r.fileName} />
 
         {/* 바뀌는 내용 */}
         <div className="space-y-4">

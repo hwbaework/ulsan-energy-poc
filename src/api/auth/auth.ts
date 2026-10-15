@@ -35,6 +35,9 @@ export async function signUp(data: {
   enterpriseRole?: string;
   bizType?: string;
   bizCategory?: string;
+  /** 사업자등록증 — 파일 이름 · 내용(data URL) */
+  licenseFileName?: string;
+  licenseFileUrl?: string;
 }): Promise<void> {
   return getApiClient().post(ENDPOINTS.auth.signup, data);
 }

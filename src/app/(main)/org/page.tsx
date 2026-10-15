@@ -17,7 +17,7 @@ import { usePersonaOverride, getPersona } from '@/lib/persona';
 import { PpaScheduleCard } from '@/components/features/monitoring/PpaSchedule';
 import { PaymentMethodCard } from '@/components/features/billing/PaymentMethodCard';
 import { useIsCompanyAdmin } from '@/hooks/org/useCompanyRole';
-import { FIELD_LABEL, useCompanyChangeStore, useHydrateCompanyChange, type CompanyFields } from '@/stores/useCompanyChangeStore';
+import { FIELD_LABEL, LICENSE_FIELDS, useCompanyChangeStore, useHydrateCompanyChange, type CompanyFields } from '@/stores/useCompanyChangeStore';
 import { localNow } from '@/stores/useBillingStore';
 import { useHydrateTradingPoc, useTradingPocStore } from '@/stores/useTradingPocStore';
 
@@ -103,6 +103,8 @@ export default function OrgInfoPage() {
   const sendChange = useCompanyChangeStore((s) => s.request);
   const lastChange = useCompanyChangeStore((s) => s.requests.find((r) => r.companyId === companyId));
   const changePending = lastChange?.status === 'PENDING';
+  // 등록증에 적힌 칸(상호 · 대표자 · 업태 · 종목 · 주소)은 새 등록증을 올려야 고칠 수 있다
+  const licenseLocked = persona !== 'admin' && !pendingLicense;
   const fileRef = useRef<HTMLInputElement>(null);
   const handleDownloadLicense = () => {
     // POC — 실제 업로드 파일이 없어 데모용 파일을 내려받는다. 실연동 시 저장된 원본 파일로 교체.
@@ -137,14 +139,24 @@ export default function OrgInfoPage() {
         setEditing(false);
         return;
       }
-      if (!pendingLicense) {
-        addToast('error', '바뀐 내용이 담긴 새 사업자 등록증을 올려 주세요');
+      // 등록증 항목(상호 · 대표자 · 업태 · 종목 · 주소)만 새 등록증 + 관리자 검토, 연락처는 바로 반영
+      const licenseChanges = changes.filter((c) => LICENSE_FIELDS.includes(c.key));
+      const directChanges = changes.filter((c) => !LICENSE_FIELDS.includes(c.key));
+      if (licenseChanges.length > 0 && !pendingLicense) {
+        addToast('error', '상호 · 대표자 · 업태 · 종목 · 주소가 바뀌면 새 사업자 등록증을 올려 주세요');
         return;
       }
-      sendChange({ companyId, companyName: company.name ?? '', changes, fileName: pendingLicense, fileUrl: pendingLicenseUrl, requestedAt: localNow(), requestedBy: user?.name ?? '' });
-      setPendingLicenseUrl(undefined);
-      addToast('success', '변경 요청 — 관리자 확인 뒤 반영됩니다');
+      if (directChanges.length > 0) {
+        updateCompany.mutate({ id: companyId, data: Object.fromEntries(directChanges.map((c) => [c.key, c.after])) });
+      }
+      if (licenseChanges.length > 0 && pendingLicense) {
+        sendChange({ companyId, companyName: company.name ?? '', changes: licenseChanges, fileName: pendingLicense, fileUrl: pendingLicenseUrl, requestedAt: localNow(), requestedBy: user?.name ?? '' });
+        addToast('success', directChanges.length ? '연락처는 반영 · 나머지는 관리자 검토 뒤 반영됩니다' : '변경 요청 — 관리자 검토 뒤 반영됩니다');
+      } else {
+        addToast('success', '기업 정보를 저장했습니다');
+      }
       setPendingLicense(null);
+      setPendingLicenseUrl(undefined);
       setEditing(false);
       return;
     }
@@ -222,7 +234,7 @@ export default function OrgInfoPage() {
         <div className="grid grid-cols-2 gap-x-6 gap-y-5 md:grid-cols-5">
           <InfoField label="기업명">
             {editing ? (
-              <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+              <Input disabled={licenseLocked} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
             ) : (
               <p className="text-sm text-white">{company?.name ?? (isLoading ? '불러오는 중…' : '-')}</p>
             )}
@@ -230,8 +242,7 @@ export default function OrgInfoPage() {
           <InfoField label="사업자등록번호" value={company?.businessNumber ?? '-'} />
           <InfoField label="대표자">
             {editing ? (
-              <Input
-                value={form.representativeName}
+              <Input disabled={licenseLocked} value={form.representativeName}
                 onChange={(e) => setForm((f) => ({ ...f, representativeName: e.target.value }))}
               />
             ) : (
@@ -240,15 +251,14 @@ export default function OrgInfoPage() {
           </InfoField>
           <InfoField label="업태">
             {editing ? (
-              <Input value={form.bizType} onChange={(e) => setForm((f) => ({ ...f, bizType: e.target.value }))} />
+              <Input disabled={licenseLocked} value={form.bizType} onChange={(e) => setForm((f) => ({ ...f, bizType: e.target.value }))} />
             ) : (
               <p className="text-sm text-white">{company?.bizType || '-'}</p>
             )}
           </InfoField>
           <InfoField label="종목">
             {editing ? (
-              <Input
-                value={form.bizCategory}
+              <Input disabled={licenseLocked} value={form.bizCategory}
                 onChange={(e) => setForm((f) => ({ ...f, bizCategory: e.target.value }))}
               />
             ) : (
@@ -265,7 +275,7 @@ export default function OrgInfoPage() {
           <InfoField label="이메일" value={company?.email ?? '-'} />
           <InfoField label="주소">
             {editing ? (
-              <Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
+              <Input disabled={licenseLocked} value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
             ) : (
               <p className="text-sm text-white">{company?.address ?? '-'}</p>
             )}

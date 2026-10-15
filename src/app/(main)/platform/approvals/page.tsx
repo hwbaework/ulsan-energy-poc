@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features/SectionCard';
 import { CompanyChangeApprovals } from '@/components/features/org/CompanyChangeApprovals';
-import { BizLicenseSheet } from '@/components/features/org/BizLicenseSheet';
+import { LicenseBox } from '@/components/features/org/BizLicenseSheet';
 import { useUsers, useActivateUser, useSuspendUser } from '@/hooks/platform/useUsers';
 import { useCompanies, useActivateCompany, useSuspendCompany } from '@/hooks/platform/useCompanies';
 import { useAssignRoleByCode } from '@/hooks/platform/useRoles';
@@ -39,6 +39,7 @@ interface Applicant {
   companyStatus?: string;
   role: { code: string; label: string };
   date: string;
+  department?: string;
 }
 
 export default function ApprovalsPage() {
@@ -73,6 +74,7 @@ export default function ApprovalsPage() {
         companyStatus: c?.status,
         role: roleOfCompany(c?.businessTypes),
         date: (u.createdAt ?? '').slice(0, 10),
+        department: u.department ?? '',
       };
     })
     .sort((a: Applicant, b: Applicant) => (a.date < b.date ? 1 : -1));
@@ -197,12 +199,7 @@ export default function ApprovalsPage() {
             );
             return (
               <div className="grid gap-5 lg:grid-cols-[1.1fr_1fr]">
-                <div className="space-y-2">
-                  <BizLicenseSheet
-                    fileName={`사업자등록증_${c.name ?? reviewItem.company}.pdf`}
-                    f={{ businessNumber: c.businessNumber, name: c.name ?? reviewItem.company, representativeName: c.representativeName, address: c.address, bizType: c.bizType, bizCategory: c.bizCategory, phone: c.phone }}
-                  />
-                </div>
+                <LicenseBox fileUrl={c.licenseFileUrl} fileName={c.licenseFileName ?? `사업자등록증_${c.name ?? reviewItem.company}`} />
                 <div className="space-y-4 text-sm">
                   <div>
                     <p className="mb-1 font-semibold text-white">신청자</p>
@@ -210,6 +207,7 @@ export default function ApprovalsPage() {
                       {row('이름', reviewItem.name)}
                       {row('이메일', reviewItem.email)}
                       {row('연락처', reviewItem.phone)}
+                      {row('부서', reviewItem.department ?? '')}
                       {row('구분', TYPE_LABEL[reviewItem.type])}
                       {row('역할', reviewItem.role.label)}
                       {row('신청일', reviewItem.date)}
@@ -221,7 +219,11 @@ export default function ApprovalsPage() {
                       {row('기업명', c.name ?? reviewItem.company)}
                       {row('사업자등록번호', c.businessNumber)}
                       {row('대표자', c.representativeName)}
-                      {row('주소', c.address)}
+                      {row('업태', c.bizType)}
+                      {row('종목', c.bizCategory)}
+                      {row('기업 연락처', c.phone)}
+                      {row('기업 주소', c.address)}
+                      {row('기업 상태', c.status === 'ACTIVE' ? '활성' : c.status === 'PENDING' ? '가입 대기' : c.status)}
                     </dl>
                   </div>
                   {blocked(reviewItem) && <p className="text-amber-300">소속 기업의 기업 관리자 가입이 먼저 승인돼야 합니다</p>}

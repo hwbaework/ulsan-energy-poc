@@ -16,6 +16,7 @@ import { Alert } from '@/components/ui/Alert';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Radio } from '@/components/ui/Radio';
 import { FileUpload } from '@/components/ui/FileUpload';
+import { useCompanies } from '@/hooks/platform/useCompanies';
 
 type SignupType = 'enterprise' | 'consultant';
 type EnterpriseRole = 'POWER_OPERATOR' | 'CONSUMER_MANAGER' | 'AGENCY_ADMIN' | 'SPC_OPERATOR';
@@ -75,6 +76,11 @@ export default function SignupPage() {
   const [submitting, setSubmitting] = useState(false);
   const [signupType] = useState<SignupType>('enterprise');
   const [enterpriseRole, setEnterpriseRole] = useState<EnterpriseRole | null>(null);
+  // 사업자등록증 — 신규 기업은 필수. 관리자가 검토 창에서 그대로 열어 본다
+  const [license, setLicense] = useState<{ name: string; url: string } | null>(null);
+  // 기존 기업 — 실제 기업 목록에서 고른다
+  const [existingCompanyId, setExistingCompanyId] = useState('');
+  const { data: companyList } = useCompanies();
 
   const stepLabels = STEP_LABELS;
   const progress = ((step - 2) / (stepLabels.length - 1)) * 100;
@@ -134,11 +140,20 @@ export default function SignupPage() {
         return;
       }
       if (companyType === 'existing') {
+        if (!existingCompanyId) {
+          setServerError('소속 기업을 선택해주세요.');
+          return;
+        }
         setStep(3);
         return;
       }
       const valid = await trigger(STEP2_ENTERPRISE_FIELDS);
-      if (valid) setStep(3);
+      if (!valid) return;
+      if (!license) {
+        setServerError('사업자등록증을 올려주세요.');
+        return;
+      }
+      setStep(3);
     } else if (step === 3) {
       const valid = await trigger(STEP3_FIELDS);
       if (valid) setStep(4);
@@ -163,8 +178,11 @@ export default function SignupPage() {
         ...(signupType === 'enterprise'
           ? {
               enterpriseRole: enterpriseRole ?? undefined,
+              ...(vals.companyType === 'existing' ? { existingCompanyId: Number(existingCompanyId) } : {}),
               ...(vals.companyType === 'new'
                 ? {
+                    licenseFileName: license?.name,
+                    licenseFileUrl: license?.url,
                     companyName: vals.companyName || undefined,
                     businessNumber: vals.businessNumber || undefined,
                     representative: vals.representative || undefined,
@@ -258,10 +276,11 @@ export default function SignupPage() {
               <Select
                 label="기업 선택"
                 placeholder="소속 기업을 선택하세요"
-                options={[
-                  { value: '1', label: '(주)그린에너지' },
-                  { value: '2', label: '(주)솔라텍' },
-                ]}
+                value={existingCompanyId}
+                onChange={(e) => setExistingCompanyId(e.target.value)}
+                options={(((companyList as unknown as { content?: { id: number; name: string; status?: string }[] })?.content) ?? [])
+                  .filter((c) => c.status === 'ACTIVE')
+                  .map((c) => ({ value: String(c.id), label: c.name }))}
               />
             ) : (
               <>
@@ -293,8 +312,21 @@ export default function SignupPage() {
                   <Input label="종목" placeholder="금속 가공" {...register('bizCategory')} />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-accent mb-1.5">사업자등록증 (선택)</p>
-                  <FileUpload accept=".pdf,.jpg,.png" maxSizeMB={10} onChange={() => {}} />
+                  <p className="text-sm font-medium text-accent mb-1.5">사업자등록증</p>
+                  <FileUpload
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    maxSizeMB={3}
+                    onChange={(files) => {
+                      const f = files[0];
+                      if (!f) {
+                        setLicense(null);
+                        return;
+                      }
+                      const r = new FileReader();
+                      r.onload = () => typeof r.result === 'string' && setLicense({ name: f.name, url: r.result });
+                      r.readAsDataURL(f);
+                    }}
+                  />
                 </div>
               </>
             )}
