@@ -7,6 +7,7 @@ import { SectionCard } from '@/components/features';
 import { Button } from '@/components/ui/Button';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { cn } from '@/lib/utils';
+import { TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { getPersona } from '@/lib/persona';
 import { useTradingRequests, useAllTradingMatches } from '@/hooks/trading/useTrading';
@@ -107,17 +108,17 @@ export function TradeHistory() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left">
-                <tr className="border-b border-white/[0.06] text-[11px] text-slate-500 bg-white/[0.02]">
-                  <th className="px-4 py-2 text-left font-medium">거래번호</th>
-                  <th className="px-4 py-2 text-left font-medium">완료일</th>
-                  <th className="px-4 py-2 text-left font-medium">상대방</th>
-                  <th className="px-4 py-2 text-left font-medium">유형</th>
-                  <th className="px-4 py-2 font-medium">용량</th>
-                  <th className="px-4 py-2 font-medium">조건</th>
-                  <th className="px-4 py-2 text-left font-medium">결과</th>
-                  <th className="px-4 py-2 text-right font-medium">계약</th>
+            <table className={TABLE}>
+              <thead>
+                <tr className={TABLE_HEAD_ROW}>
+                  <th className={TABLE_TH}>거래번호</th>
+                  <th className={TABLE_TH}>완료일</th>
+                  <th className={TABLE_TH}>상대방</th>
+                  <th className={TABLE_TH}>유형</th>
+                  <th className={TABLE_TH}>용량</th>
+                  <th className={TABLE_TH}>조건</th>
+                  <th className={TABLE_TH}>결과</th>
+                  <th className={cn(TABLE_TH, 'text-right')}>계약</th>
                 </tr>
               </thead>
               <tbody>
@@ -125,15 +126,15 @@ export function TradeHistory() {
                   const res = RESULT[t.result] ?? { label: t.result, variant: 'default' as const, icon: XCircle };
                   const concluded = t.result === 'FINALIZED' || t.result === 'COMPLETED';
                   return (
-                    <tr key={`${t.id}-${t.result}`} className="border-b border-white/[0.04] hover:bg-white/[0.02]">
-                      <td className="px-4 py-3 text-xs text-slate-300 tabular-nums font-medium">{t.id}</td>
-                      <td className="px-4 py-3 text-slate-400 text-xs tabular-nums">
+                    <tr key={`${t.id}-${t.result}`} className={cn(TABLE_ROW, 'hover:bg-white/[0.02]')}>
+                      <td className={cn(TABLE_TD, 'tabular-nums font-medium')}>{t.id}</td>
+                      <td className={cn(TABLE_TD, 'tabular-nums')}>
                         {t.createdAt ? new Date(t.createdAt).toLocaleDateString('ko-KR') : '—'}
                       </td>
-                      <td className="px-4 py-3">
-                        <p className="text-white font-medium text-sm">{t.counterparty}</p>
+                      <td className={TABLE_TD}>
+                        <p className="font-medium">{t.counterparty}</p>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className={TABLE_TD}>
                         <span
                           className={cn(
                             'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 w-fit',
@@ -143,17 +144,17 @@ export function TradeHistory() {
                           {t.model}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-slate-300 tabular-nums text-xs">
+                      <td className={cn(TABLE_TD, 'tabular-nums')}>
                         {Number(t.kw).toLocaleString()} kW
                       </td>
-                      <td className="px-4 py-3 text-slate-300 tabular-nums text-xs">
+                      <td className={cn(TABLE_TD, 'tabular-nums')}>
                         {t.dealType === 'SAVINGS_SHARE'
                           ? '수익 분배'
                           : t.price
                             ? `₩${Number(t.price).toLocaleString()}/kWh`
                             : '—'}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className={TABLE_TD}>
                         <span
                           className={cn(
                             'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1',
@@ -165,7 +166,7 @@ export function TradeHistory() {
                           <res.icon size={11} /> {res.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className={cn(TABLE_TD, 'text-right')}>
                         {concluded ? (
                           <Button
                             variant="ghost"

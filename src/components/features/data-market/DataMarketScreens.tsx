@@ -15,7 +15,8 @@ import {
 } from 'lucide-react';
 import { StatCard, StatsGrid } from '@/components/features/StatCard';
 import { SectionCard } from '@/components/features/SectionCard';
-import { DataTable, type Column } from '@/components/features/DataList';
+import { DataTable, type Column, TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
+import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { BackButton } from '@/components/layout/PageTitle';
 import { Badge } from '@/components/ui/Badge/Badge';
@@ -30,10 +31,13 @@ import { StatusPill } from '@/components/ui/Design';
 import { RmsBarChart, RmsLineChart } from '@/components/ui/Chart';
 import { getPersona } from '@/lib/persona';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { chargeBilling } from '@/lib/toss-billing';
+import { cardText, cardsOf, localNow, useBillingStore, useHydrateBilling } from '@/stores/useBillingStore';
+import { useIsCompanyAdmin } from '@/hooks/org/useCompanyRole';
 import { useToastStore } from '@/stores/useToastStore';
 import {
   DATA_INTERVAL,
-  DATA_ITEMS,
+  itemsOf,
   DM_FEE_RATE,
   DM_SELLERS,
   DM_TODAY,
@@ -95,7 +99,7 @@ const CATALOG = '/e-data/catalog';
 const CONSENT = `${CATALOG}/consent`;
 const API_HUB = '/e-data/api-hub';
 const TRADING = '/e-data/trading';
-const endpointOf = (d: Pick<Dataset, 'ownerCompanyId'>) => `/api/v1/solar-generation/${d.ownerCompanyId}`;
+const endpointOf = (d: Pick<Dataset, 'sellerId'>) => `/api/v1/solar-generation/${d.sellerId}`;
 /** 제공 방식 — 모든 데이터가 같다 */
 const DELIVERY = 'API · CSV 다운로드';
 const sumPrice = (xs: DataTrade[]) => xs.reduce((a, t) => a + t.price, 0);
@@ -151,7 +155,7 @@ function useDataRole() {
     [isAdmin, tradesAll, companyId],
   );
   /** 판매할 데이터가 있는 기업 */
-  const isSeller = !isAdmin && DM_SELLERS.some((c) => c.id === companyId);
+  const isSeller = !isAdmin && DM_SELLERS.some((c) => (c.companyId ?? c.id) === companyId);
   return { isAdmin, isSeller, companyId, companyName, products, tradesAll, sold, bought };
 }
 
@@ -271,11 +275,11 @@ function UsageCard({
 function SheetTable({ sheet }: { sheet: DataSheet }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className={TABLE}>
         <thead>
-          <tr className="border-b border-white/[0.06] text-slate-400">
+          <tr className={TABLE_HEAD_ROW}>
             {sheet.columns.map((c, i) => (
-              <th key={c.key} className={`whitespace-nowrap px-5 py-2.5 font-medium ${i ? 'text-right' : 'text-left'}`}>
+              <th key={c.key} className={cn(TABLE_TH, i && 'text-right')}>
                 {c.label}
               </th>
             ))}
@@ -283,13 +287,11 @@ function SheetTable({ sheet }: { sheet: DataSheet }) {
         </thead>
         <tbody>
           {sheet.rows.map((r) => (
-            <tr key={String(r.month ?? r.date ?? r.at)} className="border-b border-white/[0.04] last:border-0">
+            <tr key={String(r.month ?? r.date ?? r.at)} className={cn(TABLE_ROW, 'last:border-0')}>
               {sheet.columns.map((c, i) => (
                 <td
                   key={c.key}
-                  className={`whitespace-nowrap px-5 py-2.5 tabular-nums ${i ? 'text-right' : 'text-left'} ${
-                    c.strong ? 'font-semibold text-white' : 'text-slate-300'
-                  }`}
+                  className={cn(TABLE_TD, 'whitespace-nowrap tabular-nums', i && 'text-right', c.strong && 'font-semibold')}
                 >
                   {r[c.key]}
                 </td>
@@ -471,7 +473,7 @@ function ConsentFlow({ d, onClose }: { d: Dataset; onClose: () => void }) {
         <Button
           disabled={!agree}
           onClick={() => {
-            setConsent(d.ownerCompanyId, d.kind, true);
+            setConsent(d.sellerId, d.kind, true);
             setStep(2);
           }}
         >
@@ -492,12 +494,12 @@ function ConsentFlow({ d, onClose }: { d: Dataset; onClose: () => void }) {
       <Steps at={step} />
       {step === 0 && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <Info label="데이터" value={d.name} className="md:col-span-2" />
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+            <Info label="데이터" value={d.name} />
+            <Info label="설비 용량" value={summaryOf(d)?.kwText} />
+            <Info label="데이터 항목" value={itemsOf(d)} />
             <Info label="수집 주기" value={DATA_INTERVAL} />
             <Info label="기간" value={periodText(d)} />
-            <Info label="설비 용량" value={summaryOf(d)?.kwText} className="md:col-span-2" />
-            <Info label="데이터 항목" value={DATA_ITEMS} className="md:col-span-2" />
           </div>
           <div className="rounded-xl ring-1 ring-white/[0.06]">
             <p className="border-b border-white/[0.06] px-5 py-2.5 text-sm font-semibold text-white">최근 3개월</p>
@@ -593,7 +595,7 @@ export function DataConsentScreen() {
         onClose={() => setStop(null)}
         onConfirm={() => {
           if (stop) {
-            setConsent(stop.ownerCompanyId, stop.kind, false);
+            setConsent(stop.sellerId, stop.kind, false);
             addToast('success', `${stop.name} 판매 중지`);
           }
           setStop(null);
@@ -609,33 +611,43 @@ export function DataConsentScreen() {
 
 const num1 = (v: string | number | undefined) => Number(String(v).replace(/,/g, ''));
 
-/** 샘플 — 사기 전. 마지막 날 하루 시간별 */
-function SampleDay({ d }: { d: Dataset }) {
-  const last = dailyOf(d.ownerCompanyId).at(-1);
-  const sheet = last ? hourSheetOf(d, last.date) : undefined;
-  if (!last || !sheet) return null;
+/** 샘플 — 사기 전. 최근 한 달 일별 발전량만(2026-10-15). 시간별 · 전체 기간 · CSV · API 는 산 뒤에 */
+function SampleMonth({ d }: { d: Dataset }) {
+  const month = dataMonths(d.sellerId).at(-1);
+  if (!month) return null;
+  const sheet = daySheetOf(d, month);
+  const chart = sheet.rows.map((r) => ({ x: String(r.date).slice(8), kwh: num1(r.kwh) }));
   return (
-    <SectionCard title={`샘플 · 시간별 (${last.date})`}>
-      <RmsBarChart
-        data={sheet.rows.map((r) => ({ h: String(r.at).slice(11, 13), kwh: num1(r.kwh) }))}
-        xKey="h"
-        bars={[{ key: 'kwh', name: '발전량 (kWh)', color: '#F59E0B' }]}
-        height={220}
-      />
-    </SectionCard>
+    <>
+      <SectionCard title="샘플 · 최근 한 달 일별">
+        <RmsBarChart
+          data={chart}
+          xKey="x"
+          bars={[{ key: 'kwh', name: '발전량 (kWh)', color: '#F59E0B' }]}
+          height={220}
+        />
+      </SectionCard>
+      <SectionCard title={`일별 데이터 (${sheet.rows.length})`} noPadding>
+        <SheetTable sheet={sheet} />
+      </SectionCard>
+    </>
   );
 }
 
 /** 데이터 보기 — 이용 중 · 판매 기업 · 관리자. 단위(시간별 · 일별 · 월별)와 날짜 · 달을 고른다 */
 function DataView({ d }: { d: Dataset }) {
-  const days = dailyOf(d.ownerCompanyId);
-  const months = dataMonths(d.ownerCompanyId);
+  const days = dailyOf(d.sellerId);
+  const months = dataMonths(d.sellerId);
   const [unit, setUnit] = useState<SheetUnit>('hour');
   const [date, setDate] = useState(days.at(-1)?.date ?? '');
   const [month, setMonth] = useState(months.at(-1) ?? '');
   const sheet = unit === 'hour' ? hourSheetOf(d, date) : unit === 'day' ? daySheetOf(d, month) : sheetOf(d);
   const xOf = (r: Record<string, string | number>) =>
-    unit === 'hour' ? String(r.at).slice(11, 13) : unit === 'day' ? String(r.date).slice(8) : String(r.month).slice(2);
+    unit === 'hour'
+      ? String(r.at).slice(11, 13)
+      : unit === 'day'
+        ? String(r.date).slice(8)
+        : `${Number(String(r.month).slice(5, 7))}월`;
   const chart = sheet.rows.map((r) => ({ x: xOf(r), kwh: num1(r.kwh) }));
   const total = chart.reduce((a, r) => a + r.kwh, 0);
   return (
@@ -688,6 +700,7 @@ function DataView({ d }: { d: Dataset }) {
               xKey="x"
               bars={[{ key: 'kwh', name: '발전량 (kWh)', color: '#F59E0B' }]}
               height={240}
+              xInterval={unit === 'month' ? 1 : undefined}
             />
           </div>
         </div>
@@ -700,10 +713,144 @@ function DataView({ d }: { d: Dataset }) {
 }
 
 /* ══ 데이터 한 건 — 요약 · 데이터(이용 중 · 판매 기업 · 관리자: 시간별 전체 + CSV, 그 밖: 월별 요약 + 하루 샘플). 다른 기업: 신청 ══ */
+/**
+ * 신청 = 결제 — 기업 카드(기업 정보 › 결제 수단, 토스페이먼츠 빌링키)로 첫 달을 결제하고 토큰을 준다. 다음 달부터 매달 1일 자동결제.
+ * 카드가 없으면 결제할 수 없다 — 기업관리자는 등록하러, 소속 멤버는 기업관리자에게 요청
+ */
+function PayModal({
+  d,
+  companyId,
+  onClose,
+  onPaid,
+}: {
+  d: Dataset;
+  companyId: number;
+  onClose: () => void;
+  onPaid: (by: string, pay: { paymentKey: string; approvedAt: string }, cardId: string) => void;
+}) {
+  useHydrateBilling();
+  const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+  const all = useBillingStore((s) => s.cards);
+  const cards = useMemo(() => cardsOf(all, companyId), [all, companyId]);
+  const [pick, setPick] = useState('');
+  const card = cards.find((c) => c.id === pick) ?? cards[0];
+  // 승인 결과 — 결제 요청 → 토스 승인 → 결과를 보여 준 뒤 [확인]에서 토큰 발급
+  const [done, setDone] = useState<{ orderId: string; paymentKey: string; approvedAt: string } | null>(null);
+  const isCompanyAdmin = useIsCompanyAdmin();
+  const addToast = useToastStore((s) => s.add);
+  const [busy, setBusy] = useState(false);
+  const pay = async () => {
+    if (!card) return;
+    try {
+      setBusy(true);
+      const orderId = `dm-${d.id}-${companyId}-${Date.now()}`;
+      const r = await chargeBilling({
+        billingKey: card.billingKey,
+        customerKey: card.customerKey,
+        amount: d.price,
+        orderId,
+        orderName: d.name,
+      });
+      if (r.status !== 'DONE') throw new Error('결제가 승인되지 않았습니다');
+      setDone({ orderId, paymentKey: r.paymentKey, approvedAt: localNow() });
+    } catch (e) {
+      addToast('error', e instanceof Error ? e.message : '결제 실패');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const row = (k: string, v: ReactNode) => (
+    <div className="grid grid-cols-[110px_1fr] gap-3 px-5 py-2.5">
+      <dt className="text-slate-400">{k}</dt>
+      <dd className="text-white tabular-nums">{v}</dd>
+    </div>
+  );
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={done ? '결제 완료' : '결제 · 신청'}
+      size="md"
+      footer={
+        done ? (
+          <div className="flex justify-end">
+            <Button onClick={() => card && onPaid(user?.name ?? '', done, card.id)}>확인 · 토큰 받기</Button>
+          </div>
+        ) : (
+          <div className="flex justify-end gap-2">
+            <Button variant="cancel" onClick={onClose}>
+              취소
+            </Button>
+            {card ? (
+              <Button onClick={() => void pay()} disabled={busy}>
+                {`${priceText(d)} 결제하고 신청`}
+              </Button>
+            ) : isCompanyAdmin ? (
+              <Button onClick={() => router.push('/org')}>카드 등록하러 가기</Button>
+            ) : null}
+          </div>
+        )
+      }
+    >
+      {done && card ? (
+        <dl className="divide-y divide-white/[0.06] rounded-xl text-sm ring-1 ring-white/[0.06]">
+          {row('결과', <span className="font-semibold text-emerald-300">승인</span>)}
+          {row('데이터', d.name)}
+          {row('결제 금액', priceText(d))}
+          {row('결제 카드', cardText(card))}
+          {row('주문번호', <span className="font-mono text-xs">{done.orderId}</span>)}
+          {row('승인 일시', done.approvedAt.replace('T', ' '))}
+          {row('다음 결제', '매달 1일 자동결제')}
+        </dl>
+      ) : (
+        <>
+          <dl className="divide-y divide-white/[0.06] rounded-xl text-sm ring-1 ring-white/[0.06]">
+            {row('데이터', d.name)}
+            {row('금액', `${priceText(d)} (첫 달 지금 결제)`)}
+            {row('다음 결제', '매달 1일 자동결제 · 이용 취소하면 멈춤')}
+            {row(
+              '결제 카드',
+              cards.length === 0 ? (
+                <span className="text-amber-300">등록된 기업 카드 없음</span>
+              ) : (
+                <div className="space-y-1.5">
+                  {cards.map((c) => (
+                    <label key={c.id} className="flex cursor-pointer items-center gap-2">
+                      <input
+                        type="radio"
+                        name="pay-card"
+                        className="h-4 w-4 accent-primary"
+                        checked={card?.id === c.id}
+                        onChange={() => setPick(c.id)}
+                      />
+                      {cardText(c)}
+                      {c.isDefault && <span className="text-xs text-slate-400">기본</span>}
+                    </label>
+                  ))}
+                </div>
+              ),
+            )}
+            {row('신청', user?.name ?? '-')}
+          </dl>
+          {!card && (
+            <p className="mt-3 text-sm text-slate-300">
+              {isCompanyAdmin
+                ? '기업 정보 › 결제 수단에서 카드를 먼저 등록하세요.'
+                : '기업관리자에게 카드 등록을 요청하세요.'}
+            </p>
+          )}
+        </>
+      )}
+    </Modal>
+  );
+}
+
 export function DataDetailScreen() {
   const router = useRouter();
   const role = useDataRole();
   const apply = useDataMarketStore((s) => s.apply);
+  const addCharge = useBillingStore((s) => s.addCharge);
   const addToast = useToastStore((s) => s.add);
   const [id, setId] = useState<number | null>(null);
   const [confirm, setConfirm] = useState(false);
@@ -777,51 +924,49 @@ export function DataDetailScreen() {
               </>
             }
           >
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            {/* 한 줄 5칸씩 두 줄 — 칸 넓이 같게(합치는 칸 없음) */}
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
               <Info label="제공 기업" value={d.ownerCompanyName} />
               <Info label="종류" value={d.kind} />
-              <Info label="설비 용량" value={sum?.kwText} className="md:col-span-2" />
+              <Info label="설비 용량" value={sum?.kwText} />
               <Info label="하루 평균 발전시간" value={sum && `${sum.avgHours.toFixed(1)} h`} />
-              <Info label="누적 발전량" value={sum && `${sum.totalKwh.toLocaleString('ko-KR')} kWh`} />
-              <Info label="데이터 항목" value={DATA_ITEMS} className="md:col-span-2" />
+              <Info label="데이터 항목" value={itemsOf(d)} />
               <Info label="수집 주기" value={DATA_INTERVAL} />
               <Info label="기간" value={periodText(d)} />
               <Info label="제공 방식" value={DELIVERY} />
               <Info label="가격" value={priceText(d)} />
-              <Info
-                label="이용"
-                value={`${role.tradesAll.filter((t) => t.datasetId === d.id && isActive(t)).length}곳`}
-              />
               <Info label="공개일" value={day(d.consentedAt)} />
             </div>
           </SectionCard>
 
-          {full ? (
-            <DataView d={d} />
-          ) : (
-            <>
-              <SampleDay d={d} />
-              <SectionCard title={`월별 요약 (${shown.rows.length})`} noPadding>
-                <SheetTable sheet={shown} />
-              </SectionCard>
-            </>
-          )}
+          {full ? <DataView d={d} /> : <SampleMonth d={d} />}
         </>
       ) : null}
 
-      <ConfirmDialog
-        open={confirm}
-        onClose={() => setConfirm(false)}
-        onConfirm={() => {
-          if (!d) return;
-          const t = apply(d, { id: role.companyId, name: role.companyName });
-          if (t) addToast('success', `${d.name} 신청 — 토큰 발급`);
-          setConfirm(false);
-        }}
-        title="신청"
-        message={`${d?.name ?? ''} 를 ${d ? priceText(d) : ''} 에 신청합니다. 신청하면 토큰이 발급되고 CSV 로도 받을 수 있습니다.`}
-        confirmLabel="신청"
-      />
+      {d && confirm && (
+        <PayModal
+          d={d}
+          companyId={role.companyId}
+          onClose={() => setConfirm(false)}
+          onPaid={(by, pay, cardId) => {
+            const t = apply(d, { id: role.companyId, name: role.companyName });
+            if (t) {
+              addCharge({
+                companyId: role.companyId,
+                cardId,
+                tradeId: t.id,
+                orderName: d.name,
+                amount: d.price,
+                approvedAt: localNow(),
+                paymentKey: pay.paymentKey,
+                by,
+              });
+              addToast('success', `${d.name} 결제 · 신청 — 토큰 발급`);
+            }
+            setConfirm(false);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -830,11 +975,14 @@ export function DataDetailScreen() {
  *    누가 얼마 내는지는 정산에서 본다 ══ */
 export function DataTradesScreen() {
   const role = useDataRole();
-  // 기업 계정은 내 데이터 하나만 — 목록 없이 바로 이용 내역 · 사용량
-  const mine = role.isAdmin ? undefined : role.products.find((d) => d.ownerCompanyId === role.companyId);
-  if (role.isAdmin) return <DataTradesAdmin />;
-  if (mine && (mine.onSale || role.tradesAll.some((t) => t.datasetId === mine.id)))
-    return <DataTradeDetailScreen fixedId={mine.id} />;
+  // 기업 계정 — 내 데이터가 하나면 바로 이용 내역 · 사용량, 둘 이상(한일튜브 자가소비 · PPA)이면 목록
+  const mine = role.isAdmin
+    ? []
+    : role.products.filter(
+        (d) => d.ownerCompanyId === role.companyId && (d.onSale || role.tradesAll.some((t) => t.datasetId === d.id)),
+      );
+  if (role.isAdmin || mine.length > 1) return <DataTradesAdmin />;
+  if (mine[0]) return <DataTradeDetailScreen fixedId={mine[0].id} />;
   return <DataTradesEmpty />;
 }
 
@@ -870,7 +1018,7 @@ function DataTradesAdmin() {
 
   /** 데이터별 — 판매 중인 것 전부(관리자는 동의 안 한 것까지) */
   const perData = role.products
-    .filter((d) => d.onSale || role.isAdmin)
+    .filter((d) => role.isAdmin || (d.ownerCompanyId === role.companyId && d.onSale))
     .map((d) => {
       const ts = role.tradesAll.filter((t) => t.datasetId === d.id);
       return {
@@ -1244,16 +1392,16 @@ export function DataApiHubScreen() {
     void navigator.clipboard?.writeText(t.token);
     addToast('success', '토큰 복사');
   };
-  const apiName = (name: string, ownerCompanyId: number, key: string) => (
+  const apiName = (name: string, sellerId: number, key: string) => (
     <span className="flex flex-col">
       <span className={`text-sm font-medium ${key === which ? 'text-primary' : 'text-white'}`}>{name}</span>
-      <span className="font-mono text-xs text-slate-500">{endpointOf({ ownerCompanyId })}</span>
+      <span className="font-mono text-xs text-slate-500">{endpointOf({ sellerId })}</span>
     </span>
   );
 
   /* 관리자 표 */
   const adminCols: Column<Dataset>[] = [
-    { key: 'name', header: 'API', render: (d) => apiName(d.name, d.ownerCompanyId, String(d.id)) },
+    { key: 'name', header: 'API', render: (d) => apiName(d.name, d.sellerId, String(d.id)) },
     { key: 'owner', header: '제공 기업', width: '120px', render: (d) => cell(d.ownerCompanyName) },
     { key: 'at', header: '공개일', width: '120px', render: (d) => num(day(d.consentedAt)) },
     { key: 'users', header: '이용 기업', width: '100px', render: (d) => strong(`${tokensOf(d.id).length}곳`) },

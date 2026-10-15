@@ -6,6 +6,7 @@ import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { SectionCard } from '@/components/features';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
+import { TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
 import { getNotificationSettings, saveNotificationSettings, getNotificationEventCatalog } from '@/api/platform/notifications';
 import { useToastStore } from '@/stores/useToastStore';
 
@@ -88,8 +89,6 @@ export default function NotificationSettingsPage() {
     }
   };
 
-  const th = 'px-5 py-3 text-left text-xs font-medium text-slate-400';
-
   return (
     <div className="space-y-6">
       <Breadcrumb items={[{ label: '관리' }, { label: '알림 설정' }]} />
@@ -110,12 +109,12 @@ export default function NotificationSettingsPage() {
             <Loader2 className="animate-spin text-slate-400" size={20} />
           </div>
         ) : (
-          <table className="w-full">
+          <table className={TABLE}>
             <thead>
-              <tr className="border-b border-white/[0.06]">
-                <th className={th}>항목</th>
-                <th className={cn(th, 'w-32')}>웹 알림</th>
-                <th className={cn(th, 'w-32')}>이메일</th>
+              <tr className={TABLE_HEAD_ROW}>
+                <th className={TABLE_TH}>항목</th>
+                <th className={cn(TABLE_TH, 'w-32')}>웹 알림</th>
+                <th className={cn(TABLE_TH, 'w-32')}>이메일</th>
               </tr>
             </thead>
             <tbody>
@@ -124,16 +123,16 @@ export default function NotificationSettingsPage() {
                 const allInApp = items.every((r) => r.inApp);
                 const allEmail = items.every((r) => r.email);
                 return [
-                  <tr key={`${domain}-head`} className="border-b border-white/[0.04] bg-white/[0.02]">
-                    <td className="px-5 py-3 text-sm font-semibold text-white">{domain}</td>
-                    <td className="px-5 py-3"><Toggle on={allInApp} onChange={() => toggleDomain(domain, 'inApp')} label={`${domain} 웹 알림 전체`} /></td>
-                    <td className="px-5 py-3"><Toggle on={allEmail} onChange={() => toggleDomain(domain, 'email')} label={`${domain} 이메일 전체`} /></td>
+                  <tr key={`${domain}-head`} className={cn(TABLE_ROW, 'bg-white/[0.02]')}>
+                    <td className={cn(TABLE_TD, 'font-semibold')}>{domain}</td>
+                    <td className={TABLE_TD}><Toggle on={allInApp} onChange={() => toggleDomain(domain, 'inApp')} label={`${domain} 웹 알림 전체`} /></td>
+                    <td className={TABLE_TD}><Toggle on={allEmail} onChange={() => toggleDomain(domain, 'email')} label={`${domain} 이메일 전체`} /></td>
                   </tr>,
                   ...items.map((r) => (
-                    <tr key={r.key} className="border-b border-white/[0.04]">
-                      <td className="px-5 py-3 pl-11 text-sm text-slate-300">{r.label}</td>
-                      <td className="px-5 py-3"><Toggle on={r.inApp} onChange={() => toggle(r.key, 'inApp')} label={`${r.label} 웹 알림`} /></td>
-                      <td className="px-5 py-3"><Toggle on={r.email} onChange={() => toggle(r.key, 'email')} label={`${r.label} 이메일`} /></td>
+                    <tr key={r.key} className={TABLE_ROW}>
+                      <td className={cn(TABLE_TD, 'pl-11')}>{r.label}</td>
+                      <td className={TABLE_TD}><Toggle on={r.inApp} onChange={() => toggle(r.key, 'inApp')} label={`${r.label} 웹 알림`} /></td>
+                      <td className={TABLE_TD}><Toggle on={r.email} onChange={() => toggle(r.key, 'email')} label={`${r.label} 이메일`} /></td>
                     </tr>
                   )),
                 ];

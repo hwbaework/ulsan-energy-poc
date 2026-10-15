@@ -7,6 +7,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { cn } from '@/lib/utils';
+import { TABLE, TABLE_HEAD_ROW, TABLE_ROW, TABLE_TD, TABLE_TH } from '@/components/features/DataList';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { getPersona, usePersonaOverride } from '@/lib/persona';
 import { useHydrateTradingPoc, useTradingPocStore } from '@/stores/useTradingPocStore';
@@ -93,30 +94,30 @@ function OpMonthTable({ yr, sel, onPick }: { yr: ReturnType<typeof opYear>; sel:
   ];
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[620px] text-xs tabular-nums">
+      <table className={cn(TABLE, 'min-w-[720px] tabular-nums')}>
         <thead>
-          <tr className="text-slate-400">
-            <th className="py-1.5 pr-2 text-left font-medium">월</th>
+          <tr className={TABLE_HEAD_ROW}>
+            <th className={cn(TABLE_TH, 'px-3')}>월</th>
             {yr.months.map((x) => (
-              <th key={x.m} className={cn('py-1.5 text-right font-medium', x.m === sel && 'text-white')}>
+              <th key={x.m} className={cn(TABLE_TH, 'px-3 text-right', x.m === sel && 'text-white')}>
                 <button type="button" onClick={() => onPick(x.m)} className="hover:underline">
                   {x.m}월
                 </button>
               </th>
             ))}
-            <th className="py-1.5 pl-2 text-right font-medium text-white">합계</th>
+            <th className={cn(TABLE_TH, 'px-3 text-right')}>합계</th>
           </tr>
         </thead>
         <tbody>
           {rows.map(([label, f, cls]) => (
-            <tr key={label} className="border-t border-white/[0.04]">
-              <td className={cn('py-1.5 pr-2 whitespace-nowrap', cls)}>{label}</td>
+            <tr key={label} className={TABLE_ROW}>
+              <td className={cn(TABLE_TD, 'px-3 whitespace-nowrap', cls)}>{label}</td>
               {yr.months.map((x) => (
-                <td key={x.m} className={cn('py-1.5 text-right', cls, x.m === sel && 'font-semibold')}>
+                <td key={x.m} className={cn(TABLE_TD, 'px-3 text-right', cls, x.m === sel && 'font-semibold')}>
                   {f(x) || ''}
                 </td>
               ))}
-              <td className={cn('py-1.5 pl-2 text-right font-semibold', cls)}>{yr.months.reduce((a, x) => a + f(x), 0) || ''}</td>
+              <td className={cn(TABLE_TD, 'px-3 text-right font-semibold', cls)}>{yr.months.reduce((a, x) => a + f(x), 0) || ''}</td>
             </tr>
           ))}
         </tbody>
@@ -194,7 +195,8 @@ function OpCalendar({
 }
 
 /** 운전 일정 카드(설정 › 설정) — 요일별 운전 시간 · 공휴일 OFF · 해 요약 · 달력(누르면 그날 지정) */
-export function PpaScheduleCard({ companyId: fixed }: { companyId?: number }) {
+/** readOnly — 소속 멤버(기업관리자 아님)는 보기만 */
+export function PpaScheduleCard({ companyId: fixed, readOnly }: { companyId?: number; readOnly?: boolean }) {
   useHydrateOpSchedule();
   // 바로 반영하지 않는다 — 요일표 저장 · 공휴일 · 날짜 지정 전부 확인을 거친다
   const [pendingChange, setPendingChange] = useState<{ title: string; text: string; run: () => void } | null>(null);
@@ -239,10 +241,10 @@ export function PpaScheduleCard({ companyId: fixed }: { companyId?: number }) {
 
   return (
     <SectionCard
-      title="PPA 운전 일정"
+      title={readOnly ? 'PPA 운전 일정 · 보기' : 'PPA 운전 일정'}
       actions={
         <div className="flex items-center gap-2">
-          {draft && (
+          {draft && !readOnly && (
             <>
               <Button size="sm" variant="cancel" onClick={() => setDraft(null)}>
                 취소
@@ -285,13 +287,13 @@ export function PpaScheduleCard({ companyId: fixed }: { companyId?: number }) {
         <div className="grid gap-6 lg:grid-cols-[minmax(0,500px)_1fr]">
           <div>
             <h4 className="mb-2 text-sm font-semibold text-white">요일별 운전</h4>
-            <table className="w-full text-sm">
+            <table className={TABLE}>
               <thead>
-                <tr className="text-xs text-slate-400">
-                  <th className="py-1.5 text-left font-medium">요일</th>
-                  <th className="py-1.5 text-left font-medium">운전</th>
-                  <th className="py-1.5 text-left font-medium">켜는 시각</th>
-                  <th className="py-1.5 text-left font-medium">끄는 시각</th>
+                <tr className={TABLE_HEAD_ROW}>
+                  <th className={TABLE_TH}>요일</th>
+                  <th className={TABLE_TH}>운전</th>
+                  <th className={TABLE_TH}>켜는 시각</th>
+                  <th className={TABLE_TH}>끄는 시각</th>
                 </tr>
               </thead>
               <tbody>
@@ -299,29 +301,29 @@ export function PpaScheduleCard({ companyId: fixed }: { companyId?: number }) {
                   const r = week[wd]!;
                   const bad = r.on && (!r.from || !r.to || r.from >= r.to);
                   return (
-                    <tr key={wd} className="border-t border-white/[0.04]">
-                      <td className={cn('py-1.5 font-medium', wd === 0 ? 'text-red-300' : wd === 6 ? 'text-sky-300' : 'text-slate-200')}>{WEEKDAY[wd]}</td>
-                      <td className="py-1.5">
+                    <tr key={wd} className={TABLE_ROW}>
+                      <td className={cn(TABLE_TD, 'py-2 font-medium', wd === 0 ? 'text-red-300' : wd === 6 ? 'text-sky-300' : 'text-white')}>{WEEKDAY[wd]}</td>
+                      <td className={cn(TABLE_TD, 'py-2')}>
                         <label className="flex cursor-pointer items-center gap-2 text-slate-200">
-                          <input type="checkbox" className="h-4 w-4 accent-primary" checked={r.on} onChange={(e) => setDay(wd, { on: e.target.checked })} />
+                          <input type="checkbox" className="h-4 w-4 accent-primary disabled:opacity-60" disabled={readOnly} checked={r.on} onChange={(e) => setDay(wd, { on: e.target.checked })} />
                           {r.on ? '운전' : 'OFF'}
                         </label>
                       </td>
-                      <td className="py-1.5">
+                      <td className={cn(TABLE_TD, 'py-2')}>
                         <input
                           type="time"
                           aria-label={`${WEEKDAY[wd]}요일 켜는 시각`}
-                          disabled={!r.on}
+                          disabled={!r.on || readOnly}
                           value={r.from}
                           onChange={(e) => setDay(wd, { from: e.target.value })}
                           className={cn(TIME_INPUT, bad && 'ring-red-500/70')}
                         />
                       </td>
-                      <td className="py-1.5">
+                      <td className={cn(TABLE_TD, 'py-2')}>
                         <input
                           type="time"
                           aria-label={`${WEEKDAY[wd]}요일 끄는 시각`}
-                          disabled={!r.on}
+                          disabled={!r.on || readOnly}
                           value={r.to}
                           onChange={(e) => setDay(wd, { to: e.target.value })}
                           className={cn(TIME_INPUT, bad && 'ring-red-500/70')}
@@ -335,7 +337,8 @@ export function PpaScheduleCard({ companyId: fixed }: { companyId?: number }) {
             <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-slate-200">
               <input
                 type="checkbox"
-                className="h-4 w-4 accent-primary"
+                className="h-4 w-4 accent-primary disabled:opacity-60"
+                disabled={readOnly}
                 checked={sch.holidayOff}
                 onChange={(e) => {
                   const v = e.target.checked;
@@ -361,7 +364,7 @@ export function PpaScheduleCard({ companyId: fixed }: { companyId?: number }) {
         </div>
 
         {/* 달력 — 날마다 운전 시간 또는 OFF. 누르면 그 날짜만 지정(OFF · 시간 지정) */}
-        <OpCalendar ym={ym} days={days} now={now} onMove={move} onDay={openDay} />
+        <OpCalendar ym={ym} days={days} now={now} onMove={move} onDay={readOnly ? undefined : openDay} />
       </div>
 
       {/* 확인 — 요일표 저장 · 공휴일 OFF */}
@@ -519,12 +522,12 @@ export function PpaOpInfo({ companyId }: { companyId: number }) {
           {picked.length === 0 ? (
             <p className="py-3 text-sm text-slate-400">지정 없음</p>
           ) : (
-            <table className="w-full max-w-md text-sm tabular-nums">
+            <table className={cn(TABLE, 'max-w-xl tabular-nums')}>
               <thead>
-                <tr className="text-xs text-slate-400">
-                  <th className="py-1.5 text-left font-medium">날짜</th>
-                  <th className="py-1.5 text-left font-medium">요일</th>
-                  <th className="py-1.5 text-left font-medium">운전</th>
+                <tr className={TABLE_HEAD_ROW}>
+                  <th className={TABLE_TH}>날짜</th>
+                  <th className={TABLE_TH}>요일</th>
+                  <th className={TABLE_TH}>운전</th>
                 </tr>
               </thead>
               <tbody>
@@ -532,10 +535,10 @@ export function PpaOpInfo({ companyId }: { companyId: number }) {
                   const run = runOfOverride(v);
                   const wd = weekdayOf(d);
                   return (
-                    <tr key={d} className="border-t border-white/[0.04]">
-                      <td className="py-1.5 text-slate-200">{d}</td>
-                      <td className={cn('py-1.5', wd === 0 ? 'text-red-300' : wd === 6 ? 'text-sky-300' : 'text-slate-300')}>{WEEKDAY[wd]}</td>
-                      <td className={cn('py-1.5', run ? 'text-emerald-200' : 'text-red-300')}>
+                    <tr key={d} className={TABLE_ROW}>
+                      <td className={TABLE_TD}>{d}</td>
+                      <td className={cn(TABLE_TD, wd === 0 ? 'text-red-300' : wd === 6 ? 'text-sky-300' : 'text-white')}>{WEEKDAY[wd]}</td>
+                      <td className={cn(TABLE_TD, run ? 'text-emerald-200' : 'text-red-300')}>
                         {run ? `${run.from}~${run.to}` : v === 'ON' ? '요일 시간대로 운전' : 'OFF'}
                       </td>
                     </tr>

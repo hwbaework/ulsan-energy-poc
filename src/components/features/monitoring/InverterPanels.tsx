@@ -3,6 +3,7 @@
 import { Fragment, useState } from 'react';
 import { Wifi, WifiOff, Power, Radio, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
 import { StatusPill } from '@/components/ui/Design';
 import type { InverterStatus, PlantConnectionStatus } from '@/types/monitoring';
 import { PpaOpBadge, usePpaOpNow } from './PpaSchedule';
@@ -110,20 +111,20 @@ export function InverterDetailSection({ inverters, flush }: { inverters: Inverte
 
       {/* Inverter Table */}
       <div className={flush ? 'overflow-x-auto border-t border-white/[0.06]' : 'overflow-x-auto'}>
-        <table className="w-full text-sm">
-          <thead className="text-left">
-            <tr className="border-b border-white/10">
-              <th className="text-left text-slate-400 font-medium py-3 px-3">인버터</th>
-              <th className="text-slate-400 font-medium py-3 px-3">DC전압</th>
-              <th className="text-slate-400 font-medium py-3 px-3">DC전류</th>
-              <th className="text-slate-400 font-medium py-3 px-3">DC전력</th>
-              <th className="text-slate-400 font-medium py-3 px-3">AC전력</th>
-              <th className="text-slate-400 font-medium py-3 px-3">역률</th>
-              <th className="text-slate-400 font-medium py-3 px-3">주파수</th>
-              <th className="text-slate-400 font-medium py-3 px-3">일발전</th>
-              <th className="text-slate-400 font-medium py-3 px-3">통신</th>
-              <th className="text-slate-400 font-medium py-3 px-3">상태</th>
-              <th className="py-3 px-1 w-8" />
+        <table className={TABLE}>
+          <thead>
+            <tr className={TABLE_HEAD_ROW}>
+              <th className={TABLE_TH}>인버터</th>
+              <th className={TABLE_TH}>DC전압</th>
+              <th className={TABLE_TH}>DC전류</th>
+              <th className={TABLE_TH}>DC전력</th>
+              <th className={TABLE_TH}>AC전력</th>
+              <th className={TABLE_TH}>역률</th>
+              <th className={TABLE_TH}>주파수</th>
+              <th className={TABLE_TH}>일발전</th>
+              <th className={TABLE_TH}>통신</th>
+              <th className={TABLE_TH}>상태</th>
+              <th className={cn(TABLE_TH, 'w-8 px-1')} />
             </tr>
           </thead>
           <tbody>
@@ -131,37 +132,38 @@ export function InverterDetailSection({ inverters, flush }: { inverters: Inverte
               <Fragment key={inv.number}>
                 <tr
                   className={cn(
-                    'border-b border-white/5 hover:bg-white/[0.02] cursor-pointer transition-colors',
+                    TABLE_ROW,
+                    'hover:bg-white/[0.02] cursor-pointer transition-colors',
                     expandedInv === inv.number && 'bg-white/[0.03]',
                   )}
                   onClick={() => setExpandedInv(expandedInv === inv.number ? null : inv.number)}
                 >
-                  <td className="py-3 px-3">
+                  <td className={TABLE_TD}>
                     <span className="font-semibold text-white">INV-{String(inv.number).padStart(3, '0')}</span>
                   </td>
                   {/* DC전압: LASEE 미제공 — 백엔드 추가 시 inv.dc.voltage 사용 */}
-                  <td className="py-3 px-3 text-slate-500">-</td>
+                  <td className={cn(TABLE_TD, 'text-slate-500')}>-</td>
                   {/* DC전류: LASEE 미제공 */}
-                  <td className="py-3 px-3 text-slate-500">-</td>
-                  <td className="py-3 px-3 text-white tabular-nums">{inv.dc.power.toFixed(1)} kW</td>
-                  <td className="py-3 px-3 text-white tabular-nums">{inv.ac.power.toFixed(1)} kW</td>
-                  <td className="py-3 px-3 text-slate-500">-</td>
-                  <td className="py-3 px-3 text-slate-500">-</td>
-                  <td className="py-3 px-3 text-white tabular-nums">{inv.dailyEnergy.toFixed(1)} kWh</td>
-                  <td className="py-3 px-3">
+                  <td className={cn(TABLE_TD, 'text-slate-500')}>-</td>
+                  <td className={cn(TABLE_TD, 'tabular-nums')}>{inv.dc.power.toFixed(1)} kW</td>
+                  <td className={cn(TABLE_TD, 'tabular-nums')}>{inv.ac.power.toFixed(1)} kW</td>
+                  <td className={cn(TABLE_TD, 'text-slate-500')}>-</td>
+                  <td className={cn(TABLE_TD, 'text-slate-500')}>-</td>
+                  <td className={cn(TABLE_TD, 'tabular-nums')}>{inv.dailyEnergy.toFixed(1)} kWh</td>
+                  <td className={TABLE_TD}>
                     <StatusPill
                       tone={inv.connectionState === 'NORMAL' ? 'normal' : 'danger'}
                       label={inv.connectionState === 'NORMAL' ? '정상' : '오류'}
                     />
                   </td>
-                  <td className="py-3 px-3">
+                  <td className={TABLE_TD}>
                     {inv.statusMessages.length > 0 ? (
                       <StatusPill tone="warning" label={inv.statusMessages[0]!} />
                     ) : (
                       <StatusPill tone="normal" label="정상" />
                     )}
                   </td>
-                  <td className="py-3 px-1">
+                  <td className={cn(TABLE_TD, 'px-1')}>
                     {expandedInv === inv.number ? (
                       <ChevronUp size={14} className="text-slate-500" />
                     ) : (
@@ -172,7 +174,7 @@ export function InverterDetailSection({ inverters, flush }: { inverters: Inverte
                 {/* AC 3-phase expanded row */}
                 {expandedInv === inv.number && (
                   <tr className="bg-white/[0.02]">
-                    <td colSpan={11} className="px-3 py-3">
+                    <td colSpan={11} className={TABLE_TD}>
                       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                         {/* AC Voltage 3-phase */}
                         <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3">

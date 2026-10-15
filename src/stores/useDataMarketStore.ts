@@ -10,8 +10,9 @@ import { useEffect } from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { ssrSafeStorage } from '@/lib/ssr-storage';
+import { HOLIDAYS_SEED, OP_RULE_DEFAULT, dayStatus, offAt, weekdayOf, WEEKDAY, type DayStatus } from '@/lib/op-calendar';
 
-export const DM_SEED_VERSION = 14;
+export const DM_SEED_VERSION = 15; // 15 — 한일튜브 자가소비 · PPA 데이터 따로(설비 · 인버터가 따로), PPA 는 운전 칸
 
 export const DATA_KINDS = ['태양광 발전량'] as const;
 export type DataKind = (typeof DATA_KINDS)[number];
@@ -30,26 +31,45 @@ export const DM_TODAY = '2026-10-02';
 export const THIS_MONTH = DM_TODAY.slice(0, 7);
 const LAST_MONTH = '2026-09';
 const PERIOD_FROM = '2025-03';
-/* ── 판매 기업 — 실제 기업만. 태양광 설비 용량은 실제 값 ── */
+/* ── 판매 데이터 단위 — 설비(계약) 하나 = 데이터 하나. 설비 · 인버터가 따로라 한일튜브는 자가소비 · PPA 둘(2026-10-15).
+ *  id = 데이터 단위 id(기업 id 와 같거나, 한일튜브 PPA 는 8), companyId = 판매 기업 ── */
 export interface SellerCompany {
   id: number;
+  /** 판매 기업 — 없으면 id 와 같다 */
+  companyId?: number;
   name: string;
-  /** 태양광 설비 용량(kW) — 자가소비 + onsite */
+  /** 계약 유형 — 한 기업에 설비가 둘일 때만(자가소비 / PPA) */
+  unit?: '자가소비' | 'PPA';
+  /** 태양광 설비 용량(kW) — 그 설비 하나 */
   solarKw: number;
   /** 데이터 시작 달 = 전력거래 계약 시작 달(PERIOD_FROM 보다 늦을 때만). 온실가스 배출원과 같은 범위 */
   from?: string;
 }
 export const DM_SELLERS: SellerCompany[] = [
   { id: 2, name: '한길', solarKw: 90.88, from: '2025-05' }, // 계약 CT-2025-0003 시작 2025-05-01
-  { id: 4, name: '한일튜브', solarKw: 429.44 },
+  { id: 4, companyId: 4, name: '한일튜브', unit: '자가소비', solarKw: 99.84 },
+  { id: 8, companyId: 4, name: '한일튜브', unit: 'PPA', solarKw: 329.6 },
   { id: 5, name: '용인금속', solarKw: 152.32 },
   { id: 6, name: '태성산업', solarKw: 46.08 },
   { id: 7, name: '건호이엔씨', solarKw: 33.92 },
 ];
+/** 판매 기업 id */
+export const companyOfSeller = (c: SellerCompany) => c.companyId ?? c.id;
+/** PPA 운전 — 기본 규칙(주말 · 공휴일 OFF, 매일 10:00 ~ 17:00 운전)으로 시간마다 꺼졌는지. PPA 설비만 */
+const HOLIDAYS = new Map(Object.values(HOLIDAYS_SEED).flat().map((h) => [h.date, h.name]));
+const ppaDay = (date: string): DayStatus => dayStatus(date, HOLIDAYS, OP_RULE_DEFAULT);
+/** 운전 칸 글자 — ON / OFF(사유) */
+export function runText(date: string, hour?: number): string {
+  const d = ppaDay(date);
+  if (!d.on) return `OFF · ${d.reason === '요일 OFF' ? `${WEEKDAY[weekdayOf(date)]}요일` : d.reason}`;
+  if (hour === undefined) return d.run ? `ON ${d.run.from}~${d.run.to}` : 'ON';
+  return offAt(d, `${String(hour).padStart(2, '0')}:00`) ? 'OFF · 설정' : 'ON';
+}
 
-/** 판매 동의 — 기업 × 종류. 있으면 공개 중 */
+/** 판매 동의 — 데이터 단위(설비) × 종류. 있으면 공개 중 */
 export interface Consent {
-  companyId: number;
+  /** 데이터 단위 id(DM_SELLERS.id) */
+  sellerId: number;
   kind: DataKind;
   consentedAt: string;
 }
@@ -62,6 +82,10 @@ export interface Dataset {
   periodFrom: string;
   periodTo: string;
   description: string;
+  /** 데이터 단위(설비) — DM_SELLERS.id */
+  sellerId: number;
+  /** 계약 유형 — 한 기업에 설비가 둘일 때만 */
+  unit?: '자가소비' | 'PPA';
   ownerCompanyId: number;
   ownerCompanyName: string;
   priceType: PriceType;
@@ -127,8 +151,21 @@ function months(): { month: string; m: number; days: number; i: number }[] {
 /** 같은 기업 · 같은 달이면 늘 같은 작은 흔들림(±3%) */
 const wiggle = (id: number, i: number) => 1 + (((id * 7 + i * 5) % 13) - 6) / 200;
 
-/** 달마다 발전시간 · 발전량 — 같은 기업 · 같은 달이면 늘 같은 흔들림(±3%). 온실가스 인벤토리 감축량도 이 값을 쓴다 */
+/** 달마다 발전시간 · 발전량 — 같은 기업 · 같은 달이면 늘 같은 흔들림(±3%). 온실가스 인벤토리 감축량도 이 값을 쓴다.
+ *  PPA 설비는 꺼진 시간(주말 · 공휴일 · 10:00 ~ 17:00 밖)을 뺀 날마다 합 */
 export function generationOf(c: SellerCompany) {
+  if (c.unit === 'PPA') {
+    const days = dailyOf(c.id);
+    return potentialOf(c).map((g) => {
+      const ds = days.filter((x) => x.date.startsWith(g.month));
+      const kwh = ds.reduce((a, x) => a + x.kwh, 0);
+      return { month: g.month, hours: r1(kwh / c.solarKw / (ds.length || 1)), kwh, opDays: ds.filter((x) => x.run).length };
+    });
+  }
+  return potentialOf(c);
+}
+/** 꺼지지 않았다면의 발전량(설비 용량 × 발전시간 × 날수) */
+function potentialOf(c: SellerCompany): { month: string; hours: number; kwh: number; opDays?: number }[] {
   return months()
     .filter(({ month }) => !c.from || month >= c.from)
     .map(({ month, m, days, i }) => {
@@ -139,7 +176,7 @@ export function generationOf(c: SellerCompany) {
 /* ── 상품 — 기업 × 종류. id = 기업 id × 10 + 종류 번호 ── */
 const kindNo = (k: DataKind) => DATA_KINDS.indexOf(k) + 1;
 function describe(c: SellerCompany): string {
-  return `${c.name} 태양광 ${c.solarKw} kW 시간별 발전량(kWh)`;
+  return `${c.name}${c.unit ? ` ${c.unit}` : ''} 태양광 ${c.solarKw} kW 시간별 발전량(kWh)`;
 }
 
 /* ── 시간별 발전량(데모 시드) — 수집 단위. 달 발전량(generationOf)을 날마다 · 시간마다 나눈다
@@ -183,9 +220,12 @@ export interface DayGen {
   hours: number;
   /** 0시 ~ 23시 발전량(kWh, 소수 1자리) — 합 = kwh */
   hourly: number[];
+  /** PPA 운전한 날인지 — PPA 설비만 */
+  run?: boolean;
 }
 /** 달 하나의 날마다 발전량 */
 function daysOf(c: SellerCompany, month: string, monthKwh: number, days: number): DayGen[] {
+  const ppa = c.unit === 'PPA';
   const m = Number(month.slice(5, 7));
   const day0 = Number(month.replace('-', '')) * 100;
   const f = Array.from({ length: days }, (_, i) => 0.6 + 0.5 * noise(c.id, day0 + i + 1));
@@ -198,8 +238,16 @@ function daysOf(c: SellerCompany, month: string, monthKwh: number, days: number)
     const hourly = shape.map((s) => Math.round(kwh * s * 10) / 10);
     const peak = hourly.indexOf(Math.max(...hourly));
     hourly[peak] = Math.round((hourly[peak]! + kwh - hourly.reduce((a, x) => a + x, 0)) * 10) / 10;
+    const date = `${month}-${String(i + 1).padStart(2, '0')}`;
+    if (ppa) {
+      // PPA — 인버터가 꺼진 시간은 데이터가 0(쉬는 날은 종일)
+      const st = ppaDay(date);
+      const on = hourly.map((v, h) => (offAt(st, `${String(h).padStart(2, '0')}:00`) ? 0 : v));
+      const sum = Math.round(on.reduce((a, x) => a + x, 0));
+      return { date, kwh: sum, hours: r1(sum / c.solarKw), hourly: on, run: st.on };
+    }
     return {
-      date: `${month}-${String(i + 1).padStart(2, '0')}`,
+      date,
       kwh,
       hours: r1(kwh / c.solarKw),
       hourly,
@@ -213,7 +261,7 @@ export function dailyOf(companyId: number): DayGen[] {
   if (hit) return hit;
   const c = DM_SELLERS.find((x) => x.id === companyId);
   if (!c) return [];
-  const out = generationOf(c).flatMap((g) => daysOf(c, g.month, g.kwh, daysIn(g.month)));
+  const out = potentialOf(c).flatMap((g) => daysOf(c, g.month, g.kwh, daysIn(g.month)));
   dayCache.set(companyId, out);
   return out;
 }
@@ -234,15 +282,17 @@ export function productsOf(consents: Consent[]): Dataset[] {
   };
   return DM_SELLERS.flatMap((c) =>
     DATA_KINDS.map((kind) => {
-      const consent = consents.find((x) => x.companyId === c.id && x.kind === kind);
+      const consent = consents.find((x) => x.sellerId === c.id && x.kind === kind);
       return {
         ...base,
         periodFrom: fromOf(c),
         id: c.id * 10 + kindNo(kind),
-        name: `${c.name} ${kind}`,
+        name: `${c.name}${c.unit ? ` ${c.unit}` : ''} ${kind}`,
         kind,
         description: describe(c),
-        ownerCompanyId: c.id,
+        sellerId: c.id,
+        unit: c.unit,
+        ownerCompanyId: companyOfSeller(c),
         ownerCompanyName: c.name,
         onSale: !!consent,
         consentedAt: consent?.consentedAt,
@@ -253,29 +303,31 @@ export function productsOf(consents: Consent[]): Dataset[] {
 
 /** 수집 주기 · 데이터 항목 — 모든 데이터가 같다 */
 export const DATA_INTERVAL = '시간별';
-export const DATA_ITEMS = '일시 · 발전량 (kWh) — 시간별 · 일별 · 월별 합계';
+export const DATA_ITEMS = '시간·일·월별 발전량 (kWh)';
+/** 데이터 항목 — PPA 는 운전(ON / OFF) 칸이 더 있다 */
+export const itemsOf = (d: Pick<Dataset, 'unit'>) => (d.unit === 'PPA' ? `${DATA_ITEMS} · 운전` : DATA_ITEMS);
 /** 보기 단위 */
 export type SheetUnit = 'hour' | 'day' | 'month';
 export const UNIT_LABEL: Record<SheetUnit, string> = { hour: '시간별', day: '일별', month: '월별' };
 
 /** 데이터 요약 — 상세 위 칸. 월별 표(generationOf)에서 계산해 표와 어긋나지 않게 */
 export interface DataSummary {
-  /** 설비 용량 — 한일튜브는 자가소비 + onsite 나눠서 */
+  /** 설비 용량 — 그 설비 하나 */
   kwText: string;
   /** 기간 하루 평균 발전시간(h) — 날수 가중 */
   avgHours: number;
   /** 기간 누적 발전량(kWh) */
   totalKwh: number;
 }
-export function summaryOf(d: Pick<Dataset, 'ownerCompanyId'>): DataSummary | undefined {
-  const c = DM_SELLERS.find((x) => x.id === d.ownerCompanyId);
+export function summaryOf(d: Pick<Dataset, 'sellerId'>): DataSummary | undefined {
+  const c = DM_SELLERS.find((x) => x.id === d.sellerId);
   if (!c) return undefined;
   const g = generationOf(c);
   const days = g.reduce((a, r) => a + daysIn(r.month), 0);
   const hourDays = g.reduce((a, r) => a + r.hours * daysIn(r.month), 0);
   const kw = c.solarKw.toFixed(2);
   return {
-    kwText: c.id === 4 ? `${kw} kW (자가소비 99.84 + PPA 329.60)` : `${kw} kW`,
+    kwText: `${kw} kW`,
     avgHours: days ? Math.round((hourDays / days) * 10) / 10 : 0,
     totalKwh: g.reduce((a, r) => a + r.kwh, 0),
   };
@@ -290,43 +342,49 @@ const fmt1 = (v: number) =>
   v.toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /** 시간별 — 고른 날 하루 24줄 */
-export function hourSheetOf(d: Pick<Dataset, 'ownerCompanyId'>, date: string): DataSheet {
-  const g = dailyOf(d.ownerCompanyId).find((x) => x.date === date);
+export function hourSheetOf(d: Pick<Dataset, 'sellerId' | 'unit'>, date: string): DataSheet {
+  const g = dailyOf(d.sellerId).find((x) => x.date === date);
+  const ppa = d.unit === 'PPA';
   return {
     columns: [
       { key: 'at', label: '일시' },
+      ...(ppa ? [{ key: 'run', label: '운전' }] : []),
       { key: 'kwh', label: '발전량 (kWh)', strong: true },
     ],
     rows: (g?.hourly ?? []).map((v, h) => ({
       at: `${date} ${String(h).padStart(2, '0')}:00`,
+      ...(ppa ? { run: runText(date, h) } : {}),
       kwh: fmt1(v),
     })),
   };
 }
 /** 일별 — 고른 달의 날마다 */
-export function daySheetOf(d: Pick<Dataset, 'ownerCompanyId'>, month: string): DataSheet {
+export function daySheetOf(d: Pick<Dataset, 'sellerId' | 'unit'>, month: string): DataSheet {
+  const ppa = d.unit === 'PPA';
   return {
     columns: [
       { key: 'date', label: '날짜' },
+      ...(ppa ? [{ key: 'run', label: '운전' }] : []),
       { key: 'hours', label: '발전시간 (h)' },
       { key: 'kwh', label: '발전량 (kWh)', strong: true },
     ],
-    rows: dailyOf(d.ownerCompanyId)
+    rows: dailyOf(d.sellerId)
       .filter((g) => g.date.startsWith(month))
-      .map((g) => ({ date: g.date, hours: fmt1(g.hours), kwh: g.kwh.toLocaleString('ko-KR') })),
+      .map((g) => ({ date: g.date, ...(ppa ? { run: runText(g.date) } : {}), hours: fmt1(g.hours), kwh: g.kwh.toLocaleString('ko-KR') })),
   };
 }
 /** 시간별 전체 — CSV 내려받기(기간 전체, 한 시간 한 줄) */
-export function hourlyCsvOf(d: Pick<Dataset, 'ownerCompanyId'>): string {
-  const lines = dailyOf(d.ownerCompanyId).flatMap((g) =>
-    g.hourly.map((v, h) => `${g.date} ${String(h).padStart(2, '0')}:00,${v.toFixed(1)}`),
+export function hourlyCsvOf(d: Pick<Dataset, 'sellerId' | 'unit'>): string {
+  const ppa = d.unit === 'PPA';
+  const lines = dailyOf(d.sellerId).flatMap((g) =>
+    g.hourly.map((v, h) => `${g.date} ${String(h).padStart(2, '0')}:00,${ppa ? `${runText(g.date, h)},` : ''}${v.toFixed(1)}`),
   );
-  return ['일시,발전량 (kWh)', ...lines].join('\n');
+  return [ppa ? '일시,운전,발전량 (kWh)' : '일시,발전량 (kWh)', ...lines].join('\n');
 }
 /** 데이터가 있는 날짜 · 달 */
-export const dataDates = (companyId: number) => dailyOf(companyId).map((g) => g.date);
-export const dataMonths = (companyId: number) => {
-  const c = DM_SELLERS.find((x) => x.id === companyId);
+export const dataDates = (sellerId: number) => dailyOf(sellerId).map((g) => g.date);
+export const dataMonths = (sellerId: number) => {
+  const c = DM_SELLERS.find((x) => x.id === sellerId);
   return months()
     .map((m) => m.month)
     .filter((m) => !c?.from || m >= c.from);
@@ -334,18 +392,21 @@ export const dataMonths = (companyId: number) => {
 
 /** 월별 — 기간 전체(2025-03 ~ 2026-09) */
 export function sheetOf(d: Dataset): DataSheet {
-  const c = DM_SELLERS.find((x) => x.id === d.ownerCompanyId);
+  const c = DM_SELLERS.find((x) => x.id === d.sellerId);
   if (!c) return { columns: [], rows: [] };
+  const ppa = c.unit === 'PPA';
   return {
     columns: [
       { key: 'month', label: '월' },
       { key: 'kw', label: '설비 용량 (kW)' },
+      ...(ppa ? [{ key: 'op', label: '운전일' }] : []),
       { key: 'hours', label: '하루 평균 발전시간 (h)' },
       { key: 'kwh', label: '발전량 (kWh)', strong: true },
     ],
     rows: generationOf(c).map((r) => ({
       month: r.month,
       kw: c.solarKw.toFixed(2),
+      ...(ppa ? { op: `${r.opDays ?? 0}일` } : {}),
       hours: fmt1(r.hours),
       kwh: r.kwh.toLocaleString('ko-KR'),
     })),
@@ -366,10 +427,11 @@ export function csvOf(t: DataSheet): string {
  *  사는 쪽: 한길 이용 중 2 + 취소 1(다시 신청 가능), 한일튜브(발전사업자 데모 계정 박발전) 이용 중 2 ── */
 function seed(): { consents: Consent[]; trades: DataTrade[] } {
   const consents: Consent[] = [
-    { companyId: 7, kind: '태양광 발전량', consentedAt: '2026-06-02T10:00:00' },
-    { companyId: 5, kind: '태양광 발전량', consentedAt: '2026-06-18T11:00:00' },
-    { companyId: 6, kind: '태양광 발전량', consentedAt: '2026-06-25T10:00:00' },
-    { companyId: 4, kind: '태양광 발전량', consentedAt: '2026-08-28T09:00:00' },
+    { sellerId: 7, kind: '태양광 발전량', consentedAt: '2026-06-02T10:00:00' },
+    { sellerId: 5, kind: '태양광 발전량', consentedAt: '2026-06-18T11:00:00' },
+    { sellerId: 6, kind: '태양광 발전량', consentedAt: '2026-06-25T10:00:00' },
+    { sellerId: 4, kind: '태양광 발전량', consentedAt: '2026-08-28T09:00:00' },
+    { sellerId: 8, kind: '태양광 발전량', consentedAt: '2026-08-28T09:00:00' },
   ];
   const products = productsOf(consents);
   const by = (id: number) => products.find((d) => d.id === id)!;
@@ -405,6 +467,7 @@ function seed(): { consents: Consent[]; trades: DataTrade[] } {
     t(11, by(61), [2, '한길'], '2026-07-05T09:00:00', '2026-08-20T17:00:00'),
     t(12, by(41), [7, '건호이엔씨'], '2026-09-10T10:00:00'),
     t(13, by(51), [6, '태성산업'], '2026-08-05T13:00:00'),
+    t(14, by(81), [5, '용인금속'], '2026-09-05T10:00:00'), // 한일튜브 PPA 데이터
   ];
   return { consents, trades };
 }
@@ -414,7 +477,8 @@ interface DataMarketState {
   consents: Consent[];
   trades: DataTrade[];
   /** 판매 동의 · 철회 — 동의하면 바로 공개 */
-  setConsent: (companyId: number, kind: DataKind, on: boolean) => void;
+  /** sellerId — 데이터 단위(설비) */
+  setConsent: (sellerId: number, kind: DataKind, on: boolean) => void;
   apply: (d: Dataset, buyer: { id: number; name: string }) => DataTrade | undefined;
   refreshToken: (tradeId: number) => void;
   /** 이용 취소 — 구매 기업 또는 관리자 */
@@ -422,18 +486,17 @@ interface DataMarketState {
 }
 
 const nextId = (xs: { id: number }[]) => xs.reduce((m, x) => Math.max(m, x.id), 0) + 1;
-const same = (x: Consent, companyId: number, kind: DataKind) =>
-  x.companyId === companyId && x.kind === kind;
+const same = (x: Consent, sellerId: number, kind: DataKind) => x.sellerId === sellerId && x.kind === kind;
 
 export const useDataMarketStore = create<DataMarketState>()(
   persist(
     (set, get) => ({
       version: DM_SEED_VERSION,
       ...seed(),
-      setConsent: (companyId, kind, on) =>
+      setConsent: (sellerId, kind, on) =>
         set((s) => {
-          const rest = s.consents.filter((x) => !same(x, companyId, kind));
-          return { consents: on ? [...rest, { companyId, kind, consentedAt: nowIso() }] : rest };
+          const rest = s.consents.filter((x) => !same(x, sellerId, kind));
+          return { consents: on ? [...rest, { sellerId, kind, consentedAt: nowIso() }] : rest };
         }),
       apply: (d, buyer) => {
         if (!d.onSale) return undefined;

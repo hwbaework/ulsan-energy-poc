@@ -8,6 +8,8 @@ import { Modal } from '@/components/ui/Modal';
 import { Textarea } from '@/components/ui/Textarea';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features/SectionCard';
+import { CompanyChangeApprovals } from '@/components/features/org/CompanyChangeApprovals';
+import { BizLicenseSheet } from '@/components/features/org/BizLicenseSheet';
 import { useUsers, useActivateUser, useSuspendUser } from '@/hooks/platform/useUsers';
 import { useCompanies, useActivateCompany, useSuspendCompany } from '@/hooks/platform/useCompanies';
 import { useAssignRoleByCode } from '@/hooks/platform/useRoles';
@@ -41,6 +43,8 @@ interface Applicant {
 
 export default function ApprovalsPage() {
   const [rejectItem, setRejectItem] = useState<Applicant | null>(null);
+  // 검토 — 신청 내용 · 가입 때 올린 사업자등록증을 보고 승인 / 반려(바로 승인 버튼 없음)
+  const [reviewItem, setReviewItem] = useState<Applicant | null>(null);
   const [reason, setReason] = useState('');
   const [busyId, setBusyId] = useState<number | null>(null);
 
@@ -130,16 +134,11 @@ export default function ApprovalsPage() {
     {
       key: 'actions' as keyof Applicant,
       header: '',
-      width: '140px',
+      width: '100px',
       render: (r) => (
-        <div className="flex gap-1.5 whitespace-nowrap">
-          <Button size="sm" disabled={busyId === r.id || blocked(r)} title={blocked(r) ? '소속 기업의 기업 관리자 승인이 먼저 필요합니다' : undefined} onClick={() => approve(r)}>
-            {busyId === r.id ? '처리 중' : '승인'}
-          </Button>
-          <Button size="sm" variant="ghost" disabled={busyId === r.id} onClick={() => { setRejectItem(r); setReason(''); }}>
-            반려
-          </Button>
-        </div>
+        <Button size="sm" onClick={() => setReviewItem(r)}>
+          검토
+        </Button>
       ),
     },
   ];
@@ -152,6 +151,86 @@ export default function ApprovalsPage() {
       <SectionCard title="가입 승인 대기">
         <DataTable columns={columns} data={rows} rowKey={(r) => r.id} emptyMessage="승인 대기 건이 없습니다" />
       </SectionCard>
+
+      {/* 기업 정보 변경 — 기업관리자가 새 사업자 등록증과 함께 보낸 요청. [확인]하면 기업 정보에 반영 */}
+      <CompanyChangeApprovals />
+
+      {/* 가입 검토 — 왼쪽 사업자등록증, 오른쪽 신청 내용 */}
+      {reviewItem && (
+        <Modal
+          open
+          onClose={() => setReviewItem(null)}
+          title={`기업 검토 · ${reviewItem.company || reviewItem.name}`}
+          size="xl"
+          footer={
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="danger"
+                disabled={busyId === reviewItem.id}
+                onClick={() => {
+                  setRejectItem(reviewItem);
+                  setReason('');
+                  setReviewItem(null);
+                }}
+              >
+                반려
+              </Button>
+              <Button
+                disabled={busyId === reviewItem.id || blocked(reviewItem)}
+                onClick={async () => {
+                  await approve(reviewItem);
+                  setReviewItem(null);
+                }}
+              >
+                {busyId === reviewItem.id ? '처리 중' : '승인'}
+              </Button>
+            </div>
+          }
+        >
+          {(() => {
+            const c = companies.find((x) => x.id === reviewItem.companyId) ?? {};
+            const row = (k: string, v: string) => (
+              <div key={k} className="grid grid-cols-[110px_1fr] gap-3 py-2">
+                <dt className="text-slate-400">{k}</dt>
+                <dd className="text-white tabular-nums">{v || '-'}</dd>
+              </div>
+            );
+            return (
+              <div className="grid gap-5 lg:grid-cols-[1.1fr_1fr]">
+                <div className="space-y-2">
+                  <BizLicenseSheet
+                    fileName={`사업자등록증_${c.name ?? reviewItem.company}.pdf`}
+                    f={{ businessNumber: c.businessNumber, name: c.name ?? reviewItem.company, representativeName: c.representativeName, address: c.address, bizType: c.bizType, bizCategory: c.bizCategory, phone: c.phone }}
+                  />
+                </div>
+                <div className="space-y-4 text-sm">
+                  <div>
+                    <p className="mb-1 font-semibold text-white">신청자</p>
+                    <dl className="divide-y divide-white/[0.06]">
+                      {row('이름', reviewItem.name)}
+                      {row('이메일', reviewItem.email)}
+                      {row('연락처', reviewItem.phone)}
+                      {row('구분', TYPE_LABEL[reviewItem.type])}
+                      {row('역할', reviewItem.role.label)}
+                      {row('신청일', reviewItem.date)}
+                    </dl>
+                  </div>
+                  <div>
+                    <p className="mb-1 font-semibold text-white">소속 기업</p>
+                    <dl className="divide-y divide-white/[0.06]">
+                      {row('기업명', c.name ?? reviewItem.company)}
+                      {row('사업자등록번호', c.businessNumber)}
+                      {row('대표자', c.representativeName)}
+                      {row('주소', c.address)}
+                    </dl>
+                  </div>
+                  {blocked(reviewItem) && <p className="text-amber-300">소속 기업의 기업 관리자 가입이 먼저 승인돼야 합니다</p>}
+                </div>
+              </div>
+            );
+          })()}
+        </Modal>
+      )}
 
       {/* 반려 — 사유를 써서 신청자에게 전달 */}
       <Modal open={!!rejectItem} onClose={() => setRejectItem(null)} title="가입 반려" size="sm">

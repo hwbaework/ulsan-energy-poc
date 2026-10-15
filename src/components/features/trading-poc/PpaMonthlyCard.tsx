@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import { SectionCard } from '@/components/features/SectionCard';
 import { RmsBarChart } from '@/components/ui/Chart';
 import { Select } from '@/components/ui/Select';
+import { TABLE, TABLE_HEAD_ROW, TABLE_ROW, TABLE_TD, TABLE_TH } from '@/components/features/DataList';
+import { cn } from '@/lib/utils';
 import { settlementsOf } from '@/stores/useTradingPocStore';
 import type { Contract } from '@/types/trading-poc';
 
@@ -40,7 +42,8 @@ export function PpaMonthlyCard({ contracts, mode, label }: { contracts: Contract
   const anyRow = rows.some((x) => x.state !== 'none');
   const word = mode === 'income' ? '수입' : '납부';
   const doneLabel = mode === 'income' ? '입금' : '납부';
-  const td = 'px-2 py-1.5 text-right tabular-nums';
+  const td = cn(TABLE_TD, 'px-3 text-right tabular-nums');
+  const th = cn(TABLE_TH, 'px-3 text-right');
   const chart = rows.map((x) => ({ month: x.month, [word]: x.금액 }));
   return (
     <SectionCard
@@ -55,7 +58,7 @@ export function PpaMonthlyCard({ contracts, mode, label }: { contracts: Contract
       />
       {/* 달마다 발전량 · 금액 · 상태 */}
       <div className="mt-3 overflow-x-auto">
-        <table className="w-full table-fixed text-sm text-slate-300">
+        <table className={cn(TABLE, 'table-fixed')}>
           <colgroup>
             <col className="w-28" />
             {rows.map((x) => (
@@ -63,20 +66,20 @@ export function PpaMonthlyCard({ contracts, mode, label }: { contracts: Contract
             ))}
             <col className="w-24" />
           </colgroup>
-          <thead className="text-slate-400">
-            <tr>
-              <th className="px-2 py-1.5 text-left font-medium">월</th>
+          <thead>
+            <tr className={TABLE_HEAD_ROW}>
+              <th className={cn(TABLE_TH, 'px-3')}>월</th>
               {rows.map((x) => (
-                <th key={x.month} className={`${td} font-medium`}>
+                <th key={x.month} className={th}>
                   {x.month}
                 </th>
               ))}
-              <th className={`${td} font-medium text-white`}>합계</th>
+              <th className={th}>합계</th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td className="px-2 py-1.5 text-left text-slate-400">발전량 (kWh)</td>
+            <tr className={TABLE_ROW}>
+              <td className={cn(TABLE_TD, 'px-3 text-slate-300')}>발전량 (kWh)</td>
               {rows.map((x) => (
                 <td key={x.month} className={`${td} ${x.state === 'none' ? 'text-slate-600' : ''}`}>
                   {x.state === 'none' ? '-' : x.kwh.toLocaleString()}
@@ -84,8 +87,8 @@ export function PpaMonthlyCard({ contracts, mode, label }: { contracts: Contract
               ))}
               <td className={`${td} font-semibold text-white`}>{anyRow ? sumKwh.toLocaleString() : '-'}</td>
             </tr>
-            <tr>
-              <td className="px-2 py-1.5 text-left text-slate-400">금액 (만원)</td>
+            <tr className={TABLE_ROW}>
+              <td className={cn(TABLE_TD, 'px-3 text-slate-300')}>금액 (만원)</td>
               {rows.map((x) => (
                 <td key={x.month} className={`${td} font-semibold ${x.state === 'none' ? 'text-slate-600' : 'text-white'}`}>
                   {x.state === 'none' ? '-' : x.금액.toLocaleString()}
@@ -93,8 +96,8 @@ export function PpaMonthlyCard({ contracts, mode, label }: { contracts: Contract
               ))}
               <td className={`${td} font-bold text-white`}>{anyRow ? sumWon.toLocaleString() : '-'}</td>
             </tr>
-            <tr>
-              <td className="px-2 py-1.5 text-left text-slate-400">상태</td>
+            <tr className={TABLE_ROW}>
+              <td className={cn(TABLE_TD, 'px-3 text-slate-300')}>상태</td>
               {rows.map((x) => (
                 <td
                   key={x.month}

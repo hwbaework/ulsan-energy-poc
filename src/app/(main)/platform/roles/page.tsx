@@ -9,6 +9,7 @@ import { Modal } from '@/components/ui/Modal';
 import { SectionCard } from '@/components/features/SectionCard';
 import { StatusPill } from '@/components/ui/Design';
 import { cn } from '@/lib/utils';
+import { TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
 import {
   useRoles,
   useCreateRole,
@@ -270,11 +271,11 @@ export default function PlatformRolesPage() {
               </div>
             )}
 
-            <table className="w-full">
+            <table className={TABLE}>
               <thead>
-                <tr className="border-b border-white/[0.06]">
-                  <th className="px-5 py-3 text-left text-xs font-medium text-slate-400">메뉴</th>
-                  <th className="px-5 py-3 text-center text-xs font-medium text-slate-400 w-24">접근</th>
+                <tr className={TABLE_HEAD_ROW}>
+                  <th className={TABLE_TH}>메뉴</th>
+                  <th className={cn(TABLE_TH, 'w-24 text-center')}>접근</th>
                 </tr>
               </thead>
               <tbody>
@@ -284,8 +285,8 @@ export default function PlatformRolesPage() {
                   const hasChildren = (childrenOf.get(menu.id) ?? []).length > 0;
                   const depth = menu.depth ?? 0;
                   return (
-                    <tr key={menu.id} className={cn('border-b border-white/[0.04]', depth === 0 && 'bg-white/[0.02]')}>
-                      <td className="px-5 py-3">
+                    <tr key={menu.id} className={cn(TABLE_ROW, depth === 0 && 'bg-white/[0.02]')}>
+                      <td className={TABLE_TD}>
                         <div className="flex items-center gap-1.5" style={{ paddingLeft: depth * 20 }}>
                           {hasChildren ? (
                             <button
@@ -302,7 +303,7 @@ export default function PlatformRolesPage() {
                           <span className={cn('text-sm', depth === 0 ? 'font-semibold text-white' : depth === 1 ? 'text-white' : 'text-slate-300')}>{menu.name}</span>
                         </div>
                       </td>
-                      <td className="px-5 py-3 text-center">
+                      <td className={cn(TABLE_TD, 'text-center')}>
                         <input
                           type="checkbox"
                           checked={on}
@@ -317,7 +318,7 @@ export default function PlatformRolesPage() {
                 })}
                 {!allMenus.length && (
                   <tr>
-                    <td colSpan={2} className="px-5 py-10 text-center text-sm text-slate-500">{menusQ.isLoading ? '불러오는 중…' : '메뉴가 없습니다'}</td>
+                    <td colSpan={2} className={cn(TABLE_TD, 'py-10 text-center text-slate-500')}>{menusQ.isLoading ? '불러오는 중…' : '메뉴가 없습니다'}</td>
                   </tr>
                 )}
               </tbody>

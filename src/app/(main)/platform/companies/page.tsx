@@ -6,11 +6,15 @@ import { Button } from '@/components/ui/Button';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { DataTable, type Column } from '@/components/features/DataList';
+import { cn } from '@/lib/utils';
+import { DataTable, type Column, TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features/SectionCard';
 import { useCompanies, useCreateCompany, useUpdateCompany, useDeleteCompany } from '@/hooks/platform/useCompanies';
 import { useUsers } from '@/hooks/platform/useUsers';
 import { useToastStore } from '@/stores/useToastStore';
+import { Badge } from '@/components/ui/Badge';
+import { useCompanyChangeStore, useHydrateCompanyChange, type CompanyChangeRequest } from '@/stores/useCompanyChangeStore';
+import { CompanyChangeReviewModal } from '@/components/features/org/CompanyChangeApprovals';
 const BIZ_NUM_RE = /^\d{3}-\d{2}-\d{5}$/;
 
 function licenseFileName(companyName: string) {
@@ -76,6 +80,11 @@ function companyType(businessTypes: string[] = []): string {
 }
 
 export default function CompaniesPage() {
+  // 기업 정보 변경 요청 — 목록 줄엔 '변경 확인 중', 누르면 그 자리에서 검토 창(승인 관리와 같은 창)
+  const [reviewChange, setReviewChange] = useState<CompanyChangeRequest | null>(null);
+  useHydrateCompanyChange();
+  const changeReqs = useCompanyChangeStore((st) => st.requests);
+  const pendingChange = (id: number) => changeReqs.some((r) => r.companyId === id && r.status === 'PENDING');
   const [search, setSearch] = useState('');
   const [addOpen, setAddOpen] = useState(false);
   const [formName, setFormName] = useState('');
@@ -152,7 +161,21 @@ export default function CompaniesPage() {
             <Building2 size={14} className="text-blue-400" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-white truncate">{row.name}</p>
+            <p className="flex items-center gap-2 text-sm font-medium text-white">
+              <span className="truncate">{row.name}</span>
+              {pendingChange(row.id) && (
+                <button
+                  type="button"
+                  title="검토"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setReviewChange(changeReqs.find((r) => r.companyId === row.id && r.status === 'PENDING') ?? null);
+                  }}
+                >
+                  <Badge variant="warning">변경 확인 중</Badge>
+                </button>
+              )}
+            </p>
             <p className="text-xs text-slate-500 tabular-nums">{row.businessNumber}</p>
           </div>
         </div>
@@ -232,6 +255,7 @@ export default function CompaniesPage() {
       <Breadcrumb items={[{ label: '관리' }, { label: '기업 관리' }]} />
 
       <h1 className="text-2xl font-bold text-white">기업 관리</h1>
+      {reviewChange && <CompanyChangeReviewModal r={reviewChange} onClose={() => setReviewChange(null)} />}
 
       <SectionCard
         title="기업 목록"
@@ -433,18 +457,18 @@ export default function CompaniesPage() {
                   <p className="mb-2 text-xs text-slate-500">소속 멤버 ({members.length})</p>
                   {members.length > 0 ? (
                     <div className="overflow-hidden rounded-lg border border-white/[0.06]">
-                      <table className="w-full text-sm">
+                      <table className={TABLE}>
                         <thead>
-                          <tr className="border-b border-white/[0.06] text-left text-xs text-slate-500">
-                            <th className="px-3 py-2 font-medium">이름</th>
-                            <th className="px-3 py-2 font-medium">이메일</th>
+                          <tr className={TABLE_HEAD_ROW}>
+                            <th className={TABLE_TH}>이름</th>
+                            <th className={TABLE_TH}>이메일</th>
                           </tr>
                         </thead>
                         <tbody>
                           {members.map((u) => (
-                            <tr key={u.id} className="border-b border-white/[0.04] last:border-0">
-                              <td className="px-3 py-2 text-white">{u.name}</td>
-                              <td className="px-3 py-2 text-slate-400">{u.email}</td>
+                            <tr key={u.id} className={cn(TABLE_ROW, 'last:border-0')}>
+                              <td className={TABLE_TD}>{u.name}</td>
+                              <td className={TABLE_TD}>{u.email}</td>
                             </tr>
                           ))}
                         </tbody>

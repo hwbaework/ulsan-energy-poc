@@ -7,3 +7,4 @@ import './fixtures';
 import './tradingFixtures';
 import './consultingFixtures';
 import './edmFixtures';
+import './billingFixtures'; // 결제(토스페이먼츠 빌링) 서버 목업

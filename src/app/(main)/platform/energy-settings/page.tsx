@@ -7,6 +7,8 @@ import { SectionCard } from '@/components/features';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Select } from '@/components/ui/Select';
+import { cn } from '@/lib/utils';
+import { TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useToastStore } from '@/stores/useToastStore';
 import { useEnergySettings, useHolidays, useKepcoTariff, useSaveEnergySettings, useSaveHolidays, useSaveKepcoTariff } from '@/hooks/common/useSettings';
@@ -193,7 +195,6 @@ export default function EnergySettingsPage() {
 
   const pending = saveEnergy.isPending || saveKepco.isPending || saveHol.isPending;
   const anyDirty = baseDirty || tableDirty || opDirty || holDirty;
-  const thT = 'px-5 py-3 text-left align-bottom text-sm font-semibold text-slate-200';
 
   return (
     <div className="space-y-6">
@@ -314,30 +315,30 @@ export default function EnergySettingsPage() {
             ))}
           </div>
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[640px] text-xs tabular-nums">
+            <table className={cn(TABLE, 'min-w-[640px] tabular-nums')}>
               <thead>
-                <tr className="text-slate-400">
-                  <th className="py-1.5 pr-2 text-left font-medium">월</th>
+                <tr className={TABLE_HEAD_ROW}>
+                  <th className={cn(TABLE_TH, 'px-3')}>월</th>
                   {opYr.months.map((x) => (
-                    <th key={x.m} className="py-1.5 text-right font-medium">
+                    <th key={x.m} className={cn(TABLE_TH, 'px-3 text-right')}>
                       {x.m}월
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                <tr className="text-slate-200">
-                  <td className="py-1.5 pr-2 text-slate-400">가동일</td>
+                <tr className={TABLE_ROW}>
+                  <td className={cn(TABLE_TD, 'px-3')}>가동일</td>
                   {opYr.months.map((x) => (
-                    <td key={x.m} className="py-1.5 text-right">
+                    <td key={x.m} className={cn(TABLE_TD, 'px-3 text-right')}>
                       {x.op}
                     </td>
                   ))}
                 </tr>
-                <tr className="text-slate-400">
-                  <td className="py-1.5 pr-2">공휴일</td>
+                <tr className={TABLE_ROW}>
+                  <td className={cn(TABLE_TD, 'px-3')}>공휴일</td>
                   {opYr.months.map((x) => (
-                    <td key={x.m} className="py-1.5 text-right">
+                    <td key={x.m} className={cn(TABLE_TD, 'px-3 text-right')}>
                       {x.holiday || ''}
                     </td>
                   ))}
@@ -459,14 +460,14 @@ export default function EnergySettingsPage() {
               />
             </div>
           </div>
-          <table className="mt-4 w-full">
+          <table className={cn(TABLE, 'mt-4')}>
             <thead>
               {/* 요금표는 글자를 한 단계 크게 · 밝게 — 계절 아래 해당 월 */}
-              <tr className="border-b border-white/[0.06]">
-                <th className={thT}>요금제</th>
-                <th className={thT}>구분</th>
+              <tr className={TABLE_HEAD_ROW}>
+                <th className={TABLE_TH}>요금제</th>
+                <th className={TABLE_TH}>구분</th>
                 {SEASONS.map((sn, si) => (
-                  <th key={sn} className={thT}>
+                  <th key={sn} className={TABLE_TH}>
                     {sn}
                     <span className="mt-0.5 block text-xs font-normal text-slate-400">{SEASON_MONTHS[si]}</span>
                   </th>
@@ -475,12 +476,12 @@ export default function EnergySettingsPage() {
             </thead>
             <tbody>
               {PLANS.flatMap((pl) => [
-                <tr key={`${pl}-base`} className="border-b border-white/[0.04]">
-                  <td className="px-5 py-2.5 align-top text-sm font-medium text-white" rowSpan={1 + PARTS.length}>
+                <tr key={`${pl}-base`} className={TABLE_ROW}>
+                  <td className={cn(TABLE_TD, 'align-top font-medium')} rowSpan={1 + PARTS.length}>
                     {PLAN_LABEL[pl]}
                   </td>
-                  <td className="px-5 py-2.5 text-sm text-slate-200">기본요금 (원/kW)</td>
-                  <td className="px-5 py-2.5" colSpan={3}>
+                  <td className={TABLE_TD}>기본요금 (원/kW)</td>
+                  <td className={TABLE_TD} colSpan={3}>
                     <input
                       aria-label={`${PLAN_LABEL[pl]} 기본요금`}
                       inputMode="decimal"
@@ -496,10 +497,10 @@ export default function EnergySettingsPage() {
                   </td>
                 </tr>,
                 ...PARTS.map((part) => (
-                  <tr key={`${pl}-${part.k}`} className="border-b border-white/[0.04]">
-                    <td className="px-5 py-2.5 text-sm text-slate-200">{part.label} (원/kWh)</td>
+                  <tr key={`${pl}-${part.k}`} className={TABLE_ROW}>
+                    <td className={TABLE_TD}>{part.label} (원/kWh)</td>
                     {[0, 1, 2].map((si) => (
-                      <td key={si} className="px-5 py-2.5">
+                      <td key={si} className={TABLE_TD}>
                         <input
                           aria-label={`${PLAN_LABEL[pl]} ${part.label} ${SEASONS[si]}`}
                           inputMode="decimal"
@@ -519,25 +520,25 @@ export default function EnergySettingsPage() {
               ])}
               {/* 시간대 비중 — 하루 24시간 중 경부하 · 최대부하 시간을 넣고, 중간부하 = 나머지 */}
               {PARTS.map((part, k) => (
-                <tr key={`hours-${part.k}`} className={k < PARTS.length - 1 ? 'border-b border-white/[0.04]' : undefined}>
+                <tr key={`hours-${part.k}`} className={k < PARTS.length - 1 ? TABLE_ROW : undefined}>
                   {k === 0 && (
-                    <td className="px-5 py-2.5 align-top text-sm font-medium text-white" rowSpan={PARTS.length}>
+                    <td className={cn(TABLE_TD, 'align-top font-medium')} rowSpan={PARTS.length}>
                       시간대 (하루 24시간)
                     </td>
                   )}
-                  <td className="px-5 py-2.5 text-sm text-slate-200">{part.label} (시간)</td>
+                  <td className={TABLE_TD}>{part.label} (시간)</td>
                   {[0, 1, 2].map((si) => {
                     if (part.k === 'mid') {
                       const rest = 24 - Number(table.hLight[si]) - Number(table.hPeak[si]);
                       return (
-                        <td key={si} className="px-5 py-2.5 text-sm text-slate-200 tabular-nums">
+                        <td key={si} className={cn(TABLE_TD, 'tabular-nums')}>
                           {Number.isFinite(rest) ? Math.round(rest * 10) / 10 : ''}
                         </td>
                       );
                     }
                     const key = part.k === 'light' ? 'hLight' : 'hPeak';
                     return (
-                      <td key={si} className="px-5 py-2.5">
+                      <td key={si} className={TABLE_TD}>
                         <input
                           aria-label={`${part.label} 시간 ${SEASONS[si]}`}
                           inputMode="decimal"

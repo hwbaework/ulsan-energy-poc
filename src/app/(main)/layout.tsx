@@ -502,10 +502,8 @@ function GnbBar({
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs font-medium text-white">
             {user?.name?.charAt(0) ?? <User size={14} />}
           </div>
-          <div className="hidden flex-col gap-0.5 text-left lg:flex">
-            <span className="text-white text-xs font-medium">{user?.name ?? '사용자'}</span>
-            <span className="text-white/40 text-[10px]">{user?.companyName ?? ''}</span>
-          </div>
+          {/* 이름만 — 아래 작은 회사 이름은 안 보여서 뺐다(회사는 기업 정보에서, 2026-10-15) */}
+          <span className="hidden text-sm font-medium text-white lg:inline">{user?.name ?? '사용자'}</span>
         </button>
 
         <button

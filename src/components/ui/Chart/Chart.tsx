@@ -204,14 +204,16 @@ interface RmsBarChartProps {
   height?: number;
   className?: string;
   stacked?: boolean;
+  /** x 눈금 간격 — 1 이면 두 칸에 하나씩 */
+  xInterval?: number;
 }
 
-export function RmsBarChart({ data, xKey, bars, title, description, height, className, stacked }: RmsBarChartProps) {
+export function RmsBarChart({ data, xKey, bars, title, description, height, className, stacked, xInterval }: RmsBarChartProps) {
   return (
     <ChartWrapper title={title} description={description} height={height} className={className}>
       <BarChart data={data} barGap={2}>
         <CartesianGrid strokeDasharray="3 3" {...gridStyle} />
-        <XAxis dataKey={xKey} tick={axisStyle} axisLine={false} tickLine={false} />
+        <XAxis dataKey={xKey} tick={axisStyle} axisLine={false} tickLine={false} interval={xInterval} />
         <YAxis tick={axisStyle} axisLine={false} tickLine={false} width={52} />
         <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
         <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 13, color: '#e2e8f0' }} />

@@ -4,6 +4,16 @@ import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 
+/**
+ * 표 공통 모양 — DataTable 과 같은 값. 따로 그리는 표(입력 칸이 든 표 · 달마다 가로 표 등)도 이 값을 쓴다(2026-10-15 표 통일)
+ *  <table className={TABLE}> <thead><tr className={TABLE_HEAD_ROW}><th className={TABLE_TH}> … <tbody><tr className={TABLE_ROW}><td className={TABLE_TD}>
+ */
+export const TABLE = 'w-full text-sm';
+export const TABLE_HEAD_ROW = 'border-b border-accent/20 bg-surface-elevated';
+export const TABLE_TH = 'px-4 py-3 text-left font-medium text-accent whitespace-nowrap';
+export const TABLE_ROW = 'border-b border-accent/10';
+export const TABLE_TD = 'px-4 py-3 text-white';
+
 export interface Column<T> {
   key: string;
   header: string;

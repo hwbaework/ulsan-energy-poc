@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
 import { ChevronDown } from 'lucide-react';
 import { ADDRESS_MAX, LIM, NAME_MAX, hiddenDefaultsOf, type SimInput } from '@/lib/solar-sim';
 
@@ -262,20 +263,20 @@ export function SimInputPanel({
               기본값 보기 <span className="text-xs text-slate-500">입력 칸 없이 계산에 쓰는 값</span>
             </button>
             {showDefaults && (
-              <table className="mt-3 w-full text-sm">
+              <table className={cn(TABLE, 'mt-3')}>
                 <thead>
-                  <tr className="border-b border-white/[0.06] text-slate-400">
-                    <th className="py-2 pr-4 text-left font-medium">항목</th>
-                    <th className="py-2 pr-4 text-left font-medium">값</th>
-                    <th className="py-2 text-left font-medium">관리</th>
+                  <tr className={TABLE_HEAD_ROW}>
+                    <th className={TABLE_TH}>항목</th>
+                    <th className={TABLE_TH}>값</th>
+                    <th className={TABLE_TH}>관리</th>
                   </tr>
                 </thead>
                 <tbody>
                   {hiddenDefaultsOf(f).map(([k, v, w]) => (
-                    <tr key={k} className="border-b border-white/[0.04] last:border-0">
-                      <td className="py-2 pr-4 text-slate-300">{k}</td>
-                      <td className="py-2 pr-4 tabular-nums text-white">{v}</td>
-                      <td className="py-2 text-slate-500">{w}</td>
+                    <tr key={k} className={cn(TABLE_ROW, 'last:border-0')}>
+                      <td className={TABLE_TD}>{k}</td>
+                      <td className={cn(TABLE_TD, 'tabular-nums')}>{v}</td>
+                      <td className={TABLE_TD}>{w}</td>
                     </tr>
                   ))}
                 </tbody>

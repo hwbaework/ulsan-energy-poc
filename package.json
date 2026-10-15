@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev.cjs",
+    "toss": "node scripts/toss-server.cjs",
     "build": "next build",
     "start": "node scripts/serve-out.cjs .next-build 3030",
     "lint": "next lint",

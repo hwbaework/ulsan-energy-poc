@@ -8,7 +8,7 @@ import { useState, type ReactNode } from 'react';
 import { Download, ExternalLink, Eye } from 'lucide-react';
 import { StatCard, StatsGrid } from '@/components/features/StatCard';
 import { SectionCard } from '@/components/features/SectionCard';
-import { DataTable, type Column } from '@/components/features/DataList';
+import { DataTable, type Column, TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -32,6 +32,7 @@ import {
   type DocCompany,
   type DocSpec,
 } from '@/lib/carbon-docs';
+import { cn } from '@/lib/utils';
 import { BLANK, exportCarbonDocPdf } from '@/lib/utils/exportCarbonDoc';
 
 /* ── 공통 ── */
@@ -184,11 +185,11 @@ function DocPreview({ d }: { d: DocSpec }) {
             </div>
           ) : (
             <div className="overflow-x-auto rounded-lg ring-1 ring-white/[0.06]">
-              <table className="w-full text-sm">
+              <table className={TABLE}>
                 <thead>
-                  <tr className="border-b border-white/[0.06] text-slate-400">
+                  <tr className={TABLE_HEAD_ROW}>
                     {s.head.map((h, i) => (
-                      <th key={h} className={`px-3 py-2 font-medium ${i ? 'text-right' : 'text-left'}`}>
+                      <th key={h} className={cn(TABLE_TH, i && 'text-right')}>
                         {h}
                       </th>
                     ))}
@@ -196,18 +197,18 @@ function DocPreview({ d }: { d: DocSpec }) {
                 </thead>
                 <tbody>
                   {s.body.map((r) => (
-                    <tr key={r[0]} className="border-b border-white/[0.04]">
+                    <tr key={r[0]} className={TABLE_ROW}>
                       {r.map((v, i) => (
-                        <td key={i} className={`px-3 py-1.5 tabular-nums text-slate-300 ${i ? 'text-right' : ''}`}>
+                        <td key={i} className={cn(TABLE_TD, 'tabular-nums', i && 'text-right')}>
                           {v}
                         </td>
                       ))}
                     </tr>
                   ))}
                   {s.foot && (
-                    <tr className="font-medium text-white">
+                    <tr className="font-medium">
                       {s.foot.map((v, i) => (
-                        <td key={i} className={`px-3 py-1.5 tabular-nums ${i ? 'text-right' : ''}`}>
+                        <td key={i} className={cn(TABLE_TD, 'tabular-nums', i && 'text-right')}>
                           {v}
                         </td>
                       ))}

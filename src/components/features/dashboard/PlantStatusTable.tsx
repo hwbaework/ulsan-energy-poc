@@ -3,6 +3,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { AlertCircle, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
 
 export interface PlantRow {
   id: string;
@@ -28,19 +29,19 @@ export function PlantStatusTable({ plants }: { plants: PlantRow[] }) {
         <h3 className="text-md font-semibold text-white">발전소 상태 보드</h3>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="text-left">
-            <tr className="border-b border-white/[0.06] text-[11px] text-slate-500 bg-white/[0.02]">
-              <th className="px-4 py-2 text-left font-medium">발전소</th>
-              <th className="px-4 py-2 text-left font-medium">상태</th>
-              <th className="px-4 py-2 text-left font-medium">자원</th>
-              <th className="px-4 py-2 font-medium">용량</th>
-              <th className="px-4 py-2 font-medium">발전량 (오늘)</th>
-              <th className="px-4 py-2 font-medium">발전시간</th>
-              <th className="px-4 py-2 font-medium">이번 달 누적</th>
-              <th className="px-4 py-2 font-medium">인버터</th>
-              <th className="px-4 py-2 text-left font-medium">알람</th>
-              <th className="px-4 py-2"></th>
+        <table className={TABLE}>
+          <thead>
+            <tr className={TABLE_HEAD_ROW}>
+              <th className={TABLE_TH}>발전소</th>
+              <th className={TABLE_TH}>상태</th>
+              <th className={TABLE_TH}>자원</th>
+              <th className={TABLE_TH}>용량</th>
+              <th className={TABLE_TH}>발전량 (오늘)</th>
+              <th className={TABLE_TH}>발전시간</th>
+              <th className={TABLE_TH}>이번 달 누적</th>
+              <th className={TABLE_TH}>인버터</th>
+              <th className={TABLE_TH}>알람</th>
+              <th className={TABLE_TH}></th>
             </tr>
           </thead>
           <tbody>
@@ -49,16 +50,16 @@ export function PlantStatusTable({ plants }: { plants: PlantRow[] }) {
               const inv = p.inverter;
               const invAllNormal = inv && inv.total > 0 && inv.normal === inv.total;
               return (
-                <tr key={p.id} className="border-b border-white/[0.04] hover:bg-white/[0.02]">
-                  <td className="px-4 py-3">
+                <tr key={p.id} className={cn(TABLE_ROW, 'hover:bg-white/[0.02]')}>
+                  <td className={TABLE_TD}>
                     <div className="flex items-center gap-2">
                       <span className={cn('flex h-7 w-7 items-center justify-center rounded-md', p.iconBg)}>
                         <p.icon size={13} className={p.iconColor} />
                       </span>
-                      <p className="text-sm font-semibold text-white">{p.name}</p>
+                      <p className="font-semibold">{p.name}</p>
                     </div>
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
+                  <td className={cn(TABLE_TD, 'whitespace-nowrap')}>
                     <span
                       className={cn(
                         'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium ring-1',
@@ -71,18 +72,18 @@ export function PlantStatusTable({ plants }: { plants: PlantRow[] }) {
                       {sm.label}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-slate-300">{p.resource}</td>
-                  <td className="px-4 py-3 tabular-nums text-sm text-white">{p.capacityKw.toLocaleString()} kW</td>
-                  <td className="px-4 py-3 tabular-nums text-sm text-violet-300">
+                  <td className={TABLE_TD}>{p.resource}</td>
+                  <td className={cn(TABLE_TD, 'tabular-nums')}>{p.capacityKw.toLocaleString()} kW</td>
+                  <td className={cn(TABLE_TD, 'tabular-nums text-violet-300')}>
                     {p.dailyGenKwh != null ? `${p.dailyGenKwh.toLocaleString()} kWh` : '—'}
                   </td>
-                  <td className="px-4 py-3 tabular-nums text-sm text-amber-300">
+                  <td className={cn(TABLE_TD, 'tabular-nums text-amber-300')}>
                     {p.genHours != null ? `${p.genHours.toFixed(2)} h` : '—'}
                   </td>
-                  <td className="px-4 py-3 tabular-nums text-sm text-slate-300">
+                  <td className={cn(TABLE_TD, 'tabular-nums')}>
                     {p.monthlyKwh != null ? `${p.monthlyKwh.toLocaleString()} kWh` : '—'}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className={TABLE_TD}>
                     {inv && inv.total > 0 ? (
                       <span
                         className={cn(
@@ -98,7 +99,7 @@ export function PlantStatusTable({ plants }: { plants: PlantRow[] }) {
                       <span className="text-[11px] text-slate-600">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className={TABLE_TD}>
                     {p.alarm ? (
                       <div className="flex items-start gap-1.5">
                         <AlertCircle
@@ -124,7 +125,7 @@ export function PlantStatusTable({ plants }: { plants: PlantRow[] }) {
                       <span className="text-[11px] text-slate-600">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className={TABLE_TD}>
                     {p.onDetail && (
                       <button
                         type="button"

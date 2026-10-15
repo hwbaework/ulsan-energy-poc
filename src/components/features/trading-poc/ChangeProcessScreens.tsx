@@ -13,6 +13,7 @@ import { PLAN_LABEL } from '@/lib/solar-sim';
 import { Modal } from '@/components/ui/Modal';
 import { Textarea } from '@/components/ui/Textarea';
 import { cn } from '@/lib/utils';
+import { TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
 import { useToastStore } from '@/stores/useToastStore';
 import { CO, changeTermsOf, useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { ChangeSign, ChangeTerms, Contract, ContractChange, TradeDocument } from '@/types/trading-poc';
@@ -538,23 +539,23 @@ function ChangeTermsCard({ ch, c, onReject }: { ch: ContractChange; c: Contract;
         진행 <span className="font-semibold text-white">{state}</span>
         <span className="ml-3 text-slate-400">바뀐 조건 {changes.length}개</span>
       </p>
-      <table className="w-full text-sm">
+      <table className={TABLE}>
         <thead>
-          <tr className="border-b border-white/[0.06] text-left text-slate-400">
-            <th className="py-2 pr-3 font-medium">항목</th>
-            <th className="py-2 pr-3 font-medium">현재</th>
-            <th className="py-2 font-medium">변경</th>
+          <tr className={TABLE_HEAD_ROW}>
+            <th className={TABLE_TH}>항목</th>
+            <th className={TABLE_TH}>현재</th>
+            <th className={TABLE_TH}>변경</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.label} className={cn('border-b border-white/[0.04]', r.changed && 'bg-amber-500/[0.06]')}>
-              <td className="py-2 pr-3 text-slate-400">
+            <tr key={r.label} className={cn(TABLE_ROW, r.changed && 'bg-amber-500/[0.06]')}>
+              <td className={TABLE_TD}>
                 {r.label}
                 {editing && r.label !== '추가 설치비용' && <span className="ml-0.5 text-semantic-red">*</span>}
               </td>
-              <td className="py-2 pr-3 tabular-nums text-slate-300">{r.before}</td>
-              <td className={cn('py-2 tabular-nums', r.changed ? 'font-semibold text-amber-300' : 'text-slate-200')}>
+              <td className={cn(TABLE_TD, 'tabular-nums')}>{r.before}</td>
+              <td className={cn(TABLE_TD, 'tabular-nums', r.changed && 'font-semibold text-amber-300')}>
                 {editing ? (
                   <div className="flex items-center gap-2">
                     <div className={cn('w-full max-w-[240px] rounded', r.changed && 'ring-1 ring-amber-400/70')}>{inputOf(TERM_KEY[r.label]!)}</div>
@@ -570,9 +571,9 @@ function ChangeTermsCard({ ch, c, onReject }: { ch: ContractChange; c: Contract;
             </tr>
           ))}
           <tr className={cn(totalRow.before !== totalRow.after && 'bg-amber-500/[0.06]')}>
-            <td className="py-2 pr-3 text-slate-400">{totalRow.label}</td>
-            <td className="py-2 pr-3 tabular-nums text-slate-300">{totalRow.before}</td>
-            <td className={cn('py-2 tabular-nums', totalRow.before !== totalRow.after ? 'font-semibold text-amber-300' : 'text-slate-200')}>
+            <td className={TABLE_TD}>{totalRow.label}</td>
+            <td className={cn(TABLE_TD, 'tabular-nums')}>{totalRow.before}</td>
+            <td className={cn(TABLE_TD, 'tabular-nums', totalRow.before !== totalRow.after && 'font-semibold text-amber-300')}>
               {totalRow.after}
             </td>
           </tr>

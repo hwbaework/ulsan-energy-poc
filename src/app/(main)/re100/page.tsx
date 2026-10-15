@@ -20,6 +20,8 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
+import { TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
 import { Breadcrumb } from '@/components/layout';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useRecHoldings } from '@/hooks/re100/useRe100Ext';
@@ -296,35 +298,35 @@ export default function Re100DashboardPage() {
               최근 정산 실적 <span className="text-[11px] font-normal text-slate-500">(achievements latest=3)</span>
             </div>
             <div className="rounded-xl border border-white/[0.06] overflow-hidden">
-              <table className="w-full text-sm">
+              <table className={TABLE}>
                 <thead>
-                  <tr className="border-b border-white/[0.06] text-left text-xs text-slate-500">
-                    <th className="px-4 py-3">설비</th>
-                    <th className="px-4 py-3">이행수단</th>
-                    <th className="px-4 py-3 text-right">발전량</th>
-                    <th className="px-4 py-3 text-right">기여 델타</th>
-                    <th className="px-4 py-3">확정일</th>
+                  <tr className={TABLE_HEAD_ROW}>
+                    <th className={TABLE_TH}>설비</th>
+                    <th className={TABLE_TH}>이행수단</th>
+                    <th className={cn(TABLE_TH, 'text-right')}>발전량</th>
+                    <th className={cn(TABLE_TH, 'text-right')}>기여 델타</th>
+                    <th className={TABLE_TH}>확정일</th>
                   </tr>
                 </thead>
                 <tbody>
                   {latest.map((r, i) => (
                     <tr
                       key={i}
-                      className="cursor-pointer border-b border-white/[0.04] text-slate-300 hover:bg-white/[0.02]"
+                      className={cn(TABLE_ROW, 'cursor-pointer hover:bg-white/[0.02]')}
                       onClick={() => {
                         window.location.href = '/re100/generation?from=dashboard';
                       }}
                     >
-                      <td className="px-4 py-3">{r.plantName}</td>
-                      <td className="px-4 py-3 text-xs text-slate-500">{MEASURE_LABEL[r.measure] ?? r.measure}</td>
-                      <td className="px-4 py-3 text-right">{r.mwh.toLocaleString()} MWh</td>
-                      <td className="px-4 py-3 text-right text-emerald-400">+{r.contribDeltaPct}%p</td>
-                      <td className="px-4 py-3 text-xs text-slate-500">{r.confirmedAt}</td>
+                      <td className={TABLE_TD}>{r.plantName}</td>
+                      <td className={TABLE_TD}>{MEASURE_LABEL[r.measure] ?? r.measure}</td>
+                      <td className={cn(TABLE_TD, 'text-right tabular-nums')}>{r.mwh.toLocaleString()} MWh</td>
+                      <td className={cn(TABLE_TD, 'text-right tabular-nums text-emerald-400')}>+{r.contribDeltaPct}%p</td>
+                      <td className={TABLE_TD}>{r.confirmedAt}</td>
                     </tr>
                   ))}
                   {latest.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-xs text-slate-500">
+                      <td colSpan={5} className={cn(TABLE_TD, 'py-8 text-center text-slate-500')}>
                         {latestQ.isLoading ? '불러오는 중…' : '아직 확정된 정산 실적이 없습니다.'}
                       </td>
                     </tr>

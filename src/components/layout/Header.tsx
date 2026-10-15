@@ -99,10 +99,8 @@ export function Header({
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/20">
             <User size={16} className="text-accent" />
           </div>
-          <div className="hidden flex-col gap-0.5 lg:flex">
-            <span className="text-white text-xs font-medium">{user?.name ?? '사용자'}</span>
-            <span className="text-accent text-[10px]">{user?.companyName ?? ''}</span>
-          </div>
+          {/* 이름만 — 아래 작은 회사 이름은 안 보여서 뺐다(회사는 기업 정보에서, 2026-10-15) */}
+          <span className="hidden text-sm font-medium text-white lg:inline">{user?.name ?? '사용자'}</span>
         </div>
 
         <button

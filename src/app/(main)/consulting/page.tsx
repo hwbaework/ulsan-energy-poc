@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { SectionCard } from '@/components/features';
 import { cn } from '@/lib/utils';
+import { TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
 import { getPersona, usePersonaOverride } from '@/lib/persona';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useConsultationsByConsultant, useDiagnosesByCompany } from '@/hooks/consulting/useConsultations';
@@ -73,34 +74,34 @@ export default function ConsultingPage() {
           {diagnosisList.length === 0 ? (
             <p className="px-6 py-6 text-sm text-slate-500">진단 결과 없음 — 무료진단을 받으면 여기에 쌓입니다</p>
           ) : (
-            <table className="w-full text-sm">
+            <table className={TABLE}>
               <thead>
-                <tr className="border-b border-white/[0.06] text-left text-slate-400">
-                  <th className="px-6 py-3 font-medium">진단일</th>
-                  <th className="px-4 py-3 font-medium">기업명</th>
-                  <th className="px-4 py-3 font-medium">방식</th>
-                  <th className="px-4 py-3 font-medium">설치용량</th>
-                  <th className="px-4 py-3 font-medium">연간 발전량 (1차년)</th>
-                  <th className="px-4 py-3 font-medium">20년 누적 절감</th>
-                  <th className="px-6 py-3" />
+                <tr className={TABLE_HEAD_ROW}>
+                  <th className={TABLE_TH}>진단일</th>
+                  <th className={TABLE_TH}>기업명</th>
+                  <th className={TABLE_TH}>방식</th>
+                  <th className={TABLE_TH}>설치용량</th>
+                  <th className={TABLE_TH}>연간 발전량 (1차년)</th>
+                  <th className={TABLE_TH}>20년 누적 절감</th>
+                  <th className={TABLE_TH} />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.04]">
+              <tbody>
                 {diagnosisList.map((d) => {
                   const h = d.sim ? simHeadline(d.sim) : null;
                   return (
                     <tr
                       key={d.id}
                       onClick={() => openReview(d.id)}
-                      className="cursor-pointer transition-colors hover:bg-white/[0.03]"
+                      className={cn(TABLE_ROW, 'cursor-pointer transition-colors hover:bg-white/[0.03]')}
                     >
-                      <td className="px-6 py-3.5 text-slate-300 tabular-nums">{d.createdAt?.slice(0, 10)}</td>
-                      <td className="px-4 py-3.5 font-medium text-white">{d.sim?.site ?? ''}</td>
-                      <td className="px-4 py-3.5 text-slate-200">{h?.mode ?? ''}</td>
-                      <td className="px-4 py-3.5 text-slate-200 tabular-nums">{h ? `${h.cap.toLocaleString()} kW` : ''}</td>
-                      <td className="px-4 py-3.5 text-slate-200 tabular-nums">{h ? `${F1(h.gen1 / 1000)} MWh` : ''}</td>
-                      <td className="px-4 py-3.5 text-lg font-bold text-white tabular-nums">{h ? `${EOK(h.save20)} 억원` : ''}</td>
-                      <td className="px-6 py-3.5 text-right">
+                      <td className={cn(TABLE_TD, 'tabular-nums')}>{d.createdAt?.slice(0, 10)}</td>
+                      <td className={cn(TABLE_TD, 'font-medium')}>{d.sim?.site ?? ''}</td>
+                      <td className={TABLE_TD}>{h?.mode ?? ''}</td>
+                      <td className={cn(TABLE_TD, 'tabular-nums')}>{h ? `${h.cap.toLocaleString()} kW` : ''}</td>
+                      <td className={cn(TABLE_TD, 'tabular-nums')}>{h ? `${F1(h.gen1 / 1000)} MWh` : ''}</td>
+                      <td className={cn(TABLE_TD, 'font-bold tabular-nums')}>{h ? `${EOK(h.save20)} 억원` : ''}</td>
+                      <td className={cn(TABLE_TD, 'text-right')}>
                         <ChevronRight size={16} className="ml-auto text-slate-500" />
                       </td>
                     </tr>
