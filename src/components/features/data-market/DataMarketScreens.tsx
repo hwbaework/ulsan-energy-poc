@@ -974,32 +974,67 @@ export function DataDetailScreen() {
  *    누가 얼마 내는지는 정산에서 본다 ══ */
 export function DataTradesScreen() {
   const role = useDataRole();
-  // 기업 계정 — 내 데이터가 하나면 바로 이용 내역 · 사용량, 둘 이상(한일튜브 자가소비 · PPA)이면 목록
-  const mine = role.isAdmin
-    ? []
-    : role.products.filter(
-        (d) => d.ownerCompanyId === role.companyId && (d.onSale || role.tradesAll.some((t) => t.datasetId === d.id)),
-      );
-  if (role.isAdmin || mine.length > 1) return <DataTradesAdmin />;
-  if (mine[0]) return <DataTradeDetailScreen fixedId={mine[0].id} />;
-  return <DataTradesEmpty />;
+  // 관리자 — 데이터별 목록. 기업 — 거래 현황 그대로: 내 데이터를 쓰는 곳 + 내가 이용하는 데이터(2026-10-15)
+  if (role.isAdmin) return <DataTradesAdmin />;
+  return <DataTradesCompany />;
 }
 
-/** 판매 중인 내 데이터가 없을 때 — 판매 동의로 */
-function DataTradesEmpty() {
+/** 기업 거래 현황 — 제공 중(내 데이터를 쓰는 곳) · 사용 중(내가 쓰는 데이터). 지금 이어지는 것만, 취소는 안 보인다 */
+function DataTradesCompany() {
   const router = useRouter();
+  const role = useDataRole();
+  // 지금 이어지고 있는 거래만(취소한 건 보이지 않는다)
+  const sold = role.sold.filter(isActive).sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  const bought = role.bought.filter(isActive).sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  const getMonth = sumPrice(sold.filter((t) => billedIn(t, THIS_MONTH)));
+  const payMonth = sumPrice(bought.filter((t) => billedIn(t, THIS_MONTH)));
+  // 제공 중 — 내 데이터마다 한 줄(쓰는 건수 · 이번 달 받을 금액). 누가 쓰는지는 눌러서 상세에서
+  const myData = role.products
+    .filter((d) => d.ownerCompanyId === role.companyId && (d.onSale || sold.some((t) => t.datasetId === d.id)))
+    .map((d) => {
+      const ts = sold.filter((t) => t.datasetId === d.id);
+      return { d, users: ts.length, amount: sumPrice(ts.filter((t) => billedIn(t, THIS_MONTH))) };
+    });
+  type Mine = (typeof myData)[number];
+  const soldCols: Column<Mine>[] = [
+    { key: 'data', header: '내 데이터', render: (r) => cell(r.d.name, 'font-medium text-white') },
+    { key: 'users', header: '쓰는 곳', width: '120px', render: (r) => strong(`${r.users}건`) },
+    { key: 'amt', header: '이번 달 받을 금액', width: '160px', align: 'right', render: (r) => num(won(r.amount)) },
+    arrow,
+  ];
+  const boughtCols: Column<DataTrade>[] = [
+    { key: 'data', header: '데이터', render: (t) => cell(t.datasetName, 'font-medium text-white') },
+    { key: 'seller', header: '제공 기업', width: '150px', render: (t) => cell(t.sellerCompanyName, 'text-white') },
+    { key: 'start', header: '시작일', width: '130px', render: (t) => num(day(t.startedAt)) },
+    { key: 'amt', header: '월 금액', width: '110px', align: 'right', render: (t) => num(won(t.price)) },
+    arrow,
+  ];
   return (
     <div className="space-y-6">
       <Header title="거래 현황" />
-      <SectionCard
-        title="내 데이터 (0)"
-        actions={
-          <Button onClick={() => router.push(CONSENT)}>
-            <ShieldCheck size={14} className="mr-1" /> 판매 동의
-          </Button>
-        }
-      >
-        <p className="py-10 text-center text-base text-slate-400">판매 중인 데이터 없음</p>
+      <StatsGrid columns={4}>
+        <StatCard label="제공 중" value={`${myData.length}건`} />
+        <StatCard label="이번 달 받을 금액" value={won(getMonth)} />
+        <StatCard label="사용 중" value={`${bought.length}건`} />
+        <StatCard label="이번 달 낼 금액" value={won(payMonth)} />
+      </StatsGrid>
+      <SectionCard title="제공 중" noPadding>
+        <DataTable
+          columns={soldCols}
+          data={myData}
+          rowKey={(r) => r.d.id}
+          emptyMessage="제공 중인 데이터 없음"
+          onRowClick={(r) => router.push(`${TRADING}/view?id=${r.d.id}`)}
+        />
+      </SectionCard>
+      <SectionCard title="사용 중" noPadding>
+        <DataTable
+          columns={boughtCols}
+          data={bought}
+          rowKey={(t) => t.id}
+          emptyMessage="사용 중인 데이터 없음"
+          onRowClick={(t) => router.push(`${CATALOG}/view?id=${t.datasetId}`)}
+        />
       </SectionCard>
     </div>
   );
@@ -1036,7 +1071,7 @@ function DataTradesAdmin() {
       key: 'name',
       header: '데이터',
       render: (r) =>
-        cell(r.d.name, r.d.ownerCompanyId === role.companyId ? 'font-semibold text-primary' : 'font-medium text-white'),
+        cell(r.d.name, 'font-medium text-white'),
     },
     { key: 'owner', header: '제공 기업', width: '130px', render: (r) => cell(r.d.ownerCompanyName) },
     ...(role.isAdmin
