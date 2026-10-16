@@ -165,7 +165,7 @@ export default function PlatformPpaUsageDeviationPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KpiCard label="부족 발생" value={`${stats.shortage}건`} sub="페널티 대상" icon={ArrowDownRight} tone="rose" />
         <KpiCard label="초과 발생" value={`${stats.excess}건`} sub="잉여 SMP 판매" icon={ArrowUpRight} tone="amber" />
-        <KpiCard label="누적 페널티" value={fmtKrw(stats.totalPenalty)} sub="이번달" icon={AlertTriangle} tone="rose" />
+        <KpiCard label="누적 페널티" value={fmtKrw(stats.totalPenalty)} sub="금월" icon={AlertTriangle} tone="rose" />
         <KpiCard
           label="진행 중 분쟁"
           value={`${stats.openDisputes}건`}

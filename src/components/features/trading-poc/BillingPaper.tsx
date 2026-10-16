@@ -179,7 +179,7 @@ function InvoicePaper({ contract: c, period, autoPdf }: { contract: Contract; pe
           supplyAmount: s.usageAmount,
           note: c.no,
         },
-        // 정산 차액 — 지난달을 바로잡는 한 줄
+        // 정산 차액 — 전월을 바로잡는 한 줄
         ...(s.adjust
           ? [
               {

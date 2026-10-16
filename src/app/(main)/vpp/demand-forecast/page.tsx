@@ -43,7 +43,7 @@ export default function VppDemandForecastPage() {
   const chartData = rows.map((f) => ({
     label: `${f.targetDate.slice(5)} ${f.targetHour ?? 0}시`,
     예측: f.predictedLoadKw ? Number(f.predictedLoadKw) : 0,
-    // 실측 없는 미래/오늘 행은 0이 아니라 선 끊기(null) — "실측 급락" 오해 방지
+    // 실측 없는 미래/금일 행은 0이 아니라 선 끊기(null) — "실측 급락" 오해 방지
     실측: (f.actualLoadKw != null ? Number(f.actualLoadKw) : null) as unknown as number,
   }));
 

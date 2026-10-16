@@ -68,7 +68,7 @@ function InvoiceEditor({ b }: { b: Bill }) {
   const pay = useTradingPocStore((s) => s.payInvoice);
   const [confirm, setConfirm] = useState<'issue' | 'pay' | null>(null);
   const draft = b.billStatus === 'DRAFT';
-  // 정산 차액 — 지난달 중 고를 달, 차액 kWh(±), 사유. 사용량은 못 고친다
+  // 정산 차액 — 전월 중 고를 달, 차액 kWh(±), 사유. 사용량은 못 고친다
   const rec = useTradingPocStore((s) => s.invoices[key]);
   const adj = rec?.adjust;
   const [adjOpen, setAdjOpen] = useState(!!adj);
@@ -439,7 +439,7 @@ function BillingScreen({ kind }: { kind: Kind }) {
         <div className="flex items-center gap-1">
           <button
             type="button"
-            aria-label="지난해"
+            aria-label="전년"
             onClick={() => shiftYear(-1)}
             disabled={!years.includes(String(Number(year) - 1))}
             className={arrowBtn}
@@ -449,7 +449,7 @@ function BillingScreen({ kind }: { kind: Kind }) {
           <span className="min-w-[72px] text-center text-base font-semibold tabular-nums text-white">{year}년</span>
           <button
             type="button"
-            aria-label="다음 해"
+            aria-label="내년"
             onClick={() => shiftYear(1)}
             disabled={!years.includes(String(Number(year) + 1))}
             className={arrowBtn}
@@ -633,7 +633,7 @@ export function TaxInvoiceDetailScreen() {
   return <BillingDetailScreen kind="TAX" />;
 }
 
-/** 수익·정산 › 청구서 — onsite 사용료, 달이 끝나면 청구(다음 달 1일), 납부 기한 다음 달 25일 */
+/** 수익·정산 › 청구서 — onsite 사용료, 달이 끝나면 청구(익월 1일), 납부 기한 익월 25일 */
 export function InvoiceScreen() {
   return <BillingScreen kind="INVOICE" />;
 }

@@ -40,7 +40,7 @@ import {
  */
 
 const pad = (n: number) => String(n).padStart(2, '0');
-// 오늘 — 브라우저 현지 날짜(UTC 로 하면 오전 9시 전엔 어제가 된다)
+// 금일 — 브라우저 현지 날짜(UTC 로 하면 오전 9시 전엔 작일가 된다)
 const today = () => {
   const d = new Date();
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -492,7 +492,7 @@ export function PpaOpInfo({ companyId }: { companyId: number }) {
   const days = monthStatus(ym.y, ym.m, holidaysYm, sch, sch.overrides);
   const yr = opYear(ym.y, holidaysYm, sch, sch.overrides);
   const move = (d: number) => setYm(({ y, m }) => (m + d < 1 ? { y: y - 1, m: 12 } : m + d > 12 ? { y: y + 1, m: 1 } : { y, m: m + d }));
-  // 관리자 — 발전사업자가 날짜별로 따로 정한 날(오늘 이후, 날짜순). 보기만
+  // 관리자 — 발전사업자가 날짜별로 따로 정한 날(금일 이후, 날짜순). 보기만
   const picked = Object.entries(sch.overrides)
     .filter(([d]) => d >= now)
     .sort(([a], [b]) => a.localeCompare(b));

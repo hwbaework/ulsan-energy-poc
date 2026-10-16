@@ -22,7 +22,7 @@ import type { ApiConversion } from '@/hooks/edm/useCarbonExt';
 
 /* ── 공통 ─────────────────────────────────────────────── */
 const pad = (n: number) => String(n).padStart(2, '0');
-/** 오늘 날짜 2026-10-02 */
+/** 금일 날짜 2026-10-02 */
 function today(): string {
   const d = new Date();
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;

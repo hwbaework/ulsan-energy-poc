@@ -77,7 +77,7 @@ export default function OperationsDashboardPage() {
           />
           <StatCard
             icon={<Zap size={18} className="text-emerald-400" />}
-            label="오늘 발전량"
+            label="금일 발전량"
             value={`${((dashboard?.todayGenerationKwh ?? 0) / 1000).toFixed(1)} MWh`}
           />
         </StatsGrid>

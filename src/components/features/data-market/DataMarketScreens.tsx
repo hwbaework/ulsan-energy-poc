@@ -83,11 +83,11 @@ import {
 /* ── 공통 ── */
 const won = (n: number) => `₩${n.toLocaleString('ko-KR')}`;
 const day = (iso?: string) => (iso ? iso.slice(0, 10) : '');
-/** 얼마 전인지 — Mapbox 'Last modified'처럼. 오늘 · 어제 · n일 전 · n개월 전 · n년 전 */
+/** 얼마 전인지 — Mapbox 'Last modified'처럼. 금일 · 작일 · n일 전 · n개월 전 · n년 전 */
 const ago = (iso: string) => {
   const d = Math.floor((Date.now() - new Date(`${iso.slice(0, 10)}T00:00:00`).getTime()) / 86_400_000);
-  if (d <= 0) return '오늘';
-  if (d === 1) return '어제';
+  if (d <= 0) return '금일';
+  if (d === 1) return '작일';
   if (d < 30) return `${d}일 전`;
   if (d < 365) return `${Math.floor(d / 30)}개월 전`;
   return `${Math.floor(d / 365)}년 전`;
@@ -769,7 +769,7 @@ function DataView({ d }: { d: Dataset }) {
 
 /* ══ 데이터 한 건 — 요약 · 데이터(이용 중 · 판매 기업 · 관리자: 시간별 전체 + CSV, 그 밖: 월별 요약 + 하루 샘플). 다른 기업: 신청 ══ */
 /**
- * 신청 = 결제 — 기업 카드(기업 정보 › 결제 수단, 토스페이먼츠 빌링키)로 첫 달을 결제하고 토큰을 준다. 다음 달부터 매달 1일 자동결제.
+ * 신청 = 결제 — 기업 카드(기업 정보 › 결제 수단, 토스페이먼츠 빌링키)로 첫 달을 결제하고 토큰을 준다. 익월부터 매달 1일 자동결제.
  * 카드가 없으면 결제할 수 없다 — 기업관리자는 등록하러, 소속 멤버는 기업관리자에게 요청
  */
 function PayModal({
@@ -793,7 +793,7 @@ function PayModal({
   const isCompanyAdmin = useIsCompanyAdmin();
   const addToast = useToastStore((s) => s.add);
   const [busy, setBusy] = useState(false);
-  // 결제일 — 오늘 첫 달, 그다음부터 매달 1일
+  // 결제일 — 금일 첫 달, 그다음부터 매달 1일
   const today = localNow().slice(0, 10);
   const nextDate = (() => {
     let [y = 2026, m = 1] = today.split('-').map(Number);
@@ -1033,7 +1033,7 @@ function DataTradesCompany() {
   const bought = role.bought.filter(isActive).sort((a, b) => b.startedAt.localeCompare(a.startedAt));
   const getMonth = sumPrice(sold.filter((t) => billedIn(t, THIS_MONTH)));
   const payMonth = sumPrice(bought.filter((t) => billedIn(t, THIS_MONTH)));
-  // 제공 중 — 내 데이터마다 한 줄(쓰는 건수 · 이번 달 받을 금액). 누가 쓰는지는 눌러서 상세에서
+  // 제공 중 — 내 데이터마다 한 줄(쓰는 건수 · 금월 받을 금액). 누가 쓰는지는 눌러서 상세에서
   const myData = role.products
     .filter((d) => d.ownerCompanyId === role.companyId && (d.onSale || sold.some((t) => t.datasetId === d.id)))
     .map((d) => {
@@ -1186,7 +1186,7 @@ function DataTradesAdmin() {
 
 /* ══ 3.3.3 정산 — 위에 연도 · 월 고르기, 아래 KPI(금액 · 정산일) + 표 하나
  *    플랫폼(관리자)이 이용 기업에게 받아 수수료(DM_FEE_RATE, 지금 0%)를 떼고 판매 기업에게 넘긴다. 쓰면 받는 돈 — 상태 없음
- *    그 달 이용분은 다음 달 15일 정산
+ *    그 달 이용분은 익월 15일 정산
  *    관리자: 기업별 표(이용 건수 · 낼 금액 · 판매 건수 · 받을 금액 · 정산 금액) + 검색, 줄을 누르면 그 기업 정산 내역(← 로 돌아감)
  *    기업 계정: 내 정산 내역(받을 금액 · 낼 금액). 표 제목은 '이름 (개수)'까지만 ══ */
 export function DataSettlementScreen() {
@@ -1211,7 +1211,7 @@ export function DataSettlementScreen() {
     [all, role.isAdmin, role.companyId],
   );
   const years = [...new Set(periods.map((p) => p.slice(0, 4)))];
-  // 처음엔 이번 정산(이번 달 15일 = 지난달 이용분)
+  // 처음엔 이번 정산(금월 15일 = 전월 이용분)
   const last = periods.find((p) => payDateOf(p) === `${THIS_MONTH}-15`);
   const initial = last ?? periods[0] ?? THIS_MONTH;
   const [period, setPeriod] = useState(initial);
@@ -1244,7 +1244,7 @@ export function DataSettlementScreen() {
   const monthCompanies = companiesIn(inMonth);
   const me = role.isAdmin ? company : role.companyId;
 
-  /* 결제(낼 금액) — 그 달 이용분은 시작한 날, 그다음 달부터 매달 1일 카드 자동결제 */
+  /* 결제(낼 금액) — 그 달 이용분은 시작한 날, 익월부터 매달 1일 카드 자동결제 */
   const chargeDate = (r: SettleRow) => (r.trade.startedAt.slice(0, 7) === r.period ? day(r.trade.startedAt) : `${r.period}-01`);
 
   /* KPI — 관리자 월 전체 / 기업 하나 */
@@ -1367,7 +1367,7 @@ export function DataSettlementScreen() {
         <div className="flex items-center gap-1">
           <button
             type="button"
-            aria-label="지난해"
+            aria-label="전년"
             onClick={() => shiftYear(-1)}
             disabled={!years.includes(String(Number(year) - 1))}
             className={arrowBtn}
@@ -1377,7 +1377,7 @@ export function DataSettlementScreen() {
           <span className="min-w-[72px] text-center text-base font-semibold tabular-nums text-white">{year}년</span>
           <button
             type="button"
-            aria-label="다음 해"
+            aria-label="내년"
             onClick={() => shiftYear(1)}
             disabled={!years.includes(String(Number(year) + 1))}
             className={arrowBtn}
@@ -1710,7 +1710,7 @@ export function DataTradeDetailScreen({ fixedId }: { fixedId?: number } = {}) {
     },
     {
       key: 'today',
-      header: '오늘 호출',
+      header: '금일 호출',
       width: '110px',
       render: (t) => num(`${usageOf(t, DM_TODAY).toLocaleString('ko-KR')}회`),
     },

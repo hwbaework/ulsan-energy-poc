@@ -28,7 +28,7 @@ interface Row {
   key: string; // plantId-계약
   plant: ContractPlant; // 계약 하나 = 행 하나
   capacity: number;
-  anomalies: number; // 이번 달
+  anomalies: number; // 금월
 }
 
 export default function ReportsEntryPage() {
@@ -73,7 +73,7 @@ export default function ReportsEntryPage() {
     { key: 'address' as keyof Row, header: '위치', render: (r) => <span className="text-sm text-slate-300">{r.plant?.address ?? '-'}</span> },
     { key: 'capacity', header: '설비 용량', width: '130px', render: (r) => <span className="text-sm text-slate-300 tabular-nums whitespace-nowrap">{r.capacity.toLocaleString()} kW</span> },
     { key: 'last' as keyof Row, header: '최근 보고서', width: '140px', render: (r) => <span className="text-sm text-slate-300 whitespace-nowrap">{hasReport(r.plant) ? LAST_REPORT : ''}</span> },
-    { key: 'anomalies', header: '이번 달 이상', width: '120px', render: (r) => (hasReport(r.plant) ? <span className={`text-sm tabular-nums whitespace-nowrap ${r.anomalies > 0 ? 'text-red-400 font-semibold' : 'text-slate-300'}`}>{r.anomalies} 건</span> : null) },
+    { key: 'anomalies', header: '금월 이상', width: '120px', render: (r) => (hasReport(r.plant) ? <span className={`text-sm tabular-nums whitespace-nowrap ${r.anomalies > 0 ? 'text-red-400 font-semibold' : 'text-slate-300'}`}>{r.anomalies} 건</span> : null) },
     { key: 'go' as keyof Row, header: '', width: '48px', render: () => <ChevronRight size={16} className="text-slate-500" /> },
   ];
 

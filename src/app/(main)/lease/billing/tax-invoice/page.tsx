@@ -82,9 +82,9 @@ const INVOICES: LeaseInvoice[] = (() => {
   const seeds: InvoiceSeed[] = [
     // Feb: 발급 3/15, 결제 4/25 완료
     { issueMonth: '2026-02', total: 3_005_952, status: 'paid', issued: true, paid: true, daysInMonth: 28 },
-    // Mar: 발급 4/15, 결제 5/25 완료 (오늘 5/28 기준)
+    // Mar: 발급 4/15, 결제 5/25 완료 (금일 5/28 기준)
     { issueMonth: '2026-03', total: 4_904_448, status: 'paid', issued: true, paid: true, daysInMonth: 31 },
-    // Apr: 발급 5/15, 결제 6/25 예정 (오늘 5/28 기준 결제 대기)
+    // Apr: 발급 5/15, 결제 6/25 예정 (금일 5/28 기준 결제 대기)
     { issueMonth: '2026-04', total: 4_746_240, status: 'issued', issued: true, paid: false, daysInMonth: 30 },
     // May: 미발급 — 5월 정산은 6/15 이후 확정. 표시값은 예상치 (settlement 정합 = 4,998,792, 단가 ₩92.6/kWh)
     { issueMonth: '2026-05', total: 4_998_792, status: 'unissued', issued: false, paid: false, daysInMonth: 31 },

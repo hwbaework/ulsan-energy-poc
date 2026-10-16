@@ -47,7 +47,7 @@ interface LeasePlant {
   alarmDetail?: string;
   site: string;
   // API 가용 필드 (mock 채워서 화면 표시)
-  monthlyEnergyKwh?: number; // 이번 달 누적 (kWh) — 백엔드 monitoring monthlyEnergy 연동값
+  monthlyEnergyKwh?: number; // 금월 누적 (kWh) — 백엔드 monitoring monthlyEnergy 연동값
   totalEnergyKwh?: number; // 누적 발전량 (kWh, lifetime) — API totalEnergy
   inverterCount?: number; // 인버터 개수 — API inverters.length
   inverterNormal?: number; // 정상 인버터 수 — API connectionStatus.inverterConnections
@@ -126,7 +126,7 @@ const LEASE_PLANTS: LeasePlant[] = [
     currentKw: 385,
     status: '정상',
     site: '한일튜브 본사',
-    monthlyEnergyKwh: 53999, // 이번 달 누적 — API 실값 (한일튜브 plant 17514, 5/29 기준 진행 중)
+    monthlyEnergyKwh: 53999, // 금월 누적 — API 실값 (한일튜브 plant 17514, 5/29 기준 진행 중)
     totalEnergyKwh: 1689320, // 누적 (계약 시작 2026-01-15 ~ 현재, 약 4.4개월)
     inverterCount: 4,
     inverterNormal: 4, // 4개 모두 정상
@@ -215,7 +215,7 @@ function buildGenData(view: ChartView, filter: string, sites: string[]) {
 
 export default function LeaseDashboardPage() {
   const [view, setView] = useState<'시간' | '일' | '월'>('시간');
-  // 오늘 기준 — view 별로 다른 picker
+  // 금일 기준 — view 별로 다른 picker
   const _now = new Date();
   const _today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
   const [date, setDate] = useState(_today); // 시간 view: YYYY-MM-DD
@@ -308,19 +308,19 @@ export default function LeaseDashboardPage() {
     () => availableLines.filter((l) => !hiddenLines.has(l.key)),
     [availableLines, hiddenLines],
   );
-  // KPI는 "오늘" 기준이므로 시간 view 데이터로 고정 합산
+  // KPI는 "금일" 기준이므로 시간 view 데이터로 고정 합산
   // 한일튜브 실측 — 4월 51,272 kWh, 일평균 4.38h
   //   5월 누적 (5/29 기준 진행 중): 53,999 kWh — API 실값 (plant 17514)
   //   FIXME: monitoring 타입에 monthlyEnergy 필드 없음. 백엔드가 실제로는 반환하므로
   //          types/monitoring.ts 에 monthlyEnergy?: number 추가 + plant.monthlyEnergy 로 교체 필요
   const DAILY_GEN_HOURS_FALLBACK = 4.38; // API 미수신 시 fallback
-  const MONTHLY_CUMULATIVE_KWH = 53999; // 이번 달 누적 — API 실값 (한일튜브 plant 17514, 5/29 기준 진행 중)
+  const MONTHLY_CUMULATIVE_KWH = 53999; // 금월 누적 — API 실값 (한일튜브 plant 17514, 5/29 기준 진행 중)
 
   // 발전시간 — 추이 차트와 동일 공식: API dailyEnergy ÷ capacity (= Peak Sun Hours)
   const dailyGenHours =
     plant?.dailyEnergy != null && plant?.capacity ? plant.dailyEnergy / plant.capacity : DAILY_GEN_HOURS_FALLBACK;
 
-  // 이번 달 전기사용자 지표 — 커버리지 / 절감 / SPC 납부 / 순 절감 (분배율 모델, trading/매칭 정합)
+  // 금월 전기사용자 지표 — 커버리지 / 절감 / SPC 납부 / 순 절감 (분배율 모델, trading/매칭 정합)
   //   5월은 정산 미확정 (익월 15일 이후 확정) → 모두 예상치
   //   총 절감 (한전 대비)   = 발전량 × 한전 단가 = 53,999 × 119.6 = ₩6,458,280
   //   SPC 납부 (분배 30%)   = ₩1,937,484
@@ -430,11 +430,11 @@ export default function LeaseDashboardPage() {
           icon={<Sun size={18} className="text-amber-400" />}
           label="태양광 커버리지"
           value={`${COVERAGE_PCT}%`}
-          sub={`이번 달 사용 ${MONTHLY_USAGE_KWH.toLocaleString()} kWh 중 ${MONTHLY_CUMULATIVE_KWH.toLocaleString()} kWh 충당`}
+          sub={`금월 사용 ${MONTHLY_USAGE_KWH.toLocaleString()} kWh 중 ${MONTHLY_CUMULATIVE_KWH.toLocaleString()} kWh 충당`}
         />
         <StatCard
           icon={<TrendingDown size={18} className="text-emerald-400" />}
-          label="이번 달 요금 절감 (한전 대비)"
+          label="금월 요금 절감 (한전 대비)"
           value={`₩${MONTHLY_REVENUE_KRW.toLocaleString()}`}
           sub={`한전 ₩${KEPCO_AVG_PRICE}/kWh 기준 — 태양광이 없었다면 더 냈을 금액`}
         />
@@ -446,7 +446,7 @@ export default function LeaseDashboardPage() {
         />
         <StatCard
           icon={<TrendingUp size={18} className="text-emerald-400" />}
-          label="이번 달 순 절감"
+          label="금월 순 절감"
           value={`₩${MONTHLY_MY_NET_KRW.toLocaleString()}`}
           sub={`절감액의 ${100 - GEN_SHARE_PCT}% — 납부 차감 후 실 이득`}
         />
@@ -465,7 +465,7 @@ export default function LeaseDashboardPage() {
                 <span className="text-base font-normal text-slate-400">%</span>
               </p>
               <p className="text-xs text-slate-500 mt-0.5">
-                이번 달 자가소비 {MONTHLY_CUMULATIVE_KWH.toLocaleString()} kWh / 총 사용{' '}
+                금월 자가소비 {MONTHLY_CUMULATIVE_KWH.toLocaleString()} kWh / 총 사용{' '}
                 {MONTHLY_USAGE_KWH.toLocaleString()} kWh
               </p>
             </div>
@@ -535,12 +535,12 @@ export default function LeaseDashboardPage() {
             {[
               // generationKwh 는 이미 kWh 단위 → 그대로 합산 (consumer/billing 정합값과 동일)
               {
-                label: '올해 누적 자가소비',
+                label: '금년 누적 자가소비',
                 value: `${LEASE_MONTHLY.reduce((s, m) => s + (m.generationKwh ?? 0), 0).toLocaleString()} kWh`,
               },
               // myNet 은 백만원 단위 → 원으로 환산 시 × 1,000,000 (소수점 손실 방지 위해 round)
               {
-                label: `올해 누적 순 절감 (내 ${100 - GEN_SHARE_PCT}%)`,
+                label: `금년 누적 순 절감 (내 ${100 - GEN_SHARE_PCT}%)`,
                 value: `₩ ${Math.round(LEASE_MONTHLY.reduce((s, m) => s + (m.myNet ?? 0), 0) * 1_000_000).toLocaleString()}`,
                 highlight: true,
               },
@@ -578,7 +578,7 @@ export default function LeaseDashboardPage() {
             : isSingleSelected
               ? ` · ${onlySelectedSite}`
               : ' · 선택된 사업장 없음';
-          if (view === '시간') return `오늘 시간대별 내 옥상 발전량 (kW)${sitesLabel}`;
+          if (view === '시간') return `금일 시간대별 내 옥상 발전량 (kW)${sitesLabel}`;
           if (view === '일') return `최근 30일 일별 발전량 (kWh)${sitesLabel}`;
           return `최근 12개월 월별 발전량 (kWh)${sitesLabel}`;
         })()}
@@ -638,7 +638,7 @@ export default function LeaseDashboardPage() {
         />
       </GenerationTrendCard>
 
-      {/* 발전소 상태 보드 — 내 옥상 설비 상태·오늘 발전·인버터 (상세 모달 연결) */}
+      {/* 발전소 상태 보드 — 내 옥상 설비 상태·금일 발전·인버터 (상세 모달 연결) */}
       <PlantStatusTable
         plants={filteredPlants.map((p) => {
           const sm = STATUS_META[p.status];
@@ -767,7 +767,7 @@ export default function LeaseDashboardPage() {
                   </p>
                 </div>
                 <div className="rounded-md bg-white/[0.04] ring-1 ring-white/[0.06] px-3 py-2">
-                  <p className="text-[10px] text-slate-500 mb-1">이번 달 누적</p>
+                  <p className="text-[10px] text-slate-500 mb-1">금월 누적</p>
                   <p className="text-sm font-bold text-amber-300 tabular-nums">
                     {detailPlant.monthlyEnergyKwh?.toLocaleString() ?? '—'}{' '}
                     {detailPlant.monthlyEnergyKwh != null && (

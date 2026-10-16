@@ -16,7 +16,7 @@ import { customerKeyOf, openCardRegistration, tossReady } from '@/lib/toss-billi
 
 const won = (v: number) => `₩${v.toLocaleString('ko-KR')}`;
 const day = (iso: string) => iso.slice(0, 10);
-/** 다음 자동결제일 — 다음 달 1일 */
+/** 다음 자동결제일 — 익월 1일 */
 const nextPayDate = () => {
   let [y = 2026, m = 1] = DM_TODAY.split('-').map(Number);
   m += 1;

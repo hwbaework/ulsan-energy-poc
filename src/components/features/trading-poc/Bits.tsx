@@ -79,7 +79,7 @@ export const cellMuted = (v: ReactNode) => (
 export const TRADE_STEPS = ['신청 접수', '미팅', '전자서명', '승인'] as const;
 
 /** 단계 표기 — 미팅 (2/5) */
-/** 오늘(이 기기 날짜) YYYY-MM-DD — 미팅일은 오늘부터 */
+/** 금일(이 기기 날짜) YYYY-MM-DD — 미팅일은 금일부터 */
 export const localToday = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

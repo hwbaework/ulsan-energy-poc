@@ -104,7 +104,7 @@ export function MyContractsScreen() {
     return { data, breakEven, total };
   }, [active]);
 
-  // 계약별 올해 사용료(확정) — onsite 만
+  // 계약별 금년 사용료(확정) — onsite 만
   const yearOf = (id: number) =>
     settlements
       .filter((s) => s.contractId === id && s.status === 'CONFIRMED' && s.period.startsWith(YEAR))
@@ -138,7 +138,7 @@ export function MyContractsScreen() {
     { key: 'term', header: '계약 기간', width: '100px', render: (c) => cellNum(`${c.termYears}년`) },
     {
       key: 'year',
-      header: '올해 사용료',
+      header: '금년 사용료',
       width: '140px',
       sortable: true,
       sortValue: (c) => yearOf(c.id),

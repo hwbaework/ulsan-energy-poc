@@ -87,8 +87,8 @@ export function ContractChangesScreen() {
 
       <StatsGrid columns={4}>
         <StatCard label="진행 중" value={`${stats.pending}건`} />
-        <StatCard label="올해 승인" value={`${stats.approved}건`} />
-        <StatCard label="올해 반려" value={`${stats.rejected}건`} />
+        <StatCard label="금년 승인" value={`${stats.approved}건`} />
+        <StatCard label="금년 반려" value={`${stats.rejected}건`} />
         <StatCard label="해지 완료 계약" value={`${stats.terminated}건`} />
       </StatsGrid>
 

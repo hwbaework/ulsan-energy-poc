@@ -123,7 +123,7 @@ const RESOLVE_OPTIONS: Record<
     icon: AlertTriangle,
   },
   defer: {
-    label: '다음달 이월',
+    label: '익월 이월',
     description: '임시 보류 — 정산 마감 D-7 이내 재처리 필요',
     costNote: '결정 보류',
     re100Note: '미정 (이월 시점에 결정)',
@@ -565,7 +565,7 @@ function PpaUsageDeviationContent() {
       <StatsGrid columns={3}>
         <StatCard
           icon={<TrendingDown size={18} className="text-amber-400" />}
-          label="총 부족량 (이번달)"
+          label="총 부족량 (금월)"
           value={`${stats.totalShortage.toLocaleString()} kWh`}
         />
         <StatCard
@@ -598,7 +598,7 @@ function PpaUsageDeviationContent() {
           xKey="hour"
           bars={[{ key: 'shortage', name: '부족', color: '#F59E0B' }]}
           title="시간대별 부족 분포"
-          description="누적 부족량 (이번달)"
+          description="누적 부족량 (금월)"
           height={240}
         />
       </div>
@@ -654,7 +654,7 @@ function PpaUsageDeviationContent() {
           </div>
         </SectionCard>
 
-        <SectionCard title="정산 영향 합계" description="이번달 누적">
+        <SectionCard title="정산 영향 합계" description="금월 누적">
           <div className="space-y-3">
             <div className="rounded-lg bg-amber-500/[0.08] ring-1 ring-amber-500/20 p-3">
               <p className="text-xs text-amber-300">한전 청구 (부족분)</p>

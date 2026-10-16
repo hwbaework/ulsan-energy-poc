@@ -179,13 +179,13 @@ export default function PlatformLeaseSavingsSharePage() {
         />
         <StatCard
           icon={<Wallet size={18} className="text-violet-400" />}
-          label="이번달 전기사용자 절감"
+          label="금월 전기사용자 절감"
           value={fmtKrw(totals.monthlySaved)}
           sub="건물주 절약 합계"
         />
         <StatCard
           icon={<TrendingUp size={18} className="text-emerald-400" />}
-          label="이번달 SPC 셰어 수익"
+          label="금월 SPC 셰어 수익"
           value={fmtKrw(totals.monthlyShare)}
           sub={`평균 셰어율 ${totals.avgShare.toFixed(1)}%`}
         />

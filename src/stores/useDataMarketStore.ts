@@ -26,7 +26,7 @@ export const DM_PRICE = 1_000;
 /** 플랫폼 수수료율 — 이용 기업에게 받은 금액에서 떼고 판매 기업에게 넘긴다. 아직 정하지 않아 0 */
 export const DM_FEE_RATE = 0;
 
-/** 지금 날짜(데모 기준) · 이번 달 · 마지막으로 끝난 달 */
+/** 지금 날짜(데모 기준) · 금월 · 마지막으로 끝난 달 */
 export const DM_TODAY = '2026-10-02';
 export const THIS_MONTH = DM_TODAY.slice(0, 7);
 const LAST_MONTH = '2026-09';
@@ -614,7 +614,7 @@ export const billedIn = (t: DataTrade, month: string) => {
   return t.startedAt.slice(0, 7) <= month && (!end || end.slice(0, 7) >= month);
 };
 
-/** 2026-06 처럼 첫 거래 달부터 이번 달까지 */
+/** 2026-06 처럼 첫 거래 달부터 금월까지 */
 export function monthsUntilNow(trades: DataTrade[]): string[] {
   const first = trades.map((t) => t.startedAt.slice(0, 7)).sort()[0];
   if (!first) return [];
@@ -633,12 +633,12 @@ export function monthsUntilNow(trades: DataTrade[]): string[] {
   return out;
 }
 
-/** 정산 한 줄 — 이용 기업 × 이용한 달. 그 달 이용분은 다음 달 15일에 들어온다(다른 정산과 같은 익월 15일 확정) */
+/** 정산 한 줄 — 이용 기업 × 이용한 달. 그 달 이용분은 익월 15일에 들어온다(다른 정산과 같은 익월 15일 확정) */
 export interface SettleRow {
   key: string;
   /** 이용한 달 */
   period: string;
-  /** 들어오는 날 — 다음 달 15일 */
+  /** 들어오는 날 — 익월 15일 */
   payDate: string;
   trade: DataTrade;
   amount: number;

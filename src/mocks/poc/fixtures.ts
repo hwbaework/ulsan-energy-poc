@@ -106,7 +106,7 @@ const noise = (n: number, salt: number) => {
 };
 /**
  * 그날의 기상 계수(0.03~1.05). 맑음 0.85~1.05, 흐림 0.45~0.7, 비 0.03~0.25 — 비 오는 날은 발전이 거의 없다.
- * 계절·그 해 월별 날씨까지 곱해서 작년과 올해가 실제처럼 다르게 나온다.
+ * 계절·그 해 월별 날씨까지 곱해서 전년과 금년가 실제처럼 다르게 나온다.
  */
 function weatherFactor(dateStr: string, dayIdx: number, plantId: number): number {
   const m = Number(dateStr.slice(5, 7)) - 1;

@@ -39,12 +39,12 @@ export function DataSourcePanel() {
     [],
   );
 
-  // 게시판은 최근 여러 달치가 섞여 오므로, 기본 화면은 이번 달로 한정한다.
+  // 게시판은 최근 여러 달치가 섞여 오므로, 기본 화면은 금월로 한정한다.
   const nowMonth = useMemo(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   }, []);
-  // 오늘 날짜 — "새 글"은 오늘 올라온 글만 (seen 여부가 아니라 발행일 기준)
+  // 금일 날짜 — "새 글"은 금일 올라온 글만 (seen 여부가 아니라 발행일 기준)
   const today = useMemo(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -57,7 +57,7 @@ export function DataSourcePanel() {
 
   const [showAll, setShowAll] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
-  // 보기 — 'new' = 이번 달 새 글(기본), 'range' = 기간(시작 월 ~ 끝 월). 몇 달 걸러 수집할 수 있어 기간으로 고른다
+  // 보기 — 'new' = 금월 새 글(기본), 'range' = 기간(시작 월 ~ 끝 월). 몇 달 걸러 수집할 수 있어 기간으로 고른다
   const [mode, setMode] = useState<'new' | 'range'>('new');
 
   // 기간 기본 시작 — 수집된 글의 가장 오래된 달
@@ -67,7 +67,7 @@ export function DataSourcePanel() {
   }, [fetchedItems, nowMonth]);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  // 기간 기본값 — 가장 오래된 달 ~ 이번 달. 시작이 끝보다 늦으면 서로 바꿔 읽는다
+  // 기간 기본값 — 가장 오래된 달 ~ 금월. 시작이 끝보다 늦으면 서로 바꿔 읽는다
   const rangeFrom = from || firstMonth;
   const rangeTo = to || nowMonth;
   const [lo, hi] = rangeFrom <= rangeTo ? [rangeFrom, rangeTo] : [rangeTo, rangeFrom];
@@ -119,7 +119,7 @@ export function DataSourcePanel() {
           {/* 기간 — 시작 월 ~ 끝 월 */}
           {mode === 'range' && (
             <>
-              {/* 월 선택 — 아무 달이나(예: 2025-03) · 이번 달까지 */}
+              {/* 월 선택 — 아무 달이나(예: 2025-03) · 금월까지 */}
               <input
                 type="month"
                 aria-label="시작 월"
@@ -192,7 +192,7 @@ export function DataSourcePanel() {
           {visibleItems.map((item, i) => (
             <div key={item.id ?? `${item.link}-${i}`} className="flex items-center gap-4 px-5 py-3">
               <div className="w-[76px] shrink-0 text-xs text-slate-500 tabular-nums">{item.pubDate || '—'}</div>
-              {/* 오늘 올라온 글만 '새 글' — 제목 왼쪽에 표시 */}
+              {/* 금일 올라온 글만 '새 글' — 제목 왼쪽에 표시 */}
               {isNew(item) && (
                 <Badge variant="primary" className="shrink-0">
                   새 글

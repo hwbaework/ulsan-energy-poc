@@ -36,9 +36,9 @@ export function PlantStatusTable({ plants }: { plants: PlantRow[] }) {
               <th className={TABLE_TH}>상태</th>
               <th className={TABLE_TH}>자원</th>
               <th className={TABLE_TH}>용량</th>
-              <th className={TABLE_TH}>발전량 (오늘)</th>
+              <th className={TABLE_TH}>발전량 (금일)</th>
               <th className={TABLE_TH}>발전시간</th>
-              <th className={TABLE_TH}>이번 달 누적</th>
+              <th className={TABLE_TH}>금월 누적</th>
               <th className={TABLE_TH}>인버터</th>
               <th className={TABLE_TH}>알람</th>
               <th className={TABLE_TH}></th>

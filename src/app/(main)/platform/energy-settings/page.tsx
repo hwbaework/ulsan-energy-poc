@@ -130,7 +130,7 @@ export default function EnergySettingsPage() {
     });
     setTableDirty(true);
   };
-  // 연도 추가 — 가장 최근 해 표를 복사해 다음 해로
+  // 연도 추가 — 가장 최근 해 표를 복사해 내년으로
   const addYear = () => {
     if (!book?.length) return;
     const last = book.reduce((m, d) => (Number(d.year) > Number(m.year) ? d : m), book[0]!);

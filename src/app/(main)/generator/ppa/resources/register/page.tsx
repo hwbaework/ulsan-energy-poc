@@ -498,7 +498,7 @@ export default function GeneratorPpaResourcesPage() {
                   <th className="px-4 py-2 text-left font-medium">자원 / 용량</th>
                   <th className="px-4 py-2 text-left font-medium">지역</th>
                   <th className="px-4 py-2 font-medium">현재 출력</th>
-                  <th className="px-4 py-2 font-medium">오늘 발전</th>
+                  <th className="px-4 py-2 font-medium">금일 발전</th>
                   <th className="px-4 py-2 font-medium">가동률</th>
                   <th className="px-4 py-2 text-left font-medium">상태</th>
                   <th className="px-4 py-2 text-left font-medium">상세</th>

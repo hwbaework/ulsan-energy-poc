@@ -78,7 +78,7 @@ const EMPTY_IDS: number[] = [];
 const PLANT_COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#EAB308'] as const;
 const shortPlantName = (name: string) => name.replace(/^울산\s*/, '');
 
-/** 시간대별(오늘) 발전량 행 — 이력이 없으면 빈 배열(가짜 값 금지) */
+/** 시간대별(금일) 발전량 행 — 이력이 없으면 빈 배열(가짜 값 금지) */
 function buildHourlyGenData(history: any[] | undefined): { x: string; generation: number }[] {
   if (!history || !Array.isArray(history) || history.length === 0) return [];
   return history.map((h) => ({ x: h.time ? h.time.slice(11, 16) : '', generation: h.acPower ?? h.dcPower ?? 0 }));
@@ -158,7 +158,7 @@ interface YearEnergy {
   days: Record<string, number[]>;
 }
 
-/** 시간별 이력 → 일별 최대 dailyEnergy → 월별 합. 해당 연도·오늘까지만 센다 */
+/** 시간별 이력 → 일별 최대 dailyEnergy → 월별 합. 해당 연도·금일까지만 센다 */
 function sumByMonth(history: PlantHistoryPoint[] | undefined, year: number, todayStr: string): YearEnergy {
   const months = Array<number>(12).fill(0);
   const days: Record<string, number[]> = {};
@@ -320,17 +320,17 @@ export default function DashboardPage() {
     });
   };
 
-  // 전년 · 금월 발전량 — 작년 · 올해 이력을 발전소마다 달별로 더한다(CO₂ 카드와 같은 조회 · 캐시)
+  // 전년 · 금월 발전량 — 전년 · 금년 이력을 발전소마다 달별로 더한다(CO₂ 카드와 같은 조회 · 캐시)
   const kpiYears = useMemo(() => [todayYear - 1, todayYear], [todayYear]);
   const kpiByPlant = usePlantsYearlyEnergy(scopedIds, kpiYears, todayStr);
-  // 전년 발전량 — 작년 1/1 ~ 12/31 합계(유형을 고른 화면은 그 계약 몫)
+  // 전년 발전량 — 전년 1/1 ~ 12/31 합계(유형을 고른 화면은 그 계약 몫)
   const lastYearKwh = multiKind
     ? pickedContracts.reduce((a, p) => a + (kpiByPlant[p.plantId]?.[todayYear - 1]?.total ?? 0) * p.share, 0)
     : scopedIds.reduce((a, id) => a + (kpiByPlant[id]?.[todayYear - 1]?.total ?? 0), 0);
   const monthNo = Number(todayStr.slice(5, 7));
   // 계약 유형을 고르는 화면은 고른 계약 몫(share)만, 그 밖은 설비 전체
   const kpiCapacity = multiKind ? pickedContracts.reduce((a, p) => a + p.capacity, 0) : plant.capacity;
-  // 금일 발전량 — 오늘 지금까지(발전소 dailyEnergy 합)
+  // 금일 발전량 — 금일 지금까지(발전소 dailyEnergy 합)
   const todayKwh = multiKind ? pickedContracts.reduce((a, p) => a + (p.dailyEnergy ?? 0), 0) : plant.dailyEnergy;
   const monthKwh = multiKind
     ? pickedContracts.reduce((a, p) => a + (kpiByPlant[p.plantId]?.[todayYear]?.months[monthNo - 1] ?? 0) * p.share, 0)
@@ -452,7 +452,7 @@ export default function DashboardPage() {
   }, [co2Targets, co2ByPlantYear, co2Unit, co2Year, co2Month, co2Factor, isAdmin, todayStr, todayYear]);
   // CO₂ 기본 계열 이름 — 관리자는 고른 회사, 그 외는 전체
   const co2MainLabel = isAdmin && co2Company ? shortPlantName(co2Company.displayName) : '전체';
-  // 카드 — 오늘 / 이번 달 / 올해 누적. 피커와 무관하게 늘 오늘 기준 (관리자: 고른 회사, 그 외: 자사 계약 발전소 합)
+  // 카드 — 금일 / 금월 / 금년 누적. 피커와 무관하게 늘 금일 기준 (관리자: 고른 회사, 그 외: 자사 계약 발전소 합)
   const co2KpiYears = useMemo(() => [todayYear], [todayYear]);
   const co2KpiByPlant = usePlantsYearlyEnergy(co2PlantIds, co2KpiYears, todayStr);
   const co2TodayTon = toTonWith(co2Targets.reduce((a, p) => a + (p.dailyEnergy ?? 0) * p.share, 0), co2Factor);

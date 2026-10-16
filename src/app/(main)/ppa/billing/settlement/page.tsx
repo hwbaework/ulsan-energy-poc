@@ -719,12 +719,12 @@ export default function PpaSettlementPage() {
       {/* KPI 5 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <BillingKpiCard
-          label="이달 총 비용"
+          label="금월 총 비용"
           value={`₩ ${totalThisMonth.toLocaleString()}`}
           sub={`직접 PPA`}
           valueColor="text-semantic-red"
         />
-        <BillingKpiCard label="이달 순절감" value="₩ 820,000" valueColor="text-semantic-green" sub="한전 대비" />
+        <BillingKpiCard label="금월 순절감" value="₩ 820,000" valueColor="text-semantic-green" sub="한전 대비" />
         <BillingKpiCard label="다음 결제일" value="D-12" valueColor="text-blue-400" />
         <BillingKpiCard label="누적 (YTD)" value={`₩ ${(ytdTotal / 100_000_000).toFixed(2)} 억`} />
         <BillingKpiCard
@@ -738,7 +738,7 @@ export default function PpaSettlementPage() {
       {/* === MODE A: 전체 종합 === */}
       {scope.kind === 'all' && (
         <>
-          {/* PPA별 이번달 결제 예정 — collapsible */}
+          {/* PPA별 금월 결제 예정 — collapsible */}
           <div className="rounded-lg border border-white/[0.06] bg-surface-card overflow-hidden">
             <button
               type="button"
@@ -746,9 +746,9 @@ export default function PpaSettlementPage() {
               className="flex w-full items-center justify-between gap-3 px-6 py-4 text-left hover:bg-white/[0.02] transition-colors"
             >
               <div>
-                <p className="text-base font-semibold text-white">PPA별 이번달 결제 예정</p>
+                <p className="text-base font-semibold text-white">PPA별 금월 결제 예정</p>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  이번달 어느 PPA(발전소)에 얼마씩 결제 예정인지 한눈에 ·{' '}
+                  금월 어느 PPA(발전소)에 얼마씩 결제 예정인지 한눈에 ·{' '}
                   <span className="text-white tabular-nums">
                     합계 ₩{ppaPaymentsThisMonth.reduce((s, x) => s + x.total, 0).toLocaleString()}
                   </span>

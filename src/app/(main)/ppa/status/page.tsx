@@ -192,7 +192,7 @@ export default function PpaStatusPage() {
       </div>
 
       {/* KPI 4종 — 발전사 '발전 현황'(/generator/ppa/dashboard) 대칭 패턴 (시간축):
-          ① 지금 사용 (현재 시각) ② 오늘 누적 ③ 이달 누적 ④ 이달 예상 정산금
+          ① 지금 사용 (현재 시각) ② 금일 누적 ③ 금월 누적 ④ 금월 예상 정산금
           (RE100 누적 이행률·수급 비율은 KPI 아래 별도 카드로) */}
       <StatsGrid columns={4}>
         <StatCard
@@ -203,19 +203,19 @@ export default function PpaStatusPage() {
         />
         <StatCard
           icon={<Activity size={18} className="text-sky-400" />}
-          label="오늘 누적 사용"
+          label="금일 누적 사용"
           value="0 kWh"
           sub="PPA 0 · 한전 0 kWh"
         />
         <StatCard
           icon={<Activity size={18} className="text-amber-400" />}
-          label="이달 누적 사용"
+          label="금월 누적 사용"
           value={`${SUPPLY_DEMAND.monthlyDemandKwh.toLocaleString()} kWh`}
           sub={`PPA ${SUPPLY_DEMAND.monthlySupplyKwh.toLocaleString()} · 한전 ${monthlyKepcoKwh.toLocaleString()} kWh`}
         />
         <StatCard
           icon={<Receipt size={18} className="text-emerald-400" />}
-          label="이달 예상 정산금"
+          label="금월 예상 정산금"
           value={`₩ ${ESTIMATED_INVOICE.toLocaleString()}`}
           sub={`납부 기한 ${ESTIMATED_DUE}`}
           onClick={() => router.push('/ppa/billing/settlement')}
@@ -235,7 +235,7 @@ export default function PpaStatusPage() {
                 <span className="text-base font-normal text-slate-400">%</span>
               </p>
               <p className="text-xs text-slate-500 mt-0.5">
-                이번 달 PPA 공급 {SUPPLY_DEMAND.monthlySupplyKwh.toLocaleString()} kWh / 총 사용{' '}
+                금월 PPA 공급 {SUPPLY_DEMAND.monthlySupplyKwh.toLocaleString()} kWh / 총 사용{' '}
                 {SUPPLY_DEMAND.monthlyDemandKwh.toLocaleString()} kWh
               </p>
             </div>
@@ -305,7 +305,7 @@ export default function PpaStatusPage() {
       {/* PPA 계약별 이행률 — 기획서 "실시간 자원별 매칭"의 정확한 구현 (ppaDetails) */}
       <SectionCard
         title={`PPA 계약별 이행률 (${SUPPLY_DEMAND.ppaDetails.length})`}
-        description="계약 용량 대비 이번 달 발전 이행률 — SPC 매칭·발전사 공급량 결과"
+        description="계약 용량 대비 금월 발전 이행률 — SPC 매칭·발전사 공급량 결과"
       >
         <div className="space-y-4">
           {SUPPLY_DEMAND.ppaDetails.map((p) => {

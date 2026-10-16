@@ -267,12 +267,12 @@ export default function LeaseSettlementPage() {
       {/* KPI 4 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <BillingKpiCard
-          label="이번달 PPA 요금 (예상)"
+          label="금월 PPA 요금 (예상)"
           value={`₩ ${totalThisMonth.toLocaleString()}`}
           sub={estimateLabel ? `${formatPeriod(estimateLabel)} 기준 추정 · VAT 포함` : '익월 15일 확정 · VAT 포함'}
         />
         <BillingKpiCard
-          label="이번달 순절감 (예상)"
+          label="금월 순절감 (예상)"
           value={`₩ ${totalSavingThisMonth.toLocaleString()}`}
           valueColor={totalSavingThisMonth >= 0 ? 'text-emerald-400' : 'text-amber-400'}
           sub={
@@ -300,7 +300,7 @@ export default function LeaseSettlementPage() {
                 className="flex w-full items-center justify-between gap-3 px-6 py-4 text-left hover:bg-white/[0.02] transition-colors"
               >
                 <div>
-                  <p className="text-base font-semibold text-white">이번달 결제 예정</p>
+                  <p className="text-base font-semibold text-white">금월 결제 예정</p>
                   {leasePaymentsThisMonth.length > 1 && (
                     <p className="mt-0.5 text-xs text-slate-400">
                       {leasePaymentsThisMonth.length}개 리스 ·{' '}

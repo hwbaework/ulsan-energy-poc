@@ -301,7 +301,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
             value={meetDate}
             onChange={(e) => {
               setMeetDate(e.target.value);
-              // 지난 날은 저장하지 않는다 — 오늘부터
+              // 지난 날은 저장하지 않는다 — 금일부터
               if (e.target.value && e.target.value >= localToday()) confirmMeeting(r.id, e.target.value);
             }}
           />

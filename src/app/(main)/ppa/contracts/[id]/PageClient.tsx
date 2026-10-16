@@ -122,14 +122,14 @@ export default function PpaContractDetailPage() {
             {isLease ? (
               <>
                 <StatCard label="현재 출력" value="342.5 kW" change={{ value: 68, label: '가동', unit: '%' }} />
-                <StatCard label="이달 PPA 요금" value="₩474만" />
+                <StatCard label="금월 PPA 요금" value="₩474만" />
                 <StatCard label="예상 전기요금" value="₩556만" sub="한전 기준" />
                 <StatCard label="예상 절감액" value="₩82만" change={{ value: 14.7, label: '절감' }} />
                 <StatCard label="예상 순이익" value="₩82만" sub="절감-PPA 요금 차액" />
               </>
             ) : (
               <>
-                <StatCard label="이달 정산" value="₩363만" />
+                <StatCard label="금월 정산" value="₩363만" />
                 <StatCard label="vs 시장 평균" value="-₩20/kWh" change={{ value: 15.4, label: '절감' }} />
                 <StatCard label="CFE 매칭" value="87%" change={{ value: 2, label: '목표대비', unit: '%p' }} />
                 <StatCard label="발전량" value="33,000 kWh" />
@@ -257,7 +257,7 @@ export default function PpaContractDetailPage() {
                 </SectionCard>
               </div>
               <StatsGrid columns={4}>
-                <StatCard label="이달 발전량" value="38,500 kWh" />
+                <StatCard label="금월 발전량" value="38,500 kWh" />
                 <StatCard label="자가소비율" value="94.2%" />
                 <StatCard label="가동일수" value="27 / 31일" />
                 <StatCard label="일평균 발전" value="1,426 kWh" />

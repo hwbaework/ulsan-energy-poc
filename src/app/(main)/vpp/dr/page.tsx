@@ -116,7 +116,7 @@ export default function VppDrPage() {
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // ── 수급 밸런스 기간 (근거) — 시드는 과거일에 데이터. 기본 최근 2일(어제-1 ~ 오늘) ──
+  // ── 수급 밸런스 기간 (근거) — 시드는 과거일에 데이터. 기본 최근 2일(작일-1 ~ 금일) ──
   const [from, setFrom] = useState<string>(isoDaysAgo(2));
   const [to, setTo] = useState<string>(isoDaysAgo(0));
 

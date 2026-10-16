@@ -107,7 +107,7 @@ export default function VppForecastPage() {
       rows.map((r) => ({
         label: `${r.targetDate.slice(5)} ${r.targetHour ?? 0}시`,
         예측: r.predictedKwh,
-        // 실측 없는 미래/오늘 행은 0이 아니라 선 끊기(null) — "실측 급락" 오해 방지
+        // 실측 없는 미래/금일 행은 0이 아니라 선 끊기(null) — "실측 급락" 오해 방지
         실측: (r.actualKwh ?? null) as unknown as number,
       })),
     [rows],

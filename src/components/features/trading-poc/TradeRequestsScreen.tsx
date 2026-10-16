@@ -155,7 +155,7 @@ export function TradeRequestsScreen() {
     name: f.contactName.trim() && !lenOk(f.contactName, LIMIT.name) ? `${LIMIT.name[0]}~${LIMIT.name[1]}자` : undefined,
     phone: f.contactPhone.trim() && !lenOk(f.contactPhone, LIMIT.phone) ? `${LIMIT.phone[0]}~${LIMIT.phone[1]}자` : undefined,
     email: f.contactEmail.trim() && !EMAIL_RE.test(f.contactEmail.trim()) ? '이메일 형식' : undefined,
-    surveyDate: f.surveyDate && f.surveyDate < localToday() ? '오늘 이후' : undefined,
+    surveyDate: f.surveyDate && f.surveyDate < localToday() ? '금일 이후' : undefined,
   };
   const valid =
     !!kind &&

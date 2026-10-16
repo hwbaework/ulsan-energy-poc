@@ -45,7 +45,7 @@ interface ReportDoc {
   from: string;
   to: string;
   days: string[];
-  createdAt: string; // 다음 달 1일 (월 마감 후 생성)
+  createdAt: string; // 익월 1일 (월 마감 후 생성)
 }
 
 const now = new Date();
@@ -83,7 +83,7 @@ const ANOMALY_DOC: ReportDoc = {
   createdAt: '이상 발생 시 갱신',
 };
 
-/** 해당 연도의 문서: 발전 실적은 월별(1월 ~ 올해면 이번 달, 최신순) + 이상감지 1건 */
+/** 해당 연도의 문서: 발전 실적은 월별(1월 ~ 금년면 금월, 최신순) + 이상감지 1건 */
 function docsOfYear(year: number): ReportDoc[] {
   const lastMonth = year === THIS_YEAR ? now.getMonth() + 1 : year < THIS_YEAR ? 12 : 0;
   const docs: ReportDoc[] = [ANOMALY_DOC];

@@ -43,22 +43,22 @@ export default function BillingPage() {
       : [];
   const invoices = apiBillings.length > 0 ? apiBillings : [];
 
-  const latest = invoices[0]; // 이번 달 (5월)
+  const latest = invoices[0]; // 금월 (5월)
   const prev = invoices[1]; // 전월 (4월)
 
-  // 이번 달 청구액 = PPA + 한전 + 온사이트 PPA 요금
+  // 금월 청구액 = PPA + 한전 + 온사이트 PPA 요금
   const latestTotal = latest ? latest.ppaAmount + latest.kepcoAmount + latest.leaseAmount : 0;
   const prevTotal = prev ? prev.ppaAmount + prev.kepcoAmount + prev.leaseAmount : 0;
 
-  // ─── 이번 달 예상 절감액 ───
+  // ─── 금월 예상 절감액 ───
   // 절감액 = (자가 발전량 × 한전 단가) − 온사이트 PPA 요금
   //   = 한전 환산값 − Lease 비용 = 순 절감
-  // 이번 달은 plant API monthlyEnergy 실값 — 백엔드 monitoring이 당월 합산 제공(연동 완료)
+  // 금월은 plant API monthlyEnergy 실값 — 백엔드 monitoring이 당월 합산 제공(연동 완료)
   const plantDetailQuery = useMonitoringPlantDetail(HANIL_PLANT_ID);
   const monthlyPlantGenKwh = plantDetailQuery.data?.monthlyEnergy ?? 0;
   const expectedSaving = calcSaved(monthlyPlantGenKwh, latest?.leaseAmount ?? 0);
 
-  // YTD 누적 절감 = 각 월 절감액 합산 (이번 달은 expectedSaving, 과거 달은 자동 계산)
+  // YTD 누적 절감 = 각 월 절감액 합산 (금월은 expectedSaving, 과거 달은 자동 계산)
   const currentYear = String(new Date().getFullYear());
   const ytdSaved = invoices
     .filter((i: any) => typeof i.period === 'string' && i.period.startsWith(currentYear))
@@ -99,18 +99,18 @@ export default function BillingPage() {
         </p>
       </div>
 
-      {/* 카드 3개: 이번달 청구액 / 이번달 절감액 / YTD 누적 절감 */}
+      {/* 카드 3개: 금월 청구액 / 금월 절감액 / YTD 누적 절감 */}
       <StatsGrid columns={3}>
         <StatCard
           icon={<Wallet size={18} className="text-emerald-400" />}
-          label="이번 달 예상 청구액"
+          label="금월 예상 청구액"
           value={billingQuery.isLoading ? '불러오는 중...' : !latest ? '₩ 0' : `₩ ${latestTotal.toLocaleString()}`}
           sub={prev ? `전월 확정 ₩ ${prevTotal.toLocaleString()}` : undefined}
         />
-        {/* 이번달 예상 절감액 = 재생에너지 발전 × 한전 단가 − Lease (실시간 변동) */}
+        {/* 금월 예상 절감액 = 재생에너지 발전 × 한전 단가 − Lease (실시간 변동) */}
         <StatCard
           icon={<TrendingDown size={18} className="text-sky-400" />}
-          label="이번 달 예상 절감액"
+          label="금월 예상 절감액"
           value={
             plantDetailQuery.isLoading || billingQuery.isLoading
               ? '불러오는 중...'
@@ -171,7 +171,7 @@ export default function BillingPage() {
             <tbody className="divide-y divide-white/[0.06]">
               {invoices.map((i: any) => {
                 const statusMeta = STATUS_BADGE[i.status];
-                // 이번 달은 plant API 실시간 발전량, 과거 달은 mock selfGenKwh
+                // 금월은 plant API 실시간 발전량, 과거 달은 mock selfGenKwh
                 const genKwh = i.period === latest?.period ? monthlyPlantGenKwh : (i.selfGenKwh ?? 0);
                 const kepcoEquiv = calcKepcoEquivalent(genKwh);
                 const saved = kepcoEquiv - (i.leaseAmount ?? 0);
@@ -179,7 +179,7 @@ export default function BillingPage() {
                   <tr key={i.id} className="hover:bg-white/[0.03] transition-colors">
                     <td className="px-6 py-3 text-slate-300 tabular-nums">{i.id}</td>
                     <td className="px-6 py-3 text-white tabular-nums">{i.period}</td>
-                    {/* 재생에너지 공급 (kWh) — 자가 발전 또는 외부 PPA. 이번 달은 plant API 실시간 */}
+                    {/* 재생에너지 공급 (kWh) — 자가 발전 또는 외부 PPA. 금월은 plant API 실시간 */}
                     <td className="px-6 py-3 text-white tabular-nums">{genKwh.toLocaleString()}</td>
                     {/* 한전 환산 = 자가 발전 × 한전 단가 (한전에 청구되었다면 받을 금액) */}
                     <td className="px-6 py-3 text-slate-400 tabular-nums">₩ {kepcoEquiv.toLocaleString()}</td>

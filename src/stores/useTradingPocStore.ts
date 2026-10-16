@@ -1103,7 +1103,7 @@ export const billingStatusOf = (period: string): BillingStatus =>
 export interface InvoiceRecord {
   /** (안 씀) 예전 저장본의 사용량 고침 — 사용량은 통합관제 발전량 고정(2026-10-14) */
   kwh?: number;
-  /** 정산 차액 — 지난달 사용량이 틀렸을 때 이번 청구서에 한 줄(± kWh × 단가). 사유 필수 */
+  /** 정산 차액 — 전월 사용량이 틀렸을 때 이번 청구서에 한 줄(± kWh × 단가). 사유 필수 */
   adjust?: InvoiceAdjust;
   issueDate?: string;
   dueDate?: string;
@@ -1159,7 +1159,7 @@ export function billOf(s: TradeSettlement, r?: InvoiceRecord): Bill {
     paidAt: r?.paidAt,
   };
 }
-/** 작성일 — 그 달 말일 · 발행일 — 다음 달 1일(달이 끝나고 사용량 확정) · 납부 기한 — 다음 달 25일 */
+/** 작성일 — 그 달 말일 · 발행일 — 익월 1일(달이 끝나고 사용량 확정) · 납부 기한 — 익월 25일 */
 export const writtenDateOf = (period: string) => {
   const [y = 2026, m = 1] = period.split('-').map(Number);
   return `${period}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`;

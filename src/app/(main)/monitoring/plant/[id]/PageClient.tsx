@@ -142,7 +142,7 @@ export default function PlantDetailPage() {
   // 계약 유형별 단가 — 자가소비는 한전 단가(절감액), 온사이트는 PPA 계약 단가(PPA 요금). 관리자 에너지 설정값
   const { data: energySettings } = useEnergySettings();
   const unitPriceOf = (key: string) => Number((energySettings as any)?.[key] ?? 0);
-  // 월·년 발전량 — 이번 달 1일~오늘, 올해 1월 1일~오늘 이력
+  // 월·년 발전량 — 금월 1일~금일, 금년 1월 1일~금일 이력
   const periodRange = useMemo(() => {
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
@@ -338,7 +338,7 @@ export default function PlantDetailPage() {
               const cumulative = Math.round(((apiPlant as any)?.totalEnergy ?? 0) * share);
               const month = Math.round(monthEnergy * share);
               const year = Math.round(yearEnergy * share);
-              // onsite — 이달 발전량 × 계약 단가 = SPC 에 납부하는 금액
+              // onsite — 금월 발전량 × 계약 단가 = SPC 에 납부하는 금액
               const ppaPrice = unitPriceOf(CONTRACT_KIND.ONSITE.priceKey);
               const payment = Math.round(month * ppaPrice);
               const isOnsite = c.kind === 'ONSITE';
@@ -357,7 +357,7 @@ export default function PlantDetailPage() {
                     {isOnsite
                       ? [
                           card('월 발전량', `${month.toLocaleString()} kWh`),
-                          card('SPC 납부액', `${payment.toLocaleString()} 원`, `이달 ${month.toLocaleString()} kWh × ₩${ppaPrice.toLocaleString()}/kWh`),
+                          card('SPC 납부액', `${payment.toLocaleString()} 원`, `금월 ${month.toLocaleString()} kWh × ₩${ppaPrice.toLocaleString()}/kWh`),
                         ]
                       : [card('년 발전량', `${year.toLocaleString()} kWh`), card('월 발전량', `${month.toLocaleString()} kWh`)]}
                   </div>
@@ -378,7 +378,7 @@ export default function PlantDetailPage() {
             </div>
           </div>
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-sm text-slate-300 mb-1">오늘 발전량</p>
+            <p className="text-sm text-slate-300 mb-1">금일 발전량</p>
             <p className="text-2xl font-bold text-white tabular-nums">
               {plant.todayGeneration.toLocaleString()} <span className="text-sm font-normal text-slate-500">kWh</span>
             </p>
@@ -395,14 +395,14 @@ export default function PlantDetailPage() {
             </div>
           </div>
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-sm text-slate-300 mb-1">오늘 예상 발전량</p>
+            <p className="text-sm text-slate-300 mb-1">금일 예상 발전량</p>
             <p className="text-2xl font-bold text-white tabular-nums">
               {plant.expectedGeneration.toLocaleString()}{' '}
               <span className="text-sm font-normal text-slate-500">kWh</span>
             </p>
           </div>
           <div className="rounded-lg border border-accent/20 bg-surface-card p-4">
-            <p className="text-sm text-slate-300 mb-1">이번 달 발전량</p>
+            <p className="text-sm text-slate-300 mb-1">금월 발전량</p>
             <p className="text-2xl font-bold text-white tabular-nums">
               {plant.monthGeneration.toLocaleString()} <span className="text-sm font-normal text-slate-500">kWh</span>
             </p>

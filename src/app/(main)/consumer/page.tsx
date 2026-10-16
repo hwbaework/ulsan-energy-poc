@@ -185,7 +185,7 @@ export default function ConsumerDashboardPage() {
       <StatsGrid columns={4}>
         <StatCard
           icon={<TrendingDown size={18} className="text-emerald-400" />}
-          label="이번 달 절감액"
+          label="금월 절감액"
           loading={isLoading}
           value={`₩ ${kpi.savedAmount.toLocaleString()}`}
           sub={`누적 ₩ ${kpi.savedAccrued.toLocaleString()} · 절감률 ${savedRatePct}%`}
@@ -202,11 +202,11 @@ export default function ConsumerDashboardPage() {
           label="실시간 공급량"
           loading={isLoading}
           value={`${liveSupplyKw} kW`}
-          sub={`오늘 누적 ${todaySupplyKwh.toLocaleString()} kWh`}
+          sub={`금일 누적 ${todaySupplyKwh.toLocaleString()} kWh`}
         />
         <StatCard
           icon={<Wallet size={18} className="text-emerald-400" />}
-          label="이번 달 예상 요금"
+          label="금월 예상 요금"
           loading={isLoading}
           value={`₩ ${kpi.totalBill.toLocaleString()}`}
           sub={`다음 결제일 ${kpi.dueDate}`}
@@ -248,7 +248,7 @@ export default function ConsumerDashboardPage() {
               />
               {kpi.savedAmount > 0 && (
                 <p className="mt-2 text-sm text-slate-400">
-                  이번 달 한전이었으면{' '}
+                  금월 한전이었으면{' '}
                   <span className="font-semibold text-emerald-400">+₩ {kpi.savedAmount.toLocaleString()}</span> 더 냈을
                   거예요
                 </p>
@@ -300,7 +300,7 @@ export default function ConsumerDashboardPage() {
       {/* 하단 3분할: 돈 관리 / 사용량 요약 / 내 계약·알림 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <SectionCard
-          title="이번 달 돈 관리"
+          title="금월 돈 관리"
           actions={
             <Button size="sm" variant="ghost" onClick={() => router.push('/consumer/billing')}>
               정산·요금 <ChevronRight size={14} />
