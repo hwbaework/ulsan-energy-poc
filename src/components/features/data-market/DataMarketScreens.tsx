@@ -1044,7 +1044,7 @@ function DataTradesCompany() {
   const soldCols: Column<Mine>[] = [
     { key: 'data', header: '내 데이터', render: (r) => cell(r.d.name, 'font-medium text-white') },
     { key: 'users', header: '쓰는 곳', width: '120px', render: (r) => strong(`${r.users}건`) },
-    { key: 'amt', header: '이번 달 받을 금액', width: '160px', align: 'right', render: (r) => num(won(r.amount)) },
+    { key: 'amt', header: '금월 받을 금액', width: '160px', align: 'right', render: (r) => num(won(r.amount)) },
     arrow,
   ];
   const boughtCols: Column<DataTrade>[] = [
@@ -1059,9 +1059,9 @@ function DataTradesCompany() {
       <Header title="거래 현황" />
       <StatsGrid columns={4}>
         <StatCard label="제공 중" value={`${myData.length}건`} />
-        <StatCard label="이번 달 받을 금액" value={won(getMonth)} />
+        <StatCard label="금월 받을 금액" value={won(getMonth)} />
         <StatCard label="사용 중" value={`${bought.length}건`} />
-        <StatCard label="이번 달 낼 금액" value={won(payMonth)} />
+        <StatCard label="금월 낼 금액" value={won(payMonth)} />
       </StatsGrid>
       <SectionCard title="제공 중" noPadding>
         <DataTable
@@ -1156,7 +1156,7 @@ function DataTradesAdmin() {
         <StatsGrid columns={3}>
           <StatCard label={role.isAdmin ? '이용 중' : '내 데이터 이용 중'} value={`${active.length}곳`} />
           <StatCard label={role.isAdmin ? '취소' : '내 데이터 취소'} value={`${cancelled.length}곳`} />
-          <StatCard label="이번 달 이용 금액" value={won(thisMonth)} />
+          <StatCard label="금월 이용 금액" value={won(thisMonth)} />
         </StatsGrid>
       )}
       <SectionCard
@@ -1752,7 +1752,7 @@ export function DataTradeDetailScreen({ fixedId }: { fixedId?: number } = {}) {
           <StatsGrid columns={3}>
             <StatCard label="이용 중" value={`${on.length}곳`} />
             <StatCard label="취소" value={`${trades.length - on.length}곳`} />
-            <StatCard label="이번 달 이용 금액" value={won(sumPrice(trades.filter((t) => billedIn(t, THIS_MONTH))))} />
+            <StatCard label="금월 이용 금액" value={won(sumPrice(trades.filter((t) => billedIn(t, THIS_MONTH))))} />
           </StatsGrid>
           <SectionCard title={`이용 내역 (${trades.length})`} noPadding>
             <DataTable
