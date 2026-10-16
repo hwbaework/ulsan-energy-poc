@@ -581,10 +581,10 @@ export function DataConsentScreen() {
     {
       key: 'sale',
       header: '판매',
-      width: '200px',
-      // 종료 예정이면 꺼진 토글 + 종료일 — 말일 전에 다시 켜면 예약 취소
+      width: '130px',
+      // 종료 예정이면 꺼진 토글 + 아래 종료일 — 말일 전에 다시 켜면 예약 취소
       render: (d) => (
-        <span className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+        <span className="flex flex-col items-start gap-1" onClick={(e) => e.stopPropagation()}>
           <Toggle
             checked={d.onSale && !d.endsAt}
             onChange={(on) => {
@@ -640,9 +640,23 @@ export function DataConsentScreen() {
           setStop(null);
         }}
         title="판매 중지"
-        message={`${stop?.name ?? ''} 판매를 금월 말일(${stopEnd})까지 하고 멈춥니다. 그 사이 새 신청은 받지 않습니다. 이용 중인 기업${
-          stopUsers.length ? `(${stopUsers.map((t) => t.buyerCompanyName).join(', ')}, ${stopUsers.length}곳)` : ''
-        }도 ${stopEnd}까지 쓰고 끝납니다. ${stopEnd} 전에 다시 켜면 예약이 취소됩니다.`}
+        message={
+          <>
+            <span className="block">{stop?.name} 판매를 금월 말일까지 하고 멈춥니다.</span>
+            <Lines
+              rows={[
+                ['판매 종료일', stopEnd],
+                ['새 신청', '받지 않음'],
+                [
+                  '이용 중인 기업',
+                  stopUsers.length ? `${stopUsers.map((t) => t.buyerCompanyName).join(', ')} (${stopUsers.length}곳)` : '없음',
+                ],
+                ['기업 이용 종료', stopUsers.length ? stopEnd : '-'],
+              ]}
+            />
+            <span className="mt-2 block text-xs text-slate-500">{stopEnd} 전에 다시 켜면 예약 취소</span>
+          </>
+        }
         confirmLabel="판매 중지 예약"
         variant="danger"
       />
@@ -1609,11 +1623,36 @@ export function DataApiHubScreen() {
           setDrop(null);
         }}
         title="이용 취소"
-        message={`${drop?.datasetName ?? ''} 이용을 취소합니다. 금월 말일(${monthEndOf(DM_TODAY)})까지 쓰고, 다음 날부터 토큰을 쓸 수 없습니다. 금월 이용료는 정산됩니다.`}
+        message={
+          <>
+            <span className="block">{drop?.datasetName} 이용을 취소합니다.</span>
+            <Lines
+              rows={[
+                ['이용 종료일', monthEndOf(DM_TODAY)],
+                ['토큰', '종료일 다음 날부터 사용 불가'],
+                ['금월 이용료', '정산'],
+              ]}
+            />
+          </>
+        }
         confirmLabel="이용 취소"
         variant="danger"
       />
     </div>
+  );
+}
+
+/** 확인창 안 항목 줄 — 왼쪽 이름, 오른쪽 값 */
+function Lines({ rows }: { rows: [string, string][] }) {
+  return (
+    <span className="mt-3 block space-y-1.5 rounded-lg bg-white/[0.03] p-3 text-left ring-1 ring-white/[0.06]">
+      {rows.map(([k, v]) => (
+        <span key={k} className="flex justify-between gap-4">
+          <span className="shrink-0 text-slate-400">{k}</span>
+          <span className="text-right text-white">{v}</span>
+        </span>
+      ))}
+    </span>
   );
 }
 
