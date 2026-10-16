@@ -12,7 +12,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { ssrSafeStorage } from '@/lib/ssr-storage';
 import { HOLIDAYS_SEED, OP_RULE_DEFAULT, dayStatus, offAt, weekdayOf, WEEKDAY, type DayStatus } from '@/lib/op-calendar';
 
-export const DM_SEED_VERSION = 15; // 15 — 한일튜브 자가소비 · PPA 데이터 따로(설비 · 인버터가 따로), PPA 는 운전 칸
+export const DM_SEED_VERSION = 16; // 16 — 판매 중지 · 이용 취소는 금월 말일까지(태성산업 판매 중지 예약, 한길 이용 취소 예약). 15 — 한일튜브 자가소비 · PPA 데이터 따로(설비 · 인버터가 따로), PPA 는 운전 칸
 
 export const DATA_KINDS = ['태양광 발전량'] as const;
 export type DataKind = (typeof DATA_KINDS)[number];
@@ -72,6 +72,8 @@ export interface Consent {
   sellerId: number;
   kind: DataKind;
   consentedAt: string;
+  /** 판매 중지 예약 — 그 달 말일. 이날까지 판매, 다음 날 목록에서 내려간다 */
+  endsAt?: string;
 }
 
 /** 상품 — 동의에서 만들어진다(따로 저장하지 않는다) */
@@ -90,10 +92,12 @@ export interface Dataset {
   ownerCompanyName: string;
   priceType: PriceType;
   price: number;
-  /** 공개 중 — 판매 동의 */
+  /** 공개 중 — 판매 동의(종료 예정 포함) */
   onSale: boolean;
   /** 공개일 */
   consentedAt?: string;
+  /** 판매 종료 예정일 — 판매 중지를 예약하면 그 달 말일. 이때부터 새 신청은 받지 않는다 */
+  endsAt?: string;
 }
 
 /** 거래 — 신청하면 바로 성립하고 토큰이 발급된다. 이용 취소하면 토큰을 더 쓸 수 없다 */
@@ -110,8 +114,12 @@ export interface DataTrade {
   startedAt: string;
   token: string;
   tokenUpdatedAt: string;
-  /** 이용 취소한 날 — 없으면 이용 중 */
+  /** 이용 취소를 누른 날 */
   cancelledAt?: string;
+  /** 이용 종료일 — 이용 취소 · 판매 중지를 한 달 말일. 월 이용료라 그날까지 쓴다 */
+  endsAt?: string;
+  /** 누가 끝냈나 — 사는 쪽 이용 취소 / 파는 쪽 판매 중지 */
+  endBy?: 'buyer' | 'seller';
 }
 
 const tokenOf = (seed: number) => {
@@ -163,6 +171,12 @@ export function generationOf(c: SellerCompany) {
     });
   }
   return potentialOf(c);
+}
+/** 그 달 하루 평균 발전시간 — 데이터 기간 밖(금월 등)도 같은 식. 온실가스 인벤토리 금월 · 금일 감축량에 쓴다 */
+export function genHoursOf(id: number, month: string): number {
+  const [y0 = 2025, m0 = 3] = PERIOD_FROM.split('-').map(Number);
+  const [y = 2025, m = 1] = month.split('-').map(Number);
+  return r1((GEN_HOURS[m - 1] ?? 0) * wiggle(id, (y - y0) * 12 + (m - m0)));
 }
 /** 꺼지지 않았다면의 발전량(설비 용량 × 발전시간 × 날수) */
 function potentialOf(c: SellerCompany): { month: string; hours: number; kwh: number; opDays?: number }[] {
@@ -282,7 +296,8 @@ export function productsOf(consents: Consent[]): Dataset[] {
   };
   return DM_SELLERS.flatMap((c) =>
     DATA_KINDS.map((kind) => {
-      const consent = consents.find((x) => x.sellerId === c.id && x.kind === kind);
+      // 종료일이 지난 판매 중지는 동의가 없는 것과 같다
+      const consent = consents.find((x) => x.sellerId === c.id && x.kind === kind && !(x.endsAt && x.endsAt < DM_TODAY));
       return {
         ...base,
         periodFrom: fromOf(c),
@@ -296,6 +311,7 @@ export function productsOf(consents: Consent[]): Dataset[] {
         ownerCompanyName: c.name,
         onSale: !!consent,
         consentedAt: consent?.consentedAt,
+        endsAt: consent?.endsAt,
       };
     }),
   );
@@ -429,7 +445,7 @@ function seed(): { consents: Consent[]; trades: DataTrade[] } {
   const consents: Consent[] = [
     { sellerId: 7, kind: '태양광 발전량', consentedAt: '2026-06-02T10:00:00' },
     { sellerId: 5, kind: '태양광 발전량', consentedAt: '2026-06-18T11:00:00' },
-    { sellerId: 6, kind: '태양광 발전량', consentedAt: '2026-06-25T10:00:00' },
+    { sellerId: 6, kind: '태양광 발전량', consentedAt: '2026-06-25T10:00:00', endsAt: '2026-10-31' }, // 판매 중지 예약
     { sellerId: 4, kind: '태양광 발전량', consentedAt: '2026-08-28T09:00:00' },
     { sellerId: 8, kind: '태양광 발전량', consentedAt: '2026-08-28T09:00:00' },
   ];
@@ -441,6 +457,7 @@ function seed(): { consents: Consent[]; trades: DataTrade[] } {
     buyer: [number, string],
     startedAt: string,
     cancelledAt?: string,
+    end?: Pick<DataTrade, 'endsAt' | 'endBy'>,
   ): DataTrade => ({
     id,
     datasetId: d.id,
@@ -455,13 +472,14 @@ function seed(): { consents: Consent[]; trades: DataTrade[] } {
     token: tokenOf(id * 11),
     tokenUpdatedAt: startedAt,
     cancelledAt,
+    ...end,
   });
   const trades: DataTrade[] = [
     t(1, by(71), [5, '용인금속'], '2026-06-15T09:00:00'),
     t(3, by(71), [2, '한길'], '2026-08-01T11:00:00'),
-    t(4, by(61), [5, '용인금속'], '2026-09-20T15:00:00'),
-    t(5, by(41), [2, '한길'], '2026-10-02T09:00:00'),
-    t(8, by(61), [4, '한일튜브'], '2026-09-01T09:00:00'),
+    t(4, by(61), [5, '용인금속'], '2026-09-20T15:00:00', undefined, { endsAt: '2026-10-31', endBy: 'seller' }),
+    t(5, by(41), [2, '한길'], '2026-09-02T09:00:00', '2026-10-01T14:00:00', { endsAt: '2026-10-31', endBy: 'buyer' }),
+    t(8, by(61), [4, '한일튜브'], '2026-09-01T09:00:00', undefined, { endsAt: '2026-10-31', endBy: 'seller' }),
     t(9, by(71), [6, '태성산업'], '2026-07-20T11:00:00', '2026-08-28T16:00:00'),
     t(10, by(51), [4, '한일튜브'], '2026-06-20T10:00:00'),
     t(11, by(61), [2, '한길'], '2026-07-05T09:00:00', '2026-08-20T17:00:00'),
@@ -476,12 +494,12 @@ interface DataMarketState {
   version: number;
   consents: Consent[];
   trades: DataTrade[];
-  /** 판매 동의 · 철회 — 동의하면 바로 공개 */
+  /** 판매 동의 · 중지 — 동의하면 바로 공개, 중지는 금월 말일까지 판매(예약). 말일 전에 다시 켜면 예약 취소 */
   /** sellerId — 데이터 단위(설비) */
   setConsent: (sellerId: number, kind: DataKind, on: boolean) => void;
   apply: (d: Dataset, buyer: { id: number; name: string }) => DataTrade | undefined;
   refreshToken: (tradeId: number) => void;
-  /** 이용 취소 — 구매 기업 또는 관리자 */
+  /** 이용 취소 — 구매 기업 또는 관리자. 금월 말일까지 쓰고 끝난다 */
   cancel: (tradeId: number) => void;
 }
 
@@ -495,11 +513,33 @@ export const useDataMarketStore = create<DataMarketState>()(
       ...seed(),
       setConsent: (sellerId, kind, on) =>
         set((s) => {
+          const datasetId = sellerId * 10 + kindNo(kind);
+          const cur = s.consents.find((x) => same(x, sellerId, kind) && !(x.endsAt && x.endsAt < DM_TODAY));
           const rest = s.consents.filter((x) => !same(x, sellerId, kind));
-          return { consents: on ? [...rest, { sellerId, kind, consentedAt: nowIso() }] : rest };
+          if (on) {
+            // 종료 예정이면 예약 취소 — 판매 중지로 끝날 예정이던 이용도 되살린다
+            if (cur?.endsAt)
+              return {
+                consents: [...rest, { ...cur, endsAt: undefined }],
+                trades: s.trades.map((t) =>
+                  t.datasetId === datasetId && t.endBy === 'seller' && isActive(t) ? { ...t, endsAt: undefined, endBy: undefined } : t,
+                ),
+              };
+            return { consents: [...rest, { sellerId, kind, consentedAt: nowIso() }] };
+          }
+          if (!cur) return {};
+          // 판매 중지 예약 — 금월 말일까지 판매, 이용 중인 기업도 그날까지 쓰고 끝
+          const endsAt = monthEndOf(DM_TODAY);
+          return {
+            consents: [...rest, { ...cur, endsAt }],
+            trades: s.trades.map((t) =>
+              t.datasetId === datasetId && isActive(t) && !endOf(t) ? { ...t, endsAt, endBy: 'seller' as const } : t,
+            ),
+          };
         }),
       apply: (d, buyer) => {
-        if (!d.onSale) return undefined;
+        // 판매 종료 예정이면 새 신청은 받지 않는다
+        if (!d.onSale || d.endsAt) return undefined;
         const at = nowIso();
         const t: DataTrade = {
           id: nextId(get().trades),
@@ -520,7 +560,9 @@ export const useDataMarketStore = create<DataMarketState>()(
       },
       cancel: (tradeId) =>
         set((s) => ({
-          trades: s.trades.map((t) => (t.id === tradeId ? { ...t, cancelledAt: nowIso() } : t)),
+          trades: s.trades.map((t) =>
+            t.id === tradeId && !endOf(t) ? { ...t, cancelledAt: nowIso(), endsAt: monthEndOf(DM_TODAY), endBy: 'buyer' as const } : t,
+          ),
         })),
       refreshToken: (tradeId) =>
         set((s) => ({
@@ -551,12 +593,26 @@ export function useHydrateDataMarket() {
   }, []);
 }
 
-/* ── 정산 — 판매 기업에 들어오는 돈. 월 이용료는 시작한 달부터 취소한 달까지 매달 ── */
-/** 이용 중 */
-export const isActive = (t: DataTrade) => !t.cancelledAt;
-/** 그 달에 돈을 내는 거래인지 — 시작한 달 ~ 취소한 달 */
-export const billedIn = (t: DataTrade, month: string) =>
-  t.startedAt.slice(0, 7) <= month && (!t.cancelledAt || t.cancelledAt.slice(0, 7) >= month);
+/* ── 정산 — 판매 기업에 들어오는 돈. 월 이용료는 시작한 달부터 끝나는 달까지 매달 ── */
+/** 그 달 말일 — 2026-10-02 → 2026-10-31 */
+export function monthEndOf(day: string): string {
+  const [y = 2026, m = 1] = day.slice(0, 7).split('-').map(Number);
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+}
+/** 이용 종료일 — 이용 취소 · 판매 중지를 한 달 말일(예전 저장본은 취소한 달 말일) */
+export const endOf = (t: DataTrade) => t.endsAt ?? (t.cancelledAt ? monthEndOf(t.cancelledAt) : undefined);
+/** 이용 중 — 종료 예정(금월 말일까지)도 이용 중 */
+export const isActive = (t: DataTrade) => {
+  const end = endOf(t);
+  return !end || end >= DM_TODAY;
+};
+/** 종료 예정 — 이용 취소 · 판매 중지로 금월 말일에 끝난다 */
+export const isEnding = (t: DataTrade) => !!endOf(t) && isActive(t);
+/** 그 달에 돈을 내는 거래인지 — 시작한 달 ~ 끝나는 달 */
+export const billedIn = (t: DataTrade, month: string) => {
+  const end = endOf(t);
+  return t.startedAt.slice(0, 7) <= month && (!end || end.slice(0, 7) >= month);
+};
 
 /** 2026-06 처럼 첫 거래 달부터 이번 달까지 */
 export function monthsUntilNow(trades: DataTrade[]): string[] {
@@ -651,8 +707,9 @@ export function usageDays(days = 30): string[] {
 }
 export function usageOf(t: DataTrade, day: string): number {
   if (day < t.startedAt.slice(0, 10)) return 0;
-  // 취소한 다음 날부터는 호출할 수 없다
-  if (t.cancelledAt && day > t.cancelledAt.slice(0, 10)) return 0;
+  // 종료일 다음 날부터는 호출할 수 없다
+  const end = endOf(t);
+  if (end && day > end) return 0;
   const n = Number(day.slice(8, 10));
   const wd = new Date(`${day}T00:00:00Z`).getUTCDay();
   const weekend = wd === 0 || wd === 6;

@@ -60,6 +60,9 @@ import {
   UNIT_LABEL,
   type SheetUnit,
   isActive,
+  isEnding,
+  endOf,
+  monthEndOf,
   monthsUntilNow,
   payDateOf,
   productsOf,
@@ -346,11 +349,15 @@ function DatasetCard({
     >
       <div className="mb-3 flex items-center justify-between gap-2">
         <Badge>{d.kind}</Badge>
-        {mine ? (
-          <Badge variant="primary">내 데이터</Badge>
-        ) : using ? (
-          <StatusPill tone="normal" label="이용 중" />
-        ) : null}
+        <span className="flex items-center gap-1.5">
+          {/* 판매 중지 예약 — 금월 말일까지 판매, 새 신청은 받지 않는다 */}
+          {d.endsAt && <StatusPill tone="warning" label={`종료 예정 ${d.endsAt}`} />}
+          {mine ? (
+            <Badge variant="primary">내 데이터</Badge>
+          ) : using ? (
+            <StatusPill tone="normal" label="이용 중" />
+          ) : null}
+        </span>
       </div>
       <h3 className="mb-1 line-clamp-1 text-base font-semibold text-white group-hover:text-primary">{d.name}</h3>
       <p className="mb-1 flex-1 text-sm text-slate-300">설비 용량 {summaryOf(d)?.kwText}</p>
@@ -462,7 +469,7 @@ const consentTerms = (d: Dataset): [string, string][] => [
   ['데이터', `${d.name} · ${DATA_INTERVAL} · ${periodText(d)}, 매일 갱신`],
   ['가격', priceText(d)],
   ['제공', DELIVERY],
-  ['판매 중지', '언제든 판매 동의에서 끄기 · 이미 산 기업은 이용 취소 전까지 사용'],
+  ['판매 중지', '언제든 판매 동의에서 끄기 · 금월 말일까지 판매, 이용 중인 기업도 그날까지 사용'],
 ];
 
 function ConsentFlow({ d, onClose }: { d: Dataset; onClose: () => void }) {
@@ -560,6 +567,9 @@ export function DataConsentScreen() {
   const [stop, setStop] = useState<Dataset | null>(null);
   const mine = role.products.filter((d) => d.ownerCompanyId === role.companyId);
   const usersOf = (id: number) => role.tradesAll.filter((t) => t.datasetId === id && isActive(t)).length;
+  const usingOf = (id: number) => role.tradesAll.filter((t) => t.datasetId === id && isActive(t));
+  const stopEnd = monthEndOf(DM_TODAY);
+  const stopUsers = stop ? usingOf(stop.id) : [];
 
   const columns: Column<Dataset>[] = [
     { key: 'name', header: '데이터', render: (d) => cell(d.name, 'font-medium text-white') },
@@ -571,10 +581,23 @@ export function DataConsentScreen() {
     {
       key: 'sale',
       header: '판매',
-      width: '80px',
+      width: '200px',
+      // 종료 예정이면 꺼진 토글 + 종료일 — 말일 전에 다시 켜면 예약 취소
       render: (d) => (
-        <span onClick={(e) => e.stopPropagation()}>
-          <Toggle checked={d.onSale} onChange={(on) => (on ? setFlow(d) : setStop(d))} />
+        <span className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <Toggle
+            checked={d.onSale && !d.endsAt}
+            onChange={(on) => {
+              if (!on) return setStop(d);
+              if (d.endsAt) {
+                setConsent(d.sellerId, d.kind, true);
+                addToast('success', `${d.name} 판매 중지 예약 취소`);
+                return;
+              }
+              setFlow(d);
+            }}
+          />
+          {d.endsAt && <span className="whitespace-nowrap text-xs text-amber-400">종료 예정 {d.endsAt}</span>}
         </span>
       ),
     },
@@ -612,13 +635,15 @@ export function DataConsentScreen() {
         onConfirm={() => {
           if (stop) {
             setConsent(stop.sellerId, stop.kind, false);
-            addToast('success', `${stop.name} 판매 중지`);
+            addToast('success', `${stop.name} 판매 중지 예약 — ${stopEnd}까지 판매`);
           }
           setStop(null);
         }}
         title="판매 중지"
-        message={`${stop?.name ?? ''} 를 데이터 목록에서 내립니다. 이미 산 기업은 이용 취소 전까지 씁니다.`}
-        confirmLabel="판매 중지"
+        message={`${stop?.name ?? ''} 판매를 금월 말일(${stopEnd})까지 하고 멈춥니다. 그 사이 새 신청은 받지 않습니다. 이용 중인 기업${
+          stopUsers.length ? `(${stopUsers.map((t) => t.buyerCompanyName).join(', ')}, ${stopUsers.length}곳)` : ''
+        }도 ${stopEnd}까지 쓰고 끝납니다. ${stopEnd} 전에 다시 켜면 예약이 취소됩니다.`}
+        confirmLabel="판매 중지 예약"
         variant="danger"
       />
     </div>
@@ -862,7 +887,8 @@ export function DataDetailScreen() {
   const d = id == null ? undefined : role.products.find((x) => x.id === id);
   const mine = !!d && d.ownerCompanyId === role.companyId;
   const myTrade = d ? role.bought.find((t) => t.datasetId === d.id && isActive(t) && !role.isAdmin) : undefined;
-  const canApply = !!d && !role.isAdmin && !mine && d.onSale && !myTrade;
+  // 판매 종료 예정이면 새 신청은 받지 않는다
+  const canApply = !!d && !role.isAdmin && !mine && d.onSale && !d.endsAt && !myTrade;
   // 이용 중 · 판매 기업 · 관리자는 시간별 전체, 나머지는 요약(월별) + 최근 하루 시간별 샘플
   const full = role.isAdmin || mine || !!myTrade;
   const shown = useMemo(() => (d ? sheetOf(d) : undefined), [d]);
@@ -908,6 +934,8 @@ export function DataDetailScreen() {
             title="데이터"
             actions={
               <>
+                {d.endsAt && <StatusPill tone="warning" label={`판매 종료 예정 ${d.endsAt}`} />}
+                {myTrade && isEnding(myTrade) && <StatusPill tone="warning" label={`이용 종료 예정 ${endOf(myTrade)}`} />}
                 {canApply && (
                   <Button size="sm" onClick={() => setConfirm(true)}>
                     신청
@@ -1084,7 +1112,10 @@ function DataTradesAdmin() {
             header: '판매',
             width: '120px',
             render: (r: Row) => (
-              <StatusPill tone={r.d.onSale ? 'normal' : 'muted'} label={r.d.onSale ? '판매 중' : '동의 안 함'} />
+              <StatusPill
+                tone={r.d.endsAt ? 'warning' : r.d.onSale ? 'normal' : 'muted'}
+                label={r.d.endsAt ? '종료 예정' : r.d.onSale ? '판매 중' : '동의 안 함'}
+              />
             ),
           },
         ]
@@ -1505,9 +1536,13 @@ export function DataApiHubScreen() {
           <Button size="sm" variant="secondary" onClick={() => setAgain(t)}>
             <RotateCw size={14} className="mr-1" /> 재발급
           </Button>
-          <Button size="sm" variant="danger" onClick={() => setDrop(t)}>
-            이용 취소
-          </Button>
+          {isEnding(t) ? (
+            <StatusPill tone="warning" label={`종료 예정 ${endOf(t)}`} />
+          ) : (
+            <Button size="sm" variant="danger" onClick={() => setDrop(t)}>
+              이용 취소
+            </Button>
+          )}
         </span>
       ),
     },
@@ -1569,17 +1604,24 @@ export function DataApiHubScreen() {
         onConfirm={() => {
           if (drop) {
             cancel(drop.id);
-            addToast('success', `${drop.datasetName} 이용 취소`);
+            addToast('success', `${drop.datasetName} 이용 취소 — ${monthEndOf(DM_TODAY)}까지 사용`);
           }
           setDrop(null);
         }}
         title="이용 취소"
-        message={`${drop?.datasetName ?? ''} 토큰을 더 쓸 수 없게 됩니다. 이번 달까지 금액이 정산됩니다.`}
+        message={`${drop?.datasetName ?? ''} 이용을 취소합니다. 금월 말일(${monthEndOf(DM_TODAY)})까지 쓰고, 다음 날부터 토큰을 쓸 수 없습니다. 금월 이용료는 정산됩니다.`}
         confirmLabel="이용 취소"
         variant="danger"
       />
     </div>
   );
+}
+
+/** 이용 상태 — 이용 중 / 종료 예정(금월 말일까지) / 취소(사는 쪽) / 판매 중지(파는 쪽) */
+function TradeState({ t }: { t: DataTrade }) {
+  if (isEnding(t)) return <StatusPill tone="warning" label="종료 예정" />;
+  if (isActive(t)) return <StatusPill tone="normal" label="이용 중" />;
+  return <StatusPill tone="muted" label={t.endBy === 'seller' ? '판매 중지' : '취소'} />;
 }
 
 /* ══ 거래 현황 › 데이터 한 건 — 이 데이터를 어디서 쓰는지 · 언제부터 · 얼마나 불러 쓰는지 · 취소했는지
@@ -1614,10 +1656,11 @@ export function DataTradeDetailScreen({ fixedId }: { fixedId?: number } = {}) {
       key: 'state',
       header: '상태',
       width: '110px',
-      render: (t) => <StatusPill tone={isActive(t) ? 'normal' : 'muted'} label={isActive(t) ? '이용 중' : '취소'} />,
+      render: (t) => <TradeState t={t} />,
     },
     { key: 'start', header: '시작일', width: '120px', render: (t) => num(day(t.startedAt)) },
-    { key: 'cancel', header: '취소일', width: '120px', render: (t) => num(day(t.cancelledAt)) },
+    // 종료일 — 이용 취소 · 판매 중지를 한 달 말일(그날까지 사용)
+    { key: 'end', header: '종료일', width: '120px', render: (t) => num(endOf(t) ?? '') },
     {
       key: 'calls',
       header: '호출',
