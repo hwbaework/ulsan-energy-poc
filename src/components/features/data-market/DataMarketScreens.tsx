@@ -477,8 +477,12 @@ function ConsentFlow({ d, onClose }: { d: Dataset; onClose: () => void }) {
   const setConsent = useDataMarketStore((s) => s.setConsent);
   const [step, setStep] = useState(0);
   const [agree, setAgree] = useState(false);
-  const sheet = useMemo(() => sheetOf(d), [d]);
-  const recent = { ...sheet, rows: sheet.rows.slice(-3) };
+  // 공개되는 샘플 — 사는 쪽이 사기 전에 보는 것과 같은 최근 한 달 일별
+  const sampleMonth = dataMonths(d.sellerId).at(-1);
+  const sample = useMemo(
+    () => (sampleMonth ? daySheetOf(d, sampleMonth).rows.map((r) => ({ x: String(r.date).slice(8), kwh: num1(r.kwh) })) : []),
+    [d, sampleMonth],
+  );
 
   const footer =
     step === 0 ? (
@@ -525,8 +529,16 @@ function ConsentFlow({ d, onClose }: { d: Dataset; onClose: () => void }) {
             <Info label="기간" value={periodText(d)} />
           </div>
           <div className="rounded-xl ring-1 ring-white/[0.06]">
-            <p className="border-b border-white/[0.06] px-5 py-2.5 text-sm font-semibold text-white">최근 3개월</p>
-            <SheetTable sheet={recent} />
+            <p className="border-b border-white/[0.06] px-5 py-2.5 text-sm font-semibold text-white">
+              공개 샘플 · 최근 한 달 일별{sampleMonth ? ` (${sampleMonth})` : ''}
+            </p>
+            {sample.length ? (
+              <div className="p-4">
+                <RmsBarChart data={sample} xKey="x" bars={[{ key: 'kwh', name: '발전량 (kWh)', color: '#F59E0B' }]} height={200} />
+              </div>
+            ) : (
+              <p className="py-8 text-center text-sm text-slate-400">데이터 없음</p>
+            )}
           </div>
         </div>
       )}
