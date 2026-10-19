@@ -7,7 +7,7 @@ import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
 import { PINE_PER_TCO2, TOE_PER_MWH } from '@/lib/constants/env-benefit';
 import { energyNum, useEnergySettings } from '@/hooks/common/useSettings';
 import { useMemo } from 'react';
-import { generationOf } from '@/stores/useDataMarketStore';
+import { DM_TODAY, genHoursOf, generationOf } from '@/stores/useDataMarketStore';
 import { useHydrateTradingPoc, useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { Contract } from '@/types/trading-poc';
 
@@ -26,6 +26,8 @@ export interface Facility {
   contractNo: string;
   /** 체결일 */
   signedAt: string;
+  /** 가동일 = 계약 시작일 */
+  startDate: string;
   /** 수집 시작 달 = 계약 시작 달 */
   startMonth: string;
   /** 해지한 달 — 그 달까지만 */
@@ -46,6 +48,7 @@ export function facilitiesOf(contracts: Contract[]): Facility[] {
       kw: c.capacityKw,
       contractNo: c.no,
       signedAt: (c.signedAt ?? c.createdAt).slice(0, 10),
+      startDate: c.startDate.slice(0, 10),
       startMonth: c.startDate.slice(0, 7),
       endMonth: c.terminatedAt?.slice(0, 7),
       status: c.status === 'TERMINATED' ? ('TERMINATED' as const) : ('ACTIVE' as const),
@@ -110,18 +113,21 @@ const r1 = (v: number) => Math.round(v * 10) / 10;
 
 /** 설비별 월 발전량 — 기업 설비 용량 합으로 기업 발전량(데이터 마켓과 같은 식)을 내고 용량 비율로 나눈다.
  *  끝수는 마지막 설비에. 계약 시작 달부터(해지면 해지 달까지)만 */
-function facilityGeneration(
+function facilityMonths(
   facilities: Facility[],
 ): { facility: Facility; month: string; hours: number; kwh: number }[] {
   const byCompany = [...new Set(facilities.map((f) => f.companyId))];
   return byCompany.flatMap((id) => {
     const fs = facilities.filter((f) => f.companyId === id);
     const kw = fs.reduce((a, f) => a + f.kw, 0);
-    return generationOf({
-      id,
-      name: fs[0]?.company ?? '',
-      solarKw: Math.round(kw * 100) / 100,
-    }).flatMap((g) => {
+    const solarKw = Math.round(kw * 100) / 100;
+    const gen = generationOf({ id, name: fs[0]?.company ?? '', solarKw });
+    // 금월 — 데이터 마지막 달 뒤면 같은 식(설비 용량 × 발전시간 × 날수)으로 한 달 치
+    if (TODAY_MONTH > LAST_MONTH) {
+      const hours = genHoursOf(id, TODAY_MONTH);
+      gen.push({ month: TODAY_MONTH, hours, kwh: Math.round(solarKw * hours * daysIn(TODAY_MONTH)) });
+    }
+    return gen.flatMap((g) => {
       let left = g.kwh;
       return fs
         .map((f, i) => {
@@ -136,6 +142,61 @@ function facilityGeneration(
         );
     });
   });
+}
+
+/** 금일 — 데이터 마켓 기준일과 같다 */
+export const GHG_TODAY = DM_TODAY;
+export const TODAY_MONTH = GHG_TODAY.slice(0, 7);
+const daysIn = (month: string) => {
+  const [y = 2025, m = 1] = month.split('-').map(Number);
+  return new Date(Date.UTC(y, m, 0)).getUTCDate();
+};
+/** 0 ~ 1 사이 고정 난수 — 같은 입력이면 같은 값 */
+const noise = (a: number, b: number) => {
+  const x = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+};
+/** 설비 달 발전량을 날마다(맑음 · 흐림 0.6 ~ 1.1배, 합 = 그 달). 같은 기업 설비는 같은 날씨 */
+function splitDays(companyId: number, month: string, kwh: number): { date: string; kwh: number }[] {
+  const n = daysIn(month);
+  const day0 = Number(month.replace('-', '')) * 100;
+  const f = Array.from({ length: n }, (_, i) => 0.6 + 0.5 * noise(companyId, day0 + i + 1));
+  const sum = f.reduce((a, v) => a + v, 0);
+  let left = kwh;
+  return f.map((v, i) => {
+    const k = i === n - 1 ? left : Math.round((kwh * v) / sum);
+    left -= k;
+    return { date: `${month}-${String(i + 1).padStart(2, '0')}`, kwh: k };
+  });
+}
+
+/** 설비별 일 발전량 — 금일까지 */
+export interface ReductionDay {
+  date: string;
+  facility: Facility;
+  kwh: number;
+  tco2: number;
+}
+export function reductionDays(fx: GhgFactors, facilities: Facility[]): ReductionDay[] {
+  return facilityMonths(facilities).flatMap(({ facility, month, kwh }) =>
+    splitDays(facility.companyId, month, kwh)
+      .filter((d) => d.date <= GHG_TODAY)
+      .map((d) => ({ date: d.date, facility, kwh: d.kwh, tco2: r3((d.kwh / 1000) * fx.co2) })),
+  );
+}
+
+/** 설비별 월 발전량 — 금월은 금일까지 날을 더한 값 */
+function facilityGeneration(facilities: Facility[]) {
+  return facilityMonths(facilities).map((g) =>
+    g.month === TODAY_MONTH
+      ? {
+          ...g,
+          kwh: splitDays(g.facility.companyId, g.month, g.kwh)
+            .filter((d) => d.date <= GHG_TODAY)
+            .reduce((a, d) => a + d.kwh, 0),
+        }
+      : g,
+  );
 }
 
 export function reductionRows(fx: GhgFactors, facilities: Facility[]): ReductionRow[] {

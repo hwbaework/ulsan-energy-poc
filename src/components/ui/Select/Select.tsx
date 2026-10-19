@@ -19,6 +19,8 @@ interface SelectProps {
   className?: string;
   name?: string;
   onChange?: (e: { target: { name?: string; value: string } }) => void;
+  /** 펼친 목록 위에 검색 칸 — 선택지가 많을 때(기업 1,000곳 등) */
+  searchable?: boolean;
 }
 
 export function Select({
@@ -34,6 +36,7 @@ export function Select({
   className,
   name,
   onChange,
+  searchable,
 }: SelectProps) {
   const uid = useId();
   const selectId = label?.toLowerCase().replace(/\s+/g, '-') ?? uid;
@@ -48,6 +51,14 @@ export function Select({
   const listRef = useRef<HTMLUListElement>(null);
 
   const selectedOption = options.find((o) => o.value === selectedValue);
+  const [q, setQ] = useState('');
+  const word = q.trim();
+  const shown = searchable && word ? options.filter((o) => o.label.includes(word)) : options;
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!open) setQ('');
+    else if (searchable) searchRef.current?.focus();
+  }, [open, searchable]);
 
   useEffect(() => {
     if (!open) return;
@@ -78,12 +89,13 @@ export function Select({
     switch (e.key) {
       case 'Enter':
       case ' ':
+        if (e.key === ' ' && e.target === searchRef.current) break;
         e.preventDefault();
         if (open && focusedIdx >= 0) {
-          if (options[focusedIdx]) select(options[focusedIdx]);
+          if (shown[focusedIdx]) select(shown[focusedIdx]);
         } else {
           setOpen(true);
-          setFocusedIdx(options.findIndex((o) => o.value === selectedValue));
+          setFocusedIdx(shown.findIndex((o) => o.value === selectedValue));
         }
         break;
       case 'ArrowDown':
@@ -92,7 +104,7 @@ export function Select({
           setOpen(true);
           setFocusedIdx(0);
         } else {
-          setFocusedIdx((i) => Math.min(i + 1, options.length - 1));
+          setFocusedIdx((i) => Math.min(i + 1, shown.length - 1));
         }
         break;
       case 'ArrowUp':
@@ -155,50 +167,63 @@ export function Select({
         </div>
 
         {/* Dropdown */}
-        <ul
-          ref={listRef}
-          id={listboxId}
-          role="listbox"
+        <div
           className={cn(
-            'absolute z-50 mt-1.5 w-full overflow-auto rounded-xl border border-white/[0.08] bg-[#0d1520] p-1 shadow-[0_16px_40px_-8px_rgba(0,0,0,0.6)] backdrop-blur-sm',
+            'absolute z-50 mt-1.5 w-full rounded-xl border border-white/[0.08] bg-[#0d1520] p-1 shadow-[0_16px_40px_-8px_rgba(0,0,0,0.6)] backdrop-blur-sm',
             'origin-top transition-all duration-200',
             open ? 'scale-100 opacity-100 translate-y-0' : 'pointer-events-none scale-95 opacity-0 -translate-y-1',
           )}
-          style={{ maxHeight: 220 }}
         >
-          {options.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-slate-500">옵션 없음</li>
-          ) : (
-            options.map((opt, i) => (
-              <li
-                key={opt.value}
-                id={`${selectId}-opt-${i}`}
-                role="option"
-                aria-selected={opt.value === selectedValue}
-                onMouseEnter={() => setFocusedIdx(i)}
-                onClick={() => select(opt)}
-                className={cn(
-                  'flex items-center justify-between rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors duration-100',
-                  i === focusedIdx && 'bg-white/[0.06]',
-                  opt.value === selectedValue ? 'text-primary font-medium' : 'text-slate-300 hover:text-white',
-                )}
-              >
-                {opt.label}
-                {opt.value === selectedValue && (
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-primary shrink-0">
-                    <path
-                      d="M3 7.5L5.5 10L11 4"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                )}
-              </li>
-            ))
+          {searchable && (
+            <input
+              ref={searchRef}
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setFocusedIdx(0);
+              }}
+              onKeyDown={handleKeyDown}
+              placeholder="검색"
+              className="mb-1 h-8 w-full rounded-md border border-accent/30 bg-surface-dark px-2.5 text-sm text-white placeholder:text-slate-500 focus:border-primary/60 focus:outline-none"
+            />
           )}
-        </ul>
+          <ul ref={listRef} id={listboxId} role="listbox" className="overflow-auto" style={{ maxHeight: 220 }}>
+            {shown.length === 0 ? (
+              <li className="px-3 py-2 text-sm text-slate-500">
+                {searchable && word ? '검색 결과 없음' : '옵션 없음'}
+              </li>
+            ) : (
+              shown.map((opt, i) => (
+                <li
+                  key={opt.value}
+                  id={`${selectId}-opt-${i}`}
+                  role="option"
+                  aria-selected={opt.value === selectedValue}
+                  onMouseEnter={() => setFocusedIdx(i)}
+                  onClick={() => select(opt)}
+                  className={cn(
+                    'flex items-center justify-between rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors duration-100',
+                    i === focusedIdx && 'bg-white/[0.06]',
+                    opt.value === selectedValue ? 'text-primary font-medium' : 'text-slate-300 hover:text-white',
+                  )}
+                >
+                  {opt.label}
+                  {opt.value === selectedValue && (
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-primary shrink-0">
+                      <path
+                        d="M3 7.5L5.5 10L11 4"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  )}
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
       </div>
       {errorMessage && <p className="text-xs text-semantic-red">{errorMessage}</p>}
     </div>
