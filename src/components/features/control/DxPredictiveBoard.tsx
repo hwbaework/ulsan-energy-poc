@@ -144,13 +144,13 @@ export function DxPredictiveBoard({ plantId }: { plantId: number }) {
           label="전기안전지수"
           value={fx(worst?.safetyIndex)}
           badge={worst && <StatusPill tone={DX_LEVEL[worst.riskLevel].tone} label={DX_LEVEL[worst.riskLevel].label} />}
-          lines={['0~100, 높을수록 양호', `${many ? '센서 중 가장 낮은 값 · ' : ''}5분 갱신${worst ? ` · 산출 ${hhmm(worst.diagnosedAt)}` : ''}`]}
+          lines={['0~100, 높을수록 양호', ...(many ? ['센서 중 가장 낮은 값'] : []), `5분 갱신${worst ? ` · 산출 ${hhmm(worst.diagnosedAt)}` : ''}`]}
         />
         <Kpi
           label="설비 상태 (Health Index)"
           value={fx(lowHealth?.healthIndex)}
           unit="/ 100"
-          lines={['설비 상태 점수 0~100, 높을수록 양호', `${many ? '센서 중 가장 낮은 값 · ' : ''}1시간 갱신${lowHealth ? ` · ${hhmm(lowHealth.windowStartedAt)}~${hhmm(lowHealth.windowEndedAt)}` : ''}`]}
+          lines={['설비 상태 점수 0~100, 높을수록 양호', ...(many ? ['센서 중 가장 낮은 값'] : []), `1시간 갱신${lowHealth ? ` · ${hhmm(lowHealth.windowStartedAt)}~${hhmm(lowHealth.windowEndedAt)}` : ''}`]}
         />
         <Kpi
           label="발전량 예측"
