@@ -7,4 +7,5 @@ import './fixtures';
 import './tradingFixtures';
 import './consultingFixtures';
 import './edmFixtures';
+import './dxFixtures'; // DX 스마트센서(예지보전 · 전기안전지수)
 import './billingFixtures'; // 결제(토스페이먼츠 빌링) 서버 목업

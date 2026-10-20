@@ -7,11 +7,11 @@ import { Info, Send, Sparkles } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
-import { ConnectionBanner, InverterDetailSection } from '@/components/features/monitoring/InverterPanels';
 import { useMonitoringPlantDetail } from '@/hooks/monitoring/useMonitoring';
+import { DxPredictiveBoard } from '@/components/features/control/DxPredictiveBoard';
 import { getPersona, usePersonaOverride } from '@/lib/persona';
 import { useAuthStore } from '@/stores/useAuthStore';
-import type { InverterStatus, MonitoringPlant } from '@/types/monitoring';
+import type { MonitoringPlant } from '@/types/monitoring';
 
 // 예지보전 상세 — 발전소 1곳의 인버터별 현황 + 규칙 기반 점검 제안.
 // 제안은 실측 이력·예측 모델이 아니라 현재 연결 상태(connectionState·statusMessages)만 보는
@@ -128,7 +128,8 @@ export default function PredictiveDetailPage() {
         <h1 className="text-xl font-bold text-white">{plant.name}</h1>
       </div>
 
-      {plant.connectionStatus && <ConnectionBanner status={plant.connectionStatus} plantId={plant.plantId} />}
+      {/* DX 스마트센서 대시보드(아이티공간 연계 v1.1 7장) — 값이 없으면 미수신 · 미산출 */}
+      {plant.type === 'SOLAR' && <DxPredictiveBoard plantId={plant.plantId} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* AI 점검 제안 */}
@@ -183,13 +184,6 @@ export default function PredictiveDetailPage() {
           </div>
         </div>
       </div>
-
-      {plant.inverters && plant.inverters.length > 0 && (
-        <div className="rounded-xl border border-white/[0.06] bg-surface-card p-5">
-          <h3 className="text-sm font-semibold text-white mb-3">인버터별 현황</h3>
-          <InverterDetailSection inverters={plant.inverters as InverterStatus[]} />
-        </div>
-      )}
     </div>
   );
 }

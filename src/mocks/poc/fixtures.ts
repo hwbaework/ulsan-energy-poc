@@ -152,6 +152,32 @@ registerMock(/^\/monitoring\/plants\/(\d+)\/history$/, ({ match, query }) => {
   return points;
 });
 
+/* ── 발전량 예측(아이티공간 연계 v1.1 6.3) — 다음 정시부터 36시간, 1시간 구간 P50·P10·P90 ──
+   발전 이력과 같은 식(계절·그날 날씨 × 해 높이)에서 구름 흔들림만 뺀 값이 P50. 15분마다 발행 */
+registerMock(/^\/external\/dx\/forecast$/, ({ query }) => {
+  const id = Number(query.get('plantId') ?? 17514);
+  const plant = PLANTS.find((p) => p.plantId === id) ?? PLANTS[0]!;
+  const now = Date.now();
+  const issued = Math.floor(now / 900_000) * 900_000;
+  const nextHour = Math.ceil((now + 1) / 3600_000) * 3600_000;
+  const p = (n: number) => String(n).padStart(2, '0');
+  const kstOf = (ms: number) => {
+    const d = new Date(ms + 9 * 3600_000);
+    return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:00`;
+  };
+  const items = Array.from({ length: 36 }, (_, i) => {
+    const t = nextHour + i * 3600_000;
+    const k = kstOf(t);
+    const dateStr = k.slice(0, 10);
+    const h = Number(k.slice(11, 13));
+    const dayIdx = Math.floor(Date.parse(dateStr) / 86_400_000);
+    const sun = Math.max(0, Math.sin(((h - 6) / 12) * Math.PI));
+    const p50 = Math.round(plant.capacity * 0.85 * sun * weatherFactor(dateStr, dayIdx, id) * 0.85 * 10) / 10;
+    return { start: k, p50, p10: Math.round(p50 * 0.72 * 10) / 10, p90: Math.round(Math.min(plant.capacity, p50 * 1.14) * 10) / 10, issuedAt: kstOf(issued), modelVersion: 'pv-forecast v2' };
+  });
+  return { items };
+});
+
 /* ── 전기사용자 (지도 마커) ───────────────────────────────────── */
 export const CONSUMERS: MonitoringConsumer[] = [
   { id: 1, companyId: 2, name: '한길', address: '울산 남구 용연동 490-11', latitude: 35.5091, longitude: 129.3402, reTargetPct: 30, reCurrentPct: 18.4, monthlyDemandKwh: 184000, monthlySupplyKwh: 33800, todaySupplyKwh: 1260 },

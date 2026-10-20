@@ -336,6 +336,11 @@ export const ENDPOINTS = {
     sopScenarios: `${V1}/control/sop-scenarios`,
     safetyMap: `${V1}/control/safety/map`,
     safetyRules: `${V1}/control/safety/rules`,
+    // DX 스마트센서(아이티공간 UMEI 연계 v1.1) — API-003 · 006 · 007, 발전량 예측
+    dxLatest: `${V1}/external/dx/predictive/latest`,
+    dxSafety: `${V1}/external/dx/safety/latest`,
+    dxSafetyHistory: `${V1}/external/dx/safety/history`,
+    dxForecast: `${V1}/external/dx/forecast`,
     sopAdvance: (id: number) => `${V1}/control/sop-events/${id}/advance`,
     sopClose: (id: number) => `${V1}/control/sop-events/${id}/close`,
     // V105: SOP 조치 이력 / V107: 예지보전 실시간 계측.
