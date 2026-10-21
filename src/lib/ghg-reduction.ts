@@ -10,6 +10,8 @@ import { useMemo } from 'react';
 import { DM_TODAY, genHoursOf, generationOf } from '@/stores/useDataMarketStore';
 import { useHydrateTradingPoc, useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { Contract } from '@/types/trading-poc';
+import type { EnergySource } from '@/types/monitoring';
+import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
 
 /** 설비 구분 — 자가소비(기업이 설치) · onsite(EPC 설치, 기업이 쓴 만큼 사용료) */
 export type FacilityKind = '자가소비' | 'PPA';
@@ -33,10 +35,15 @@ export interface Facility {
   /** 해지한 달 — 그 달까지만 */
   endMonth?: string;
   status: 'ACTIVE' | 'TERMINATED';
+  /** 발전원 — 설비(발전소) 종류를 따른다. 계약에 발전소가 없으면 태양광 */
+  source: EnergySource;
 }
 
 /** 체결(이용 중 · 해지 포함) 계약 → 배출원. 서명 전 계약은 아직 아니다 */
-export function facilitiesOf(contracts: Contract[]): Facility[] {
+export function facilitiesOf(
+  contracts: Contract[],
+  typeOf: (plantId?: number) => EnergySource = () => 'SOLAR',
+): Facility[] {
   return contracts
     .filter((c) => c.status === 'ACTIVE' || c.status === 'TERMINATED')
     .map((c) => ({
@@ -52,6 +59,7 @@ export function facilitiesOf(contracts: Contract[]): Facility[] {
       startMonth: c.startDate.slice(0, 7),
       endMonth: c.terminatedAt?.slice(0, 7),
       status: c.status === 'TERMINATED' ? ('TERMINATED' as const) : ('ACTIVE' as const),
+      source: typeOf(c.plantId),
     }))
     .sort((a, b) => a.company.localeCompare(b.company, 'ko') || a.id - b.id);
 }
@@ -67,7 +75,11 @@ export function companiesOf(fs: Facility[]) {
 export function useFacilities(): Facility[] {
   useHydrateTradingPoc();
   const contracts = useTradingPocStore((s) => s.contracts);
-  return useMemo(() => facilitiesOf(contracts), [contracts]);
+  const { data: plants } = useMonitoringPlants();
+  return useMemo(() => {
+    const types = new Map((plants ?? []).map((p) => [p.plantId, p.type as EnergySource]));
+    return facilitiesOf(contracts, (id) => (id != null ? (types.get(id) ?? 'SOLAR') : 'SOLAR'));
+  }, [contracts, plants]);
 }
 
 /** 수집 시작 달 · 마지막 달 — 데이터 마켓 발전 정보와 같다 */
@@ -125,7 +137,11 @@ function facilityMonths(
     // 금월 — 데이터 마지막 달 뒤면 같은 식(설비 용량 × 발전시간 × 날수)으로 한 달 치
     if (TODAY_MONTH > LAST_MONTH) {
       const hours = genHoursOf(id, TODAY_MONTH);
-      gen.push({ month: TODAY_MONTH, hours, kwh: Math.round(solarKw * hours * daysIn(TODAY_MONTH)) });
+      gen.push({
+        month: TODAY_MONTH,
+        hours,
+        kwh: Math.round(solarKw * hours * daysIn(TODAY_MONTH)),
+      });
     }
     return gen.flatMap((g) => {
       let left = g.kwh;
