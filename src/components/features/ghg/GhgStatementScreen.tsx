@@ -93,7 +93,11 @@ export function GhgStatementScreen() {
       company: {
         name: co?.name ?? sel.name,
         bizNo: co?.businessNumber ?? '',
+        representative: co?.representativeName ?? '',
         industry: co?.bizType ?? '',
+        address: co?.address ?? sel.address,
+        phone: co?.phone ?? '',
+        employees: co?.employeeCount,
       },
       facilities: sel.fs.map((f, i) => {
         const s = totalsOf(yearRows.filter((r) => r.facility.id === f.id));
@@ -152,7 +156,7 @@ export function GhgStatementScreen() {
       </div>
 
       <StatsGrid columns={4}>
-        <StatCard label="자가소비 발전량" value={`${fmt(t.mwh, 1)} MWh`} />
+        <StatCard label="발전량" value={`${fmt(t.mwh, 1)} MWh`} />
         <StatCard label="감축량" value={`${fmtT(t.tco2)} tCO₂eq`} />
         <StatCard label="소나무 식재" value={`${fmt(t.pine)} 그루`} />
         <StatCard label="화석에너지 대체" value={`${fmtT(t.toe)} TOE`} />

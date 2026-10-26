@@ -63,7 +63,6 @@ const strong = (v: ReactNode) => (
 );
 const ALL_MONTHS = monthsBetween(FIRST_MONTH, LAST_MONTH);
 const MONTH_OPTIONS = ALL_MONTHS.map((m) => ({ value: m, label: m }));
-const YEAR_OPTIONS = YEARS.map((y) => ({ value: y, label: `${y}년` }));
 const kindBadge = (f: Facility) => <Badge variant={f.kind === 'PPA' ? 'info' : 'default'}>{f.kind}</Badge>;
 
 /** 화면 제목 — E-데이터마켓 › 온실가스 인벤토리 › 화면 */
@@ -125,14 +124,11 @@ function CompanySelect({
 }) {
   if (!role.isAdmin) return null;
   return (
-    <div className="w-48">
+    <div className="w-52">
       <Select
-        options={[
-          { value: '', label: '전체 기업' },
-          ...role.companies.map((c) => ({ value: String(c.id), label: c.name })),
-        ]}
-        value={value == null ? '' : String(value)}
-        onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
+        options={role.companies.map((c) => ({ value: String(c.id), label: c.name }))}
+        value={String(value ?? role.companies[0]?.id ?? '')}
+        onChange={(e) => onChange(Number(e.target.value))}
       />
     </div>
   );
@@ -757,22 +753,46 @@ export function GhgCalculationScreen() {
   const role = useGhgRole();
   const { fx, rows } = useRows();
   const [year, setYear] = useState(LAST_MONTH.slice(0, 4));
+  // 월 — 전체면 그 해(그래프 월별), 고르면 그 달(그래프 일별)
+  const [month, setMonth] = useState('');
+  const shiftYear = (by: number) => {
+    const y = String(Number(year) + by);
+    if (YEARS.includes(y)) {
+      setYear(y);
+      setMonth('');
+    }
+  };
+  const yearBtn =
+    'flex h-8 w-8 items-center justify-center rounded-md bg-white/[0.04] text-slate-400 ring-1 ring-white/[0.06] hover:bg-white/[0.08] hover:text-white disabled:opacity-30';
+  // 기업 — 전체 없이 한 곳씩(처음엔 목록 맨 위 기업)
   const [company, setCompany] = useState<number | null>(null);
-  const me = scopeOf(role, company);
-  const [from, to] = yearRange(year);
+  const me = scopeOf(role, company ?? role.companies[0]?.id ?? null);
+  const [y0, y1] = yearRange(year);
+  const [from, to] = month ? [month, month] : [y0, y1];
   const months = monthsBetween(from, to);
-  const yearMonths = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+  const yearMonths = month ? [month] : Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
   const picked = pick(rows, from, to, me).filter((r) => role.companies.some((c) => c.id === r.facility.companyId));
   const t = totalsOf(picked);
   const monthly = byMonth(picked, months);
   const shown = me == null ? role.companies : role.companies.filter((c) => c.id === me);
-  // 그래프 — 1월 ~ 12월, 산정 범위 밖 달은 값 없음(선이 끊긴다)
-  const chart = yearMonths.map((m, i) => {
-    const mo = monthly.find((x) => x.month === m);
-    const row: Record<string, string | number> = { x: `${i + 1}월` };
-    if (mo) row['감축량'] = r3(mo.tco2);
-    return row;
-  });
+  // 그래프 — 월 전체면 1월 ~ 12월, 월을 고르면 그 달 1일 ~ 말일. 값 없는 칸은 선이 끊긴다
+  const scopeFs = role.facilities.filter((f) => shown.some((c) => c.id === f.companyId));
+  const days = useMemo(() => (month ? reductionDays(fx, scopeFs) : []), [month, fx, scopeFs.length, me]); // eslint-disable-line react-hooks/exhaustive-deps
+  const chart = month
+    ? Array.from({ length: new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate() }, (_, i) => {
+        const date = `${month}-${String(i + 1).padStart(2, '0')}`;
+        const ds = days.filter((d) => d.date === date);
+        const row: Record<string, string | number> = { x: `${i + 1}일` };
+        if (ds.length) row['감축량'] = r3(ds.reduce((a, d) => a + d.tco2, 0));
+        return row;
+      })
+    : Array.from({ length: 12 }, (_, i) => {
+        const m = `${year}-${String(i + 1).padStart(2, '0')}`;
+        const mo = monthly.find((x) => x.month === m);
+        const row: Record<string, string | number> = { x: `${i + 1}월` };
+        if (mo) row['감축량'] = r3(mo.tco2);
+        return row;
+      });
 
   const facilities = role.facilities.filter((f) => f.status === 'ACTIVE' && shown.some((c) => c.id === f.companyId));
   const matrix = facilities.map((f) => {
@@ -809,24 +829,42 @@ export function GhgCalculationScreen() {
 
   return (
     <div className="space-y-6">
-      <GhgHeader
-        title="배출량 산정"
-        actions={
-          <>
-            <div className="w-32">
-              <Select options={YEAR_OPTIONS} value={year} onChange={(e) => setYear(e.target.value)} />
-            </div>
+      <GhgHeader title="배출량 산정" />
+
+      {/* 위 — 연도 · 기업(다른 화면과 같은 조회 줄, 기업은 오른쪽 끝) */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl bg-[#0d1520] px-4 py-3 ring-1 ring-white/[0.06]">
+        <span className="text-sm text-slate-400">연도</span>
+        <div className="flex items-center gap-1">
+          <button type="button" aria-label="전년" onClick={() => shiftYear(-1)} disabled={!YEARS.includes(String(Number(year) - 1))} className={yearBtn}>
+            <ChevronLeft size={14} />
+          </button>
+          <span className="min-w-[72px] text-center text-base font-semibold tabular-nums text-white">{year}년</span>
+          <button type="button" aria-label="내년" onClick={() => shiftYear(1)} disabled={!YEARS.includes(String(Number(year) + 1))} className={yearBtn}>
+            <ChevronRight size={14} />
+          </button>
+        </div>
+        <span className="ml-2 text-sm text-slate-400">월</span>
+        <div className="w-28">
+          <Select
+            options={[{ value: '', label: '전체' }, ...monthsBetween(y0, y1).reverse().map((m) => ({ value: m, label: `${Number(m.slice(5))}월` }))]}
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+          />
+        </div>
+        {role.isAdmin && (
+          <div className="ml-auto flex items-center gap-3">
+            <span className="text-sm text-slate-400">기업</span>
             <CompanySelect role={role} value={company} onChange={setCompany} />
-          </>
-        }
-      />
+          </div>
+        )}
+      </div>
       <StatsGrid columns={4}>
-        <StatCard label="자가소비 발전량" value={`${fmt(t.mwh, 1)} MWh`} />
+        <StatCard label="발전량" value={`${fmt(t.mwh, 1)} MWh`} />
         <StatCard label="탄소 감축량" value={`${fmtT(t.tco2)} tCO₂eq`} />
         <StatCard label="소나무 식재" value={`${fmt(t.pine)} 그루`} />
         <StatCard label="화석에너지 대체" value={`${fmtT(t.toe)} TOE`} />
       </StatsGrid>
-      <SectionCard title="월별 탄소 감축량">
+      <SectionCard title={month ? '일별 탄소 감축량' : '월별 탄소 감축량'}>
         <RmsLineChart data={chart} xKey="x" lines={[{ key: '감축량', name: '탄소 감축량 (tCO₂eq)' }]} height={260} />
       </SectionCard>
       <SectionCard title={`배출원별 월 탄소 감축량 (${matrix.length})`} noPadding>
