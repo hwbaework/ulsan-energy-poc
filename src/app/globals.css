@@ -50,4 +50,18 @@
   ::-webkit-scrollbar-thumb:hover {
     background: #475569;
   }
+
+  /* 기본 셀렉트 — 펼친 목록이 흰 바탕에 흰 글자로 안 보이지 않게, 어두운 바탕 · 밝은 글자(모든 화면 공통) */
+  select {
+    color-scheme: dark;
+  }
+  select option,
+  select optgroup {
+    background-color: #0d1520;
+    color: #e2e8f0;
+  }
+  select option:checked {
+    background-color: #1e3a8a;
+    color: #fff;
+  }
 }

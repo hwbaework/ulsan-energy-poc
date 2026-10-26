@@ -23,7 +23,7 @@ import { BackButton } from '@/components/layout/PageTitle';
 import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
 import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
 import { Badge } from '@/components/ui/Badge/Badge';
-import { CATEGORY_SCOPE, tco2PerUnit, type GhgFactor } from '@/lib/ghg-factors';
+import { tco2PerUnit, type GhgFactor } from '@/lib/ghg-factors';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -708,7 +708,7 @@ export function GhgFactorsScreen() {
   const factors = useGhgFactorList();
   const isElec = (f: GhgFactor) => f.category === '외부 전기';
   const factorCols: Column<GhgFactor>[] = [
-    { key: 'scope', header: 'Scope', render: (f) => cell(`Scope ${CATEGORY_SCOPE[f.category]}`, 'font-medium text-white') },
+    { key: 'scope', header: 'Scope', render: (f) => cell(`Scope ${f.scope}`, 'font-medium text-white') },
     { key: 'cat', header: '배출활동', render: (f) => cell(f.category) },
     { key: 'fuel', header: '연료 · 에너지', render: (f) => cell(f.fuel, 'text-white') },
     { key: 'unit', header: '단위', render: (f) => cell(f.unit) },

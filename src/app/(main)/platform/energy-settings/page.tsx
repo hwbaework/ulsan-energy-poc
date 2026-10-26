@@ -13,7 +13,7 @@ import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, X
 import { useToastStore } from '@/stores/useToastStore';
 import { useEnergySettings, useHolidays, useKepcoTariff, useSaveEnergySettings, useSaveHolidays, useSaveKepcoTariff } from '@/hooks/common/useSettings';
 import { PINE_PER_TCO2, TOE_PER_MWH } from '@/lib/constants/env-benefit';
-import { CATEGORY_SCOPE, GHG_FACTORS, type GhgCategory, type GhgFactor } from '@/lib/ghg-factors';
+import { GHG_FACTORS, type GhgFactor } from '@/lib/ghg-factors';
 import { GHG_FACTORS_KEY, useGhgFactorList } from '@/lib/ghg-reduction';
 import { holidayMap, opRuleOf, opYear, weekdayOf, type Holiday, type OpRule } from '@/lib/op-calendar';
 
@@ -74,12 +74,13 @@ const numOnly = (v: string, dot: boolean) => {
 };
 
 /** 배출원 계수(Scope 1 · 2) 편집용 — 숫자는 글자로 들고 있다가 저장할 때 바꾼다 */
-const GHG_CATEGORIES = Object.keys(CATEGORY_SCOPE) as GhgCategory[];
+/** Scope — 고도화로 늘면 여기만 늘린다 */
+const GHG_SCOPES = [1, 2, 3];
 const GHG_NUMS = ['ncv', 'co2', 'ch4', 'n2o'] as const;
 type FactorDraft = Omit<GhgFactor, (typeof GHG_NUMS)[number]> & Record<(typeof GHG_NUMS)[number], string>;
 const toFactorDraft = (f: GhgFactor): FactorDraft => ({ ...f, ncv: String(f.ncv), co2: String(f.co2), ch4: String(f.ch4), n2o: String(f.n2o) });
 /** 칸 단위 — 전기는 t·kg/MWh, 그 밖은 kg/TJ */
-const ghgUnitOf = (c: GhgCategory, k: (typeof GHG_NUMS)[number]) =>
+const ghgUnitOf = (c: string, k: (typeof GHG_NUMS)[number]) =>
   k === 'ncv' ? 'MJ' : c === '외부 전기' ? (k === 'co2' ? 't/MWh' : 'kg/MWh') : 'kg/TJ';
 
 export default function EnergySettingsPage() {
@@ -200,7 +201,7 @@ export default function EnergySettingsPage() {
     // 배출원 계수 검사
     if (factorDirty)
       for (const r of factors) {
-        if (!r.fuel.trim() || !r.unit.trim()) return addToast('error', '배출원 계수의 연료 · 에너지와 단위를 입력하세요');
+        if (!r.category.trim() || !r.fuel.trim() || !r.unit.trim()) return addToast('error', '배출원 계수의 배출활동 · 연료 · 에너지 · 단위를 입력하세요');
         if (GHG_NUMS.some((k) => r[k].trim() === '' || !Number.isFinite(Number(r[k]))))
           return addToast('error', `${r.fuel} — 순발열량 · CO₂ · CH₄ · N₂O 를 숫자로 입력하세요`);
       }
@@ -208,7 +209,7 @@ export default function EnergySettingsPage() {
       if (factorDirty)
         await saveEnergy.mutateAsync({
           [GHG_FACTORS_KEY]: JSON.stringify(
-            factors.map((r) => ({ ...r, fuel: r.fuel.trim(), unit: r.unit.trim(), ncv: Number(r.ncv), co2: Number(r.co2), ch4: Number(r.ch4), n2o: Number(r.n2o) })),
+            factors.map((r) => ({ ...r, category: r.category.trim(), fuel: r.fuel.trim(), unit: r.unit.trim(), ncv: Number(r.ncv), co2: Number(r.co2), ch4: Number(r.ch4), n2o: Number(r.n2o) })),
           ),
         });
       if (baseDirty) await saveEnergy.mutateAsync(Object.fromEntries(BASE_FIELDS.map((f) => [f.key, (base[f.key] ?? '').trim()])));
@@ -301,7 +302,7 @@ export default function EnergySettingsPage() {
               size="sm"
               variant="secondary"
               onClick={() => {
-                setFactors((prev) => [...prev, { id: `u${Date.now()}`, category: '고정연소', fuel: '', unit: '', ncv: '', co2: '', ch4: '', n2o: '', basis: '' }]);
+                setFactors((prev) => [...prev, { id: `u${Date.now()}`, scope: 1, category: '', fuel: '', unit: '', ncv: '', co2: '', ch4: '', n2o: '', basis: '' }]);
                 setFactorDirty(true);
               }}
             >
@@ -315,6 +316,7 @@ export default function EnergySettingsPage() {
           <table className={cn(TABLE, 'min-w-[1000px] tabular-nums')}>
             <thead>
               <tr className={TABLE_HEAD_ROW}>
+                <th className={cn(TABLE_TH, 'px-3')}>Scope</th>
                 <th className={cn(TABLE_TH, 'px-3')}>배출활동</th>
                 <th className={cn(TABLE_TH, 'px-3')}>연료 · 에너지</th>
                 <th className={cn(TABLE_TH, 'px-3')}>단위</th>
@@ -328,17 +330,20 @@ export default function EnergySettingsPage() {
             <tbody>
               {factors.map((r, i) => (
                 <tr key={r.id} className={TABLE_ROW}>
-                  <td className={cn(TABLE_TD, 'w-[190px] px-3')}>
+                  <td className={cn(TABLE_TD, 'w-[120px] px-3')}>
                     <select
-                      aria-label="배출활동"
-                      value={r.category}
-                      onChange={(e) => editFactor(i, { category: e.target.value as GhgCategory })}
+                      aria-label="Scope"
+                      value={r.scope}
+                      onChange={(e) => editFactor(i, { scope: Number(e.target.value) })}
                       className={`${FIELD} text-left [color-scheme:dark]`}
                     >
-                      {GHG_CATEGORIES.map((c) => (
-                        <option key={c} value={c}>{`Scope ${CATEGORY_SCOPE[c]} · ${c}`}</option>
+                      {GHG_SCOPES.map((n) => (
+                        <option key={n} value={n}>{`Scope ${n}`}</option>
                       ))}
                     </select>
+                  </td>
+                  <td className={cn(TABLE_TD, 'w-[150px] px-3')}>
+                    <input aria-label="배출활동" maxLength={30} value={r.category} onChange={(e) => editFactor(i, { category: e.target.value })} className={`${FIELD} text-left`} />
                   </td>
                   <td className={cn(TABLE_TD, 'w-[170px] px-3')}>
                     <input aria-label="연료 · 에너지" maxLength={30} value={r.fuel} onChange={(e) => editFactor(i, { fuel: e.target.value })} className={`${FIELD} text-left`} />
@@ -434,7 +439,7 @@ export default function EnergySettingsPage() {
               ] as const
             ).map(([k, label]) => (
               <label key={k} className="flex items-center gap-2">
-                {label}
+                <span className="shrink-0 whitespace-nowrap">{label}</span>
                 <input
                   type="time"
                   value={opRule[k] ?? ''}

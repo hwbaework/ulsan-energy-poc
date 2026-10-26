@@ -6,7 +6,7 @@
 import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
 import { PINE_PER_TCO2, TOE_PER_MWH } from '@/lib/constants/env-benefit';
 import { energyNum, useEnergySettings } from '@/hooks/common/useSettings';
-import { GHG_FACTORS, type GhgFactor } from '@/lib/ghg-factors';
+import { GHG_FACTORS, scopeOf, type GhgFactor } from '@/lib/ghg-factors';
 import { useMemo } from 'react';
 import { DM_TODAY, genHoursOf, generationOf } from '@/stores/useDataMarketStore';
 import { useHydrateTradingPoc, useTradingPocStore } from '@/stores/useTradingPocStore';
@@ -113,7 +113,7 @@ export function parseGhgFactors(raw: string | undefined): GhgFactor[] {
   if (!raw) return GHG_FACTORS;
   try {
     const list = JSON.parse(raw) as unknown;
-    return Array.isArray(list) ? (list as GhgFactor[]) : GHG_FACTORS;
+    return Array.isArray(list) ? (list as GhgFactor[]).map((f) => ({ ...f, scope: scopeOf(f) })) : GHG_FACTORS;
   } catch {
     return GHG_FACTORS;
   }

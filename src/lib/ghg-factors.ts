@@ -35,7 +35,10 @@ export const CATEGORY_FACILITY: Record<GhgCategory, string> = {
 
 export interface GhgFactor {
   id: string;
-  category: GhgCategory;
+  /** Scope — 따로 둔다(배출활동과 묶지 않아 Scope 가 늘어나도 그대로) */
+  scope: number;
+  /** 배출활동 — 고정연소 · 이동연소 · 외부 전기 등. 관리자가 직접 입력 */
+  category: string;
   fuel: string;
   /** 사용량 입력 단위 */
   unit: string;
@@ -51,7 +54,8 @@ export interface GhgFactor {
 const FUEL_BASIS = '지침 별표 12 연료별 국가 고유 발열량 · 별표 10 IPCC 기본 배출계수';
 const MOBILE_BASIS = '지침 별표 6 이동연소(도로) 기본 배출계수 · 별표 12 발열량';
 
-export const GHG_FACTORS: GhgFactor[] = [
+/** 지침 기본값 13종 — Scope 는 배출활동에서 채운다 */
+const BASE_FACTORS: (Omit<GhgFactor, 'scope' | 'category'> & { category: GhgCategory })[] = [
   // Scope 1 — 고정연소
   {
     id: 'lng',
@@ -199,8 +203,12 @@ export const GHG_FACTORS: GhgFactor[] = [
     basis: '지침 별표 6 외부에서 공급된 열(스팀)',
   },
 ];
+export const GHG_FACTORS: GhgFactor[] = BASE_FACTORS.map((f) => ({ ...f, scope: CATEGORY_SCOPE[f.category] }));
+/** 저장된 옛 값(scope 없음)은 배출활동으로 채운다 */
+export const scopeOf = (f: { scope?: number; category: string }) =>
+  f.scope ?? CATEGORY_SCOPE[f.category as GhgCategory] ?? 1;
 export const factorOf = (id: string) => GHG_FACTORS.find((f) => f.id === id);
-export const scopeOfFactor = (f: GhgFactor) => CATEGORY_SCOPE[f.category];
+export const scopeOfFactor = (f: GhgFactor) => f.scope;
 
 /**
  * 사용량 1단위당 tCO₂eq.
