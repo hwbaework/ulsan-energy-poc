@@ -6,15 +6,15 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { exportExcel, exportPdf, generateReportHtml, type ReportPreviewDoc } from '@/lib/utils';
 import {
-  ArrowLeft,
-  ArrowRight,
   ChevronLeft,
   ChevronRight,
   Download,
   FileSpreadsheet,
   FileText,
+  Search,
   Settings,
 } from 'lucide-react';
 import { StatCard, StatsGrid } from '@/components/features/StatCard';
@@ -22,12 +22,16 @@ import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { BackButton } from '@/components/layout/PageTitle';
-import { CATEGORY_SCOPE, GHG_FACTORS, GWP, combined, tco2PerUnit, type GhgFactor } from '@/lib/ghg-factors';
+import { PlantNameCell } from '@/components/features/monitoring/PlantNameCell';
+import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
+import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
+import { CATEGORY_SCOPE, GWP, combined, tco2PerUnit, type GhgFactor } from '@/lib/ghg-factors';
+import { GhgFactorEditor } from './GhgFactorEditor';
 import { Badge } from '@/components/ui/Badge/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { RmsBarChart, RmsLineChart } from '@/components/ui/Chart';
+import { RmsLineChart } from '@/components/ui/Chart';
 import { getPersona } from '@/lib/persona';
 import { sourceOf } from '@/lib/design';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -47,14 +51,15 @@ import {
   reductionRows,
   totalsOf,
   useFacilities,
+  useGhgFactorList,
   useGhgFactorValues,
   yearRange,
   type Facility,
   type GhgFactors,
+  type ReductionDay,
   type ReductionRow,
 } from '@/lib/ghg-reduction';
 import {
-  exportGhgReportPdf,
   exportGhgStatementExcel,
   exportGhgStatementPdf,
   type GhgDocData,
@@ -247,14 +252,139 @@ const shiftMonth = (m: string, by: number) => {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 };
 const r3 = (v: number) => Math.round(v * 1000) / 1000;
+const kwSum = (fs: Facility[]) =>
+  Math.round(fs.filter((f) => f.status === 'ACTIVE').reduce((a, f) => a + f.kw, 0) * 100) / 100;
+
+/** 감축량 기간 — 일(한 달의 날마다) / 월(한 해의 달마다). 그래프와 아래 표가 같이 쓴다 */
+function useReductionPeriod(fs: Facility[]) {
+  const year = GHG_TODAY.slice(0, 4);
+  const firstMonth = fs.map((f) => (f.startMonth > FIRST_MONTH ? f.startMonth : FIRST_MONTH)).sort()[0] ?? TODAY_MONTH;
+  const [unit, setUnit] = useState<GhgUnit>('day');
+  const [month, setMonth] = useState(TODAY_MONTH);
+  const [yr, setYr] = useState(year);
+  return {
+    unit,
+    setUnit,
+    month,
+    yr,
+    atStart: unit === 'day' ? month <= firstMonth : yr <= firstMonth.slice(0, 4),
+    atEnd: unit === 'day' ? month >= TODAY_MONTH : yr >= year,
+    shift: (by: number) =>
+      unit === 'day' ? setMonth((m) => shiftMonth(m, by)) : setYr((y) => String(Number(y) + by)),
+    /** 칸 하나 — 일이면 그 달의 날짜(YYYY-MM-DD), 월이면 그 해의 달(YYYY-MM). 금일 · 금월 뒤는 future */
+    slots: (unit === 'day'
+      ? Array.from(
+          { length: new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate() },
+          (_, i) => ({ key: `${month}-${String(i + 1).padStart(2, '0')}`, x: `${i + 1}일` }),
+        )
+      : Array.from({ length: 12 }, (_, i) => ({ key: `${yr}-${String(i + 1).padStart(2, '0')}`, x: `${i + 1}월` }))
+    ).map((s) => ({ ...s, future: s.key > (unit === 'day' ? GHG_TODAY : TODAY_MONTH) })),
+  };
+}
+type ReductionPeriod = ReturnType<typeof useReductionPeriod>;
+
+/** 칸 하나의 발전량 · 감축량 — 일은 날 값, 월은 달 값 */
+function slotTotals(p: ReductionPeriod, key: string, ids: Set<number>, days: ReductionDay[], rows: ReductionRow[]) {
+  const xs = p.unit === 'day' ? days.filter((d) => d.date === key) : rows.filter((r) => r.month === key);
+  const hit = xs.filter((x) => ids.has(x.facility.id));
+  return { kwh: hit.reduce((a, x) => a + x.kwh, 0), tco2: r3(hit.reduce((a, x) => a + x.tco2, 0)) };
+}
+
+/** 감축량 그래프 카드 — 배출시설 정보 · 배출원 상세가 같이 쓴다. 일 / 월 · 설비 용량 · 기간 감축량 · 이전/다음 */
+function ReductionChartCard({
+  period: p,
+  fs,
+  days,
+  rows,
+  picker,
+  cards = true,
+}: {
+  period: ReductionPeriod;
+  fs: Facility[];
+  days: ReductionDay[];
+  rows: ReductionRow[];
+  picker?: ReactNode;
+  /** 안쪽 카드(설비 용량 · 기간 감축량) — 배출원 상세는 위 설비 정보 · 감축량 카드와 겹쳐 뺀다 */
+  cards?: boolean;
+}) {
+  // 설비가 둘이면(자가소비 · PPA) 선 두 개
+  const groups = fs.map((f) => ({ key: `f${f.id}`, name: f.kind, id: f.id }));
+  // 금일 · 금월 뒤는 값 없음(선이 끊긴다)
+  const chart = p.slots.map((s) =>
+    s.future
+      ? { x: s.x }
+      : {
+          x: s.x,
+          ...Object.fromEntries(groups.map((g) => [g.key, slotTotals(p, s.key, new Set([g.id]), days, rows).tco2])),
+        },
+  );
+  const ids = new Set(fs.map((f) => f.id));
+  const rangeT = r3(p.slots.reduce((a, s) => a + slotTotals(p, s.key, ids, days, rows).tco2, 0));
+  const arrowBtn =
+    'flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.04] text-slate-400 ring-1 ring-white/[0.06] hover:bg-white/[0.08] hover:text-white disabled:opacity-30';
+
+  return (
+    <div className="overflow-hidden rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] px-5 py-3">
+        <h3 className="text-md font-semibold text-white">감축량</h3>
+        <div className="flex rounded-md bg-white/[0.04] p-0.5 ring-1 ring-white/[0.06]">
+          {GHG_UNITS.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => p.setUnit(o.value)}
+              className={`h-7 rounded px-2.5 text-xs transition-colors ${
+                p.unit === o.value ? 'bg-primary font-medium text-white' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="px-5 py-4">
+        {cards && (
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-lg bg-white/[0.03] p-3 ring-1 ring-white/[0.06]">
+              <p className="text-sm text-slate-300">설비 용량</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums text-white">
+                {fs.length ? `${fmt(kwSum(fs), 2)} kW` : '-'}
+              </p>
+            </div>
+            <div className="rounded-lg bg-emerald-500/[0.06] p-3 ring-1 ring-emerald-500/30">
+              <p className="text-sm text-emerald-300/90">{`${p.unit === 'day' ? '금월' : '금년'} 감축량`}</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums text-emerald-300">
+                {fs.length ? `${fmtT(rangeT)} tCO₂eq` : '-'}
+              </p>
+            </div>
+          </div>
+        )}
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="w-56">{picker}</div>
+          <div className="flex items-center gap-1">
+            <button type="button" aria-label="이전" disabled={p.atStart} onClick={() => p.shift(-1)} className={arrowBtn}>
+              <ChevronLeft size={13} />
+            </button>
+            <span className="min-w-[100px] px-2 text-center text-sm font-semibold tabular-nums text-white">
+              {p.unit === 'day' ? p.month : p.yr}
+            </span>
+            <button type="button" aria-label="다음" disabled={p.atEnd} onClick={() => p.shift(1)} className={arrowBtn}>
+              <ChevronRight size={13} />
+            </button>
+          </div>
+        </div>
+        <RmsLineChart data={chart} xKey="x" lines={groups.map((g) => ({ key: g.key, name: g.name }))} height={300} />
+      </div>
+    </div>
+  );
+}
 
 export function GhgOverviewScreen() {
   const role = useGhgRole();
   const { fx, rows } = useRows();
   const days = useMemo(() => reductionDays(fx, role.facilities), [fx, role.facilities]);
   const mine = (r: { facility: Facility }) => role.companies.some((c) => c.id === r.facility.companyId);
-  const kwOf = (fs: Facility[]) =>
-    Math.round(fs.filter((f) => f.status === 'ACTIVE').reduce((a, f) => a + f.kw, 0) * 100) / 100;
+  const kwOf = kwSum;
   const year = GHG_TODAY.slice(0, 4);
 
   // 위 카드 — 고정
@@ -271,61 +401,11 @@ export function GhgOverviewScreen() {
   const fs = role.facilities.filter(
     (f) => f.status === 'ACTIVE' && (pickedSource ? f.source === pickedSource : f.companyId === companyId),
   );
-  const fsIds = new Set(fs.map((f) => f.id));
   const graphOptions = [
     ...role.companies.map((c) => ({ value: `c:${c.id}`, label: c.name })),
     ...(['FUEL_CELL', 'ORC'] as const).map((src) => ({ value: `s:${src}`, label: sourceOf(src).label })),
   ];
-  const firstMonth = fs.map((f) => (f.startMonth > FIRST_MONTH ? f.startMonth : FIRST_MONTH)).sort()[0] ?? TODAY_MONTH;
-  const [unit, setUnit] = useState<GhgUnit>('day');
-  const [month, setMonth] = useState(TODAY_MONTH);
-  const [yr, setYr] = useState(year);
-  const atStart = unit === 'day' ? month <= firstMonth : yr <= firstMonth.slice(0, 4);
-  const atEnd = unit === 'day' ? month >= TODAY_MONTH : yr >= year;
-  const shift = (by: number) =>
-    unit === 'day' ? setMonth((m) => shiftMonth(m, by)) : setYr((y) => String(Number(y) + by));
-
-  // 설비가 둘이면(자가소비 · PPA) 선 두 개
-  const groups = fs.map((f) => ({ key: `f${f.id}`, name: f.kind, id: f.id }));
-  const chart =
-    unit === 'day'
-      ? Array.from(
-          { length: new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate() },
-          (_, i) => {
-            const date = `${month}-${String(i + 1).padStart(2, '0')}`;
-            // 금일 뒤는 값 없음(선이 끊긴다)
-            if (date > GHG_TODAY) return { x: `${i + 1}일` };
-            return {
-              x: `${i + 1}일`,
-              ...Object.fromEntries(
-                groups.map((g) => [
-                  g.key,
-                  r3(days.filter((d) => d.date === date && d.facility.id === g.id).reduce((a, d) => a + d.tco2, 0)),
-                ]),
-              ),
-            };
-          },
-        )
-      : Array.from({ length: 12 }, (_, i) => {
-          const m = `${yr}-${String(i + 1).padStart(2, '0')}`;
-          if (m > TODAY_MONTH) return { x: `${i + 1}월` };
-          return {
-            x: `${i + 1}월`,
-            ...Object.fromEntries(
-              groups.map((g) => [
-                g.key,
-                r3(totalsOf(rows.filter((r) => r.month === m && r.facility.id === g.id)).tco2),
-              ]),
-            ),
-          };
-        });
-  const inRange =
-    unit === 'day'
-      ? days.filter((d) => fsIds.has(d.facility.id) && d.date.startsWith(month))
-      : rows.filter((r) => fsIds.has(r.facility.id) && r.month.startsWith(yr));
-  const rangeT = r3(inRange.reduce((a, r) => a + r.tco2, 0));
-  const arrowBtn =
-    'flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.04] text-slate-400 ring-1 ring-white/[0.06] hover:bg-white/[0.08] hover:text-white disabled:opacity-30';
+  const period = useReductionPeriod(fs);
 
   // 감축 실적 — 위 카드(금년 · 금월 · 금일)를 나눈 것. 관리자는 기업마다(검색, 줄을 누르면 위 그래프가 그 회사로), 기업은 설비마다
   const [q, setQ] = useState('');
@@ -382,65 +462,22 @@ export function GhgOverviewScreen() {
         ]}
       </StatsGrid>
 
-      <div className="overflow-hidden rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06]">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] px-5 py-3">
-          <h3 className="text-md font-semibold text-white">감축량</h3>
-          <div className="flex rounded-md bg-white/[0.04] p-0.5 ring-1 ring-white/[0.06]">
-            {GHG_UNITS.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                onClick={() => setUnit(o.value)}
-                className={`h-7 rounded px-2.5 text-xs transition-colors ${
-                  unit === o.value ? 'bg-primary font-medium text-white' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="px-5 py-4">
-          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="rounded-lg bg-white/[0.03] p-3 ring-1 ring-white/[0.06]">
-              <p className="text-sm text-slate-300">설비 용량</p>
-              <p className="mt-1 text-xl font-semibold tabular-nums text-white">
-                {fs.length ? `${fmt(kwOf(fs), 2)} kW` : '-'}
-              </p>
-            </div>
-            <div className="rounded-lg bg-emerald-500/[0.06] p-3 ring-1 ring-emerald-500/30">
-              <p className="text-sm text-emerald-300/90">{`${unit === 'day' ? '금월' : '금년'} 감축량`}</p>
-              <p className="mt-1 text-xl font-semibold tabular-nums text-emerald-300">
-                {fs.length ? `${fmtT(rangeT)} tCO₂eq` : '-'}
-              </p>
-            </div>
-          </div>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div className="w-56">
-              {role.isAdmin && (
-                <Select
-                  options={graphOptions}
-                  value={pickKey}
-                  onChange={(e) => setPicked(e.target.value)}
-                  className="h-8 text-sm"
-                />
-              )}
-            </div>
-            <div className="flex items-center gap-1">
-              <button type="button" aria-label="이전" disabled={atStart} onClick={() => shift(-1)} className={arrowBtn}>
-                <ChevronLeft size={13} />
-              </button>
-              <span className="min-w-[100px] px-2 text-center text-sm font-semibold tabular-nums text-white">
-                {unit === 'day' ? month : `${yr}`}
-              </span>
-              <button type="button" aria-label="다음" disabled={atEnd} onClick={() => shift(1)} className={arrowBtn}>
-                <ChevronRight size={13} />
-              </button>
-            </div>
-          </div>
-          <RmsLineChart data={chart} xKey="x" lines={groups.map((g) => ({ key: g.key, name: g.name }))} height={300} />
-        </div>
-      </div>
+      <ReductionChartCard
+        period={period}
+        fs={fs}
+        days={days}
+        rows={rows}
+        picker={
+          role.isAdmin && (
+            <Select
+              options={graphOptions}
+              value={pickKey}
+              onChange={(e) => setPicked(e.target.value)}
+              className="h-8 text-sm"
+            />
+          )
+        }
+      />
 
       <SectionCard
         title={`감축 실적 (${perf.length})`}
@@ -581,32 +618,36 @@ export function GhgSourceDetailScreen() {
   const f = role.facilities.find((x) => x.id === id);
   const days = useMemo(() => (f ? reductionDays(fx, [f]) : []), [fx, f]);
   const thisYear = GHG_TODAY.slice(0, 4);
-  const [year, setYear] = useState(thisYear);
   const mine = rows.filter((r) => r.facility.id === id);
   const yearT = totalsOf(mine.filter((r) => r.month.startsWith(thisYear))).tco2;
   const monthT = totalsOf(mine.filter((r) => r.month === TODAY_MONTH)).tco2;
   const dayT = r3(days.filter((d) => d.date === GHG_TODAY).reduce((a, d) => a + d.tco2, 0));
-  const years = [...new Set(mine.map((r) => r.month.slice(0, 4)))].sort().reverse();
 
-  // 월별 — 1월 ~ 12월, 값 없는 달은 빈 값
-  const monthly = Array.from({ length: 12 }, (_, i) => {
-    const m = `${year}-${String(i + 1).padStart(2, '0')}`;
-    const r = mine.find((x) => x.month === m);
-    return { month: m, x: `${i + 1}월`, r };
+  // 그래프 · 아래 산정 표가 같은 기간(일 / 월)
+  const fs = f ? [f] : [];
+  const period = useReductionPeriod(fs);
+  const ids = new Set(fs.map((x) => x.id));
+  // 값 없는 날 · 달(설비 가동 전 · 금일 뒤)은 빈 줄
+  const calc = period.slots.map((s) => {
+    const t = s.future ? null : slotTotals(period, s.key, ids, days, mine);
+    return { key: s.key, t: t && t.kwh > 0 ? t : null };
   });
-  // 값 없는 달은 감축량 키를 두지 않는다(선이 끊긴다)
-  const chart = monthly.map((m) => {
-    const row: Record<string, string | number> = { x: m.x };
-    if (m.r) row['감축량'] = Math.round(m.r.tco2 * 100) / 100;
-    return row;
-  });
-  const yearSum = totalsOf(mine.filter((r) => r.month.startsWith(year)));
-  type Mo = (typeof monthly)[number];
-  const cols: Column<Mo>[] = [
-    { key: 'month', header: '월', render: (m) => num(m.month) },
-    { key: 'kwh', header: '발전량 (kWh)', render: (m) => num(m.r ? fmt(m.r.kwh) : '') },
-    { key: 'f', header: '배출계수 (tCO₂eq/MWh)', render: (m) => num(m.r ? fx.co2 : '') },
-    { key: 'tco2', header: '감축량 (tCO₂eq)', render: (m) => strong(m.r ? fmtT(m.r.tco2) : '') },
+  const rangeSum = r3(calc.reduce((a, c) => a + (c.t?.tco2 ?? 0), 0));
+  type Calc = (typeof calc)[number];
+  const cols: Column<Calc>[] = [
+    { key: 'key', header: period.unit === 'day' ? '일자' : '월', render: (c) => num(c.key) },
+    { key: 'kwh', header: '발전량 (kWh)', render: (c) => num(c.t ? fmt(c.t.kwh) : '') },
+    { key: 'f', header: '배출계수 (tCO₂eq/MWh)', render: (c) => num(c.t ? fx.co2 : '') },
+    {
+      key: 'expr',
+      header: '계산식',
+      render: (c) => num(c.t ? `${fmt(c.t.kwh / 1000, 3)} MWh × ${fx.co2}` : ''),
+    },
+    {
+      key: 'tco2',
+      header: '감축량 (tCO₂eq)',
+      render: (c) => strong(c.t ? (period.unit === 'day' ? fmt(c.t.tco2, 3) : fmtT(c.t.tco2)) : ''),
+    },
   ];
 
   const info = (items: [string, ReactNode][]) => (
@@ -654,28 +695,19 @@ export function GhgSourceDetailScreen() {
             <StatCard label="금월 감축량" value={`${fmtT(monthT)} tCO₂eq`} />
             <StatCard label="금일 감축량" value={`${fmt(dayT, 3)} tCO₂eq`} />
           </StatsGrid>
+          <ReductionChartCard period={period} fs={fs} days={days} rows={mine} cards={false} />
           <SectionCard
-            title="월별 감축량"
+            title={`${period.unit === 'day' ? '일별' : '월별'} 산정 (${calc.filter((c) => c.t).length})`}
             actions={
-              years.length > 1 ? (
-                <div className="w-32">
-                  <Select
-                    options={years.map((y) => ({ value: y, label: `${y}년` }))}
-                    value={year}
-                    onChange={(e) => setYear(e.target.value)}
-                  />
-                </div>
-              ) : undefined
+              <span className="text-sm text-slate-300">
+                감축량 = 발전량 (MWh) × 배출계수 · 합계 {fmt(rangeSum, 3)} tCO₂eq
+              </span>
             }
-          >
-            <RmsLineChart data={chart} xKey="x" lines={[{ key: '감축량', name: '감축량 (tCO₂eq)' }]} height={260} />
-          </SectionCard>
-          <SectionCard
-            title={`월별 산정 (${monthly.filter((m) => m.r).length})`}
-            actions={<span className="text-sm text-slate-300">합계 {fmtT(yearSum.tco2)} tCO₂eq</span>}
             noPadding
           >
-            <DataTable data={monthly} columns={cols} rowKey={(m) => m.month} />
+            <div className="overflow-x-auto [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
+              <DataTable data={calc} columns={cols} rowKey={(c) => c.key} />
+            </div>
           </SectionCard>
         </>
       )}
@@ -688,6 +720,8 @@ export function GhgSourceDetailScreen() {
 export function GhgFactorsScreen() {
   const role = useGhgRole();
   const fx = useGhgFactorValues();
+  const factors = useGhgFactorList();
+  const [editing, setEditing] = useState(false);
   type F = GhgFactor;
   const elecSum = (f: F) => (f.category === '외부 전기' ? fx.co2 : combined(f));
   const cols: Column<F>[] = [
@@ -761,29 +795,35 @@ export function GhgFactorsScreen() {
         title="배출계수 관리"
         actions={
           role.isAdmin && (
-            <Link href={ENERGY_SETTINGS}>
-              <Button variant="secondary" size="sm">
-                <Settings size={15} /> 에너지 설정
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
+                <Settings size={15} /> 계수 관리
               </Button>
-            </Link>
+              <Link href={ENERGY_SETTINGS}>
+                <Button variant="secondary" size="sm">
+                  <Settings size={15} /> 에너지 설정
+                </Button>
+              </Link>
+            </div>
           )
         }
       />
+      {role.isAdmin && <GhgFactorEditor open={editing} onClose={() => setEditing(false)} />}
       <StatsGrid columns={4}>
         <StatCard
           label="Scope 1 계수"
-          value={`${GHG_FACTORS.filter((f) => CATEGORY_SCOPE[f.category] === 1).length}종`}
+          value={`${factors.filter((f) => CATEGORY_SCOPE[f.category] === 1).length}종`}
         />
         <StatCard
           label="Scope 2 계수"
-          value={`${GHG_FACTORS.filter((f) => CATEGORY_SCOPE[f.category] === 2).length}종`}
+          value={`${factors.filter((f) => CATEGORY_SCOPE[f.category] === 2).length}종`}
         />
         <StatCard label="전력 배출계수" value={`${fx.co2} tCO₂eq/MWh`} sub={`${fx.year}년 기준`} />
         <StatCard label="GWP" value={`CH₄ ${GWP.ch4} · N₂O ${GWP.n2o}`} sub="AR5" />
       </StatsGrid>
-      <SectionCard title={`배출원 계수 (${GHG_FACTORS.length})`} noPadding>
+      <SectionCard title={`배출원 계수 (${factors.length})`} noPadding>
         <div className="overflow-x-auto [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
-          <DataTable data={GHG_FACTORS} columns={cols} rowKey={(f) => f.id} />
+          <DataTable data={factors} columns={cols} rowKey={(f) => f.id} />
         </div>
       </SectionCard>
       <SectionCard title={`감축 환산 (${solarList.length})`} noPadding>
@@ -807,6 +847,13 @@ export function GhgCalculationScreen() {
   const t = totalsOf(picked);
   const monthly = byMonth(picked, months);
   const shown = me == null ? role.companies : role.companies.filter((c) => c.id === me);
+  // 그래프 — 1월 ~ 12월, 산정 범위 밖 달은 값 없음(선이 끊긴다)
+  const chart = yearMonths.map((m, i) => {
+    const mo = monthly.find((x) => x.month === m);
+    const row: Record<string, string | number> = { x: `${i + 1}월` };
+    if (mo) row['감축량'] = r3(mo.tco2);
+    return row;
+  });
 
   const facilities = role.facilities.filter((f) => f.status === 'ACTIVE' && shown.some((c) => c.id === f.companyId));
   const matrix = facilities.map((f) => {
@@ -857,9 +904,12 @@ export function GhgCalculationScreen() {
       <StatsGrid columns={4}>
         <StatCard label="감축량" value={`${fmtT(t.tco2)} tCO₂eq`} />
         <StatCard label="자가소비 발전량" value={`${fmt(t.mwh, 1)} MWh`} />
-        <StatCard label="배출계수" value={`${fx.co2} tCO₂eq/MWh`} />
-        <StatCard label="산정 기간" value={`${from} ~ ${to}`} />
+        <StatCard label="화석에너지 대체" value={`${fmtT(t.toe)} TOE`} />
+        <StatCard label="소나무 식재" value={`${fmt(t.pine)} 그루`} />
       </StatsGrid>
+      <SectionCard title="월별 감축량">
+        <RmsLineChart data={chart} xKey="x" lines={[{ key: '감축량', name: '감축량 (tCO₂eq)' }]} height={260} />
+      </SectionCard>
       <SectionCard title={`배출원별 월 감축량 (${matrix.length})`} noPadding>
         <div className="overflow-x-auto [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap" data-table>
           <DataTable data={matrix} columns={matrixCols} rowKey={(x) => x.f.id} />
@@ -945,186 +995,431 @@ export function GhgStatementScreen() {
   );
 }
 
-/* ══ 3.1.6 보고서 — ① 유형 ② 기간 · 기업 ③ 확인 → 보고서(미리보기 + PDF) ══ */
-const REPORT_STEPS = ['유형', '기간 · 기업', '보고서'];
+/* ══ 3.1.6 보고서 — 통합관제 › 보고서와 같은 양식(화면 · 문서 모두).
+   ① 발전소 선택(계약 하나 = 행 하나) → ② 연도 · 월 · 종류 + 보고서 목록 + 미리보기(문서) · PDF · Excel.
+   종류: 감축 실적(매월 1건, 월 마감 후 생성) · 연간 감축 실적(매년 1건) ══ */
+const REPORTS = '/e-data/inventory/disclosure';
+type GhgReportKind = 'month' | 'year';
+const GHG_KIND_LABEL: Record<GhgReportKind, string> = { month: '감축 실적', year: '연간 감축 실적' };
+const GHG_KIND_CLASS: Record<GhgReportKind, string> = {
+  month: 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/20',
+  year: 'bg-sky-500/10 text-sky-400 ring-sky-500/20',
+};
+const GHG_KIND_OPTIONS = [
+  { value: 'all', label: '전체 종류' },
+  { value: 'month', label: GHG_KIND_LABEL.month },
+  { value: 'year', label: GHG_KIND_LABEL.year },
+];
+const REPORT_MONTH_OPTIONS = [
+  { value: 'all', label: '전체' },
+  ...Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1).padStart(2, '0'), label: `${i + 1}월` })),
+];
+const THIS_YEAR = Number(TODAY_MONTH.slice(0, 4));
+const FIRST_YEAR = Number(FIRST_MONTH.slice(0, 4));
+const prevMonth = shiftMonth(TODAY_MONTH, -1);
+const LAST_REPORT = `${Number(prevMonth.slice(0, 4))}년 ${Number(prevMonth.slice(5, 7))}월`; // 마감된 최근 보고서
 
-function ReportSteps({ at }: { at: number }) {
-  return (
-    <div className="flex items-center gap-2">
-      {REPORT_STEPS.map((s, i) => (
-        <div key={s} className="flex items-center gap-2">
-          <span
-            className={`flex h-7 items-center rounded-full px-3 text-sm ${
-              i === at
-                ? 'bg-primary text-white'
-                : i < at
-                  ? 'bg-emerald-500/15 text-emerald-300'
-                  : 'bg-white/[0.04] text-slate-400'
-            }`}
-          >
-            {i + 1}. {s}
-          </span>
-          {i < REPORT_STEPS.length - 1 && <span className="h-px w-6 bg-white/[0.1]" />}
-        </div>
-      ))}
-    </div>
-  );
+interface GhgReportDoc {
+  id: string;
+  kind: GhgReportKind;
+  /** YYYY-MM (감축 실적) · YYYY (연간) */
+  period: string;
+  title: string;
+  label: string;
+  createdAt: string;
+}
+
+/** 그 해의 문서 — 연간 1건 + 감축 실적 월별(1월 ~ 금년이면 금월, 최신순) */
+function ghgDocsOfYear(year: number): GhgReportDoc[] {
+  const docs: GhgReportDoc[] = [
+    {
+      id: `year-${year}`,
+      kind: 'year',
+      period: String(year),
+      title: `${year}년 ${GHG_KIND_LABEL.year} 보고서`,
+      label: `${year}년 (1월 ~ 12월)`,
+      createdAt: year >= THIS_YEAR ? '작성 중' : `${year + 1}-01-01`,
+    },
+  ];
+  const last = year === THIS_YEAR ? Number(TODAY_MONTH.slice(5, 7)) : 12;
+  for (let m = last; m >= 1; m--) {
+    const month = `${year}-${String(m).padStart(2, '0')}`;
+    if (month < FIRST_MONTH) break;
+    const end = new Date(year, m, 0).getDate();
+    const next = m === 12 ? `${year + 1}-01-01` : `${year}-${String(m + 1).padStart(2, '0')}-01`;
+    docs.push({
+      id: `month-${month}`,
+      kind: 'month',
+      period: month,
+      title: `${year}년 ${m}월 ${GHG_KIND_LABEL.month} 보고서`,
+      label: `${year}년 ${m}월 (1일 ~ ${end}일)`,
+      createdAt: month === TODAY_MONTH ? '작성 중' : next,
+    });
+  }
+  return docs;
+}
+
+/** 발전소 이름 — 통합관제처럼 한 기업에 계약이 둘이면 "한일튜브(PPA)" */
+function plantName(f: Facility, all: Facility[]) {
+  return all.filter((x) => x.companyId === f.companyId).length > 1 ? `${f.company}(${f.kind})` : f.company;
 }
 
 export function GhgReportScreen() {
-  const role = useGhgRole();
-  const { fx, rows } = useRows();
-  const toast = useToastStore((s) => s.add);
-  const [step, setStep] = useState(0);
-  const range = useMonthRange();
-  const [company, setCompany] = useState<number | null>(null);
-  const me = scopeOf(role, company);
-  const picked = pick(rows, range.from, range.to, me).filter((r) =>
-    role.companies.some((c) => c.id === r.facility.companyId),
-  );
-  const target = me == null ? null : (role.companies.find((c) => c.id === me) ?? null);
-  const data = docData(picked, fx, range.from, range.to, target, role.companies, role.facilities);
-  const download = async () => {
-    try {
-      await exportGhgReportPdf(`온실가스_감축실적_보고서_${data.target}_${range.from}_${range.to}`, data);
-    } catch {
-      toast('error', '내려받기에 실패했습니다');
-    }
-  };
+  const sp = useSearchParams();
+  const id = sp.get('id');
+  const plant = sp.get('plant');
+  if (id) return <GhgReportDocs facilityId={Number(id)} />;
+  if (plant) return <GhgReportDocs plantId={Number(plant)} />;
+  return <GhgReportEntry />;
+}
 
+/** 연료전지 · ORC 발전소 — 통합관제처럼 목록에는 보이고, 감축 보고서 항목은 아직 없어 값을 비워 둔다 */
+function useOtherPlants() {
+  const { data } = useMonitoringPlants();
+  const matcher = useMyPlantMatcher();
+  return useMemo(() => filterPlantsByOwnership(data ?? [], matcher).filter((p) => p.type !== 'SOLAR'), [data, matcher]);
+}
+
+/** ① 발전소 선택 — 통합관제 보고서 1단계와 같은 칸. 항목이 하나면(기업 계정) 바로 그 보고서로 */
+function GhgReportEntry() {
+  const role = useGhgRole();
+  const router = useRouter();
+  const { rows } = useRows();
+  const [query, setQuery] = useState('');
+  const active = role.facilities.filter((f) => f.status === 'ACTIVE');
+  const others = useOtherPlants();
+  interface Row {
+    key: string;
+    type: string;
+    name: string;
+    kind: string;
+    address: string;
+    kw: number;
+    /** 연료전지 · ORC 는 null — 최근 보고서 · 금월 감축량 빈 값 */
+    monthT: number | null;
+    href: string;
+  }
+  const all: Row[] = [
+    ...active.map((f) => ({
+      key: `f-${f.id}`,
+      type: f.source,
+      name: f.company,
+      kind: f.kind,
+      address: f.address,
+      kw: f.kw,
+      monthT: totalsOf(rows.filter((r) => r.facility.id === f.id && r.month === TODAY_MONTH)).tco2,
+      href: `${REPORTS}?id=${f.id}`,
+    })),
+    ...others.map((p) => ({
+      key: `p-${p.plantId}`,
+      type: p.type,
+      name: p.name,
+      kind: '-',
+      address: p.address,
+      kw: p.capacity,
+      monthT: null,
+      href: `${REPORTS}?plant=${p.plantId}`,
+    })),
+  ];
+  // 항목이 1개면 고를 게 없으니 바로 그 보고서로
+  const single = all.length === 1 ? all[0] : null;
+  useEffect(() => {
+    if (single) router.replace(single.href);
+  }, [single, router]);
+
+  const q = query.trim().toLowerCase();
+  const list = all.filter((r) => !q || r.name.toLowerCase().includes(q) || r.address.toLowerCase().includes(q));
+  const columns: Column<Row>[] = [
+    { key: 'name', header: '발전소', width: '240px', render: (r) => <PlantNameCell type={r.type} name={r.name} /> }, // 계약 유형은 옆 칸
+    { key: 'kind', header: '계약 유형', width: '110px', render: (r) => <span className="text-sm text-slate-300">{r.kind}</span> },
+    { key: 'address', header: '위치', render: (r) => <span className="text-sm text-slate-300">{r.address || '-'}</span> },
+    { key: 'kw', header: '설비 용량', width: '130px', render: (r) => <span className="whitespace-nowrap text-sm tabular-nums text-slate-300">{fmt(r.kw, 2)} kW</span> },
+    { key: 'href', header: '최근 보고서', width: '140px', render: (r) => <span className="whitespace-nowrap text-sm text-slate-300">{r.monthT == null ? '' : LAST_REPORT}</span> },
+    { key: 'monthT', header: '금월 감축량', width: '150px', render: (r) => <span className="whitespace-nowrap text-sm tabular-nums text-slate-300">{r.monthT == null ? '' : `${fmtT(r.monthT)} tCO₂eq`}</span> },
+    { key: 'go' as keyof Row, header: '', width: '48px', render: () => <ChevronRight size={16} className="text-slate-500" /> },
+  ];
+
+  if (single) return null;
   return (
     <div className="space-y-6">
-      <Header
-        title="보고서"
+      <Breadcrumb items={[{ label: 'E-데이터마켓', path: '/e-data/inventory' }, { label: '온실가스 인벤토리' }, { label: '보고서' }]} />
+      <h1 className="text-2xl font-bold text-white">보고서</h1>
+      <SectionCard
+        title="발전소 선택"
         actions={
-          step === 2 && (
-            <Button variant="primary" size="sm" onClick={() => void download()}>
-              <Download size={15} /> PDF
-            </Button>
-          )
+          <div className="relative w-64">
+            <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="발전소명 · 위치 검색" className="pl-8" />
+          </div>
         }
-      />
-      <ReportSteps at={step} />
-
-      {step === 0 && (
-        <div className="max-w-md rounded-xl bg-[#0d1520] p-6 ring-1 ring-primary/40">
-          <p className="flex items-center gap-2 text-lg font-semibold text-sky-300">
-            <FileText size={18} /> 감축 실적 보고서
-          </p>
-          <p className="mt-2 text-sm text-slate-300">태양광 자가소비로 줄인 탄소를 기간 · 기업별로 정리한 보고서</p>
-          <ul className="mt-4 space-y-1.5 text-sm text-slate-400">
-            <li>· 감축량 · 자가소비 발전량 · 화석에너지 대체 · 소나무 식재 요약</li>
-            <li>· 월별 감축량 그래프 · 기업별 · 월별 실적 표</li>
-            <li>· 산정 기준(배출계수 · 산식) · PDF 내려받기</li>
-          </ul>
-          <Button variant="primary" className="mt-5 w-full" onClick={() => setStep(1)}>
-            선택 <ArrowRight size={15} />
-          </Button>
-        </div>
-      )}
-
-      {step === 1 && (
-        <SectionCard title="기간 · 기업">
-          <div className="flex flex-wrap items-center gap-4">
-            <MonthRange {...range} />
-            {role.isAdmin ? (
-              <CompanySelect role={role} value={company} onChange={setCompany} />
-            ) : (
-              <span className="text-sm text-slate-300">기업 · {role.myName}</span>
-            )}
-          </div>
-          <div className="mt-6 flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={() => setStep(0)}>
-              <ArrowLeft size={15} /> 이전
-            </Button>
-            <Button variant="primary" size="sm" onClick={() => setStep(2)} disabled={picked.length === 0}>
-              보고서 만들기 <ArrowRight size={15} />
-            </Button>
-          </div>
-        </SectionCard>
-      )}
-
-      {step === 2 && (
-        <>
-          <ReportPreview data={data} />
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={() => setStep(1)}>
-              <ArrowLeft size={15} /> 이전
-            </Button>
-          </div>
-        </>
-      )}
+      >
+        <DataTable columns={columns} data={list} rowKey={(r) => r.key} onRowClick={(r) => router.push(r.href)} emptyMessage="검색 결과가 없습니다" />
+      </SectionCard>
     </div>
   );
 }
 
-/** 보고서 미리보기 — PDF와 같은 순서(요약 → 월별 → 기업별 → 월별 표 → 산정 기준) */
-function ReportPreview({ data }: { data: GhgDocData }) {
-  const s = data.sum;
-  type Co = NonNullable<GhgDocData['byCompany']>[number];
-  type Mo = GhgDocData['byMonth'][number];
-  const coCols: Column<Co>[] = [
-    { key: 'company', header: '기업명', render: (c) => cell(c.company, 'font-medium text-white') },
-    { key: 'kw', header: '설비 용량 (kW)', align: 'right', render: (c) => num(fmt(c.kw, 2)) },
-    { key: 'kwh', header: '발전량 (kWh)', align: 'right', render: (c) => num(fmt(c.kwh)) },
-    { key: 'tco2', header: '감축량 (tCO₂eq)', align: 'right', render: (c) => strong(fmt(c.tco2, 3)) },
-    { key: 'toe', header: '화석에너지 대체 (TOE)', align: 'right', render: (c) => num(fmt(c.toe, 3)) },
-    { key: 'pine', header: '소나무 식재 (그루)', align: 'right', render: (c) => num(fmt(c.pine)) },
-    {
-      key: 'share',
-      header: '비중',
-      align: 'right',
-      render: (c) => num(`${fmt(s.tco2 ? (c.tco2 / s.tco2) * 100 : 0, 1)}%`),
-    },
-  ];
-  const moCols: Column<Mo>[] = [
-    { key: 'month', header: '월', render: (m) => num(m.month) },
-    { key: 'kwh', header: '발전량 (kWh)', align: 'right', render: (m) => num(fmt(m.kwh)) },
-    { key: 'tco2', header: '감축량 (tCO₂eq)', align: 'right', render: (m) => strong(fmt(m.tco2, 3)) },
-    { key: 'toe', header: '화석에너지 대체 (TOE)', align: 'right', render: (m) => num(fmt(m.toe, 3)) },
-    { key: 'pine', header: '소나무 식재 (그루)', align: 'right', render: (m) => num(fmt(m.pine)) },
-  ];
+/** ② 발전소(계약) 하나의 보고서 — 통합관제 보고서 2단계와 같은 화면 · 문서 양식 */
+function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?: number }) {
+  const role = useGhgRole();
+  const { fx, rows } = useRows();
+  const [year, setYear] = useState(THIS_YEAR);
+  const [monthFilter, setMonthFilter] = useState('all');
+  const [kindFilter, setKindFilter] = useState('all');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const active = role.facilities.filter((f) => f.status === 'ACTIVE');
+  const others = useOtherPlants();
+  const f = facilityId == null ? undefined : active.find((x) => x.id === facilityId);
+  const other = plantId == null ? undefined : others.find((p) => p.plantId === plantId);
+  const name = f ? plantName(f, active) : (other?.name ?? '');
+
+  const docs = useMemo(
+    () =>
+      !f
+        ? []
+        : ghgDocsOfYear(year).filter(
+            (d) =>
+              (kindFilter === 'all' || d.kind === kindFilter) &&
+              (d.kind === 'year' || monthFilter === 'all' || d.period.endsWith(`-${monthFilter}`)),
+          ),
+    [f, year, monthFilter, kindFilter],
+  );
+  // 처음부터 맨 위 문서가 열려 있고, 다른 행을 누르면 오른쪽이 그 문서로 바뀐다
+  const selected = docs.find((d) => d.id === selectedId) ?? docs[0] ?? null;
+  const days = useMemo(() => (f ? reductionDays(fx, [f]) : []), [fx, f]);
+
+  /** 선택 문서의 합계 + 일별(감축 실적) / 월별(연간) 줄 */
+  const build = (doc: GhgReportDoc) => {
+    const inDoc = (m: string) => (doc.kind === 'year' ? m.startsWith(doc.period) : m === doc.period);
+    const mine = rows.filter((r) => r.facility.id === facilityId && inDoc(r.month));
+    const sum = totalsOf(mine);
+    let acc = 0;
+    const lines =
+      doc.kind === 'month'
+        ? days
+            .filter((d) => d.date.startsWith(doc.period) && d.kwh > 0)
+            .map((d) => {
+              acc += d.tco2;
+              return { at: d.date, kwh: d.kwh, tco2: d.tco2, acc: r3(acc) };
+            })
+        : Array.from({ length: 12 }, (_, i) => `${doc.period}-${String(i + 1).padStart(2, '0')}`)
+            .map((m) => ({ m, t: totalsOf(mine.filter((r) => r.month === m)) }))
+            .filter((x) => x.t.kwh > 0)
+            .map((x) => {
+              acc += x.t.tco2;
+              return { at: x.m, kwh: x.t.kwh, tco2: x.t.tco2, acc: r3(acc) };
+            });
+    return { sum, lines };
+  };
+
+  /* 내보내기 — 통합관제처럼 발전소 실적 한 줄 */
+  const exportData = (doc: GhgReportDoc) => {
+    const { sum } = build(doc);
+    return {
+      file: `${doc.title} · ${name}`,
+      headers: ['발전소', '발전원', '계약 유형', '설비 용량 kW', '발전량 kWh', '감축량 tCO2eq'],
+      rows: f ? [[name, sourceOf(f.source).label, f.kind, f.kw, sum.kwh, sum.tco2]] : [],
+    };
+  };
+  const onPdf = (doc: GhgReportDoc) => {
+    const d = exportData(doc);
+    void exportPdf(d.file, d.file, d.headers, d.rows);
+  };
+  const onExcel = (doc: GhgReportDoc) => {
+    const d = exportData(doc);
+    void exportExcel(d.file, GHG_KIND_LABEL[doc.kind], d.headers, d.rows);
+  };
+
+  /* 미리보기에 그릴 문서 — 통합관제 월간 보고서와 같은 구성(기간 · 대상 · 계약 유형 · 생성일 → 요약 → 실적 → 일별) */
+  const previewDoc = useMemo<ReportPreviewDoc | null>(() => {
+    if (!selected || !f) return null;
+    const { sum, lines } = build(selected);
+    const isYear = selected.kind === 'year';
+    return {
+      title: `${selected.title} · ${name}`,
+      kindLabel: `온실가스 인벤토리 · ${isYear ? '연간' : '월간'} 보고서`,
+      meta: [
+        ['기간', selected.label],
+        ['대상', `${name} · 설비 ${fmt(f.kw, 2)} kW`],
+        ['계약 유형', f.kind],
+        ['생성일', selected.createdAt],
+      ],
+      sections: [
+        {
+          heading: '요약',
+          rows: [
+            ['총 감축량', `${fmtT(sum.tco2)} tCO₂eq`],
+            ['총 발전량', `${fmt(sum.kwh)} kWh`],
+            ['전력 배출계수', `${fx.co2} tCO₂eq/MWh`],
+          ],
+        },
+        {
+          heading: '실적',
+          rows: [
+            ['발전소', `${name} (${sourceOf(f.source).label})`],
+            ['설비 용량', `${fmt(f.kw, 2)} kW`],
+            ['발전량', `${fmt(sum.kwh)} kWh`],
+            ['감축량', `${fmtT(sum.tco2)} tCO₂eq`],
+          ],
+        },
+        {
+          heading: isYear ? '월별 감축량' : '일별 감축량',
+          headers: [isYear ? '월' : '일자', '발전량', '감축량', '누적 감축량'],
+          rows: lines.map((l) => [l.at, `${fmt(l.kwh)} kWh`, `${fmt(l.tco2, 3)} tCO₂eq`, `${fmt(l.acc, 3)} tCO₂eq`]),
+        },
+      ],
+      note: `통합관제에서 수집한 발전 이력에 전력 배출계수(${fx.year}년 기준)를 곱해 ${isYear ? '연' : '월'} 단위로 집계한 보고서입니다. ${isYear ? '연' : '월'} 마감 후 자동 생성됩니다.`,
+    };
+  }, [selected, f, rows, days, fx, name]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const th = 'px-4 py-2.5 text-left text-xs font-medium text-slate-400';
+  const td = 'px-4 py-3 text-sm';
+
   return (
     <div className="space-y-6">
-      <SectionCard title="온실가스 감축 실적 보고서">
-        <div className="grid gap-5 sm:grid-cols-3">
-          <Info label="대상" value={data.target} />
-          <Info label="기간" value={`${data.from} ~ ${data.to}`} />
-          <Info label="배출계수" value={`${data.factors.co2} tCO₂eq/MWh (${data.factors.year}년 기준)`} />
+      <Breadcrumb
+        items={[
+          { label: 'E-데이터마켓', path: '/e-data/inventory' },
+          { label: '온실가스 인벤토리' },
+          { label: '보고서', path: REPORTS },
+          { label: name },
+        ]}
+      />
+      <div className="flex items-center gap-3">
+        {active.length + others.length > 1 && <BackButton href={REPORTS} label="발전소 목록으로" />}
+        <h1 className="text-2xl font-bold text-white">보고서 · {name}</h1>
+      </div>
+
+      {/* 연도 · 월 · 종류 */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl bg-[#0d1520] px-5 py-3 ring-1 ring-white/[0.06]">
+        <span className="text-sm text-slate-400">연도</span>
+        <button
+          type="button"
+          onClick={() => setYear((y) => y - 1)}
+          disabled={year <= FIRST_YEAR}
+          className="rounded-md p-1.5 text-slate-300 hover:bg-white/[0.06] hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
+          aria-label="이전 연도"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <span className="text-base font-bold tabular-nums text-white">{year}년</span>
+        <button
+          type="button"
+          onClick={() => setYear((y) => y + 1)}
+          disabled={year >= THIS_YEAR}
+          className="rounded-md p-1.5 text-slate-300 hover:bg-white/[0.06] hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
+          aria-label="다음 연도"
+        >
+          <ChevronRight size={16} />
+        </button>
+        <span className="ml-3 text-sm text-slate-400">월</span>
+        <div className="w-28">
+          <Select options={REPORT_MONTH_OPTIONS} value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} />
         </div>
-      </SectionCard>
-      <StatsGrid columns={4}>
-        <StatCard label="감축량" value={`${fmtT(s.tco2)} tCO₂eq`} />
-        <StatCard label="자가소비 발전량" value={`${fmt(s.kwh / 1000, 1)} MWh`} />
-        <StatCard label="화석에너지 대체" value={`${fmtT(s.toe)} TOE`} />
-        <StatCard label="소나무 식재" value={`${fmt(s.pine)} 그루`} />
-      </StatsGrid>
-      <SectionCard title="월별 감축량">
-        <RmsBarChart
-          data={data.byMonth.map((m) => ({ month: m.month.slice(2), tco2: Math.round(m.tco2 * 100) / 100 }))}
-          xKey="month"
-          bars={[{ key: 'tco2', name: '감축량 (tCO₂eq)', color: '#F59E0B' }]}
-          height={260}
-        />
-      </SectionCard>
-      {data.byCompany && (
-        <SectionCard title={`기업별 감축 실적 (${data.byCompany.length})`}>
-          <DataTable data={data.byCompany} columns={coCols} rowKey={(c) => c.company} />
+        <div className="w-36">
+          <Select options={GHG_KIND_OPTIONS} value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} />
+        </div>
+      </div>
+
+      {/* 목록 왼쪽 · 미리보기 문서 오른쪽 */}
+      <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] xl:grid-cols-[minmax(0,1fr)_480px]">
+        <SectionCard title="보고서 목록" noPadding className="!h-auto min-w-0">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="border-b border-white/[0.06]">
+                <tr>
+                  <th className={th}>문서</th>
+                  <th className={th}>종류</th>
+                  <th className={th}>생성일</th>
+                  <th className={th}>PDF · Excel</th>
+                </tr>
+              </thead>
+              <tbody>
+                {docs.map((d) => (
+                  <tr
+                    key={d.id}
+                    onClick={() => setSelectedId(d.id)}
+                    className={`cursor-pointer border-b border-white/5 transition-colors ${selected?.id === d.id ? 'bg-primary/10' : 'hover:bg-white/[0.03]'}`}
+                  >
+                    <td className={`${td} whitespace-nowrap font-medium text-white`}>
+                      {d.title} · {name}
+                    </td>
+                    <td className={td}>
+                      <span className={`inline-flex items-center whitespace-nowrap rounded-md px-1.5 py-0.5 text-xs font-medium ring-1 ${GHG_KIND_CLASS[d.kind]}`}>
+                        {GHG_KIND_LABEL[d.kind]}
+                      </span>
+                    </td>
+                    <td className={`${td} whitespace-nowrap tabular-nums text-slate-400`}>{d.createdAt}</td>
+                    <td className={`${td} whitespace-nowrap`}>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedId(d.id);
+                          onPdf(d);
+                        }}
+                        className="rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-white"
+                        title="PDF"
+                      >
+                        <FileText size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedId(d.id);
+                          onExcel(d);
+                        }}
+                        className="rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-white"
+                        title="Excel"
+                      >
+                        <Download size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {docs.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-10 text-center text-sm text-slate-500">
+                      {f ? '보고서가 없습니다' : '보고서 항목이 아직 정해지지 않았습니다'}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </SectionCard>
-      )}
-      <SectionCard title={`월별 감축 실적 (${data.byMonth.length})`}>
-        <DataTable data={data.byMonth} columns={moCols} rowKey={(m) => m.month} />
-      </SectionCard>
-      <SectionCard title="산정 기준">
-        <ul className="space-y-1.5 text-sm text-slate-300">
-          <li>감축량 (tCO₂eq) = 태양광 자가소비 발전량 (MWh) × 전력 배출계수 {data.factors.co2}</li>
-          <li>화석에너지 대체 (TOE) = 발전량 (MWh) × {data.factors.toe}</li>
-          <li>소나무 식재 (그루) = 감축량 (tCO₂eq) × {data.factors.pine} (20년생)</li>
-          <li>
-            전력 배출계수 {data.factors.year}년 기준 · {data.factors.published} 공표
-          </li>
-        </ul>
-      </SectionCard>
+
+        {/* 문서 미리보기 — 실제 문서(종이) 모습 그대로. 행을 누르면 이 자리가 그 문서로 바뀐다 */}
+        {selected && previewDoc && (
+          <div className="min-w-0 overflow-hidden rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] md:sticky md:top-4">
+            <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-3">
+              <div className="min-w-0">
+                <p className="text-xs text-slate-400">미리보기</p>
+                <p className="truncate text-sm font-semibold text-white">
+                  {selected.title} · {name}
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <Button size="sm" variant="secondary" onClick={() => onPdf(selected)}>
+                  <FileText size={14} className="mr-1" /> PDF
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => onExcel(selected)}>
+                  <Download size={14} className="mr-1" /> Excel
+                </Button>
+              </div>
+            </div>
+            {/* 문서는 iframe 안에서 흰 종이로 — 화면 테마와 섞이지 않는다 */}
+            <iframe
+              srcDoc={generateReportHtml(previewDoc)}
+              title="보고서 미리보기"
+              className="w-full bg-white"
+              style={{ height: '72vh', minHeight: 560, border: 'none' }}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

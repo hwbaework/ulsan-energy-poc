@@ -13,6 +13,9 @@ import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, X
 import { useToastStore } from '@/stores/useToastStore';
 import { useEnergySettings, useHolidays, useKepcoTariff, useSaveEnergySettings, useSaveHolidays, useSaveKepcoTariff } from '@/hooks/common/useSettings';
 import { PINE_PER_TCO2, TOE_PER_MWH } from '@/lib/constants/env-benefit';
+import { CATEGORY_SCOPE } from '@/lib/ghg-factors';
+import { useGhgFactorList } from '@/lib/ghg-reduction';
+import { GhgFactorEditor } from '@/components/features/ghg/GhgFactorEditor';
 import { holidayMap, opRuleOf, opYear, weekdayOf, type Holiday, type OpRule } from '@/lib/op-calendar';
 
 const WEEK_KO = ['일', '월', '화', '수', '목', '금', '토'];
@@ -32,6 +35,7 @@ const BASE_FIELDS = [
   { card: 'adj', key: 'FUEL_ADJ', label: '연료비조정요금', unit: '원/kWh', lim: [-100, 100], dec: true, minus: true },
   { card: 'co2', key: 'TOE_PER_MWH', label: '화석에너지 대체 (전력 1MWh당 TOE)', unit: 'TOE/MWh', lim: [0, 1], dec: true, def: TOE_PER_MWH },
   { card: 'co2', key: 'PINE_PER_TCO2', label: '소나무 식재 (tCO₂당 그루 · 20년생)', unit: '그루/t', lim: [0, 1000], dec: true, def: PINE_PER_TCO2 },
+  { card: 'co2', key: 'CO2_FACTOR_YEAR', label: '배출계수 기준 연도', unit: '년', lim: [2000, 2100], dec: false, def: 2023 },
 ] as const;
 const BASE_CARDS = [
   { card: 'co2', title: '탄소 배출계수' },
@@ -81,8 +85,15 @@ export default function EnergySettingsPage() {
   const [baseDirty, setBaseDirty] = useState(false);
 
   useEffect(() => {
-    if (energy && !baseDirty) setBase(Object.fromEntries(BASE_FIELDS.map((f) => [f.key, energy[f.key] ?? ('def' in f ? String(f.def) : '')])));
+    if (energy && !baseDirty)
+      setBase({
+        ...Object.fromEntries(BASE_FIELDS.map((f) => [f.key, energy[f.key] ?? ('def' in f ? String(f.def) : '')])),
+        CO2_FACTOR_PUBLISHED: energy.CO2_FACTOR_PUBLISHED ?? '',
+      });
   }, [energy, baseDirty]);
+  // 배출원 계수(Scope 1 · 2) — 팝업에서 추가 · 수정 · 삭제, 배출계수 관리와 같은 팝업
+  const ghgFactors = useGhgFactorList();
+  const [factorOpen, setFactorOpen] = useState(false);
   // 무료진단 PPA 쉬는 날 — 이 규칙 · 금년 공휴일(특일 정보)로 가동일을 센다
   const [opRule, setOpRule] = useState<OpRule | null>(null);
   const [opDirty, setOpDirty] = useState(false);
@@ -159,6 +170,7 @@ export default function EnergySettingsPage() {
       const n = Number(v);
       if (v === '' || !Number.isFinite(n) || n < f.lim[0] || n > f.lim[1]) return addToast('error', `${f.label}은 ${f.lim[0]}~${f.lim[1].toLocaleString()} 사이로 입력하세요`);
     }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(base.CO2_FACTOR_PUBLISHED ?? '')) return addToast('error', '배출계수 공표일을 입력하세요');
     // 한전 요금표 검사
     if (book) {
       const years = book.map((d) => Number(d.year));
@@ -178,7 +190,11 @@ export default function EnergySettingsPage() {
       }
     }
     try {
-      if (baseDirty) await saveEnergy.mutateAsync(Object.fromEntries(BASE_FIELDS.map((f) => [f.key, (base[f.key] ?? '').trim()])));
+      if (baseDirty)
+        await saveEnergy.mutateAsync({
+          ...Object.fromEntries(BASE_FIELDS.map((f) => [f.key, (base[f.key] ?? '').trim()])),
+          CO2_FACTOR_PUBLISHED: base.CO2_FACTOR_PUBLISHED ?? '',
+        });
       if (opDirty && opRule)
         await saveEnergy.mutateAsync({ PPA_WEEKEND_OFF: opRule.weekendOff ? '1' : '0', PPA_HOLIDAY_OFF: opRule.holidayOff ? '1' : '0', PPA_OFF_START: opRule.offStart ?? '', PPA_ON_TIME: opRule.onTime ?? '' });
       if (holDirty) await saveHol.mutateAsync(hol);
@@ -244,9 +260,64 @@ export default function EnergySettingsPage() {
                 </div>
               </label>
             ))}
+            {c.card === 'co2' && (
+              <label className="block">
+                <span className="mb-1.5 block text-sm text-slate-300">배출계수 공표일</span>
+                <input
+                  type="date"
+                  aria-label="배출계수 공표일"
+                  value={base.CO2_FACTOR_PUBLISHED ?? ''}
+                  onChange={(e) => editBase('CO2_FACTOR_PUBLISHED', e.target.value)}
+                  className={`${FIELD} text-left [color-scheme:dark]`}
+                />
+              </label>
+            )}
           </div>
         </SectionCard>
       ))}
+
+      {/* 배출원 계수 — Scope 1 연료 · Scope 2 전기 · 열. 온실가스 › 배출계수 관리 표가 이 값을 읽는다 */}
+      <GhgFactorEditor open={factorOpen} onClose={() => setFactorOpen(false)} />
+      <SectionCard
+        title={`배출원 계수 (${ghgFactors.length})`}
+        actions={
+          <Button size="sm" variant="secondary" onClick={() => setFactorOpen(true)}>
+            <Plus size={14} className="mr-1" /> 계수 관리
+          </Button>
+        }
+        noPadding
+      >
+        <div className="overflow-x-auto">
+          <table className={cn(TABLE, 'tabular-nums [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap')}>
+            <thead>
+              <tr className={TABLE_HEAD_ROW}>
+                <th className={TABLE_TH}>Scope</th>
+                <th className={TABLE_TH}>배출활동</th>
+                <th className={TABLE_TH}>연료 · 에너지</th>
+                <th className={TABLE_TH}>단위</th>
+                <th className={cn(TABLE_TH, 'text-right')}>순발열량</th>
+                <th className={cn(TABLE_TH, 'text-right')}>CO₂</th>
+                <th className={cn(TABLE_TH, 'text-right')}>CH₄</th>
+                <th className={cn(TABLE_TH, 'text-right')}>N₂O</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ghgFactors.map((f) => (
+                <tr key={f.id} className={TABLE_ROW}>
+                  <td className={TABLE_TD}>{`Scope ${CATEGORY_SCOPE[f.category]}`}</td>
+                  <td className={TABLE_TD}>{f.category}</td>
+                  <td className={cn(TABLE_TD, 'text-white')}>{f.fuel}</td>
+                  <td className={TABLE_TD}>{f.unit}</td>
+                  <td className={cn(TABLE_TD, 'text-right')}>{f.ncv}</td>
+                  <td className={cn(TABLE_TD, 'text-right')}>{f.co2}</td>
+                  <td className={cn(TABLE_TD, 'text-right')}>{f.ch4}</td>
+                  <td className={cn(TABLE_TD, 'text-right')}>{f.n2o}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </SectionCard>
 
       {/* 가동일 — 쉬는 날 인버터 OFF 기준(무료진단 · 운전 일정 기본값). 공휴일은 특일 정보(한국천문연구원) + 사람이 더하고 뺌, 주말은 달력 */}
       {opRule && opYr && (

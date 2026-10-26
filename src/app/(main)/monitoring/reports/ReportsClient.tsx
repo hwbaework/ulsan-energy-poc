@@ -66,7 +66,7 @@ function monthDoc(kind: ReportKind, year: number, m: number): ReportDoc {
     from: days[0]!,
     to: days[last - 1]!,
     days,
-    createdAt: month === THIS_MONTH ? '작성 중' : next.replace(/-/g, '.'),
+    createdAt: month === THIS_MONTH ? '작성 중' : next,
   };
 }
 
@@ -336,7 +336,7 @@ export default function ReportsClient() {
     sections.push({
       heading: '일별 발전량',
       headers: ['일자', '발전량', '누적 발전량', '발전시간'],
-      rows: dailyRows.map((r) => [r.day.replace(/-/g, '.'), `${Math.round(r.energy).toLocaleString()} kWh`, `${Math.round(r.cumulative).toLocaleString()} kWh`, `${r.hours} h`]),
+      rows: dailyRows.map((r) => [r.day, `${Math.round(r.energy).toLocaleString()} kWh`, `${Math.round(r.cumulative).toLocaleString()} kWh`, `${r.hours} h`]),
     });
 
     return {
