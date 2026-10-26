@@ -8,7 +8,7 @@
  */
 import { BackButton } from '@/components/layout/PageTitle';
 import { useMemo, useState } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useQueries } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react';
 import { Select } from '@/components/ui/Select';
@@ -104,7 +104,7 @@ function summarizeDays(points: PlantHistoryPoint[]) {
   return byDay;
 }
 
-const MONTH_OPTIONS = [{ value: 'all', label: '전체' }, ...Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1).padStart(2, '0'), label: `${i + 1}월` }))];
+const MONTH_OPTIONS = [{ value: 'all', label: '전체' }, ...Array.from({ length: 12 }, (_, i) => ({ value: String(12 - i).padStart(2, '0'), label: `${12 - i}월` }))];
 const KIND_OPTIONS = [
   { value: 'all', label: '전체 종류' },
   { value: 'generation', label: KIND_LABEL.generation },
@@ -114,6 +114,7 @@ const KIND_OPTIONS = [
 /* ── 화면 ── */
 
 export default function ReportsClient() {
+  const router = useRouter();
   const { plantId: scope } = useParams<{ plantId: string }>(); // 'all' 또는 발전소 ID
   const contract = useSearchParams().get('contract') as PlantContractKind | null; // 계약 하나만 볼 때
   const [year, setYear] = useState(THIS_YEAR);
@@ -384,6 +385,22 @@ export default function ReportsClient() {
         <div className="w-36">
           <Select options={KIND_OPTIONS} value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} />
         </div>
+        {/* 기업(발전소) — 목록으로 돌아가지 않고 바로 바꾼다 */}
+        {myPlants.length > 1 && (
+          <>
+            <span className="ml-3 text-sm text-slate-400">기업</span>
+            <div className="w-52">
+              <Select
+                options={[
+                  { value: 'all', label: '전체' },
+                  ...myPlants.map((p) => ({ value: String(p.plantId), label: p.name })),
+                ]}
+                value={scope}
+                onChange={(e) => router.push(`/monitoring/reports/${e.target.value}`)}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {/* 목록 왼쪽 · 미리보기 문서 오른쪽 — 창이 좁아도(768px~) 옆에 붙는다 */}

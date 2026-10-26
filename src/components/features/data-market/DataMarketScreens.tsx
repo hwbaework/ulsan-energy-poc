@@ -1400,11 +1400,23 @@ export function DataSettlementScreen() {
         <span className="ml-2 text-sm text-slate-400">월</span>
         <div className="w-28">
           <Select
-            options={monthsOfYear.map((p) => ({ value: p, label: `${p.slice(5)}월` }))}
+            options={[...monthsOfYear].sort().reverse().map((p) => ({ value: p, label: `${p.slice(5)}월` }))}
             value={period}
             onChange={(e) => pick(e.target.value, company)}
           />
         </div>
+        {role.isAdmin && (
+          <>
+            <span className="ml-2 text-sm text-slate-400">기업</span>
+            <div className="w-44">
+              <Select
+                options={[{ value: '', label: '전체' }, ...monthCompanies.map((c) => ({ value: String(c.id), label: c.name }))]}
+                value={company == null ? '' : String(company)}
+                onChange={(e) => pick(period, e.target.value ? Number(e.target.value) : null)}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       <StatsGrid columns={4}>

@@ -290,10 +290,16 @@ function BillingScreen({ kind }: { kind: Kind }) {
     }
   };
 
+  // 기업 — 관리자만(기업이 늘어도 한 곳만 골라 본다)
+  const [company, setCompany] = useState('');
+  const companies = [...new Map(rows.map((s) => [s.consumerCompanyName, s.consumerCompanyName])).entries()].sort(
+    (a, b) => a[1].localeCompare(b[1], 'ko'),
+  );
   const list = rows.filter(
     (s) =>
       s.period.startsWith(year) &&
       (!month || s.period === month) &&
+      (!company || s.consumerCompanyName === company) &&
       (!q.trim() || [s.consumerCompanyName, s.plantName].some((v) => v.includes(q.trim()))),
   );
   const sum = (xs: Bill[], f: (s: Bill) => number) => fmtKrw(xs.reduce((a, s) => a + f(s), 0));
@@ -465,6 +471,18 @@ function BillingScreen({ kind }: { kind: Kind }) {
             onChange={(e) => setMonth(e.target.value)}
           />
         </div>
+        {role.isAdmin && (
+          <>
+            <span className="ml-2 text-sm text-slate-400">기업</span>
+            <div className="w-44">
+              <Select
+                options={[{ value: '', label: '전체' }, ...companies.map(([id, name]) => ({ value: id, label: name }))]}
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       <StatsGrid columns={3}>
