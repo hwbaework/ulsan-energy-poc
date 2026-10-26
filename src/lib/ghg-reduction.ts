@@ -5,7 +5,9 @@
 // · 회사 전체 전력 사용량 · 배출량은 다루지 않는다(매월 다르고 파워플래너로만 알 수 있어 임의 값으로 만들지 않음)
 import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
 import { PINE_PER_TCO2, TOE_PER_MWH } from '@/lib/constants/env-benefit';
-import { energyNum, useEnergySettings } from '@/hooks/common/useSettings';import { useMemo } from 'react';
+import { energyNum, useEnergySettings } from '@/hooks/common/useSettings';
+import { GHG_FACTORS, type GhgFactor } from '@/lib/ghg-factors';
+import { useMemo } from 'react';
 import { DM_TODAY, genHoursOf, generationOf } from '@/stores/useDataMarketStore';
 import { useHydrateTradingPoc, useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { Contract } from '@/types/trading-poc';
@@ -103,6 +105,22 @@ export function useGhgFactorValues(): GhgFactors {
     year: es?.CO2_FACTOR_YEAR ?? '2023',
     published: es?.CO2_FACTOR_PUBLISHED ?? '2025-12-17',
   };
+}
+
+/** 배출원 계수 목록(Scope 1 · 2, 연료별) — 에너지 설정(GHG_FACTORS, JSON)에 저장한 값. 없거나 깨졌으면 지침 기본값 */
+export const GHG_FACTORS_KEY = 'GHG_FACTORS';
+export function parseGhgFactors(raw: string | undefined): GhgFactor[] {
+  if (!raw) return GHG_FACTORS;
+  try {
+    const list = JSON.parse(raw) as unknown;
+    return Array.isArray(list) ? (list as GhgFactor[]) : GHG_FACTORS;
+  } catch {
+    return GHG_FACTORS;
+  }
+}
+export function useGhgFactorList(): GhgFactor[] {
+  const { data: es } = useEnergySettings();
+  return useMemo(() => parseGhgFactors(es?.[GHG_FACTORS_KEY]), [es]);
 }
 
 /** 한 줄 — 설비 × 달 */

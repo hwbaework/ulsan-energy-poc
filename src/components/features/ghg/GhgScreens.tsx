@@ -23,6 +23,7 @@ import { BackButton } from '@/components/layout/PageTitle';
 import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
 import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
 import { Badge } from '@/components/ui/Badge/Badge';
+import { CATEGORY_SCOPE, tco2PerUnit, type GhgFactor } from '@/lib/ghg-factors';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -45,6 +46,7 @@ import {
   reductionRows,
   totalsOf,
   useFacilities,
+  useGhgFactorList,
   useGhgFactorValues,
   yearRange,
   type Facility,
@@ -702,6 +704,20 @@ export function GhgFactorsScreen() {
     { key: 'use', header: '산식', render: (f) => cell(f.use) },
     { key: 'calc', header: '금년 계산', render: (f) => num(f.calc) },
   ];
+  // 배출원 계수(Scope 1 · 2, 연료별) — 관리 › 에너지 설정에서 고치고 여기서는 보기만
+  const factors = useGhgFactorList();
+  const isElec = (f: GhgFactor) => f.category === '외부 전기';
+  const factorCols: Column<GhgFactor>[] = [
+    { key: 'scope', header: 'Scope', render: (f) => cell(`Scope ${CATEGORY_SCOPE[f.category]}`, 'font-medium text-white') },
+    { key: 'cat', header: '배출활동', render: (f) => cell(f.category) },
+    { key: 'fuel', header: '연료 · 에너지', render: (f) => cell(f.fuel, 'text-white') },
+    { key: 'unit', header: '단위', render: (f) => cell(f.unit) },
+    { key: 'ncv', header: '순발열량', render: (f) => num(f.category === '외부 열(스팀)' ? '' : `${f.ncv} MJ/${f.unit}`) },
+    { key: 'co2', header: 'CO₂', render: (f) => num(isElec(f) ? `${f.co2} t/MWh` : `${fmt(f.co2, 1)} kg/TJ`) },
+    { key: 'ch4', header: 'CH₄', render: (f) => num(`${f.ch4} ${isElec(f) ? 'kg/MWh' : 'kg/TJ'}`) },
+    { key: 'n2o', header: 'N₂O', render: (f) => num(`${f.n2o} ${isElec(f) ? 'kg/MWh' : 'kg/TJ'}`) },
+    { key: 'unitT', header: '1단위당 (tCO₂eq)', render: (f) => strong(`${tco2PerUnit(f, fx.co2).toFixed(6)} /${f.unit}`) },
+  ];
   return (
     <div className="space-y-6">
       <GhgHeader
@@ -725,6 +741,11 @@ export function GhgFactorsScreen() {
       <SectionCard title={`계수 (${list.length})`} noPadding>
         <div className="overflow-x-auto [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
           <DataTable data={list} columns={cols} rowKey={(f) => f.key} />
+        </div>
+      </SectionCard>
+      <SectionCard title={`배출원 계수 (${factors.length})`} noPadding>
+        <div className="overflow-x-auto [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
+          <DataTable data={factors} columns={factorCols} rowKey={(f) => f.id} />
         </div>
       </SectionCard>
     </div>

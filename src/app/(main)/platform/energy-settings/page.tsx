@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, Loader2, Plus, Save, Trash2 } from 'lucide-react';
+import { Check, Loader2, Plus, RotateCcw, Save, Trash2 } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { SectionCard } from '@/components/features';
 import { Button } from '@/components/ui/Button';
@@ -13,6 +13,8 @@ import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, X
 import { useToastStore } from '@/stores/useToastStore';
 import { useEnergySettings, useHolidays, useKepcoTariff, useSaveEnergySettings, useSaveHolidays, useSaveKepcoTariff } from '@/hooks/common/useSettings';
 import { PINE_PER_TCO2, TOE_PER_MWH } from '@/lib/constants/env-benefit';
+import { CATEGORY_SCOPE, GHG_FACTORS, type GhgCategory, type GhgFactor } from '@/lib/ghg-factors';
+import { GHG_FACTORS_KEY, useGhgFactorList } from '@/lib/ghg-reduction';
 import { holidayMap, opRuleOf, opYear, weekdayOf, type Holiday, type OpRule } from '@/lib/op-calendar';
 
 const WEEK_KO = ['일', '월', '화', '수', '목', '금', '토'];
@@ -71,6 +73,15 @@ const numOnly = (v: string, dot: boolean) => {
   return rest.length ? `${head}.${rest.join('')}` : head;
 };
 
+/** 배출원 계수(Scope 1 · 2) 편집용 — 숫자는 글자로 들고 있다가 저장할 때 바꾼다 */
+const GHG_CATEGORIES = Object.keys(CATEGORY_SCOPE) as GhgCategory[];
+const GHG_NUMS = ['ncv', 'co2', 'ch4', 'n2o'] as const;
+type FactorDraft = Omit<GhgFactor, (typeof GHG_NUMS)[number]> & Record<(typeof GHG_NUMS)[number], string>;
+const toFactorDraft = (f: GhgFactor): FactorDraft => ({ ...f, ncv: String(f.ncv), co2: String(f.co2), ch4: String(f.ch4), n2o: String(f.n2o) });
+/** 칸 단위 — 전기는 t·kg/MWh, 그 밖은 kg/TJ */
+const ghgUnitOf = (c: GhgCategory, k: (typeof GHG_NUMS)[number]) =>
+  k === 'ncv' ? 'MJ' : c === '외부 전기' ? (k === 'co2' ? 't/MWh' : 'kg/MWh') : 'kg/TJ';
+
 export default function EnergySettingsPage() {
   const addToast = useToastStore((s) => s.add);
   // 산정 기준값
@@ -82,6 +93,17 @@ export default function EnergySettingsPage() {
   useEffect(() => {
     if (energy && !baseDirty) setBase(Object.fromEntries(BASE_FIELDS.map((f) => [f.key, energy[f.key] ?? ('def' in f ? String(f.def) : '')])));
   }, [energy, baseDirty]);
+  // 배출원 계수(Scope 1 · 2, 연료별) — 화면에서 바로 고치고 맨 위 [저장]으로 함께 저장
+  const ghgFactors = useGhgFactorList();
+  const [factors, setFactors] = useState<FactorDraft[]>([]);
+  const [factorDirty, setFactorDirty] = useState(false);
+  useEffect(() => {
+    if (!factorDirty) setFactors(ghgFactors.map(toFactorDraft));
+  }, [ghgFactors, factorDirty]);
+  const editFactor = (i: number, patch: Partial<FactorDraft>) => {
+    setFactors((prev) => prev.map((r, k) => (k === i ? { ...r, ...patch } : r)));
+    setFactorDirty(true);
+  };
   // 무료진단 PPA 쉬는 날 — 이 규칙 · 금년 공휴일(특일 정보)로 가동일을 센다
   const [opRule, setOpRule] = useState<OpRule | null>(null);
   const [opDirty, setOpDirty] = useState(false);
@@ -175,7 +197,20 @@ export default function EnergySettingsPage() {
         for (const part of PARTS) if (table[pl][part.k].some((x) => x === '' || !(Number(x) >= TARIFF_LIM.unit[0] && Number(x) <= TARIFF_LIM.unit[1]))) return addToast('error', `전력량요금은 ${TARIFF_LIM.unit[0]}~${TARIFF_LIM.unit[1].toLocaleString()}원/kWh 사이로 입력하세요`);
       }
     }
+    // 배출원 계수 검사
+    if (factorDirty)
+      for (const r of factors) {
+        if (!r.fuel.trim() || !r.unit.trim()) return addToast('error', '배출원 계수의 연료 · 에너지와 단위를 입력하세요');
+        if (GHG_NUMS.some((k) => r[k].trim() === '' || !Number.isFinite(Number(r[k]))))
+          return addToast('error', `${r.fuel} — 순발열량 · CO₂ · CH₄ · N₂O 를 숫자로 입력하세요`);
+      }
     try {
+      if (factorDirty)
+        await saveEnergy.mutateAsync({
+          [GHG_FACTORS_KEY]: JSON.stringify(
+            factors.map((r) => ({ ...r, fuel: r.fuel.trim(), unit: r.unit.trim(), ncv: Number(r.ncv), co2: Number(r.co2), ch4: Number(r.ch4), n2o: Number(r.n2o) })),
+          ),
+        });
       if (baseDirty) await saveEnergy.mutateAsync(Object.fromEntries(BASE_FIELDS.map((f) => [f.key, (base[f.key] ?? '').trim()])));
       if (opDirty && opRule)
         await saveEnergy.mutateAsync({ PPA_WEEKEND_OFF: opRule.weekendOff ? '1' : '0', PPA_HOLIDAY_OFF: opRule.holidayOff ? '1' : '0', PPA_OFF_START: opRule.offStart ?? '', PPA_ON_TIME: opRule.onTime ?? '' });
@@ -185,6 +220,7 @@ export default function EnergySettingsPage() {
       if (tableDirty && book) await saveKepco.mutateAsync(book.map(toTable));
       setBaseDirty(false);
       setTableDirty(false);
+      setFactorDirty(false);
       addToast('success', '에너지 설정을 저장했습니다');
     } catch {
       addToast('error', '저장에 실패했습니다');
@@ -192,7 +228,7 @@ export default function EnergySettingsPage() {
   };
 
   const pending = saveEnergy.isPending || saveKepco.isPending || saveHol.isPending;
-  const anyDirty = baseDirty || tableDirty || opDirty || holDirty;
+  const anyDirty = baseDirty || tableDirty || opDirty || holDirty || factorDirty;
 
   return (
     <div className="space-y-6">
@@ -245,6 +281,105 @@ export default function EnergySettingsPage() {
           </div>
         </SectionCard>
       ))}
+
+      {/* 배출원 계수(Scope 1 · 2, 연료별) — 화면에서 바로 고친다. 온실가스 › 배출계수 관리 표가 이 값을 읽는다 */}
+      <SectionCard
+        title={`배출원 계수 (${factors.length})`}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setFactors(GHG_FACTORS.map(toFactorDraft));
+                setFactorDirty(true);
+              }}
+            >
+              <RotateCcw size={14} className="mr-1" /> 기본값으로
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setFactors((prev) => [...prev, { id: `u${Date.now()}`, category: '고정연소', fuel: '', unit: '', ncv: '', co2: '', ch4: '', n2o: '', basis: '' }]);
+                setFactorDirty(true);
+              }}
+            >
+              <Plus size={14} className="mr-1" /> 계수 추가
+            </Button>
+          </div>
+        }
+        noPadding
+      >
+        <div className="overflow-x-auto">
+          <table className={cn(TABLE, 'min-w-[1000px] tabular-nums')}>
+            <thead>
+              <tr className={TABLE_HEAD_ROW}>
+                <th className={cn(TABLE_TH, 'px-3')}>배출활동</th>
+                <th className={cn(TABLE_TH, 'px-3')}>연료 · 에너지</th>
+                <th className={cn(TABLE_TH, 'px-3')}>단위</th>
+                <th className={cn(TABLE_TH, 'px-3')}>순발열량</th>
+                <th className={cn(TABLE_TH, 'px-3')}>CO₂</th>
+                <th className={cn(TABLE_TH, 'px-3')}>CH₄</th>
+                <th className={cn(TABLE_TH, 'px-3')}>N₂O</th>
+                <th className={cn(TABLE_TH, 'px-3')} />
+              </tr>
+            </thead>
+            <tbody>
+              {factors.map((r, i) => (
+                <tr key={r.id} className={TABLE_ROW}>
+                  <td className={cn(TABLE_TD, 'w-[190px] px-3')}>
+                    <select
+                      aria-label="배출활동"
+                      value={r.category}
+                      onChange={(e) => editFactor(i, { category: e.target.value as GhgCategory })}
+                      className={`${FIELD} text-left [color-scheme:dark]`}
+                    >
+                      {GHG_CATEGORIES.map((c) => (
+                        <option key={c} value={c}>{`Scope ${CATEGORY_SCOPE[c]} · ${c}`}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className={cn(TABLE_TD, 'w-[170px] px-3')}>
+                    <input aria-label="연료 · 에너지" maxLength={30} value={r.fuel} onChange={(e) => editFactor(i, { fuel: e.target.value })} className={`${FIELD} text-left`} />
+                  </td>
+                  <td className={cn(TABLE_TD, 'w-[90px] px-3')}>
+                    <input aria-label="단위" maxLength={10} value={r.unit} onChange={(e) => editFactor(i, { unit: e.target.value })} className={`${FIELD} text-left`} />
+                  </td>
+                  {GHG_NUMS.map((k) => (
+                    <td key={k} className={cn(TABLE_TD, 'w-[140px] px-3')}>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          aria-label={k}
+                          inputMode="decimal"
+                          maxLength={12}
+                          value={r[k]}
+                          onChange={(e) => editFactor(i, { [k]: numOnly(e.target.value, true) })}
+                          className={FIELD}
+                        />
+                        <span className="shrink-0 text-xs text-slate-500">{ghgUnitOf(r.category, k)}</span>
+                      </div>
+                    </td>
+                  ))}
+                  <td className={cn(TABLE_TD, 'w-[48px] px-3')}>
+                    <button
+                      type="button"
+                      aria-label={`${r.fuel || '계수'} 삭제`}
+                      onClick={() => {
+                        setFactors((prev) => prev.filter((_, k) => k !== i));
+                        setFactorDirty(true);
+                      }}
+                      className="rounded-md p-1.5 text-slate-500 hover:bg-red-500/10 hover:text-red-400"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </SectionCard>
 
       {/* 가동일 — 쉬는 날 인버터 OFF 기준(무료진단 · 운전 일정 기본값). 공휴일은 특일 정보(한국천문연구원) + 사람이 더하고 뺌, 주말은 달력 */}
       {opRule && opYr && (
