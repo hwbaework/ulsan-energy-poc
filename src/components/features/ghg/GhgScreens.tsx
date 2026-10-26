@@ -327,7 +327,7 @@ function ReductionChartCard({
             </button>
           </div>
         </div>
-        <RmsLineChart data={chart} xKey="x" lines={groups.map((g) => ({ key: g.key, name: g.name }))} height={300} />
+        <RmsLineChart key={groups.map((g) => g.key).join(',') || 'none'} data={chart} xKey="x" lines={groups.map((g) => ({ key: g.key, name: g.name }))} height={300} />
       </div>
     </div>
   );
@@ -470,7 +470,7 @@ export function GhgOverviewScreen() {
       />
 
       <SectionCard
-        title={`감축 실적 (${perf.length})`}
+        title="감축 실적"
         actions={
           role.isAdmin ? (
             <div className="w-56">
