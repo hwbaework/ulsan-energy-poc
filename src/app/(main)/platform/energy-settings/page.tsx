@@ -285,7 +285,7 @@ export default function EnergySettingsPage() {
 
       {/* 배출원 계수(Scope 1 · 2, 연료별) — 화면에서 바로 고친다. 온실가스 › 배출계수 관리 표가 이 값을 읽는다 */}
       <SectionCard
-        title={`배출원 계수 (${factors.length})`}
+        title="배출원 계수"
         actions={
           <div className="flex items-center gap-2">
             <Button

@@ -121,27 +121,6 @@ export function useRows() {
 }
 
 /** 기업 셀렉트 — 관리자만(전체 + 기업마다). 기업 계정은 자기 회사로 고정 */
-function CompanySelect({
-  role,
-  value,
-  onChange,
-}: {
-  role: Role;
-  value: number | null;
-  onChange: (v: number | null) => void;
-}) {
-  if (!role.isAdmin) return null;
-  return (
-    <div className="w-52">
-      <Select
-        options={role.companies.map((c) => ({ value: String(c.id), label: c.name }))}
-        value={String(value ?? role.companies[0]?.id ?? '')}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
-    </div>
-  );
-}
-
 /** 기간 — 시작 달 ~ 종료 달을 직접 고른다 */
 export function MonthRange({
   from,
@@ -333,12 +312,26 @@ function ReductionChartCard({
   );
 }
 
+/** 계약 단위 묶음 — 기업 + 계약 유형. 기업에 유형이 둘이면 이름 뒤에 (유형) */
+function contractGroups(facilities: Facility[]) {
+  const active = facilities.filter((f) => f.status === 'ACTIVE');
+  const keys = [...new Set(active.map((f) => `${f.companyId}-${f.kind}`))];
+  return keys
+    .map((key) => {
+      const fs = active.filter((f) => `${f.companyId}-${f.kind}` === key);
+      const f0 = fs[0]!;
+      const mixed = new Set(active.filter((f) => f.companyId === f0.companyId).map((f) => f.kind)).size > 1;
+      return { key, companyId: f0.companyId, name: mixed ? `${f0.company}(${f0.kind})` : f0.company, ids: new Set(fs.map((f) => f.id)), fs };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+}
+
 /** 계약 유형(자가소비 / PPA) — 둘이면 한 화면에 섞지 않고 골라서 본다(통합관제 대시보드와 같다). PPA 가 있으면 PPA 가 처음 */
 const KIND_ORDER: Facility['kind'][] = ['PPA', '자가소비'];
-function useKindPick(facilities: Facility[]) {
+function useKindPick(facilities: Facility[], enabled = true) {
   const active = facilities.filter((f) => f.status === 'ACTIVE');
   const kinds = KIND_ORDER.filter((k) => active.some((f) => f.kind === k));
-  const multi = kinds.length > 1;
+  const multi = enabled && kinds.length > 1;
   const [pick, setPick] = useState<Facility['kind'] | null>(null);
   const kind = pick ?? kinds[0] ?? '자가소비';
   const select = multi ? (
@@ -356,14 +349,14 @@ function useKindPick(facilities: Facility[]) {
   return {
     /** 고른 계약 유형의 설비만(유형이 하나면 전부) */
     facilities: multi ? facilities.filter((f) => f.kind === kind) : facilities,
-    badge: kinds.length ? kind : undefined,
+    badge: enabled && kinds.length ? kind : undefined,
     select,
   };
 }
 
 export function GhgOverviewScreen() {
   const base = useGhgRole();
-  const kindPick = useKindPick(base.facilities);
+  const kindPick = useKindPick(base.facilities, !base.isAdmin);
   // 고른 계약 유형의 설비 · 기업만으로 화면 전체를 그린다
   const role = { ...base, facilities: kindPick.facilities, companies: companiesOf(kindPick.facilities) };
   const { fx, rows } = useRows();
@@ -381,16 +374,21 @@ export function GhgOverviewScreen() {
   // 그래프 — 회사 하나, 또는 연료전지 · ORC(성과지표 8-①③ — 설비가 들어오면 값이 생긴다)
   const [picked, setPicked] = useState<string | null>(null);
   // 계약 유형을 바꿔 고른 기업이 그 유형에 없으면 첫 기업으로
-  const pickedOk = picked != null && (picked.startsWith('s:') || role.companies.some((c) => `c:${c.id}` === picked));
-  const pickKey = role.isAdmin ? (pickedOk ? picked : `c:${role.companies[0]?.id ?? 0}`) : `c:${role.myId}`;
+  const firstGroup = contractGroups(role.facilities)[0];
+  const pickedOk = picked != null && (picked.startsWith('s:') || contractGroups(role.facilities).some((g) => `g:${g.key}` === picked));
+  const pickKey = role.isAdmin ? (pickedOk ? picked : `g:${firstGroup?.key ?? ''}`) : `c:${role.myId}`;
   const pickedSource = pickKey.startsWith('s:') ? (pickKey.slice(2) as Facility['source']) : null;
-  const companyId = pickedSource ? null : Number(pickKey.slice(2));
+  const companyId = pickedSource || pickKey.startsWith('g:') ? null : Number(pickKey.slice(2));
   // 체결된 설비만(해지된 옛 계약은 선을 그리지 않는다)
+  const groups = contractGroups(role.facilities);
+  const group = groups.find((g) => `g:${g.key}` === pickKey);
   const fs = role.facilities.filter(
-    (f) => f.status === 'ACTIVE' && (pickedSource ? f.source === pickedSource : f.companyId === companyId),
+    (f) =>
+      f.status === 'ACTIVE' &&
+      (pickedSource ? f.source === pickedSource : group ? group.ids.has(f.id) : f.companyId === companyId),
   );
   const graphOptions = [
-    ...role.companies.map((c) => ({ value: `c:${c.id}`, label: c.name })),
+    ...groups.map((g) => ({ value: `g:${g.key}`, label: g.name })),
     ...(['FUEL_CELL', 'ORC'] as const).map((src) => ({ value: `s:${src}`, label: sourceOf(src).label })),
   ];
   const period = useReductionPeriod(fs);
@@ -406,18 +404,12 @@ export function GhgOverviewScreen() {
     m: totalsOf(rows.filter((r) => match(r) && r.month === TODAY_MONTH)).tco2,
     d: r3(days.filter((x) => match(x) && x.date === GHG_TODAY).reduce((a, x) => a + x.tco2, 0)),
   });
-  const perf: Perf[] = role.isAdmin
-    ? role.companies
-        .filter((c) => !q.trim() || c.name.includes(q.trim()))
-        .map((c) =>
-          perfOf(
-            c.id,
-            c.name,
-            role.facilities.filter((f) => f.companyId === c.id),
-            (r) => r.facility.companyId === c.id && fIds.has(r.facility.id),
-          ),
-        )
-    : role.facilities.map((f) => perfOf(f.id, f.kind, [f], (r) => r.facility.id === f.id));
+  type PerfRow = Perf & { key: string };
+  const perf: PerfRow[] = role.isAdmin
+    ? groups
+        .filter((g) => !q.trim() || g.name.includes(q.trim()))
+        .map((g) => ({ ...perfOf(g.companyId, g.name, g.fs, (r) => g.ids.has(r.facility.id)), key: g.key }))
+    : role.facilities.map((f) => ({ ...perfOf(f.id, f.kind, [f], (r) => r.facility.id === f.id), key: String(f.id) }));
   const tCol = (key: 'y' | 'm' | 'd', header: string, digits: number): Column<Perf> => ({
     key,
     header,
@@ -483,13 +475,13 @@ export function GhgOverviewScreen() {
         <DataTable
           data={perf}
           columns={perfCols}
-          rowKey={(c) => c.id}
+          rowKey={(c) => c.key}
           defaultSort={{ key: 'y', direction: 'desc' }}
           emptyMessage="감축 실적 없음"
           onRowClick={
             role.isAdmin
               ? (c) => {
-                  setPicked(`c:${c.id}`);
+                  setPicked(`g:${c.key}`);
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }
               : undefined
@@ -686,36 +678,29 @@ export function GhgSourceDetailScreen() {
   );
 }
 
-/* ══ 3.1.3 배출계수 관리 — 감축량 계산에 쓰는 계수 3개(발전 감축 · 화석에너지 대체 · 소나무 식재)와
- *    계산식에 들어가는 금년 발전량. 값은 관리 › 에너지 설정 한 곳에서 고친다(관리자), 바꾸면 전 기간에 바로 반영 ══ */
+/* ══ 3.1.3 배출계수 관리 — 계수만(감축량 계산에 쓰는 3개 + 배출원 계수). 발전량 · 계산 결과는 배출량 산정에서.
+ *    값은 관리 › 에너지 설정 한 곳에서 고친다(관리자), 바꾸면 전 기간에 바로 반영 ══ */
 export function GhgFactorsScreen() {
   const role = useGhgRole();
-  const { fx, rows } = useRows();
-  const year = GHG_TODAY.slice(0, 4);
-  const t = totalsOf(
-    rows.filter((r) => r.month.startsWith(year) && role.companies.some((c) => c.id === r.facility.companyId)),
-  );
+  const fx = useGhgFactorValues();
   const list = [
     {
       key: 'co2',
       name: '발전 감축',
       value: `${fx.co2} tCO₂eq/MWh`,
       use: '감축량 = 발전량 (MWh) × 계수',
-      calc: `${fmt(t.mwh, 3)} MWh × ${fx.co2} = ${fmtT(t.tco2)} tCO₂eq`,
     },
     {
       key: 'pine',
       name: '소나무 식재',
       value: `${fx.pine} 그루/tCO₂`,
       use: '소나무 식재 = 감축량 (tCO₂eq) × 계수',
-      calc: `${fmtT(t.tco2)} tCO₂eq × ${fx.pine} = ${fmt(t.pine)} 그루`,
     },
     {
       key: 'toe',
       name: '화석에너지 대체',
       value: `${fx.toe} TOE/MWh`,
       use: '화석에너지 대체 = 발전량 (MWh) × 계수',
-      calc: `${fmt(t.mwh, 3)} MWh × ${fx.toe} = ${fmtT(t.toe)} TOE`,
     },
   ];
   type S = (typeof list)[number];
@@ -723,7 +708,6 @@ export function GhgFactorsScreen() {
     { key: 'name', header: '계수', render: (f) => cell(f.name, 'font-medium text-white') },
     { key: 'value', header: '값', render: (f) => strong(f.value) },
     { key: 'use', header: '산식', render: (f) => cell(f.use) },
-    { key: 'calc', header: '금년 계산', render: (f) => num(f.calc) },
   ];
   // 배출원 계수(Scope 1 · 2, 연료별) — 관리 › 에너지 설정에서 고치고 여기서는 보기만
   const factors = useGhgFactorList();
@@ -753,18 +737,17 @@ export function GhgFactorsScreen() {
           )
         }
       />
-      <StatsGrid columns={4}>
-        <StatCard label="금년 발전량" value={`${fmt(t.mwh, 1)} MWh`} />
+      <StatsGrid columns={3}>
         <StatCard label="발전 감축" value={`${fx.co2} tCO₂eq/MWh`} />
         <StatCard label="소나무 식재" value={`${fx.pine} 그루/tCO₂`} />
         <StatCard label="화석에너지 대체" value={`${fx.toe} TOE/MWh`} />
       </StatsGrid>
-      <SectionCard title={`계수 (${list.length})`} noPadding>
+      <SectionCard title="계수" noPadding>
         <div className="overflow-x-auto [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
           <DataTable data={list} columns={cols} rowKey={(f) => f.key} />
         </div>
       </SectionCard>
-      <SectionCard title={`배출원 계수 (${factors.length})`} noPadding>
+      <SectionCard title="배출원 계수" noPadding>
         <div className="overflow-x-auto [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
           <DataTable data={factors} columns={factorCols} rowKey={(f) => f.id} />
         </div>
@@ -776,7 +759,7 @@ export function GhgFactorsScreen() {
 /* ══ 3.1.4 배출량 산정 — 연도 · 기업을 고르면 월마다 발전량 × 전력 배출계수 = 감축량(태양광, 실제로 가져오는 값만) ══ */
 export function GhgCalculationScreen() {
   const base = useGhgRole();
-  const kindPick = useKindPick(base.facilities);
+  const kindPick = useKindPick(base.facilities, !base.isAdmin);
   // 고른 계약 유형의 설비 · 기업만(통합관제 대시보드와 같다)
   const role = { ...base, facilities: kindPick.facilities, companies: companiesOf(kindPick.facilities) };
   const kindIds = new Set(role.facilities.map((f) => f.id));
@@ -794,21 +777,23 @@ export function GhgCalculationScreen() {
   };
   const yearBtn =
     'flex h-8 w-8 items-center justify-center rounded-md bg-white/[0.04] text-slate-400 ring-1 ring-white/[0.06] hover:bg-white/[0.08] hover:text-white disabled:opacity-30';
-  // 기업 — 전체 없이 한 곳씩(처음엔 목록 맨 위 기업)
-  const [company, setCompany] = useState<number | null>(null);
-  // 계약 유형을 바꿔 고른 기업이 그 유형에 없으면 첫 기업으로
-  const companyOk = company != null && role.companies.some((c) => c.id === company) ? company : null;
-  const me = scopeOf(role, companyOk ?? role.companies[0]?.id ?? null);
+  // 기업 — 전체 없이 한 곳씩(처음엔 목록 맨 위). 관리자는 계약 단위(한일튜브(자가소비) · 한일튜브(PPA))
+  const groups = contractGroups(role.facilities);
+  const [groupKey, setGroupKey] = useState<string | null>(null);
+  const group = role.isAdmin ? (groups.find((g) => g.key === groupKey) ?? groups[0]) : undefined;
+  const me = role.isAdmin ? (group?.companyId ?? null) : scopeOf(role, null);
   const [y0, y1] = yearRange(year);
   const [from, to] = month ? [month, month] : [y0, y1];
   const months = monthsBetween(from, to);
   const yearMonths = month ? [month] : Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
-  const picked = pick(rows, from, to, me).filter((r) => role.companies.some((c) => c.id === r.facility.companyId));
+  const picked = pick(rows, from, to, me).filter(
+    (r) => role.companies.some((c) => c.id === r.facility.companyId) && (!group || group.ids.has(r.facility.id)),
+  );
   const t = totalsOf(picked);
   const monthly = byMonth(picked, months);
   const shown = me == null ? role.companies : role.companies.filter((c) => c.id === me);
   // 그래프 — 월 전체면 1월 ~ 12월, 월을 고르면 그 달 1일 ~ 말일. 값 없는 칸은 선이 끊긴다
-  const scopeFs = role.facilities.filter((f) => shown.some((c) => c.id === f.companyId));
+  const scopeFs = role.facilities.filter((f) => shown.some((c) => c.id === f.companyId) && (!group || group.ids.has(f.id)));
   const days = useMemo(() => (month ? reductionDays(fx, scopeFs) : []), [month, fx, scopeFs.length, me]); // eslint-disable-line react-hooks/exhaustive-deps
   // 설비가 둘이면(자가소비 · PPA) 선 두 개
   const lineFs = scopeFs.filter((f) => picked.some((r) => r.facility.id === f.id));
@@ -836,7 +821,9 @@ export function GhgCalculationScreen() {
         return row;
       });
 
-  const facilities = role.facilities.filter((f) => f.status === 'ACTIVE' && shown.some((c) => c.id === f.companyId));
+  const facilities = role.facilities.filter(
+    (f) => f.status === 'ACTIVE' && shown.some((c) => c.id === f.companyId) && (!group || group.ids.has(f.id)),
+  );
   const matrix = facilities.map((f) => {
     const rs = picked.filter((r) => r.facility.id === f.id);
     return {
@@ -907,7 +894,13 @@ export function GhgCalculationScreen() {
         {role.isAdmin && (
           <div className="ml-auto flex items-center gap-3">
             <span className="text-sm text-slate-400">기업</span>
-            <CompanySelect role={role} value={company} onChange={setCompany} />
+            <div className="w-52">
+              <Select
+                options={groups.map((g) => ({ value: g.key, label: g.name }))}
+                value={group?.key ?? ''}
+                onChange={(e) => setGroupKey(e.target.value)}
+              />
+            </div>
           </div>
         )}
       </div>
