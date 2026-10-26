@@ -737,11 +737,6 @@ export function GhgFactorsScreen() {
           )
         }
       />
-      <StatsGrid columns={3}>
-        <StatCard label="발전 감축" value={`${fx.co2} tCO₂eq/MWh`} />
-        <StatCard label="소나무 식재" value={`${fx.pine} 그루/tCO₂`} />
-        <StatCard label="화석에너지 대체" value={`${fx.toe} TOE/MWh`} />
-      </StatsGrid>
       <SectionCard title="계수" noPadding>
         <div className="overflow-x-auto [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
           <DataTable data={list} columns={cols} rowKey={(f) => f.key} />
