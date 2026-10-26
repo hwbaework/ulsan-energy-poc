@@ -25,8 +25,6 @@ import { BackButton } from '@/components/layout/PageTitle';
 import { PlantNameCell } from '@/components/features/monitoring/PlantNameCell';
 import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
 import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
-import { CATEGORY_SCOPE, GWP, combined, tco2PerUnit, type GhgFactor } from '@/lib/ghg-factors';
-import { GhgFactorEditor } from './GhgFactorEditor';
 import { Badge } from '@/components/ui/Badge/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -51,7 +49,6 @@ import {
   reductionRows,
   totalsOf,
   useFacilities,
-  useGhgFactorList,
   useGhgFactorValues,
   yearRange,
   type Facility,
@@ -715,79 +712,44 @@ export function GhgSourceDetailScreen() {
   );
 }
 
-/* ══ 3.1.3 배출계수 관리 — 배출원(Scope 1 · 2)에 쓰는 계수 + 태양광 감축 환산 계수.
- *    값이 어떻게 이뤄졌는지(순발열량 · 가스별 계수 · GWP)까지 보여 준다. 전력 배출계수는 관리 › 에너지 설정 값 ══ */
+/* ══ 3.1.3 배출계수 관리 — 감축량 계산에 쓰는 계수 3개(발전 감축 · 화석에너지 대체 · 소나무 식재)와
+ *    계산식에 들어가는 금년 발전량. 값은 관리 › 에너지 설정 한 곳에서 고친다(관리자), 바꾸면 전 기간에 바로 반영 ══ */
 export function GhgFactorsScreen() {
   const role = useGhgRole();
-  const fx = useGhgFactorValues();
-  const factors = useGhgFactorList();
-  const [editing, setEditing] = useState(false);
-  type F = GhgFactor;
-  const elecSum = (f: F) => (f.category === '외부 전기' ? fx.co2 : combined(f));
-  const cols: Column<F>[] = [
-    {
-      key: 'scope',
-      header: 'Scope',
-      render: (f) => cell(`Scope ${CATEGORY_SCOPE[f.category]}`, 'font-medium text-white'),
-    },
-    { key: 'cat', header: '배출활동', render: (f) => cell(f.category) },
-    { key: 'fuel', header: '연료 · 에너지', render: (f) => cell(f.fuel, 'text-white') },
-    { key: 'unit', header: '단위', render: (f) => cell(f.unit) },
-    {
-      key: 'ncv',
-      header: '순발열량',
-      render: (f) => num(f.category === '외부 열(스팀)' ? '-' : `${f.ncv} MJ/${f.unit}`),
-    },
+  const { fx, rows } = useRows();
+  const year = GHG_TODAY.slice(0, 4);
+  const t = totalsOf(
+    rows.filter((r) => r.month.startsWith(year) && role.companies.some((c) => c.id === r.facility.companyId)),
+  );
+  const list = [
     {
       key: 'co2',
-      header: 'CO₂',
-      render: (f) => num(f.category === '외부 전기' ? `${f.co2} t/MWh` : `${fmt(f.co2, 1)} kg/TJ`),
-    },
-    {
-      key: 'ch4',
-      header: 'CH₄',
-      render: (f) => num(f.category === '외부 전기' ? `${f.ch4} kg/MWh` : `${f.ch4} kg/TJ`),
-    },
-    {
-      key: 'n2o',
-      header: 'N₂O',
-      render: (f) => num(f.category === '외부 전기' ? `${f.n2o} kg/MWh` : `${f.n2o} kg/TJ`),
-    },
-    {
-      key: 'sum',
-      header: 'GWP 합산',
-      render: (f) => strong(f.category === '외부 전기' ? `${fx.co2} tCO₂eq/MWh` : `${fmt(elecSum(f), 1)} kgCO₂eq/TJ`),
-    },
-    { key: 'unitT', header: '1단위당', render: (f) => num(`${tco2PerUnit(f, fx.co2).toFixed(6)} tCO₂eq/${f.unit}`) },
-  ];
-  const solarList = [
-    {
-      key: 'co2',
-      name: '발전 감축 (전력 배출계수 — 태양광 · 연료전지 · ORC)',
+      name: '발전 감축',
       value: `${fx.co2} tCO₂eq/MWh`,
-      use: '감축량 = 발전량(MWh) × 계수',
-      basis: `${fx.year}년 소비단 · ${fx.published} 공표 · 가스별 CO₂ 0.4149 · CH₄ 0.0075 · N₂O 0.0081`,
+      use: '감축량 = 발전량 (MWh) × 계수',
+      calc: `${fmt(t.mwh, 3)} MWh × ${fx.co2} = ${fmtT(t.tco2)} tCO₂eq`,
     },
     {
       key: 'toe',
       name: '화석에너지 대체',
       value: `${fx.toe} TOE/MWh`,
-      use: '화석에너지 대체 = 발전량(MWh) × 계수',
-      basis: '에너지법 시행규칙 에너지열량 환산기준 — 전기 소비기준 9.6 MJ/kWh',
+      use: '화석에너지 대체 = 발전량 (MWh) × 계수',
+      calc: `${fmt(t.mwh, 3)} MWh × ${fx.toe} = ${fmtT(t.toe)} TOE`,
     },
     {
       key: 'pine',
       name: '소나무 식재',
       value: `${fx.pine} 그루/tCO₂`,
-      use: '소나무 식재 = 감축량(tCO₂eq) × 계수',
-      basis: '30년생 소나무 1그루 연 6.6 kg CO₂ 흡수(국립산림과학원) 기준',
+      use: '소나무 식재 = 감축량 (tCO₂eq) × 계수',
+      calc: `${fmtT(t.tco2)} tCO₂eq × ${fx.pine} = ${fmt(t.pine)} 그루`,
     },
   ];
-  type S = (typeof solarList)[number];
-  const solarCols: Column<S>[] = [
+  type S = (typeof list)[number];
+  const cols: Column<S>[] = [
     { key: 'name', header: '계수', render: (f) => cell(f.name, 'font-medium text-white') },
     { key: 'value', header: '값', render: (f) => strong(f.value) },
     { key: 'use', header: '산식', render: (f) => cell(f.use) },
+    { key: 'calc', header: '금년 계산', render: (f) => num(f.calc) },
   ];
   return (
     <div className="space-y-6">
@@ -795,39 +757,24 @@ export function GhgFactorsScreen() {
         title="배출계수 관리"
         actions={
           role.isAdmin && (
-            <div className="flex items-center gap-2">
-              <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
-                <Settings size={15} /> 계수 관리
+            <Link href={ENERGY_SETTINGS}>
+              <Button variant="secondary" size="sm">
+                <Settings size={15} /> 에너지 설정
               </Button>
-              <Link href={ENERGY_SETTINGS}>
-                <Button variant="secondary" size="sm">
-                  <Settings size={15} /> 에너지 설정
-                </Button>
-              </Link>
-            </div>
+            </Link>
           )
         }
       />
-      {role.isAdmin && <GhgFactorEditor open={editing} onClose={() => setEditing(false)} />}
       <StatsGrid columns={4}>
-        <StatCard
-          label="Scope 1 계수"
-          value={`${factors.filter((f) => CATEGORY_SCOPE[f.category] === 1).length}종`}
-        />
-        <StatCard
-          label="Scope 2 계수"
-          value={`${factors.filter((f) => CATEGORY_SCOPE[f.category] === 2).length}종`}
-        />
-        <StatCard label="전력 배출계수" value={`${fx.co2} tCO₂eq/MWh`} sub={`${fx.year}년 기준`} />
-        <StatCard label="GWP" value={`CH₄ ${GWP.ch4} · N₂O ${GWP.n2o}`} sub="AR5" />
+        <StatCard label="금년 발전량" value={`${fmt(t.mwh, 1)} MWh`} />
+        <StatCard label="발전 감축" value={`${fx.co2} tCO₂eq/MWh`} />
+        <StatCard label="화석에너지 대체" value={`${fx.toe} TOE/MWh`} />
+        <StatCard label="소나무 식재" value={`${fx.pine} 그루/tCO₂`} />
       </StatsGrid>
-      <SectionCard title={`배출원 계수 (${factors.length})`} noPadding>
+      <SectionCard title={`계수 (${list.length})`} noPadding>
         <div className="overflow-x-auto [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
-          <DataTable data={factors} columns={cols} rowKey={(f) => f.id} />
+          <DataTable data={list} columns={cols} rowKey={(f) => f.key} />
         </div>
-      </SectionCard>
-      <SectionCard title={`감축 환산 (${solarList.length})`} noPadding>
-        <DataTable data={solarList} columns={solarCols} rowKey={(f) => f.key} />
       </SectionCard>
     </div>
   );
@@ -981,7 +928,7 @@ export function GhgStatementScreen() {
           <Info label="대상" value={target?.name ?? `전체 기업 (${role.companies.length}곳)`} />
           <Info label="기업 주소" value={target?.address} />
           <Info label="기간" value={`${from} ~ ${to}`} />
-          <Info label="배출계수" value={`${fx.co2} tCO₂eq/MWh (${fx.year}년 기준)`} />
+          <Info label="배출계수" value={`${fx.co2} tCO₂eq/MWh`} />
           <Info label="감축량" value={`${fmtT(t.tco2)} tCO₂eq`} />
           <Info label="자가소비 발전량" value={`${fmt(t.kwh)} kWh`} />
           <Info label="화석에너지 대체" value={`${fmtT(t.toe)} TOE`} />
@@ -1269,7 +1216,7 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
           rows: lines.map((l) => [l.at, `${fmt(l.kwh)} kWh`, `${fmt(l.tco2, 3)} tCO₂eq`, `${fmt(l.acc, 3)} tCO₂eq`]),
         },
       ],
-      note: `통합관제에서 수집한 발전 이력에 전력 배출계수(${fx.year}년 기준)를 곱해 ${isYear ? '연' : '월'} 단위로 집계한 보고서입니다. ${isYear ? '연' : '월'} 마감 후 자동 생성됩니다.`,
+      note: `통합관제에서 수집한 발전 이력에 전력 배출계수를 곱해 ${isYear ? '연' : '월'} 단위로 집계한 보고서입니다. ${isYear ? '연' : '월'} 마감 후 자동 생성됩니다.`,
     };
   }, [selected, f, rows, days, fx, name]); // eslint-disable-line react-hooks/exhaustive-deps
 
