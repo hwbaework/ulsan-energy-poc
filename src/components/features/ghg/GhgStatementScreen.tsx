@@ -5,7 +5,6 @@
 // 세금계산서 화면과 같은 구성 — 위 연도 · 기업, KPI 4개, 왼쪽 기업 목록, 오른쪽 A4 미리보기(PDF 는 미리보기 머리에).
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, FileText, Search } from 'lucide-react';
-import { StatCard, StatsGrid } from '@/components/features/StatCard';
 import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { Button } from '@/components/ui/Button';
@@ -65,7 +64,6 @@ export function GhgStatementScreen() {
     (c) => (company == null || c.id === company) && (!q.trim() || c.name.includes(q.trim())),
   );
   const yearRows = pick(rows, from, to).filter((r) => shown.some((c) => c.id === r.facility.companyId));
-  const t = totalsOf(yearRows);
 
   // 왼쪽 목록 — 기업(법인) 하나 = 명세서 하나
   const list = shown
@@ -154,13 +152,6 @@ export function GhgStatementScreen() {
           </div>
         )}
       </div>
-
-      <StatsGrid columns={4}>
-        <StatCard label="발전량" value={`${fmt(t.mwh, 1)} MWh`} />
-        <StatCard label="감축량" value={`${fmtT(t.tco2)} tCO₂eq`} />
-        <StatCard label="소나무 식재" value={`${fmt(t.pine)} 그루`} />
-        <StatCard label="화석에너지 대체" value={`${fmtT(t.toe)} TOE`} />
-      </StatsGrid>
 
       {/* 목록 왼쪽 · 문서 오른쪽 — 줄을 누르면 오른쪽 명세서가 그 기업으로 */}
       <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] xl:grid-cols-[minmax(0,1fr)_560px]">
