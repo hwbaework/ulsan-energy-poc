@@ -410,6 +410,8 @@ export function GhgOverviewScreen() {
 
       <ReductionChartCard
         period={period}
+        // 안쪽 카드(설비 용량 · 기간 감축량) — 관리자만. 기업 계정은 위 카드가 이미 자기 회사 값이라 겹친다(통합관제와 같다)
+        cards={role.isAdmin}
         fs={fs}
         days={days}
         rows={rows}
