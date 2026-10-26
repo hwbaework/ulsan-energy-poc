@@ -84,7 +84,7 @@ const STMT_HEAD = ['기업', '설비', '월', '설비 용량(kW)', '발전량(kW
 const stmtBody = (d: GhgDocData) =>
   d.lines.map((l) => [l.company, l.kind, l.month, n2(l.kw), n0(l.kwh), n3(l.tco2), n3(l.toe), n1(l.pine)]);
 const factorLine = (f: GhgFactorText) =>
-  `전력 배출계수 ${f.co2} tCO2eq/MWh (${f.year}년 기준 · ${f.published} 공표) · 화석에너지 대체 ${f.toe} TOE/MWh · 소나무 식재 ${f.pine} 그루/tCO2 (20년생)`;
+  `전력 배출계수 ${f.co2} tCO2eq/MWh · 화석에너지 대체 ${f.toe} TOE/MWh · 소나무 식재 ${f.pine} 그루/tCO2 (20년생)`;
 
 type Doc = jsPDFType;
 const lastY = (doc: Doc) => (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
