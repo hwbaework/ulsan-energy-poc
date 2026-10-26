@@ -515,7 +515,6 @@ export function GhgSourcesScreen() {
   const self = (r: SrcRow) => r;
   const cols: Column<SrcRow>[] = [
     ...sourceHeadCols(self),
-    { key: 'start', header: '가동일', render: (r) => num(r.solar.startDate) },
     { key: 'no', header: '계약번호', render: (r) => num(r.solar.contractNo) },
     { key: 'go', header: '', render: () => <ChevronRight size={15} className="text-slate-600" /> },
   ];
