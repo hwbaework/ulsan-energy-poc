@@ -288,7 +288,7 @@ function ContractContent() {
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="회사명"
+                label="기업명"
                 required
                 value={companyInfo.name}
                 onChange={(e) => setCompanyInfo({ ...companyInfo, name: e.target.value })}

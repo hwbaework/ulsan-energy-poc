@@ -58,7 +58,7 @@ export default function ControlAssetsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-white">발전자산</h1>
         <span className="text-xs text-slate-400">
-          {stations.length}개소 · 발전용량 합계 {(totalKw / 1000).toFixed(2)} MW · 소속 회사 자산
+          {stations.length}개소 · 발전용량 합계 {(totalKw / 1000).toFixed(2)} MW · 소속 기업 자산
         </span>
       </div>
 
@@ -67,7 +67,7 @@ export default function ControlAssetsPage() {
       ) : stations.length === 0 ? (
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-10 text-center">
           <p className="text-sm text-slate-300">등록된 발전자산이 없습니다.</p>
-          <p className="mt-1 text-xs text-slate-500">발전소 관리에서 자원을 등록하면 이 회사의 자산으로 집계됩니다.</p>
+          <p className="mt-1 text-xs text-slate-500">발전소 관리에서 자원을 등록하면 이 기업의 자산으로 집계됩니다.</p>
         </div>
       ) : (
         <>
@@ -149,7 +149,7 @@ export default function ControlAssetsPage() {
         <Info size={16} className="text-amber-400 mt-0.5 shrink-0" />
         <div className="text-sm text-slate-300">
           <b className="text-amber-400">준비 중</b> — 설비별 실계측 상세(설치 진행률·실시간 출력·가동 이력)는 백엔드
-          자산 계측 도메인 연동 후 제공됩니다. 현재는 회사 소유 발전소의 등록 용량 기준 집계입니다.
+          자산 계측 도메인 연동 후 제공됩니다. 현재는 기업 소유 발전소의 등록 용량 기준 집계입니다.
         </div>
       </div>
     </div>

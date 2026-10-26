@@ -71,7 +71,7 @@ export default function MyDataPage() {
           {companyId == null ? (
             <Card className="p-12 flex flex-col items-center justify-center text-center">
               <Database size={48} className="text-accent/30 mb-4" />
-              <p className="text-white font-medium mb-1">회사 정보가 없어 구매 데이터를 조회할 수 없습니다</p>
+              <p className="text-white font-medium mb-1">기업 정보가 없어 구매 데이터를 조회할 수 없습니다</p>
               <p className="text-sm text-accent">다시 로그인해 주세요</p>
             </Card>
           ) : ordersError ? (
@@ -139,7 +139,7 @@ export default function MyDataPage() {
           {companyId == null ? (
             <Card className="p-12 flex flex-col items-center justify-center text-center">
               <Database size={48} className="text-accent/30 mb-4" />
-              <p className="text-white font-medium mb-1">회사 정보가 없어 조회할 수 없습니다</p>
+              <p className="text-white font-medium mb-1">기업 정보가 없어 조회할 수 없습니다</p>
               <p className="text-sm text-accent">다시 로그인해 주세요</p>
             </Card>
           ) : registeredError ? (

@@ -124,7 +124,7 @@ export default function VerifyPage() {
   // 검증 완료(의견서 발급 + VERIFIED) 조건: 회사귀속·정상조회 → SUBMITTED · 체크리스트 통과(설계 22).
   const guardReason =
     companyId == null
-      ? '회사 정보가 없어 검증할 수 없습니다'
+      ? '기업 정보가 없어 검증할 수 없습니다'
       : isError
         ? '데이터를 불러오지 못했습니다 — 다시 로그인하세요'
         : status !== 'SUBMITTED'
@@ -138,7 +138,7 @@ export default function VerifyPage() {
   // 반려/요청은 SUBMITTED면 가능(체크리스트 통과 불필요 — 보완요청 목적).
   const workflowReason =
     companyId == null
-      ? '회사 정보가 없어 검증할 수 없습니다'
+      ? '기업 정보가 없어 검증할 수 없습니다'
       : isError
         ? '데이터를 불러오지 못했습니다 — 다시 로그인하세요'
         : status !== 'SUBMITTED'

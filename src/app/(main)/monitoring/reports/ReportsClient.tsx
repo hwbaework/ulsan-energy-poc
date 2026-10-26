@@ -387,8 +387,8 @@ export default function ReportsClient() {
         </div>
         {/* 기업(발전소) — 목록으로 돌아가지 않고 바로 바꾼다 */}
         {myPlants.length > 1 && (
-          <>
-            <span className="ml-3 text-sm text-slate-400">기업</span>
+          <div className="ml-auto flex items-center gap-3">
+            <span className="text-sm text-slate-400">기업</span>
             <div className="w-52">
               <Select
                 options={[
@@ -399,7 +399,7 @@ export default function ReportsClient() {
                 onChange={(e) => router.push(`/monitoring/reports/${e.target.value}`)}
               />
             </div>
-          </>
+          </div>
         )}
       </div>
 

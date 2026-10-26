@@ -126,7 +126,7 @@ export function MyContractsScreen() {
       render: (c) => cellStrong(c.no),
     },
     { key: 'kind', header: '계약 유형', width: '100px', render: (c) => cell(kindLabel(c.kind)) },
-    { key: 'consumer', header: '기업명', render: (c) => cell(c.consumerCompanyName, 'text-white') },
+    { key: 'consumer', header: '기업', render: (c) => cell(c.consumerCompanyName, 'text-white') },
     {
       key: 'capacity',
       header: '용량',

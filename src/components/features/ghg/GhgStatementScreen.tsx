@@ -138,16 +138,16 @@ export function GhgStatementScreen() {
           />
         </div>
         {role.isAdmin && (
-          <>
-            <span className="ml-2 text-sm text-slate-400">기업</span>
-            <div className="w-44">
+          <div className="ml-auto flex items-center gap-3">
+            <span className="text-sm text-slate-400">기업</span>
+            <div className="w-52">
               <Select
                 options={[{ value: '', label: '전체' }, ...role.companies.map((c) => ({ value: String(c.id), label: c.name }))]}
                 value={company == null ? '' : String(company)}
                 onChange={(e) => setCompany(e.target.value ? Number(e.target.value) : null)}
               />
             </div>
-          </>
+          </div>
         )}
       </div>
 

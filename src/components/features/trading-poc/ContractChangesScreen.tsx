@@ -45,7 +45,7 @@ export function ContractChangesScreen() {
     // 어느 기업인지만 — 요청한 쪽은 계약한 그 기업이라 따로 보이지 않는다. 내용은 줄을 눌러 안에서
     {
       key: 'company',
-      header: '기업명',
+      header: '기업',
       render: (c) => cell(contractOf(c.contractId)?.consumerCompanyName ?? '', 'text-white'),
     },
     {

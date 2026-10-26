@@ -153,7 +153,7 @@ export default function CompaniesPage() {
   const columns: Column<CompanyRow>[] = [
     {
       key: 'name',
-      header: '기업명',
+      header: '기업',
       width: '240px',
       render: (row) => (
         <div className="flex items-center gap-2.5 min-w-0">
@@ -262,7 +262,7 @@ export default function CompaniesPage() {
         actions={
           <div className="flex items-center gap-2">
             <div className="w-64">
-              <Input placeholder="기업명 또는 대표자 검색" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Input placeholder="기업 또는 대표자 검색" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
             <Button size="sm" onClick={() => setAddOpen(true)}>
               <Plus size={14} className="mr-1.5" /> 기업 등록

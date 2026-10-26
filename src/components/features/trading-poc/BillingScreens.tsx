@@ -472,16 +472,16 @@ function BillingScreen({ kind }: { kind: Kind }) {
           />
         </div>
         {role.isAdmin && (
-          <>
-            <span className="ml-2 text-sm text-slate-400">기업</span>
-            <div className="w-44">
+          <div className="ml-auto flex items-center gap-3">
+            <span className="text-sm text-slate-400">기업</span>
+            <div className="w-52">
               <Select
                 options={[{ value: '', label: '전체' }, ...companies.map(([id, name]) => ({ value: id, label: name }))]}
                 value={company}
                 onChange={(e) => setCompany(e.target.value)}
               />
             </div>
-          </>
+          </div>
         )}
       </div>
 

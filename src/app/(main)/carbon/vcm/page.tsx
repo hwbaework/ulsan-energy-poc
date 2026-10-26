@@ -73,7 +73,7 @@ export default function VcmPage() {
         </Button>
       </div>
       <p className="text-xs text-slate-400">
-        회사가 보유한 자발적시장(VCS·GS·KVER) 크레딧 원장. 상쇄사용·매도는 불가역 처리됩니다.
+        기업이 보유한 자발적시장(VCS·GS·KVER) 크레딧 원장. 상쇄사용·매도는 불가역 처리됩니다.
       </p>
 
       {showForm && (

@@ -42,7 +42,7 @@ export function ConsultingDocuments() {
       ),
     },
     { key: 'category', header: '분류', width: '120px', render: (d) => cell(d.category) },
-    ...(isAdmin ? [{ key: 'company', header: '업체', width: '150px', render: (d: ConsultingDoc) => cell(d.companyName) }] : []),
+    ...(isAdmin ? [{ key: 'company', header: '기업', width: '150px', render: (d: ConsultingDoc) => cell(d.companyName) }] : []),
     { key: 'contract', header: '계약번호', width: '150px', render: (d) => cellNum(d.contractNo) },
     { key: 'plant', header: '발전소', width: '180px', render: (d) => cell(d.plantName) },
     { key: 'issuedAt', header: '발행일', width: '130px', sortable: true, sortValue: (d) => d.issuedAt, render: (d) => cellMuted(d.issuedAt) },
@@ -73,7 +73,7 @@ export function ConsultingDocuments() {
         title="컨설팅 결과보고서"
         actions={
           <div className="flex flex-wrap items-center gap-3">
-            {isAdmin && <Select options={[{ value: 'all', label: '업체 전체' }, ...companies.map((c) => ({ value: c, label: c }))]} value={company} onChange={(e) => setCompany(e.target.value)} className="w-44" />}
+            {isAdmin && <Select options={[{ value: 'all', label: '전체' }, ...companies.map((c) => ({ value: c, label: c }))]} value={company} onChange={(e) => setCompany(e.target.value)} className="w-44" />}
             <Input placeholder="문서명 검색" value={q} onChange={(e) => setQ(e.target.value)} className="w-52" />
           </div>
         }

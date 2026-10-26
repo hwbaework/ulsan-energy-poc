@@ -22,7 +22,7 @@ export default function RecPage() {
 
   const guardReason =
     companyId == null
-      ? '회사 정보가 없어 REC·녹색프리미엄을 조회할 수 없습니다'
+      ? '기업 정보가 없어 REC·녹색프리미엄을 조회할 수 없습니다'
       : recQ.isError || greenQ.isError
         ? '데이터를 불러오지 못했습니다 — 다시 로그인하세요'
         : '';

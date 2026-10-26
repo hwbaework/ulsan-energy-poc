@@ -71,7 +71,7 @@ export default function DerConsultingPage() {
 
   const runSimulation = () => {
     if (!companyId) {
-      addToast('error', '회사 정보를 확인할 수 없습니다');
+      addToast('error', '기업 정보를 확인할 수 없습니다');
       return;
     }
     if (!latestDiagnosis) {

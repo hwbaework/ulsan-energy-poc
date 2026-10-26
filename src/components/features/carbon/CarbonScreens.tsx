@@ -243,7 +243,7 @@ function ScaleCard({ role }: { role: Role }) {
   const sum = list.reduce((a, c) => a + c.tco2, 0);
   type R = (typeof list)[number];
   const cols: Column<R>[] = [
-    { key: 'name', header: '기업명', render: (c) => cell(c.name, 'font-medium text-white') },
+    { key: 'name', header: '기업', render: (c) => cell(c.name, 'font-medium text-white') },
     { key: 'kw', header: '자가소비 설비 (kW)', align: 'right', render: (c) => num(fmt(c.kw, 2)) },
     { key: 'mwh', header: '연 발전량 (MWh)', align: 'right', render: (c) => num(fmt(c.mwh, 1)) },
     {

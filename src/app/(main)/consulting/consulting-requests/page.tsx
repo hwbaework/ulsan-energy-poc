@@ -221,7 +221,7 @@ export default function ConsultingRequestsPage() {
               type="text"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              placeholder="기업명 / 업종 / 지역 검색"
+              placeholder="기업 / 업종 / 지역 검색"
               className="rounded-md bg-white/[0.04] ring-1 ring-white/[0.06] px-3.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-blue-500/50 w-48"
             />
             {/* 상태 필터 */}
@@ -535,7 +535,7 @@ export default function ConsultingRequestsPage() {
                 {/* 연락처 */}
                 <DetailSection title="연락처">
                   <Field label="담당자" value={d.contactName || '-'} />
-                  <Field label="회사명" value={d.companyName || '-'} />
+                  <Field label="기업명" value={d.companyName || '-'} />
                   <Field label="이메일" value={d.contactEmail || '-'} />
                   <Field label="연락처" value={d.contactPhone || '-'} />
                 </DetailSection>

@@ -103,7 +103,7 @@ export async function exportStatementPdf(filename: string, d: StatementExportDat
   doc.setFontSize(9);
   doc.text('(온실가스 목표관리제 · 명세서 양식)', 14, 22);
   doc.setFontSize(9);
-  doc.text(`대상 회사: ${d.company}    대상 연도: ${d.year}년    상태: ${d.status}`, 14, 29);
+  doc.text(`대상 기업: ${d.company}    대상 연도: ${d.year}년    상태: ${d.status}`, 14, 29);
   doc.text(`작성일: ${new Date().toLocaleString('ko-KR')}`, 14, 34);
 
   autoTable(doc, {
@@ -145,7 +145,7 @@ export async function exportStatementExcel(filename: string, d: StatementExportD
   const XLSX = await import('xlsx');
   const aoa: (string | number)[][] = [
     ['온실가스 배출량 명세서 (목표관리제 양식)'],
-    [`회사: ${d.company}`, `연도: ${d.year}`, `상태: ${d.status}`],
+    [`기업: ${d.company}`, `연도: ${d.year}`, `상태: ${d.status}`],
     [],
     STMT_HEADERS,
     ...stmtBodyRows(d),
@@ -245,7 +245,7 @@ export async function exportDisclosurePdf(filename: string, d: DisclosureExportD
   doc.setFontSize(15);
   doc.text(`${frameworkTitle(d.framework)} ${d.year}`, 14, 16);
   doc.setFontSize(9);
-  doc.text(`대상 회사: ${d.company}    작성일: ${new Date().toLocaleString('ko-KR')}`, 14, 23);
+  doc.text(`대상 기업: ${d.company}    작성일: ${new Date().toLocaleString('ko-KR')}`, 14, 23);
 
   autoTable(doc, {
     startY: 30,
@@ -262,7 +262,7 @@ export async function exportDisclosurePdf(filename: string, d: DisclosureExportD
 /** 공시 서식 CSV — UTF-8 BOM. 미리보기 pre 내용과 정합. */
 export function exportDisclosureCsv(filename: string, d: DisclosureExportData) {
   const bom = '﻿';
-  const headers = ['프레임워크', '연도', '회사', '공시항목', '내용'];
+  const headers = ['프레임워크', '연도', '기업', '공시항목', '내용'];
   const esc = (c: string | number) => `"${String(c).replace(/"/g, '""')}"`;
   const rows = disclosureSections(d).map(([item, content]) => [
     frameworkTitle(d.framework),

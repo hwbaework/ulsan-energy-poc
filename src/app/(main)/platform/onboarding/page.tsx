@@ -80,7 +80,7 @@ export default function OnboardingReviewQueuePage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-sm text-white">
                     <FileCheck2 className="h-4 w-4 text-slate-400" />
-                    <span className="font-semibold">업체 #{o.companyId}</span>
+                    <span className="font-semibold">기업 #{o.companyId}</span>
                     <span className="text-xs text-slate-400">· {o.businessType}</span>
                     <span className={`rounded-md px-2 py-0.5 text-[10px] ring-1 ${st.cls}`}>{st.label}</span>
                   </div>

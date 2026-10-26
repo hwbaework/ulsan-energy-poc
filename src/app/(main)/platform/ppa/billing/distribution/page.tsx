@@ -154,7 +154,7 @@ export default function PlatformPpaDistributionPage() {
             />
           </div>
           <div>
-            <label className="block text-xs text-accent mb-1.5">SPC 법인 회사 ID *</label>
+            <label className="block text-xs text-accent mb-1.5">SPC 법인 기업 ID *</label>
             <Input
               type="number"
               min={1}
@@ -201,7 +201,7 @@ export default function PlatformPpaDistributionPage() {
                   <th className="px-4 py-2 text-left font-medium">ID</th>
                   <th className="px-4 py-2 text-left font-medium">명칭</th>
                   <th className="px-4 py-2 text-left font-medium">도메인</th>
-                  <th className="px-4 py-2 text-left font-medium">법인 회사 ID</th>
+                  <th className="px-4 py-2 text-left font-medium">법인 기업 ID</th>
                   <th className="px-4 py-2 text-left font-medium">수수료율</th>
                   <th className="px-4 py-2 text-left font-medium">상태</th>
                 </tr>
@@ -240,7 +240,7 @@ export default function PlatformPpaDistributionPage() {
         {/* 등록 폼 */}
         <div className="grid grid-cols-1 gap-3 px-5 py-4 sm:grid-cols-5 border-b border-white/[0.06]">
           <div>
-            <label className="block text-xs text-accent mb-1.5">발전사 회사 ID *</label>
+            <label className="block text-xs text-accent mb-1.5">발전사 기업 ID *</label>
             <Input
               type="number"
               min={1}
@@ -285,7 +285,7 @@ export default function PlatformPpaDistributionPage() {
               <thead>
                 <tr className="border-b border-white/[0.06] text-[11px] text-slate-500 bg-white/[0.02]">
                   <th className="px-4 py-2 text-left font-medium">ID</th>
-                  <th className="px-4 py-2 text-left font-medium">회사 ID</th>
+                  <th className="px-4 py-2 text-left font-medium">기업 ID</th>
                   <th className="px-4 py-2 text-left font-medium">은행</th>
                   <th className="px-4 py-2 text-left font-medium">계좌번호 (마스킹)</th>
                   <th className="px-4 py-2 text-left font-medium">예금주</th>

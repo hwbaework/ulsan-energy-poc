@@ -78,7 +78,7 @@ export default function ConsultingPage() {
               <thead>
                 <tr className={TABLE_HEAD_ROW}>
                   <th className={TABLE_TH}>진단일</th>
-                  <th className={TABLE_TH}>기업명</th>
+                  <th className={TABLE_TH}>기업</th>
                   <th className={TABLE_TH}>방식</th>
                   <th className={TABLE_TH}>설치용량</th>
                   <th className={TABLE_TH}>연간 발전량 (1차년)</th>

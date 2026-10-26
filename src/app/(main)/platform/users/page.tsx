@@ -256,7 +256,7 @@ export default function UsersPage() {
             </div>
             <div className="w-64">
               <Input
-                placeholder="이름, 이메일 또는 기업명 검색"
+                placeholder="이름, 이메일 또는 기업 검색"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />

@@ -27,7 +27,7 @@ export default function CertificationPage() {
 
   const guardReason =
     companyId == null
-      ? '회사 정보가 없어 인증서를 조회할 수 없습니다'
+      ? '기업 정보가 없어 인증서를 조회할 수 없습니다'
       : certsQ.isError
         ? '데이터를 불러오지 못했습니다 — 다시 로그인하세요'
         : '';

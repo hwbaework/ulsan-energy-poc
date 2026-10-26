@@ -306,7 +306,7 @@ export function GoalModal({
         {/* 2. 사업장 정보 */}
         <FormSection title="② 사업장 정보">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <Field label="회사이름">
+            <Field label="기업명">
               <Input value={COMPANY_NAME} disabled />
             </Field>
             <Field label="수요희망 용량 (MWh)">

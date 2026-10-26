@@ -780,7 +780,7 @@ export default function DashboardPage() {
                       <Select
                         options={companyOptions}
                         value={selectedCompany?.key ?? ''}
-                        placeholder="회사 선택"
+                        placeholder="기업 선택"
                         onChange={(e) => setSelectedCompanyKey(e.target.value)}
                         className="h-7 text-xs"
                       />
@@ -1024,7 +1024,7 @@ export default function DashboardPage() {
                     <Select
                       options={companyOptions}
                       value={co2Company?.key ?? ''}
-                      placeholder="회사 선택"
+                      placeholder="기업 선택"
                       onChange={(e) => setCo2CompanyKey(e.target.value)}
                       className="h-7 text-xs"
                     />

@@ -20,7 +20,7 @@ export default function DisopPage() {
   // 회사 미귀속 / 호출 실패를 정확히 구분(mock 폴백 없음).
   const guardReason =
     companyId == null
-      ? '회사 정보가 없어 관제 데이터를 불러올 수 없습니다'
+      ? '기업 정보가 없어 관제 데이터를 불러올 수 없습니다'
       : eventsQ.isError || scenQ.isError
         ? '데이터를 불러오지 못했습니다 — 다시 로그인하세요'
         : '';

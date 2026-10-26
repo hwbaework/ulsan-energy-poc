@@ -7,12 +7,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { exportExcel, exportPdf, generateReportHtml, type ReportPreviewDoc } from '@/lib/utils';
+import { exportPdf, generateReportHtml, type ReportPreviewDoc } from '@/lib/utils';
 import {
   ChevronLeft,
   ChevronRight,
-  Download,
   FileText,
+  Search,
   Settings,
 } from 'lucide-react';
 import { StatCard, StatsGrid } from '@/components/features/StatCard';
@@ -781,7 +781,7 @@ export function GhgCalculationScreen() {
     { key: 'kwh', header: '발전량 (kWh)', render: (m) => num(fmt(m.kwh)) },
     { key: 'mwh', header: '발전량 (MWh)', render: (m) => num(fmt(m.mwh, 3)) },
     { key: 'f', header: '배출계수 (tCO₂eq/MWh)', render: () => num(fx.co2) },
-    { key: 'tco2', header: '감축량 (tCO₂eq)', render: (m) => strong(fmtT(m.tco2)) },
+    { key: 'tco2', header: '탄소 감축량 (tCO₂eq)', render: (m) => strong(fmtT(m.tco2)) },
     { key: 'pine', header: '소나무 식재 (그루)', render: (m) => num(fmt(m.pine)) },
     { key: 'toe', header: '화석에너지 대체 (TOE)', render: (m) => num(fmtT(m.toe)) },
   ];
@@ -801,14 +801,14 @@ export function GhgCalculationScreen() {
       />
       <StatsGrid columns={4}>
         <StatCard label="자가소비 발전량" value={`${fmt(t.mwh, 1)} MWh`} />
-        <StatCard label="감축량" value={`${fmtT(t.tco2)} tCO₂eq`} />
+        <StatCard label="탄소 감축량" value={`${fmtT(t.tco2)} tCO₂eq`} />
         <StatCard label="소나무 식재" value={`${fmt(t.pine)} 그루`} />
         <StatCard label="화석에너지 대체" value={`${fmtT(t.toe)} TOE`} />
       </StatsGrid>
-      <SectionCard title="월별 감축량">
-        <RmsLineChart data={chart} xKey="x" lines={[{ key: '감축량', name: '감축량 (tCO₂eq)' }]} height={260} />
+      <SectionCard title="월별 탄소 감축량">
+        <RmsLineChart data={chart} xKey="x" lines={[{ key: '감축량', name: '탄소 감축량 (tCO₂eq)' }]} height={260} />
       </SectionCard>
-      <SectionCard title={`배출원별 월 감축량 (${matrix.length})`} noPadding>
+      <SectionCard title={`배출원별 월 탄소 감축량 (${matrix.length})`} noPadding>
         <div className="overflow-x-auto [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap" data-table>
           <DataTable data={matrix} columns={matrixCols} rowKey={(x) => x.f.id} />
         </div>
@@ -821,19 +821,9 @@ export function GhgCalculationScreen() {
 }
 
 /* ══ 3.1.6 보고서 — 통합관제 › 보고서와 같은 양식(화면 · 문서 모두).
-   ① 발전소 선택(계약 하나 = 행 하나) → ② 연도 · 월 · 종류 + 보고서 목록 + 미리보기(문서) · PDF · Excel.
-   종류: 감축 실적(매월 1건, 월 마감 후 생성) · 연간 감축 실적(매년 1건) ══ */
+   연도 · 월 · 기업 + 보고서 목록 + 미리보기(문서) · PDF. 감축 실적(매월 1건, 월 마감 후 생성)만 — 연간 보고서는 고도화 ══ */
 type GhgReportKind = 'month' | 'year';
 const GHG_KIND_LABEL: Record<GhgReportKind, string> = { month: '감축 실적', year: '연간 감축 실적' };
-const GHG_KIND_CLASS: Record<GhgReportKind, string> = {
-  month: 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/20',
-  year: 'bg-sky-500/10 text-sky-400 ring-sky-500/20',
-};
-const GHG_KIND_OPTIONS = [
-  { value: 'all', label: '전체 종류' },
-  { value: 'month', label: GHG_KIND_LABEL.month },
-  { value: 'year', label: GHG_KIND_LABEL.year },
-];
 const REPORT_MONTH_OPTIONS = [
   { value: 'all', label: '전체' },
   ...Array.from({ length: 12 }, (_, i) => ({ value: String(12 - i).padStart(2, '0'), label: `${12 - i}월` })),
@@ -851,18 +841,9 @@ interface GhgReportDoc {
   createdAt: string;
 }
 
-/** 그 해의 문서 — 연간 1건 + 감축 실적 월별(1월 ~ 금년이면 금월, 최신순) */
+/** 그 해의 문서 — 감축 실적 월별(1월 ~ 금년이면 금월, 최신순). 연간 보고서는 고도화 */
 function ghgDocsOfYear(year: number): GhgReportDoc[] {
-  const docs: GhgReportDoc[] = [
-    {
-      id: `year-${year}`,
-      kind: 'year',
-      period: String(year),
-      title: `${year}년 ${GHG_KIND_LABEL.year} 보고서`,
-      label: `${year}년 (1월 ~ 12월)`,
-      createdAt: year >= THIS_YEAR ? '작성 중' : `${year + 1}-01-01`,
-    },
-  ];
+  const docs: GhgReportDoc[] = [];
   const last = year === THIS_YEAR ? Number(TODAY_MONTH.slice(5, 7)) : 12;
   for (let m = last; m >= 1; m--) {
     const month = `${year}-${String(m).padStart(2, '0')}`;
@@ -908,7 +889,7 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
   const { fx, rows } = useRows();
   const [year, setYear] = useState(THIS_YEAR);
   const [monthFilter, setMonthFilter] = useState('all');
-  const [kindFilter, setKindFilter] = useState('all');
+  const [q, setQ] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const active = role.facilities.filter((f) => f.status === 'ACTIVE');
@@ -928,15 +909,12 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
     () =>
       inScope.flatMap((x) =>
         ghgDocsOfYear(year)
-          .filter(
-            (d) =>
-              (kindFilter === 'all' || d.kind === kindFilter) &&
-              (d.kind === 'year' || monthFilter === 'all' || d.period.endsWith(`-${monthFilter}`)),
-          )
-          .map((d) => ({ ...d, id: `${x.id}-${d.id}`, f: x, name: plantName(x, active) })),
+          .filter((d) => monthFilter === 'all' || d.period.endsWith(`-${monthFilter}`))
+          .map((d) => ({ ...d, id: `${x.id}-${d.id}`, f: x, name: plantName(x, active) }))
+          .filter((d) => !q.trim() || d.name.includes(q.trim())),
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pickKey, active.length, year, monthFilter, kindFilter],
+    [pickKey, active.length, year, monthFilter, q],
   );
   // 처음부터 맨 위 문서가 열려 있고, 다른 행을 누르면 오른쪽이 그 문서로 바뀐다
   const selected = docs.find((d) => d.id === selectedId) ?? docs[0] ?? null;
@@ -981,10 +959,6 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
   const onPdf = (doc: ReportDoc) => {
     const d = exportData(doc);
     void exportPdf(d.file, d.file, d.headers, d.rows);
-  };
-  const onExcel = (doc: ReportDoc) => {
-    const d = exportData(doc);
-    void exportExcel(d.file, GHG_KIND_LABEL[doc.kind], d.headers, d.rows);
   };
 
   /* 미리보기에 그릴 문서 — 통합관제 월간 보고서와 같은 구성(기간 · 대상 · 계약 유형 · 생성일 → 요약 → 실적 → 일별) */
@@ -1062,12 +1036,9 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
         <div className="w-28">
           <Select options={REPORT_MONTH_OPTIONS} value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} />
         </div>
-        <div className="w-36">
-          <Select options={GHG_KIND_OPTIONS} value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} />
-        </div>
         {pickOptions.length > 2 && (
-          <>
-            <span className="ml-3 text-sm text-slate-400">기업</span>
+          <div className="ml-auto flex items-center gap-3">
+            <span className="text-sm text-slate-400">기업</span>
             <div className="w-52">
               <Select
                 options={pickOptions}
@@ -1078,21 +1049,32 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
                 }}
               />
             </div>
-          </>
+          </div>
         )}
       </div>
 
       {/* 목록 왼쪽 · 미리보기 문서 오른쪽 */}
       <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] xl:grid-cols-[minmax(0,1fr)_480px]">
-        <SectionCard title="보고서 목록" noPadding className="!h-auto min-w-0">
+        <SectionCard
+          title={`보고서 목록 (${docs.length})`}
+          actions={
+            <div className="relative w-64">
+              <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="기업 검색" className="pl-8" />
+            </div>
+          }
+          noPadding
+          className="!h-auto min-w-0"
+        >
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="border-b border-white/[0.06]">
                 <tr>
+                  <th className={th}>기간</th>
                   <th className={th}>문서</th>
-                  <th className={th}>종류</th>
+                  <th className={th}>기업</th>
                   <th className={th}>생성일</th>
-                  <th className={th}>PDF · Excel</th>
+                  <th className={th}>PDF</th>
                 </tr>
               </thead>
               <tbody>
@@ -1102,14 +1084,9 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
                     onClick={() => setSelectedId(d.id)}
                     className={`cursor-pointer border-b border-white/5 transition-colors ${selected?.id === d.id ? 'bg-primary/10' : 'hover:bg-white/[0.03]'}`}
                   >
-                    <td className={`${td} whitespace-nowrap font-medium text-white`}>
-                      {d.title} · {d.name}
-                    </td>
-                    <td className={td}>
-                      <span className={`inline-flex items-center whitespace-nowrap rounded-md px-1.5 py-0.5 text-xs font-medium ring-1 ${GHG_KIND_CLASS[d.kind]}`}>
-                        {GHG_KIND_LABEL[d.kind]}
-                      </span>
-                    </td>
+                    <td className={`${td} whitespace-nowrap font-medium tabular-nums text-white`}>{d.period}</td>
+                    <td className={`${td} whitespace-nowrap text-slate-200`}>{GHG_KIND_LABEL[d.kind]} 보고서</td>
+                    <td className={`${td} whitespace-nowrap text-slate-200`}>{d.name}</td>
                     <td className={`${td} whitespace-nowrap tabular-nums text-slate-400`}>{d.createdAt}</td>
                     <td className={`${td} whitespace-nowrap`}>
                       <button
@@ -1124,24 +1101,12 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
                       >
                         <FileText size={15} />
                       </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedId(d.id);
-                          onExcel(d);
-                        }}
-                        className="rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-white"
-                        title="Excel"
-                      >
-                        <Download size={15} />
-                      </button>
                     </td>
                   </tr>
                 ))}
                 {docs.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-4 py-10 text-center text-sm text-slate-500">
+                    <td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-500">
                       {pickKey.startsWith('p-') ? '보고서 항목이 아직 정해지지 않았습니다' : '보고서가 없습니다'}
                     </td>
                   </tr>
@@ -1164,9 +1129,6 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
               <div className="flex shrink-0 gap-2">
                 <Button size="sm" variant="secondary" onClick={() => onPdf(selected)}>
                   <FileText size={14} className="mr-1" /> PDF
-                </Button>
-                <Button size="sm" variant="secondary" onClick={() => onExcel(selected)}>
-                  <Download size={14} className="mr-1" /> Excel
                 </Button>
               </div>
             </div>

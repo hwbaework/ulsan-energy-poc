@@ -336,7 +336,7 @@ export default function VppDrPage() {
           </div>
         </div>
         <p className="mt-1 text-[11px] text-slate-500">
-          공급=회사 태양광 발전소 예측 합산(kW) · 수요=관리 전기사용자 부하 예측(kW, COMPLEX 포트폴리오). 갭 = 수요 −
+          공급=기업 태양광 발전소 예측 합산(kW) · 수요=관리 전기사용자 부하 예측(kW, COMPLEX 포트폴리오). 갭 = 수요 −
           공급(양수=공급부족).
           <span className="ml-1 text-amber-400/80">
             공급 kWh/h ≈ 평균 kW로 간주해 kW로 통일. 공급 예측이 있는 시간대만 갭 산출.
