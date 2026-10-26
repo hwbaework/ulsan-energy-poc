@@ -66,14 +66,22 @@ const MONTH_OPTIONS = ALL_MONTHS.map((m) => ({ value: m, label: m }));
 const kindBadge = (f: Facility) => <Badge variant={f.kind === 'PPA' ? 'info' : 'default'}>{f.kind}</Badge>;
 
 /** 화면 제목 — E-데이터마켓 › 온실가스 인벤토리 › 화면 */
-export function GhgHeader({ title, actions }: { title: string; actions?: ReactNode }) {
+export function GhgHeader({ title, actions, badge }: { title: string; actions?: ReactNode; badge?: string }) {
   return (
     <div className="space-y-6">
       <Breadcrumb
         items={[{ label: 'E-데이터마켓', path: '/e-data/inventory' }, { label: '온실가스 인벤토리' }, { label: title }]}
       />
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-white">{title}</h1>
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-2xl font-bold text-white">{title}</h1>
+          {/* 지금 보는 계약 유형 — 통합관제 대시보드와 같다 */}
+          {badge && (
+            <span className="rounded-md bg-white/[0.08] px-2.5 py-1 text-sm font-semibold text-white ring-1 ring-white/[0.16]">
+              {badge}
+            </span>
+          )}
+        </div>
         {actions && <div className="flex flex-wrap items-center gap-3">{actions}</div>}
       </div>
     </div>
@@ -325,11 +333,43 @@ function ReductionChartCard({
   );
 }
 
+/** 계약 유형(자가소비 / PPA) — 둘이면 한 화면에 섞지 않고 골라서 본다(통합관제 대시보드와 같다). PPA 가 있으면 PPA 가 처음 */
+const KIND_ORDER: Facility['kind'][] = ['PPA', '자가소비'];
+function useKindPick(facilities: Facility[]) {
+  const active = facilities.filter((f) => f.status === 'ACTIVE');
+  const kinds = KIND_ORDER.filter((k) => active.some((f) => f.kind === k));
+  const multi = kinds.length > 1;
+  const [pick, setPick] = useState<Facility['kind'] | null>(null);
+  const kind = pick ?? kinds[0] ?? '자가소비';
+  const select = multi ? (
+    <div className="w-52">
+      <Select
+        options={kinds.map((k) => ({
+          value: k,
+          label: `${k} · ${fmt(active.filter((f) => f.kind === k).reduce((a, f) => a + f.kw, 0), 2)} kW`,
+        }))}
+        value={kind}
+        onChange={(e) => setPick(e.target.value as Facility['kind'])}
+      />
+    </div>
+  ) : null;
+  return {
+    /** 고른 계약 유형의 설비만(유형이 하나면 전부) */
+    facilities: multi ? facilities.filter((f) => f.kind === kind) : facilities,
+    badge: kinds.length ? kind : undefined,
+    select,
+  };
+}
+
 export function GhgOverviewScreen() {
-  const role = useGhgRole();
+  const base = useGhgRole();
+  const kindPick = useKindPick(base.facilities);
+  // 고른 계약 유형의 설비 · 기업만으로 화면 전체를 그린다
+  const role = { ...base, facilities: kindPick.facilities, companies: companiesOf(kindPick.facilities) };
   const { fx, rows } = useRows();
   const days = useMemo(() => reductionDays(fx, role.facilities), [fx, role.facilities]);
-  const mine = (r: { facility: Facility }) => role.companies.some((c) => c.id === r.facility.companyId);
+  const fIds = new Set(role.facilities.map((f) => f.id));
+  const mine = (r: { facility: Facility }) => fIds.has(r.facility.id);
   const kwOf = kwSum;
   const year = GHG_TODAY.slice(0, 4);
 
@@ -340,7 +380,9 @@ export function GhgOverviewScreen() {
 
   // 그래프 — 회사 하나, 또는 연료전지 · ORC(성과지표 8-①③ — 설비가 들어오면 값이 생긴다)
   const [picked, setPicked] = useState<string | null>(null);
-  const pickKey = role.isAdmin ? (picked ?? `c:${role.companies[0]?.id ?? 0}`) : `c:${role.myId}`;
+  // 계약 유형을 바꿔 고른 기업이 그 유형에 없으면 첫 기업으로
+  const pickedOk = picked != null && (picked.startsWith('s:') || role.companies.some((c) => `c:${c.id}` === picked));
+  const pickKey = role.isAdmin ? (pickedOk ? picked : `c:${role.companies[0]?.id ?? 0}`) : `c:${role.myId}`;
   const pickedSource = pickKey.startsWith('s:') ? (pickKey.slice(2) as Facility['source']) : null;
   const companyId = pickedSource ? null : Number(pickKey.slice(2));
   // 체결된 설비만(해지된 옛 계약은 선을 그리지 않는다)
@@ -372,7 +414,7 @@ export function GhgOverviewScreen() {
             c.id,
             c.name,
             role.facilities.filter((f) => f.companyId === c.id),
-            (r) => r.facility.companyId === c.id,
+            (r) => r.facility.companyId === c.id && fIds.has(r.facility.id),
           ),
         )
     : role.facilities.map((f) => perfOf(f.id, f.kind, [f], (r) => r.facility.id === f.id));
@@ -394,7 +436,7 @@ export function GhgOverviewScreen() {
 
   return (
     <div className="space-y-6">
-      <GhgHeader title="배출시설 정보" />
+      <GhgHeader title="배출시설 정보" badge={kindPick.badge} actions={kindPick.select} />
       <StatsGrid columns={4}>
         {[
           <StatCard
@@ -733,8 +775,13 @@ export function GhgFactorsScreen() {
 
 /* ══ 3.1.4 배출량 산정 — 연도 · 기업을 고르면 월마다 발전량 × 전력 배출계수 = 감축량(태양광, 실제로 가져오는 값만) ══ */
 export function GhgCalculationScreen() {
-  const role = useGhgRole();
-  const { fx, rows } = useRows();
+  const base = useGhgRole();
+  const kindPick = useKindPick(base.facilities);
+  // 고른 계약 유형의 설비 · 기업만(통합관제 대시보드와 같다)
+  const role = { ...base, facilities: kindPick.facilities, companies: companiesOf(kindPick.facilities) };
+  const kindIds = new Set(role.facilities.map((f) => f.id));
+  const { fx, rows: allRows } = useRows();
+  const rows = allRows.filter((r) => kindIds.has(r.facility.id));
   const [year, setYear] = useState(LAST_MONTH.slice(0, 4));
   // 월 — 전체면 그 해(그래프 월별), 고르면 그 달(그래프 일별)
   const [month, setMonth] = useState('');
@@ -749,7 +796,9 @@ export function GhgCalculationScreen() {
     'flex h-8 w-8 items-center justify-center rounded-md bg-white/[0.04] text-slate-400 ring-1 ring-white/[0.06] hover:bg-white/[0.08] hover:text-white disabled:opacity-30';
   // 기업 — 전체 없이 한 곳씩(처음엔 목록 맨 위 기업)
   const [company, setCompany] = useState<number | null>(null);
-  const me = scopeOf(role, company ?? role.companies[0]?.id ?? null);
+  // 계약 유형을 바꿔 고른 기업이 그 유형에 없으면 첫 기업으로
+  const companyOk = company != null && role.companies.some((c) => c.id === company) ? company : null;
+  const me = scopeOf(role, companyOk ?? role.companies[0]?.id ?? null);
   const [y0, y1] = yearRange(year);
   const [from, to] = month ? [month, month] : [y0, y1];
   const months = monthsBetween(from, to);
@@ -833,7 +882,7 @@ export function GhgCalculationScreen() {
 
   return (
     <div className="space-y-6">
-      <GhgHeader title="배출량 산정" />
+      <GhgHeader title="배출량 산정" badge={kindPick.badge} actions={kindPick.select} />
 
       {/* 위 — 연도 · 기업(다른 화면과 같은 조회 줄, 기업은 오른쪽 끝) */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl bg-[#0d1520] px-4 py-3 ring-1 ring-white/[0.06]">
