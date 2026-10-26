@@ -462,7 +462,6 @@ const SOURCES = '/e-data/inventory/sources';
 const GHG_CODES = {
   facilityCode: '0120',
   facility: '재생에너지 전기 사용 시설',
-  activity: '외부 전력 대체(태양광 자가소비)',
   activityData: '0272 재생에너지(태양광) 전력',
   measure: '7114 태양전지를 이용한 전력생산',
   scope: 'Scope 2 감축',
@@ -502,26 +501,26 @@ function sourceHeadCols<T>(get: (x: T) => SrcRow): Column<T>[] {
 export function GhgSourcesScreen() {
   const role = useGhgRole();
   const router = useRouter();
-  const { rows: red } = useRows();
   const [q, setQ] = useState('');
   const word = q.trim();
-  const year = GHG_TODAY.slice(0, 4);
-  // 체결된 설비만 — 해지된 계약은 안 보인다(해지 전 기간 감축량은 합계 · 명세서에 남음)
-  const rows: SrcRow[] = role.facilities
-    .filter((f) => f.status === 'ACTIVE')
-    .map((f) => solarRow(f))
-    .filter((r) => !word || r.company.includes(word));
-  const yearT = (f: Facility) => totalsOf(red.filter((r) => r.facility.id === f.id && r.month.startsWith(year)));
+  // 체결된 설비만 — 해지된 계약은 안 보인다(해지 전 기간 감축량은 산정 · 명세서에 남음)
   const active = role.facilities.filter((f) => f.status === 'ACTIVE');
+  const rows: SrcRow[] = active.map((f) => solarRow(f)).filter((r) => !word || r.company.includes(word));
   const kw = active.reduce((a, f) => a + f.kw, 0);
+  // 기업 계정에 배출원이 하나면 목록 없이 바로 상세. 관리자는 항상 목록
+  const single = !role.isAdmin && active.length === 1 ? active[0] : null;
+  useEffect(() => {
+    if (single) router.replace(`${SOURCES}/view?id=${single.id}`);
+  }, [single, router]);
   const self = (r: SrcRow) => r;
   const cols: Column<SrcRow>[] = [
     ...sourceHeadCols(self),
-    { key: 'mwh', header: '금년 발전량 (MWh)', render: (r) => num(fmt(yearT(r.solar).mwh, 1)) },
-    { key: 'tco2', header: '금년 감축량 (tCO₂eq)', render: (r) => strong(fmtT(yearT(r.solar).tco2)) },
+    { key: 'start', header: '가동일', render: (r) => num(r.solar.startDate) },
+    { key: 'no', header: '계약번호', render: (r) => num(r.solar.contractNo) },
     { key: 'go', header: '', render: () => <ChevronRight size={15} className="text-slate-600" /> },
   ];
 
+  if (single) return null;
   return (
     <div className="space-y-6">
       <GhgHeader title="배출원 등록" />
@@ -553,58 +552,33 @@ export function GhgSourcesScreen() {
   );
 }
 
-/* ══ 3.1.2 배출원 상세 — 설비 하나의 정보 + 감축량(금년 · 금월 · 금일) + 월별 감축량 그래프 · 표 ══ */
+/* ══ 3.1.2 배출원 상세 — 등록된 설비 정보만. 계산(그래프 · 산정 표 · 계산식)은 배출량 산정 한 곳 ══ */
 export function GhgSourceDetailScreen() {
   const role = useGhgRole();
-  const { fx, rows } = useRows();
   const [id, setId] = useState<number | null>(null);
   useEffect(() => {
     setId(Number(new URLSearchParams(window.location.search).get('id')));
   }, []);
   const f = role.facilities.find((x) => x.id === id);
-  const days = useMemo(() => (f ? reductionDays(fx, [f]) : []), [fx, f]);
-  const thisYear = GHG_TODAY.slice(0, 4);
-  const mine = rows.filter((r) => r.facility.id === id);
-  const yearT = totalsOf(mine.filter((r) => r.month.startsWith(thisYear))).tco2;
-  const monthT = totalsOf(mine.filter((r) => r.month === TODAY_MONTH)).tco2;
-  const dayT = r3(days.filter((d) => d.date === GHG_TODAY).reduce((a, d) => a + d.tco2, 0));
-
-  // 그래프 · 아래 산정 표가 같은 기간(일 / 월)
-  const fs = f ? [f] : [];
-  const period = useReductionPeriod(fs);
-  const ids = new Set(fs.map((x) => x.id));
-  // 값 없는 날 · 달(설비 가동 전 · 금일 뒤)은 빈 줄
-  const calc = period.slots.map((s) => {
-    const t = s.future ? null : slotTotals(period, s.key, ids, days, mine);
-    return { key: s.key, t: t && t.kwh > 0 ? t : null };
-  });
-  const rangeSum = r3(calc.reduce((a, c) => a + (c.t?.tco2 ?? 0), 0));
-  type Calc = (typeof calc)[number];
-  const cols: Column<Calc>[] = [
-    { key: 'key', header: period.unit === 'day' ? '일자' : '월', render: (c) => num(c.key) },
-    { key: 'kwh', header: '발전량 (kWh)', render: (c) => num(c.t ? fmt(c.t.kwh) : '') },
-    { key: 'f', header: '배출계수 (tCO₂eq/MWh)', render: (c) => num(c.t ? fx.co2 : '') },
+  // 설비 구성 — 계약에 연결된 통합관제 발전소의 인버터 · 통신 상태(없으면 빈 상태)
+  const { data: plants } = useMonitoringPlants();
+  const plant = f?.plantId == null ? undefined : (plants ?? []).find((p) => p.plantId === f.plantId);
+  const inverters = plant?.inverters ?? [];
+  const commOk = inverters.length > 0 && inverters.every((v) => v.connectionState === 'NORMAL');
+  type Inv = (typeof inverters)[number];
+  const invCols: Column<Inv>[] = [
+    { key: 'no', header: '인버터', render: (v) => cell(`${v.number}번`, 'font-medium text-white') },
+    { key: 'kw', header: '용량 (kW)', render: (v) => num(fmt(v.capacity, 2)) },
     {
-      key: 'expr',
-      header: '계산식',
-      render: (c) => num(c.t ? `${fmt(c.t.kwh / 1000, 3)} MWh × ${fx.co2}` : ''),
+      key: 'state',
+      header: '통신',
+      render: (v) =>
+        v.connectionState === 'NORMAL' ? cell('정상', 'text-emerald-400') : cell('끊김', 'text-red-400'),
     },
-    {
-      key: 'tco2',
-      header: '감축량 (tCO₂eq)',
-      render: (c) => strong(c.t ? (period.unit === 'day' ? fmt(c.t.tco2, 3) : fmtT(c.t.tco2)) : ''),
-    },
+    { key: 'at', header: '최근 수신', render: (v) => num(v.lastDataAt.replace('T', ' ').slice(0, 16)) },
   ];
-
-  const info = (items: [string, ReactNode][]) => (
-    <SectionCard title="설비 정보">
-      <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
-        {items.map(([label, value]) => (
-          <Info key={label} label={label} value={value} />
-        ))}
-      </div>
-    </SectionCard>
-  );
+  // 기업 계정에 배출원이 하나면 돌아갈 목록이 없다
+  const single = !role.isAdmin && role.facilities.filter((x) => x.status === 'ACTIVE').length === 1;
 
   return (
     <div className="space-y-6">
@@ -612,12 +586,11 @@ export function GhgSourceDetailScreen() {
         items={[
           { label: 'E-데이터마켓', path: '/e-data/inventory' },
           { label: '온실가스 인벤토리' },
-          { label: '배출원 등록', path: SOURCES },
-          { label: '배출원 상세' },
+          ...(single ? [{ label: '배출원 등록' }] : [{ label: '배출원 등록', path: SOURCES }, { label: '배출원 상세' }]),
         ]}
       />
       <div className="flex items-center gap-3">
-        <BackButton href={SOURCES} label="배출원 등록으로" />
+        {!single && <BackButton href={SOURCES} label="배출원 등록으로" />}
         <h1 className="text-2xl font-bold text-white">
           {f ? `${f.company} ${sourceOf(f.source).label} 발전설비` : '배출원 상세'}
         </h1>
@@ -626,36 +599,45 @@ export function GhgSourceDetailScreen() {
       {!f ? (
         id != null && <p className="text-sm text-slate-400">배출원이 없습니다</p>
       ) : (
-        <>
-          {info([
-            ['기업', f.company],
-            ['소재지', f.address],
-            ['발전원', sourceOf(f.source).label],
-            ['계약 유형', f.kind],
-            ['설비 용량', `${fmt(f.kw, 2)} kW`],
-            ['배출구분', GHG_CODES.scope],
-            ['전력거래 계약번호', f.contractNo],
-          ])}
-          <StatsGrid columns={3}>
-            <StatCard label="금년 감축량" value={`${fmtT(yearT)} tCO₂eq`} />
-            <StatCard label="금월 감축량" value={`${fmtT(monthT)} tCO₂eq`} />
-            <StatCard label="금일 감축량" value={`${fmt(dayT, 3)} tCO₂eq`} />
-          </StatsGrid>
-          <ReductionChartCard period={period} fs={fs} days={days} rows={mine} cards={false} />
-          <SectionCard
-            title={`${period.unit === 'day' ? '일별' : '월별'} 산정 (${calc.filter((c) => c.t).length})`}
-            actions={
-              <span className="text-sm text-slate-300">
-                감축량 = 발전량 (MWh) × 배출계수 · 합계 {fmt(rangeSum, 3)} tCO₂eq
-              </span>
-            }
-            noPadding
-          >
-            <div className="overflow-x-auto [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
-              <DataTable data={calc} columns={cols} rowKey={(c) => c.key} />
-            </div>
-          </SectionCard>
-        </>
+        <SectionCard title="설비 정보">
+          <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
+            {(
+              [
+                ['기업', f.company],
+                ['소재지', f.address],
+                ['발전원', sourceOf(f.source).label],
+                ['계약 유형', f.kind],
+                ['설비 용량', `${fmt(f.kw, 2)} kW`],
+                ['배출구분', GHG_CODES.scope],
+                ['전력거래 계약번호', f.contractNo],
+              ] as [string, ReactNode][]
+            ).map(([label, value]) => (
+              <Info key={label} label={label} value={value} />
+            ))}
+          </div>
+        </SectionCard>
+      )}
+      {f && (
+        <SectionCard title="명세서 등록 정보">
+          <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+            <Info label="배출시설 [참고2]" value={`${GHG_CODES.facilityCode} ${GHG_CODES.facility}`} />
+            <Info label="활동자료 [참고4]" value={GHG_CODES.activityData} />
+            <Info label="감축수단 [참고7]" value={GHG_CODES.measure} />
+          </div>
+        </SectionCard>
+      )}
+      {f && (
+        <SectionCard
+          title={`설비 구성 (인버터 ${inverters.length})`}
+          actions={
+            inverters.length ? (
+              <Badge variant={commOk ? 'success' : 'danger'}>{commOk ? '통신 정상' : '통신 끊김'}</Badge>
+            ) : undefined
+          }
+          noPadding
+        >
+          <DataTable data={inverters} columns={invCols} rowKey={(v) => v.number} emptyMessage="연결된 발전소 없음" />
+        </SectionCard>
       )}
     </div>
   );
@@ -778,19 +760,29 @@ export function GhgCalculationScreen() {
   // 그래프 — 월 전체면 1월 ~ 12월, 월을 고르면 그 달 1일 ~ 말일. 값 없는 칸은 선이 끊긴다
   const scopeFs = role.facilities.filter((f) => shown.some((c) => c.id === f.companyId));
   const days = useMemo(() => (month ? reductionDays(fx, scopeFs) : []), [month, fx, scopeFs.length, me]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 설비가 둘이면(자가소비 · PPA) 선 두 개
+  const lineFs = scopeFs.filter((f) => picked.some((r) => r.facility.id === f.id));
+  const lines =
+    lineFs.length > 1
+      ? lineFs.map((f) => ({ key: `f${f.id}`, name: `${f.kind} (tCO₂eq)` }))
+      : [{ key: lineFs[0] ? `f${lineFs[0].id}` : 'none', name: '탄소 감축량 (tCO₂eq)' }];
   const chart = month
     ? Array.from({ length: new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate() }, (_, i) => {
         const date = `${month}-${String(i + 1).padStart(2, '0')}`;
-        const ds = days.filter((d) => d.date === date);
         const row: Record<string, string | number> = { x: `${i + 1}일` };
-        if (ds.length) row['감축량'] = r3(ds.reduce((a, d) => a + d.tco2, 0));
+        for (const f of lineFs) {
+          const ds = days.filter((d) => d.date === date && d.facility.id === f.id);
+          if (ds.length) row[`f${f.id}`] = r3(ds.reduce((a, d) => a + d.tco2, 0));
+        }
         return row;
       })
     : Array.from({ length: 12 }, (_, i) => {
         const m = `${year}-${String(i + 1).padStart(2, '0')}`;
-        const mo = monthly.find((x) => x.month === m);
         const row: Record<string, string | number> = { x: `${i + 1}월` };
-        if (mo) row['감축량'] = r3(mo.tco2);
+        for (const f of lineFs) {
+          const rs = picked.filter((r) => r.month === m && r.facility.id === f.id);
+          if (rs.length) row[`f${f.id}`] = r3(totalsOf(rs).tco2);
+        }
         return row;
       });
 
@@ -809,20 +801,31 @@ export function GhgCalculationScreen() {
   const matrixCols: Column<M>[] = [
     ...sourceHeadCols(fOf),
     { key: 'sum', header: '합계 (tCO₂eq)', render: (x) => strong(fmtT(x.sum.tco2)) },
-    ...yearMonths.map((m, i) => ({
+    ...yearMonths.map((m) => ({
       key: m,
-      header: `${i + 1}월`,
+      header: `${Number(m.slice(5))}월`,
       render: (x: M) => num(x.byM[m] == null ? '' : fmtT(x.byM[m])),
     })),
   ];
 
-  type Mo = (typeof monthly)[number];
-  const monthCols: Column<Mo>[] = [
-    { key: 'month', header: '월', render: (m) => num(m.month) },
+  // 산정 표 — 월 전체면 달마다, 월을 고르면 그 달 날마다. 계산식 = 발전량(MWh) × 배출계수
+  type Calc = { key: string; kwh: number; mwh: number; tco2: number; pine: number; toe: number };
+  const calcRows: Calc[] = month
+    ? [...new Set(days.filter((d) => d.date.startsWith(month)).map((d) => d.date))].sort().flatMap((date) => {
+        const ds = days.filter((d) => d.date === date && lineFs.some((f) => f.id === d.facility.id));
+        const kwh = ds.reduce((a, d) => a + d.kwh, 0);
+        if (!kwh) return [];
+        const tco2 = ds.reduce((a, d) => a + d.tco2, 0);
+        return [{ key: date, kwh, mwh: kwh / 1000, tco2, pine: tco2 * fx.pine, toe: (kwh / 1000) * fx.toe }];
+      })
+    : monthly.map((m) => ({ key: m.month, kwh: m.kwh, mwh: m.mwh, tco2: m.tco2, pine: m.pine, toe: m.toe }));
+  const monthCols: Column<Calc>[] = [
+    { key: 'key', header: month ? '일자' : '월', render: (m) => num(m.key) },
     { key: 'kwh', header: '발전량 (kWh)', render: (m) => num(fmt(m.kwh)) },
     { key: 'mwh', header: '발전량 (MWh)', render: (m) => num(fmt(m.mwh, 3)) },
     { key: 'f', header: '배출계수 (tCO₂eq/MWh)', render: () => num(fx.co2) },
-    { key: 'tco2', header: '탄소 감축량 (tCO₂eq)', render: (m) => strong(fmtT(m.tco2)) },
+    { key: 'expr', header: '계산식', render: (m) => num(`${fmt(m.mwh, 3)} MWh × ${fx.co2}`) },
+    { key: 'tco2', header: '탄소 감축량 (tCO₂eq)', render: (m) => strong(month ? fmt(m.tco2, 3) : fmtT(m.tco2)) },
     { key: 'pine', header: '소나무 식재 (그루)', render: (m) => num(fmt(m.pine)) },
     { key: 'toe', header: '화석에너지 대체 (TOE)', render: (m) => num(fmtT(m.toe)) },
   ];
@@ -865,15 +868,21 @@ export function GhgCalculationScreen() {
         <StatCard label="화석에너지 대체" value={`${fmtT(t.toe)} TOE`} />
       </StatsGrid>
       <SectionCard title={month ? '일별 탄소 감축량' : '월별 탄소 감축량'}>
-        <RmsLineChart data={chart} xKey="x" lines={[{ key: '감축량', name: '탄소 감축량 (tCO₂eq)' }]} height={260} />
+        <RmsLineChart data={chart} xKey="x" lines={lines} height={260} />
       </SectionCard>
       <SectionCard title={`배출원별 월 탄소 감축량 (${matrix.length})`} noPadding>
         <div className="overflow-x-auto [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap" data-table>
           <DataTable data={matrix} columns={matrixCols} rowKey={(x) => x.f.id} />
         </div>
       </SectionCard>
-      <SectionCard title={`월별 산정 (${monthly.length})`} noPadding>
-        <DataTable data={monthly} columns={monthCols} rowKey={(m) => m.month} />
+      <SectionCard
+        title={`${month ? '일별' : '월별'} 산정 (${calcRows.length})`}
+        actions={<span className="text-sm text-slate-300">탄소 감축량 = 발전량 (MWh) × 배출계수</span>}
+        noPadding
+      >
+        <div className="overflow-x-auto [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
+          <DataTable data={calcRows} columns={monthCols} rowKey={(m) => m.key} />
+        </div>
       </SectionCard>
     </div>
   );

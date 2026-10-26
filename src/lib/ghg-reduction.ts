@@ -38,6 +38,8 @@ export interface Facility {
   status: 'ACTIVE' | 'TERMINATED';
   /** 발전원 — 설비(발전소) 종류를 따른다. 계약에 발전소가 없으면 태양광 */
   source: EnergySource;
+  /** 연결된 통합관제 발전소 — 설비 구성(인버터 · 통신 상태) */
+  plantId?: number;
 }
 
 /** 체결(이용 중 · 해지 포함) 계약 → 배출원. 서명 전 계약은 아직 아니다 */
@@ -61,6 +63,7 @@ export function facilitiesOf(
       endMonth: c.terminatedAt?.slice(0, 7),
       status: c.status === 'TERMINATED' ? ('TERMINATED' as const) : ('ACTIVE' as const),
       source: typeOf(c.plantId),
+      plantId: c.plantId,
     }))
     .sort((a, b) => a.company.localeCompare(b.company, 'ko') || a.id - b.id);
 }
