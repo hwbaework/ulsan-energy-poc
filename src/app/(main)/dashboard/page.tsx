@@ -281,15 +281,17 @@ export default function DashboardPage() {
     () => (multiKind ? allContractPlants.filter((p) => p.contractKind === kindSel) : allContractPlants),
     [multiKind, allContractPlants, kindSel],
   );
-  // 관리자: 발전량 비교 · CO₂ 에서 회사(계약 발전소) 하나를 고른다 — 고른 계약 유형의 회사만
+  // 관리자: 발전소 발전·공급 · CO₂ 에서 기업(계약 발전소) 하나를 고른다 — 전체 계약, 한일튜브는 한일튜브(자가소비) · 한일튜브(PPA)로 나눠서
+  //        (계약 유형 셀렉트를 제목 줄에 두지 않는다. 고르는 곳은 이 셀렉트 하나)
+  const companyContracts = isAdmin ? allContractPlants : pickedContracts;
   const [selectedCompanyKey, setSelectedCompanyKey] = useState('');
   const selectedCompany = useMemo(
-    () => pickedContracts.find((p) => p.key === selectedCompanyKey) ?? pickedContracts[0],
-    [pickedContracts, selectedCompanyKey],
+    () => companyContracts.find((p) => p.key === selectedCompanyKey) ?? companyContracts[0],
+    [companyContracts, selectedCompanyKey],
   );
   const companyOptions = useMemo(
-    () => pickedContracts.map((p) => ({ value: p.key, label: p.baseName })),
-    [pickedContracts],
+    () => companyContracts.map((p) => ({ value: p.key, label: isAdmin ? p.displayName : p.baseName })),
+    [companyContracts, isAdmin],
   );
   // 발전소별 칩은 관리자 화면엔 없고, 계약 유형을 고르는 화면에도 없다(고른 계약 하나만 본다)
   const contractPlants = useMemo(() => (isAdmin || multiKind ? [] : allContractPlants), [isAdmin, multiKind, allContractPlants]);
@@ -342,7 +344,7 @@ export default function DashboardPage() {
   //                         PPA · 관리자: 설비 용량 · 금월 · 금일 발전량 · 금일 금액
   const viewKind: PlantContractKind | undefined = multiKind ? kindSel : kindChoices[0];
   // PPA 시간 보기 — 인버터 ON · OFF 를 그래프에 그리는 경우(숫자 시각 축)
-  const ppaHour = genCtl.tu === 'hour' && viewKind === 'ONSITE';
+  const ppaHour = genCtl.tu === 'hour' && (isAdmin ? selectedCompany?.contractKind === 'ONSITE' : viewKind === 'ONSITE');
   const selfCards = isConsumer || viewKind === 'SELF_CONSUMPTION';
   // 관리자 PPA — 플랫폼(SPC)이 보유한 설비와 받는 PPA 요금(금년 · 금월 · 금일)
   const adminPpa = isAdmin && viewKind === 'ONSITE';
@@ -373,7 +375,7 @@ export default function DashboardPage() {
     .reduce((sum, p) => sum + (p.dailyEnergy ?? 0) * ppaUnitPrice, 0);
 
   // ── CO₂ 저감 — 역할 공통: 월·년 + ‹ 연도 › 피커. 관리자는 회사 셀렉트로 한 회사, 그 외는 자사 계약 발전소(전체 + 발전소별 선)
-  const co2Plants = isAdmin ? pickedContracts : allContractPlants;
+  const co2Plants = isAdmin ? companyContracts : allContractPlants;
   const [co2CompanyKey, setCo2CompanyKey] = useState('');
   const co2Company = isAdmin ? (co2Plants.find((p) => p.key === co2CompanyKey) ?? co2Plants[0]) : undefined;
   // 발전사업자·전기사용자 — 발전소 칩(발전소 발전·공급과 같은 디자인)으로 끄고 켠다. 처음엔 전부 켬. 카드·선은 켜진 것만
@@ -676,13 +678,13 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2.5">
               <h1 className="text-xl font-bold text-white">대시보드</h1>
               {/* 지금 보는 계약 유형 — 색이 아니라 글자로(design.ts 규칙) */}
-              {viewKind && (
+              {viewKind && !isAdmin && (
                 <span className="rounded-md bg-white/[0.08] px-2.5 py-1 text-sm font-semibold text-white ring-1 ring-white/[0.16]">
                   {CONTRACT_KIND_LABEL[viewKind]}
                 </span>
               )}
             </div>
-            {multiKind ? (
+            {multiKind && !isAdmin ? (
               <div className="w-52">
                 <Select
                   options={kindChoices.map((k) => ({

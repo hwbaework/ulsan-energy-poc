@@ -302,7 +302,6 @@ function SidePanel({
 }) {
   const router = useRouter();
   // 계약 사업장 목록은 한 번에 한 유형 — 자가소비 / PPA 를 골라서 본다
-  const [kindTab, setKindTab] = useState<PlantContractKind>('SELF_CONSUMPTION');
 
   if (selected) {
     const plant = selected;
@@ -498,21 +497,6 @@ function SidePanel({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <p className="text-sm font-medium text-white">계약 사업장</p>
-            <div className="flex rounded-md bg-white/[0.04] p-0.5 ring-1 ring-white/[0.08]">
-              {CONTRACT_KIND_ORDER.map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setKindTab(k)}
-                  className={cn(
-                    'rounded px-2.5 py-0.5 text-xs font-medium transition-colors',
-                    kindTab === k ? 'bg-primary text-white' : 'text-slate-400 hover:text-white',
-                  )}
-                >
-                  {CONTRACT_KIND_LABEL[k]}
-                </button>
-              ))}
-            </div>
           </div>
           <div className="flex items-center gap-3 text-xs text-slate-400">
             <span className="flex items-center gap-1">
@@ -525,7 +509,6 @@ function SidePanel({
         </div>
         {plants
           .flatMap(contractRowsOf)
-          .filter((row) => row.kind === kindTab)
           .map((row) => {
           const plant = row.plant;
           return (
@@ -537,7 +520,8 @@ function SidePanel({
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <StatusDot status={plant.status} pulse />
-                  <span className="text-sm font-medium text-white">{plant.name}</span>
+                  {/* 계약 단위 이름 — 한일튜브(자가소비) · 한일튜브(PPA) */}
+                  <span className="text-sm font-medium text-white">{row.displayName}</span>
                   {(() => {
                     const src = SOURCE[plant.type as EnergySource];
                     const Icon = src.icon;

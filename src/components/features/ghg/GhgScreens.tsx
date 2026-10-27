@@ -20,9 +20,10 @@ import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { BackButton } from '@/components/layout/PageTitle';
-import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
+import { useMonitoringPlantDetail, useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
 import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
 import { Badge } from '@/components/ui/Badge/Badge';
+import { StatusPill } from '@/components/ui/Design';
 import { tco2PerUnit, type GhgFactor } from '@/lib/ghg-factors';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -595,20 +596,29 @@ export function GhgSourceDetailScreen() {
     setId(Number(new URLSearchParams(window.location.search).get('id')));
   }, []);
   const f = role.facilities.find((x) => x.id === id);
-  // 설비 구성 — 계약에 연결된 통합관제 발전소의 인버터 · 통신 상태(없으면 빈 상태)
-  const { data: plants } = useMonitoringPlants();
-  const plant = f?.plantId == null ? undefined : (plants ?? []).find((p) => p.plantId === f.plantId);
+  // 설비 구성 — 계약에 연결된 통합관제 발전소의 인버터. 이름 · 통신 · 상태 표시는 통합관제 인버터 표를 따른다(INV-001, 정상 / 오류)
+  const { data: plant } = useMonitoringPlantDetail(f?.plantId ?? 0);
   const inverters = plant?.inverters ?? [];
-  const commOk = inverters.length > 0 && inverters.every((v) => v.connectionState === 'NORMAL');
   type Inv = (typeof inverters)[number];
   const invCols: Column<Inv>[] = [
-    { key: 'no', header: '인버터', render: (v) => cell(`${v.number}번`, 'font-medium text-white') },
+    { key: 'no', header: '인버터', render: (v) => cell(`INV-${String(v.number).padStart(3, '0')}`, 'font-semibold text-white') },
     { key: 'kw', header: '용량 (kW)', render: (v) => num(fmt(v.capacity, 2)) },
     {
-      key: 'state',
+      key: 'conn',
       header: '통신',
+      render: (v) => (
+        <StatusPill tone={v.connectionState === 'NORMAL' ? 'normal' : 'danger'} label={v.connectionState === 'NORMAL' ? '정상' : '오류'} />
+      ),
+    },
+    {
+      key: 'st',
+      header: '상태',
       render: (v) =>
-        v.connectionState === 'NORMAL' ? cell('정상', 'text-emerald-400') : cell('끊김', 'text-red-400'),
+        v.statusMessages.length > 0 ? (
+          <StatusPill tone="warning" label={v.statusMessages[0]!} />
+        ) : (
+          <StatusPill tone="normal" label="정상" />
+        ),
     },
     { key: 'at', header: '최근 수신', render: (v) => num(v.lastDataAt.replace('T', ' ').slice(0, 16)) },
   ];
@@ -653,24 +663,7 @@ export function GhgSourceDetailScreen() {
         </SectionCard>
       )}
       {f && (
-        <SectionCard title="명세서 등록 정보">
-          <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
-            <Info label="배출시설 [참고2]" value={`${GHG_CODES.facilityCode} ${GHG_CODES.facility}`} />
-            <Info label="활동자료 [참고4]" value={GHG_CODES.activityData} />
-            <Info label="감축수단 [참고7]" value={GHG_CODES.measure} />
-          </div>
-        </SectionCard>
-      )}
-      {f && (
-        <SectionCard
-          title={`설비 구성 (인버터 ${inverters.length})`}
-          actions={
-            inverters.length ? (
-              <Badge variant={commOk ? 'success' : 'danger'}>{commOk ? '통신 정상' : '통신 끊김'}</Badge>
-            ) : undefined
-          }
-          noPadding
-        >
+        <SectionCard title="설비 구성" noPadding>
           <DataTable data={inverters} columns={invCols} rowKey={(v) => v.number} emptyMessage="연결된 발전소 없음" />
         </SectionCard>
       )}
