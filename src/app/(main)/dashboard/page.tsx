@@ -758,7 +758,23 @@ export default function DashboardPage() {
             </div>
             <div className="px-5 py-4">
               {/* 관리자 — 고른 회사(고른 계약): 설비 용량 | 발전량(초록) | 금액. 기간은 시간(금일) · 일(금월) · 월(금년) */}
-              {isAdmin && selectedCompany && (
+              {/* 관리자 — 고른 계약. PPA: 설비 용량 | 기간 발전량 | 기간 금액(SPC 가 받는 요금)
+                  자가소비: 금액 없음(기업이 쓴 만큼 아낀 것, 내는 곳이 없다) — 설비 용량 | 금년 · 금월 · 금일 발전량 */}
+              {isAdmin && selectedCompany && selectedCompany.contractKind === 'SELF_CONSUMPTION' && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                  <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.06] p-3">
+                    <p className="text-sm text-slate-300">설비 용량</p>
+                    <p className="text-xl font-semibold text-white tabular-nums mt-1">{fmtKw(selectedCompany.capacity)}</p>
+                  </div>
+                  {(['month', 'day', 'hour'] as const).map((u) => (
+                    <div key={u} className="rounded-lg bg-emerald-500/[0.06] ring-1 ring-emerald-500/30 p-3">
+                      <p className="text-sm text-emerald-300/90">{`${PERIOD_LABEL[u]} 발전량`}</p>
+                      <p className="text-xl font-semibold text-emerald-300 tabular-nums mt-1">{u === 'hour' ? fmtKwhDay(selKwh[u]) : fmtKwh(selKwh[u])}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {isAdmin && selectedCompany && selectedCompany.contractKind !== 'SELF_CONSUMPTION' && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                   <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.06] p-3">
                     <p className="text-sm text-slate-300">설비 용량</p>
