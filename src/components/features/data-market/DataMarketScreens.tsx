@@ -1290,7 +1290,7 @@ export function DataSettlementScreen() {
   type Co = (typeof coRows)[number];
   const coCols: Column<Co>[] = [
     { key: 'name', header: '기업', render: (c) => cell(c.name, 'font-medium text-white') },
-    { key: 'payN', header: '사용 건수', width: '100px', render: (c) => num(`${c.payN}건`) },
+    { key: 'payN', header: '사용 건수', width: '100px', sortable: true, sortValue: (c) => c.payN, render: (c) => num(`${c.payN}건`) },
     {
       key: 'payAmt',
       header: '낼 금액',
@@ -1299,7 +1299,7 @@ export function DataSettlementScreen() {
       sortValue: (c) => c.payAmt,
       render: (c) => cell(won(c.payAmt), 'tabular-nums text-amber-400'),
     },
-    { key: 'getN', header: '제공 건수', width: '100px', render: (c) => num(`${c.getN}건`) },
+    { key: 'getN', header: '제공 건수', width: '100px', sortable: true, sortValue: (c) => c.getN, render: (c) => num(`${c.getN}건`) },
     {
       key: 'getAmt',
       header: '받을 금액',
@@ -1405,18 +1405,6 @@ export function DataSettlementScreen() {
             onChange={(e) => pick(e.target.value, company)}
           />
         </div>
-        {role.isAdmin && (
-          <div className="ml-auto flex items-center gap-3">
-            <span className="text-sm text-slate-400">기업</span>
-            <div className="w-52">
-              <Select
-                options={[{ value: '', label: '전체' }, ...monthCompanies.map((c) => ({ value: String(c.id), label: c.name }))]}
-                value={company == null ? '' : String(company)}
-                onChange={(e) => pick(period, e.target.value ? Number(e.target.value) : null)}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
       <StatsGrid columns={4}>

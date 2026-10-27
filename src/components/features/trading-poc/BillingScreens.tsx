@@ -290,16 +290,10 @@ function BillingScreen({ kind }: { kind: Kind }) {
     }
   };
 
-  // 기업 — 관리자만(기업이 늘어도 한 곳만 골라 본다)
-  const [company, setCompany] = useState('');
-  const companies = [...new Map(rows.map((s) => [s.consumerCompanyName, s.consumerCompanyName])).entries()].sort(
-    (a, b) => a[1].localeCompare(b[1], 'ko'),
-  );
   const list = rows.filter(
     (s) =>
       s.period.startsWith(year) &&
       (!month || s.period === month) &&
-      (!company || s.consumerCompanyName === company) &&
       (!q.trim() || [s.consumerCompanyName, s.plantName].some((v) => v.includes(q.trim()))),
   );
   const sum = (xs: Bill[], f: (s: Bill) => number) => fmtKrw(xs.reduce((a, s) => a + f(s), 0));
@@ -360,7 +354,7 @@ function BillingScreen({ kind }: { kind: Kind }) {
           },
         ]
       : []),
-    { key: 'kwh', header: '사용량', width: '130px', render: (s) => cellNum(fmtKwh(s.generationKwh)) },
+    { key: 'kwh', header: '사용량', width: '130px', sortable: true, sortValue: (s) => s.generationKwh, render: (s) => cellNum(fmtKwh(s.generationKwh)) },
     { key: 'price', header: '단가', width: '100px', render: (s) => cellNum(`₩${fmtNum(s.smpUnitPrice, 1)}`) },
     ...(kind === 'TAX'
       ? [
@@ -368,10 +362,12 @@ function BillingScreen({ kind }: { kind: Kind }) {
             key: 'supply',
             header: '공급가액',
             width: '130px',
+            sortable: true,
+            sortValue: (s: Bill) => s.supplyAmount,
             render: (s: Bill) => cellNum(fmtKrw(s.supplyAmount)),
           },
-          { key: 'vat', header: '세액', width: '120px', render: (s: Bill) => cellMuted(fmtKrw(s.vat)) },
-          { key: 'total', header: '합계', width: '130px', render: (s: Bill) => cellStrong(fmtKrw(s.total)) },
+          { key: 'vat', header: '세액', width: '120px', sortable: true, sortValue: (s: Bill) => s.vat, render: (s: Bill) => cellMuted(fmtKrw(s.vat)) },
+          { key: 'total', header: '합계', width: '130px', sortable: true, sortValue: (s: Bill) => s.total, render: (s: Bill) => cellStrong(fmtKrw(s.total)) },
           {
             key: 'issue',
             header: '발행일',
@@ -385,6 +381,8 @@ function BillingScreen({ kind }: { kind: Kind }) {
             key: 'total',
             header: '청구 금액',
             width: '130px',
+            sortable: true,
+            sortValue: (s: Bill) => s.total,
             render: (s: Bill) => cellStrong(fmtKrw(s.total)),
           },
           {
@@ -421,6 +419,8 @@ function BillingScreen({ kind }: { kind: Kind }) {
       header: kind === 'TAX' ? '합계' : '청구 금액',
       width: '140px',
       align: 'right',
+      sortable: true,
+      sortValue: (s) => s.total,
       render: (s) => cellNum(fmtKrw(s.total)),
     },
     kind === 'TAX'
@@ -471,18 +471,6 @@ function BillingScreen({ kind }: { kind: Kind }) {
             onChange={(e) => setMonth(e.target.value)}
           />
         </div>
-        {role.isAdmin && (
-          <div className="ml-auto flex items-center gap-3">
-            <span className="text-sm text-slate-400">기업</span>
-            <div className="w-52">
-              <Select
-                options={[{ value: '', label: '전체' }, ...companies.map(([id, name]) => ({ value: id, label: name }))]}
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
       <StatsGrid columns={3}>

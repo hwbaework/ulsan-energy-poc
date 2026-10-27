@@ -20,8 +20,7 @@ import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { BackButton } from '@/components/layout/PageTitle';
-import { useMonitoringPlantDetail, useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
-import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
+import { useMonitoringPlantDetail } from '@/hooks/monitoring/useMonitoring';
 import { Badge } from '@/components/ui/Badge/Badge';
 import { StatusPill } from '@/components/ui/Design';
 import { tco2PerUnit, type GhgFactor } from '@/lib/ghg-factors';
@@ -254,6 +253,8 @@ function ReductionChartCard({
   );
   const ids = new Set(fs.map((f) => f.id));
   const rangeT = r3(p.slots.reduce((a, s) => a + slotTotals(p, s.key, ids, days, rows).tco2, 0));
+  const rangeKwh = p.slots.reduce((a, s) => a + slotTotals(p, s.key, ids, days, rows).kwh, 0);
+  const rangeLabel = p.unit === 'day' ? '금월' : '금년';
   const arrowBtn =
     'flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.04] text-slate-400 ring-1 ring-white/[0.06] hover:bg-white/[0.08] hover:text-white disabled:opacity-30';
 
@@ -278,15 +279,22 @@ function ReductionChartCard({
       </div>
       <div className="px-5 py-4">
         {cards && (
-          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="rounded-lg bg-white/[0.03] p-3 ring-1 ring-white/[0.06]">
               <p className="text-sm text-slate-300">설비 용량</p>
               <p className="mt-1 text-xl font-semibold tabular-nums text-white">
                 {fs.length ? `${fmt(kwSum(fs), 2)} kW` : '-'}
               </p>
             </div>
+            {/* 발전량 — 감축량 계산의 바탕(감축량 = 발전량 MWh × 전력 배출계수) */}
+            <div className="rounded-lg bg-white/[0.03] p-3 ring-1 ring-white/[0.06]">
+              <p className="text-sm text-slate-300">{`${rangeLabel} 발전량`}</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums text-white">
+                {fs.length ? `${fmt(rangeKwh / 1000, 1)} MWh` : '-'}
+              </p>
+            </div>
             <div className="rounded-lg bg-emerald-500/[0.06] p-3 ring-1 ring-emerald-500/30">
-              <p className="text-sm text-emerald-300/90">{`${p.unit === 'day' ? '금월' : '금년'} 감축량`}</p>
+              <p className="text-sm text-emerald-300/90">{`${rangeLabel} 감축량`}</p>
               <p className="mt-1 text-xl font-semibold tabular-nums text-emerald-300">
                 {fs.length ? `${fmtT(rangeT)} tCO₂eq` : '-'}
               </p>
@@ -314,7 +322,7 @@ function ReductionChartCard({
 }
 
 /** 계약 단위 묶음 — 기업 + 계약 유형. 기업에 유형이 둘이면 이름 뒤에 (유형) */
-function contractGroups(facilities: Facility[]) {
+export function contractGroups(facilities: Facility[]) {
   const active = facilities.filter((f) => f.status === 'ACTIVE');
   const keys = [...new Set(active.map((f) => `${f.companyId}-${f.kind}`))];
   return keys
@@ -501,7 +509,7 @@ const GHG_CODES = {
   facility: '재생에너지 전기 사용 시설',
   activityData: '0272 재생에너지(태양광) 전력',
   measure: '7114 태양전지를 이용한 전력생산',
-  scope: 'Scope 2 감축',
+  scope: 'Scope 2',
 };
 
 /** 배출원 한 줄 — 전력거래 계약에서 자동으로 생긴 설비. 어느 기업이 어떤 계약으로 몇 kW 를 설치했는지(2026-10-21 사용자) */
@@ -532,7 +540,7 @@ function sourceHeadCols<T>(get: (x: T) => SrcRow): Column<T>[] {
     { key: 'source', header: '발전원', render: (x) => cell(get(x).source) },
     { key: 'kind', header: '계약 유형', render: (x) => cell(get(x).kind) },
     { key: 'kw', header: '설비 용량 (kW)', render: (x) => num(fmt(get(x).kw, 2)) },
-    { key: 'scope', header: '배출구분', render: (x) => cell(get(x).scope) },
+    { key: 'scope', header: 'Scope', render: (x) => cell(get(x).scope) },
   ];
 }
 export function GhgSourcesScreen() {
@@ -653,7 +661,7 @@ export function GhgSourceDetailScreen() {
                 ['발전원', sourceOf(f.source).label],
                 ['계약 유형', f.kind],
                 ['설비 용량', `${fmt(f.kw, 2)} kW`],
-                ['배출구분', GHG_CODES.scope],
+                ['Scope', GHG_CODES.scope],
                 ['전력거래 계약번호', f.contractNo],
               ] as [string, ReactNode][]
             ).map(([label, value]) => (
@@ -679,7 +687,7 @@ export function GhgFactorsScreen() {
   const list = [
     {
       key: 'co2',
-      name: '발전 감축',
+      name: '탄소 배출계수',
       value: `${fx.co2} tCO₂eq/MWh`,
       use: '감축량 = 발전량 (MWh) × 계수',
     },
@@ -975,13 +983,6 @@ export function GhgReportScreen() {
   );
 }
 
-/** 연료전지 · ORC 발전소 — 통합관제처럼 목록에는 보이고, 감축 보고서 항목은 아직 없어 값을 비워 둔다 */
-function useOtherPlants() {
-  const { data } = useMonitoringPlants();
-  const matcher = useMyPlantMatcher();
-  return useMemo(() => filterPlantsByOwnership(data ?? [], matcher).filter((p) => p.type !== 'SOLAR'), [data, matcher]);
-}
-
 /** ② 발전소(계약) 하나의 보고서 — 통합관제 보고서 2단계와 같은 화면 · 문서 양식 */
 function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?: number }) {
   const role = useGhgRole();
@@ -992,16 +993,8 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const active = role.facilities.filter((f) => f.status === 'ACTIVE');
-  const others = useOtherPlants();
-  // 기업(발전소) — 전체면 모든 발전소 보고서를 한 목록에. ?id= · ?plant= 로 들어오면 그 발전소
-  const [pickKey, setPickKey] = useState(
-    facilityId != null ? `f-${facilityId}` : plantId != null ? `p-${plantId}` : 'all',
-  );
-  const pickOptions = [
-    { value: 'all', label: '전체' },
-    ...active.map((x) => ({ value: `f-${x.id}`, label: plantName(x, active) })),
-    ...others.map((p) => ({ value: `p-${p.plantId}`, label: p.name })),
-  ];
+  // 기업(발전소) — 모든 발전소 보고서를 한 목록에(기업은 목록 위 검색). ?id= · ?plant= 로 들어오면 그 발전소
+  const pickKey = facilityId != null ? `f-${facilityId}` : plantId != null ? `p-${plantId}` : 'all';
   const inScope = active.filter((x) => pickKey === 'all' || pickKey === `f-${x.id}`);
 
   const docs = useMemo(
@@ -1135,21 +1128,6 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
         <div className="w-28">
           <Select options={REPORT_MONTH_OPTIONS} value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} />
         </div>
-        {pickOptions.length > 2 && (
-          <div className="ml-auto flex items-center gap-3">
-            <span className="text-sm text-slate-400">기업</span>
-            <div className="w-52">
-              <Select
-                options={pickOptions}
-                value={pickKey}
-                onChange={(e) => {
-                  setPickKey(e.target.value);
-                  setSelectedId(null);
-                }}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 목록 왼쪽 · 미리보기 문서 오른쪽 */}
