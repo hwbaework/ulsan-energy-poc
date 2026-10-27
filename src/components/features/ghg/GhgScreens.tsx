@@ -561,11 +561,11 @@ export function GhgSourcesScreen() {
       <GhgHeader title="배출원 등록" />
       <StatsGrid columns={3}>
         <StatCard label="배출원" value={`${active.length}개`} />
-        <StatCard label="시설용량" value={`${fmt(kw, 2)} kW`} />
+        <StatCard label="설비 용량" value={`${fmt(kw, 2)} kW`} />
         <StatCard label="기업" value={`${new Set(active.map((f) => f.companyId)).size}곳`} />
       </StatsGrid>
       <SectionCard
-        title={`배출원 목록 (${rows.length})`}
+        title="배출원 목록"
         actions={
           <div className="w-56">
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="기업 검색" />
