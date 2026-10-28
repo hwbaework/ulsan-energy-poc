@@ -48,6 +48,8 @@ const srcKey = (key: string) => `${key}_SOURCE`;
 /** 변경 이력 — 저장할 때 바뀐 값만 한 줄씩. 최신이 위 */
 const HISTORY_KEY = 'ENERGY_HISTORY';
 interface HistoryRow {
+  /** 계수 — 기준값은 키(CO2_EMISSION_FACTOR 등), 배출원 계수는 factor:id */
+  key?: string;
   at: string;
   item: string;
   before: string;
@@ -118,6 +120,22 @@ const toFactorDraft = (f: GhgFactor): FactorDraft => ({ ...f, ncv: String(f.ncv)
 const ghgUnitOf = (c: string, k: (typeof GHG_NUMS)[number]) =>
   k === 'ncv' ? 'MJ' : c === '외부 전기' ? (k === 'co2' ? 't/MWh' : 'kg/MWh') : 'kg/TJ';
 
+/** [출처] — 계수 하나의 출처 · 변경 이력 팝업을 연다 */
+function SourceButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        onClick();
+      }}
+      className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white/[0.06] px-2 py-0.5 text-xs text-slate-300 ring-1 ring-white/[0.08] hover:bg-white/[0.10] hover:text-white"
+    >
+      <History size={12} /> 출처
+    </button>
+  );
+}
+
 export default function EnergySettingsPage() {
   const addToast = useToastStore((s) => s.add);
   // 산정 기준값
@@ -137,10 +155,11 @@ export default function EnergySettingsPage() {
         ),
       );
   }, [energy, baseDirty]);
-  // 변경 이력 — 맨 위 [변경 이력] 팝업에서 본다
+  // 변경 이력 — 계수마다 [출처] 팝업에서 본다
   const userName = useAuthStore((s) => s.user?.name ?? '');
   const history = parseHistory(energy?.[HISTORY_KEY]);
-  const [historyOpen, setHistoryOpen] = useState(false);
+  // [출처] 팝업 — 계수 하나의 현재 출처(고침) · 변경 이력
+  const [sourceOf, setSourceOf] = useState<{ key: string; label: string } | null>(null);
   // 배출원 계수(Scope 1 · 2, 연료별) — 화면에서 바로 고치고 맨 위 [저장]으로 함께 저장
   const ghgFactors = useGhgFactorList();
   const [factors, setFactors] = useState<FactorDraft[]>([]);
@@ -262,7 +281,7 @@ export default function EnergySettingsPage() {
         const srcBefore = energy?.[srcKey(f.key)] ?? SOURCE_DEFAULT[f.key] ?? '';
         const srcAfter = (base[srcKey(f.key)] ?? '').trim();
         if (before !== after || srcBefore !== srcAfter)
-          logs.push({ at, item: f.label, before: `${before} ${f.unit}`, after: `${after} ${f.unit}`, source: srcAfter, by: userName });
+          logs.push({ key: f.key, at, item: f.label, before: `${before} ${f.unit}`, after: `${after} ${f.unit}`, source: srcAfter, by: userName });
       }
     if (factorDirty) {
       const prev = new Map(ghgFactors.map((g) => [g.id, g]));
@@ -271,7 +290,7 @@ export default function EnergySettingsPage() {
       for (const r of factors) {
         const g = prev.get(r.id);
         if (!g) {
-          logs.push({ at, item: name(r), before: '', after: '추가', source: r.basis.trim(), by: userName });
+          logs.push({ key: `factor:${r.id}`, at, item: name(r), before: '', after: '추가', source: r.basis.trim(), by: userName });
           continue;
         }
         const diff = [
@@ -282,9 +301,9 @@ export default function EnergySettingsPage() {
           ...GHG_NUMS.map((k) => (String(g[k]) !== r[k].trim() ? `${k.toUpperCase()} ${g[k]} → ${r[k].trim()}` : '')),
           g.basis !== r.basis.trim() ? '출처' : '',
         ].filter(Boolean);
-        if (diff.length) logs.push({ at, item: name(r), before: diff.map((d) => d.split(' → ')[0]).join(', '), after: diff.map((d) => d.split(' → ')[1] ?? d).join(', '), source: r.basis.trim(), by: userName });
+        if (diff.length) logs.push({ key: `factor:${r.id}`, at, item: name(r), before: diff.map((d) => d.split(' → ')[0]).join(', '), after: diff.map((d) => d.split(' → ')[1] ?? d).join(', '), source: r.basis.trim(), by: userName });
       }
-      for (const g of ghgFactors) if (!next.has(g.id)) logs.push({ at, item: name(g), before: '', after: '삭제', source: g.basis, by: userName });
+      for (const g of ghgFactors) if (!next.has(g.id)) logs.push({ key: `factor:${g.id}`, at, item: name(g), before: '', after: '삭제', source: g.basis, by: userName });
     }
     try {
       if (logs.length) await saveEnergy.mutateAsync({ [HISTORY_KEY]: JSON.stringify([...logs, ...history].slice(0, 300)) });
@@ -339,60 +358,76 @@ export default function EnergySettingsPage() {
       {/* 제목 · 오른쪽 저장 — 스크롤해도 상단(헤더 100px 아래)에 따라다닌다 */}
       <div className="sticky top-[100px] z-20 flex flex-wrap items-center justify-between gap-3 py-3 backdrop-blur">
         <h1 className="text-2xl font-bold text-white">에너지 설정</h1>
-        <div className="flex items-center gap-2">
-        <Button variant="secondary" onClick={() => setHistoryOpen(true)}>
-          <History size={14} className="mr-1" /> 변경 이력
-        </Button>
         <Button onClick={() => setSaveAsk(true)} disabled={!anyDirty || pending || energyLoading || kepcoLoading}>
           {pending ? <Loader2 size={14} className="mr-1 animate-spin" /> : anyDirty ? <Save size={14} className="mr-1" /> : <Check size={14} className="mr-1" />}
           {pending ? '저장 중…' : anyDirty ? '저장' : '저장됨'}
         </Button>
-        </div>
       </div>
 
-      {/* 변경 이력 — 저장할 때 바뀐 값만 쌓인다. 보기만 */}
-      <Modal open={historyOpen} onClose={() => setHistoryOpen(false)} title="변경 이력" size="xl">
-        <div className="max-h-[60vh] overflow-auto">
-          <table className={cn(TABLE, 'tabular-nums')}>
-            <thead>
-              <tr className={TABLE_HEAD_ROW}>
-                <th className={cn(TABLE_TH, 'whitespace-nowrap')}>일시</th>
-                <th className={TABLE_TH}>항목</th>
-                <th className={TABLE_TH}>이전</th>
-                <th className={TABLE_TH}>변경</th>
-                <th className={TABLE_TH}>출처</th>
-                <th className={cn(TABLE_TH, 'whitespace-nowrap')}>변경한 사람</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((h, i) => (
-                <tr key={`${h.at}-${i}`} className={TABLE_ROW}>
-                  <td className={cn(TABLE_TD, 'whitespace-nowrap')}>{h.at}</td>
-                  <td className={cn(TABLE_TD, 'text-white')}>{h.item}</td>
-                  <td className={TABLE_TD}>{h.before}</td>
-                  <td className={cn(TABLE_TD, 'text-white')}>{h.after}</td>
-                  <td className={TABLE_TD}>{h.source}</td>
-                  <td className={cn(TABLE_TD, 'whitespace-nowrap')}>{h.by}</td>
-                </tr>
-              ))}
-              {history.length === 0 && (
-                <tr>
-                  <td colSpan={6} className={cn(TABLE_TD, 'py-10 text-center text-slate-500')}>
-                    변경 이력 없음
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Modal>
+      {/* [출처] 팝업 — 계수 하나. 위: 현재 출처(고치면 맨 위 [저장]으로 함께 저장), 아래: 그 계수의 변경 이력(최신이 위) */}
+      {(() => {
+        if (!sourceOf) return null;
+        const isFactor = sourceOf.key.startsWith('factor:');
+        const fi = isFactor ? factors.findIndex((r) => `factor:${r.id}` === sourceOf.key) : -1;
+        const src = isFactor ? (factors[fi]?.basis ?? '') : (base[srcKey(sourceOf.key)] ?? '');
+        const rows = history.filter((h) => h.key === sourceOf.key);
+        return (
+          <Modal open onClose={() => setSourceOf(null)} title={`출처 · ${sourceOf.label}`} size="lg">
+            <label className="block">
+              <span className="mb-1.5 block text-sm text-slate-300">현재 출처</span>
+              <input
+                aria-label="현재 출처"
+                maxLength={120}
+                value={src}
+                onChange={(e) => (isFactor ? fi >= 0 && editFactor(fi, { basis: e.target.value }) : editBase(srcKey(sourceOf.key), e.target.value))}
+                className={`${FIELD} text-left`}
+              />
+            </label>
+            <p className="mb-2 mt-5 text-sm font-medium text-white">변경 이력</p>
+            <div className="max-h-[50vh] overflow-auto">
+              <table className={cn(TABLE, 'tabular-nums')}>
+                <thead>
+                  <tr className={TABLE_HEAD_ROW}>
+                    <th className={cn(TABLE_TH, 'whitespace-nowrap')}>일시</th>
+                    <th className={TABLE_TH}>이전</th>
+                    <th className={TABLE_TH}>변경</th>
+                    <th className={TABLE_TH}>출처</th>
+                    <th className={cn(TABLE_TH, 'whitespace-nowrap')}>변경한 사람</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((h, i) => (
+                    <tr key={`${h.at}-${i}`} className={TABLE_ROW}>
+                      <td className={cn(TABLE_TD, 'whitespace-nowrap')}>{h.at}</td>
+                      <td className={TABLE_TD}>{h.before}</td>
+                      <td className={cn(TABLE_TD, 'text-white')}>{h.after}</td>
+                      <td className={TABLE_TD}>{h.source}</td>
+                      <td className={cn(TABLE_TD, 'whitespace-nowrap')}>{h.by}</td>
+                    </tr>
+                  ))}
+                  {rows.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className={cn(TABLE_TD, 'py-8 text-center text-slate-500')}>
+                        변경 이력 없음
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Modal>
+        );
+      })()}
 
       {BASE_CARDS.map((c) => (
         <SectionCard key={c.card} title={c.title}>
           <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
             {BASE_FIELDS.filter((f) => f.card === c.card).map((f) => (
               <label key={f.key} className="block">
-                <span className="mb-1.5 block text-sm text-slate-300">{f.label}</span>
+                <span className="mb-1.5 flex items-center justify-between gap-2 text-sm text-slate-300">
+                  {f.label}
+                  <SourceButton onClick={() => setSourceOf({ key: f.key, label: f.label })} />
+                </span>
                 {/* 단위는 값 옆 따로 — 단위가 길어도(TOE/MWh) 숫자와 겹치지 않게 */}
                 <div className="flex h-9 items-center rounded-md bg-white/[0.04] px-2.5 ring-1 ring-white/[0.08] focus-within:ring-primary/60">
                   <input
@@ -409,14 +444,6 @@ export default function EnergySettingsPage() {
                   />
                   <span className="ml-2 shrink-0 text-xs text-slate-500">{f.unit}</span>
                 </div>
-                <input
-                  aria-label={`${f.label} 출처`}
-                  maxLength={120}
-                  placeholder="출처"
-                  value={base[srcKey(f.key)] ?? ''}
-                  onChange={(e) => editBase(srcKey(f.key), e.target.value)}
-                  className={`${FIELD} mt-1.5 text-left text-xs text-slate-300`}
-                />
               </label>
             ))}
           </div>
@@ -453,7 +480,7 @@ export default function EnergySettingsPage() {
         noPadding
       >
         <div className="overflow-x-auto">
-          <table className={cn(TABLE, 'min-w-[1240px] tabular-nums')}>
+          <table className={cn(TABLE, 'min-w-[1080px] tabular-nums')}>
             <thead>
               <tr className={TABLE_HEAD_ROW}>
                 <th className={cn(TABLE_TH, 'px-3')}>Scope</th>
@@ -464,7 +491,7 @@ export default function EnergySettingsPage() {
                 <th className={cn(TABLE_TH, 'px-3')}>CO₂</th>
                 <th className={cn(TABLE_TH, 'px-3')}>CH₄</th>
                 <th className={cn(TABLE_TH, 'px-3')}>N₂O</th>
-                <th className={cn(TABLE_TH, 'px-3')}>출처</th>
+                <th className={cn(TABLE_TH, 'px-3')} />
                 <th className={cn(TABLE_TH, 'px-3')} />
               </tr>
             </thead>
@@ -507,8 +534,8 @@ export default function EnergySettingsPage() {
                       </div>
                     </td>
                   ))}
-                  <td className={cn(TABLE_TD, 'w-[220px] px-3')}>
-                    <input aria-label="출처" maxLength={120} value={r.basis} onChange={(e) => editFactor(i, { basis: e.target.value })} className={`${FIELD} text-left`} />
+                  <td className={cn(TABLE_TD, 'w-[72px] px-3')}>
+                    <SourceButton onClick={() => setSourceOf({ key: `factor:${r.id}`, label: `Scope ${r.scope} ${r.category} ${r.fuel}` })} />
                   </td>
                   <td className={cn(TABLE_TD, 'w-[48px] px-3')}>
                     <button
