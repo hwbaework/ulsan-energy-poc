@@ -81,6 +81,17 @@ function useFactorSave() {
   const addToast = useToastStore((s) => s.add);
   const history = parseHistory(energy?.[HISTORY_KEY]);
   const commit = async (patch: Record<string, string>, row: Omit<HistoryRow, 'at' | 'by'>) => {
+    // 삭제 — 계수가 없어지면 그 계수 이력도 함께 지운다(남겨 둘 곳이 없다)
+    if (row.after === '삭제') {
+      try {
+        await save.mutateAsync({ ...patch, [HISTORY_KEY]: JSON.stringify(history.filter((h) => h.key !== row.key)) });
+        addToast('success', `${row.item} 삭제했습니다`);
+        return true;
+      } catch {
+        addToast('error', '삭제에 실패했습니다');
+        return false;
+      }
+    }
     try {
       await save.mutateAsync({
         ...patch,
@@ -172,7 +183,7 @@ export function BaseFactorCards() {
   const open = (f: BaseField) => {
     setEdit(f);
     setVal(valueOf(f));
-    setSrc('');
+    setSrc(sourceOf(f));
   };
   const n = Number(val);
   const valid = edit != null && val.trim() !== '' && Number.isFinite(n) && n >= edit.lim[0] && n <= edit.lim[1];
@@ -229,9 +240,6 @@ export function BaseFactorCards() {
           }
         >
           <div className="space-y-4">
-            <p className="text-sm text-slate-300">
-              지금 값 <b className="tabular-nums text-white">{`${valueOf(edit)} ${edit.unit}`}</b> · 지금 출처 {sourceOf(edit)}
-            </p>
             <label className="block">
               <span className="mb-1.5 block text-sm text-slate-300">{`새 값 (${edit.lim[0]} ~ ${edit.lim[1].toLocaleString()} ${edit.unit})`}</span>
               <input aria-label="새 값" inputMode="decimal" maxLength={10} value={val} onChange={(e) => setVal(numOnly(e.target.value, edit.minus))} className={`${FIELD} text-right`} />
@@ -347,7 +355,7 @@ export function GhgFactorSettings() {
                   </td>
                 ))}
                 <td className={cn(TABLE_TD, 'w-[96px] whitespace-nowrap px-3 text-right')}>
-                  <Button size="sm" variant="secondary" className="whitespace-nowrap" onClick={() => (setSrc(''), setEdit(toDraft(f)))}>
+                  <Button size="sm" variant="secondary" className="whitespace-nowrap" onClick={() => (setSrc(f.basis), setEdit(toDraft(f)))}>
                     <Pencil size={13} className="mr-1" /> 변경
                   </Button>
                 </td>
@@ -399,7 +407,6 @@ export function GhgFactorSettings() {
           }
         >
           <div className="space-y-4">
-            {before && <p className="text-sm text-slate-300">지금 출처 {before.basis}</p>}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <label className="block">
                 <span className="mb-1.5 block text-sm text-slate-300">Scope</span>
@@ -451,7 +458,7 @@ export function GhgFactorSettings() {
             );
           }}
           title="계수 삭제"
-          message={nameOf(before ?? edit)}
+          message={`${nameOf(before ?? edit)} — 이 계수의 변경 이력도 함께 지워집니다`}
           confirmLabel="삭제"
           variant="danger"
         />
