@@ -98,25 +98,27 @@ export function generateBillingInvoiceHtml(d: BillingInvoiceData): string {
 <title>청구서</title>
 <style>
   @page { size: A4; margin: 0; }
+  @media print { html, body { background: #fff; } }
   * { box-sizing: border-box; }
-  html, body { margin: 0; background: #e5e7eb; font-family: 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif; color: #111; }
+  @font-face { font-family: 'DocFont'; src: url('/fonts/NotoSansKR-Regular.ttf') format('truetype'); }
+  html, body { margin: 0; background: #e5e7eb; font-family: 'DocFont', 'Noto Sans KR', 'Malgun Gothic', sans-serif; color: #000; }
   .a4 { width: 210mm; min-height: 297mm; margin: 0 auto; background: #fff; padding: 18mm 16mm; }
   h1 { margin: 0 0 8mm; text-align: center; font-size: 26px; letter-spacing: 18px; font-weight: 700; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  td, th { border: 1px solid #333; padding: 6px 8px; height: 8mm; }
-  th { background: #f1f3f5; font-weight: 600; }
-  .lbl { background: #f1f3f5; text-align: center; width: 22mm; font-weight: 600; }
+  td, th { border: 1px solid #000; padding: 6px 8px; height: 8mm; }
+  th { font-weight: 700; }
+  .lbl { text-align: center; width: 22mm; font-weight: 700; }
   .c { text-align: center; }
   .r { text-align: right; font-variant-numeric: tabular-nums; }
   .head > tbody > tr > td { border: none; padding: 0; height: auto; vertical-align: top; }
   .head td td { height: 7mm; padding: 3px 6px; }
   .to { font-size: 18px; font-weight: 700; padding-top: 18mm !important; }
   .to small { font-size: 13px; font-weight: 400; margin-left: 6px; }
-  .date { font-size: 12px; color: #444; }
+  .date { font-size: 12px; }
   .claim td { font-size: 15px; font-weight: 700; height: 12mm; }
   .blank td { height: 7mm; }
   .sum td { font-weight: 600; }
-  .total td { font-weight: 700; background: #f8f9fa; }
+  .total td { font-weight: 700; }
   .foot { margin-top: 8mm; font-size: 12px; line-height: 1.8; }
   .foot b { display: inline-block; width: 22mm; }
 </style>

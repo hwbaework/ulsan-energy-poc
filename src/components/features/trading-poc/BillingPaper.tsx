@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
-import { Download, FileText, Upload } from 'lucide-react';
+import { FileText, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useCompany } from '@/hooks/platform/useCompanies';
-import { exportBillingInvoicePdf, generateBillingInvoiceHtml, type BillingInvoiceData } from '@/lib/utils';
+import { generateBillingInvoiceHtml, type BillingInvoiceData } from '@/lib/utils';
+import { printGhgStatement as printDoc } from '@/lib/utils/ghgStatementForm';
 import { CO, billOf, invoiceKey, settlementsOf, useTradingPocStore, writtenDateOf } from '@/stores/useTradingPocStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { periodOf } from './DocumentSheet';
@@ -12,6 +13,8 @@ import { useTradingRole } from './useTradingRole';
 import type { Contract } from '@/types/trading-poc';
 
 const PAPER = { height: '80vh', minHeight: 640, border: 'none' } as const;
+/** 올린 PDF 를 다른 문서 미리보기처럼 — 도구 막대 없이 너비에 맞춰(가로 스크롤 없게) */
+const fitPdf = (url: string) => `${url}#toolbar=0&navpanes=0&view=FitH`;
 
 /**
  * 세금계산서 원본 — 플랫폼이 만들어 주지 않는다. 전자세금계산서 업체(ASP)에서 발행해 내려받은 PDF 를
@@ -38,7 +41,7 @@ export function useTaxOriginal(contractId: number, period: string) {
         by: role.companyName,
         at: new Date().toLocaleString('sv-SE').slice(0, 16),
       });
-      addToast('success', `${period} 세금계산서 원본을 올렸습니다`);
+      addToast('success', `${period} 세금계산서 PDF 를 올렸습니다`);
     };
     r.readAsDataURL(f);
   };
@@ -88,17 +91,17 @@ function TaxOriginalPaper({ contract: c, period }: { contract: Contract; period:
     <div className="min-w-0 overflow-hidden rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] md:sticky md:top-4">
       <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-3">
         <div className="min-w-0">
-          <p className="text-xs text-slate-400">원본</p>
+          <p className="text-xs text-slate-400">미리보기</p>
           <p className="truncate text-sm font-semibold text-white">
             {period} 세금계산서 · {c.consumerCompanyName}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {canUpload && original && <UploadButton onFile={upload} label="원본 바꾸기" />}
+          {canUpload && original && <UploadButton onFile={upload} label="PDF 바꾸기" />}
           {original && (
             <a href={original.url} download={original.name}>
               <Button size="sm" variant="secondary">
-                <Download size={14} className="mr-1" /> 원본
+                <FileText size={14} className="mr-1" /> PDF
               </Button>
             </a>
           )}
@@ -107,15 +110,15 @@ function TaxOriginalPaper({ contract: c, period }: { contract: Contract; period:
       {original ? (
         <>
           <p className="border-b border-white/[0.06] px-5 py-2 text-xs text-slate-400">
-            {original.name} · {original.by} · {original.at}
+            {original.name}
           </p>
-          <iframe src={original.url} title={original.name} className="w-full bg-white" style={PAPER} />
+          <iframe src={fitPdf(original.url)} title={original.name} className="w-full bg-white" style={PAPER} />
         </>
       ) : (
         <div className="flex flex-col items-center justify-center gap-4 px-6 py-24 text-center">
           <FileText size={32} className="text-slate-600" />
-          <p className="text-sm text-slate-400">원본 미등록</p>
-          {canUpload && <UploadButton onFile={upload} label="원본 올리기" size="md" />}
+          <p className="text-sm text-slate-400">PDF 미등록</p>
+          {canUpload && <UploadButton onFile={upload} label="PDF 올리기" size="md" />}
         </div>
       )}
     </div>
@@ -203,7 +206,8 @@ function InvoicePaper({ contract: c, period, autoPdf }: { contract: Contract; pe
   }, [s, spc, buyer, c, period]);
 
   const onPdf = () => {
-    if (doc) void exportBillingInvoicePdf(doc.title, doc.inv);
+    // 인쇄 창 파일 이름 = 청구서_기간_기업
+    if (doc) printDoc(generateBillingInvoiceHtml(doc.inv).replace('<title>청구서</title>', `<title>${doc.title}</title>`));
   };
   const done = useRef(false);
   useEffect(() => {

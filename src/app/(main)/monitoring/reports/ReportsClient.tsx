@@ -1,23 +1,24 @@
 'use client';
 
 /**
- * 보고서 2단계 — 선택한 발전소(또는 전체)의 월별 보고서 문서 목록 + 문서 본문 + PDF/Excel.
+ * 보고서 2단계 — 선택한 발전소(또는 전체)의 월별 보고서 문서 목록 + 문서 본문 + PDF(미리보기와 같은 문서).
  * 1단계(발전소 목록)는 reports/page.tsx. 근거: 3차년도 사업계획서 p.42 정기보고, p.139, WBS 1.5.1
  * - 종류 2가지: 발전 실적 · 이상감지. 매월 1건씩 자동 생성
  * - 외부 제출 양식은 없다(내부 보고·검증용)
  */
 import { BackButton } from '@/components/layout/PageTitle';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useQueries } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { SectionCard } from '@/components/features';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { CONTRACT_KIND, isAnomaly, sourceOf } from '@/lib/design';
 import { cn } from '@/lib/utils';
-import { exportExcel, exportPdf, generateReportHtml, type ReportPreviewDoc, type ReportPreviewSection } from '@/lib/utils';
+import { generateReportHtml, type ReportPreviewDoc, type ReportPreviewSection } from '@/lib/utils';
+import { printGhgStatement as printDoc } from '@/lib/utils/ghgStatementForm';
 import * as monitoringApi from '@/api/monitoring/monitoring';
 import type { PlantHistoryPoint } from '@/api/monitoring/monitoring';
 import { monitoringKeys } from '@/api/queryKeys';
@@ -222,46 +223,7 @@ export default function ReportsClient() {
   const warningTotal = anomalies.filter((a) => a.severity === 'warning').length;
   const commErrorTotal = anomalies.filter((a) => a.status === 'COMM_ERROR').length;
 
-  /* 내보내기 — 선택 문서의 발전소별 표 */
-  const exportData = (doc: ReportDoc) => {
-    if (doc.kind === 'generation') {
-      return {
-        file: `${doc.title}${titleSuffix}`,
-        sheet: KIND_LABEL.generation,
-        headers: ['발전소', '발전원', '계약 유형', '설비 용량 kW', '발전량 kWh', '발전시간 h', '이상 건수'],
-        rows: generationRows.map((r) => [
-          r.plant.displayName,
-          sourceOf(r.plant.type).label,
-          r.plant.contractKind ? CONTRACT_KIND[r.plant.contractKind].label : '-',
-          r.plant.capacity,
-          r.energy,
-          r.hours,
-          r.anomalies,
-        ]),
-      };
-    }
-    // 이상감지 보고서는 요약만 — 건수 집계
-    return {
-      file: `${doc.title}${titleSuffix}`,
-      sheet: KIND_LABEL.anomaly,
-      headers: ['항목', '건수'],
-      rows: [
-        ['이상', anomalies.length],
-        ['경고', warningTotal],
-        ['주의', anomalies.filter((a) => a.severity === 'caution').length],
-        ['통신오류', commErrorTotal],
-      ],
-    };
-  };
-  const onPdf = (doc: ReportDoc) => {
-    const d = exportData(doc);
-    void exportPdf(d.file, `${doc.title}${titleSuffix}`, d.headers, d.rows);
-  };
-  const onExcel = (doc: ReportDoc) => {
-    const d = exportData(doc);
-    void exportExcel(d.file, d.sheet, d.headers, d.rows);
-  };
-  /* 미리보기에 그릴 문서 — PDF·Excel 로 받는 내용과 같은 구성 */
+  /* 미리보기에 그릴 문서 — PDF 도 이 문서 그대로 */
   const previewDoc = useMemo<ReportPreviewDoc | null>(() => {
     if (!selected) return null;
     const cap = capacityTotal >= 1000 ? `${(capacityTotal / 1000).toFixed(2)} MW` : `${capacityTotal.toLocaleString()} kW`;
@@ -279,7 +241,7 @@ export default function ReportsClient() {
     if (selected.kind === 'anomaly') {
       return {
         title,
-        kindLabel: '통합관제 · 이상감지 보고서',
+        kindLabel: '이상감지 보고서',
         meta,
         sections: [
           {
@@ -342,12 +304,22 @@ export default function ReportsClient() {
 
     return {
       title,
-      kindLabel: '통합관제 · 월간 보고서',
+      kindLabel: '발전 실적 월간 보고서',
       meta,
       sections,
       note: '통합관제에서 수집한 발전 이력을 월 단위로 집계한 보고서입니다. 월 마감 후 자동 생성됩니다.',
     };
   }, [selected, capacityTotal, scopeLabel, titleSuffix, anomalies, warningTotal, commErrorTotal, genTotal, hoursTotal, plants, generationRows, dailyRows]);
+
+  // PDF — 줄의 PDF 는 그 문서를 고른 뒤(미리보기 값이 그 문서로 바뀐 뒤) 인쇄 창을 연다
+  const [printId, setPrintId] = useState<string | null>(null);
+  const onPdf = (doc: ReportDoc) => (setSelectedId(doc.id), setPrintId(doc.id));
+  useEffect(() => {
+    if (printId && selected?.id === printId && previewDoc) {
+      printDoc(generateReportHtml(previewDoc));
+      setPrintId(null);
+    }
+  }, [printId, selected, previewDoc]);
 
   const th = 'px-4 py-2.5 text-left text-xs font-medium text-slate-400';
   const td = 'px-4 py-3 text-sm';
@@ -414,7 +386,7 @@ export default function ReportsClient() {
                   <th className={th}>문서</th>
                   <th className={th}>종류</th>
                   <th className={th}>생성일</th>
-                  <th className={th}>PDF · Excel</th>
+                  <th className={th}>PDF</th>
                 </tr>
               </thead>
               <tbody>
@@ -430,11 +402,8 @@ export default function ReportsClient() {
                     </td>
                     <td className={cn(td, 'text-slate-400 tabular-nums whitespace-nowrap')}>{d.createdAt}</td>
                     <td className={cn(td, 'whitespace-nowrap')}>
-                      <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedId(d.id); onPdf(d); }} className="rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-white" title="PDF">
+                      <button type="button" onClick={(e) => { e.stopPropagation(); onPdf(d); }} className="rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-white" title="PDF">
                         <FileText size={15} />
-                      </button>
-                      <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedId(d.id); onExcel(d); }} className="rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-white" title="Excel">
-                        <Download size={15} />
                       </button>
                     </td>
                   </tr>
@@ -460,9 +429,6 @@ export default function ReportsClient() {
               <div className="flex shrink-0 gap-2">
                 <Button size="sm" variant="secondary" onClick={() => onPdf(selected)}>
                   <FileText size={14} className="mr-1" /> PDF
-                </Button>
-                <Button size="sm" variant="secondary" onClick={() => onExcel(selected)}>
-                  <Download size={14} className="mr-1" /> Excel
                 </Button>
               </div>
             </div>

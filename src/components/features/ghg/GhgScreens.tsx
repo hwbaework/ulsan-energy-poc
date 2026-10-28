@@ -949,7 +949,7 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
     const name = doc.name;
     return {
       title: `${doc.title} · ${name}`,
-      kindLabel: `온실가스 인벤토리 · ${isYear ? '연간' : '월간'} 보고서`,
+      kindLabel: `온실가스 감축 실적 ${isYear ? '연간' : '월간'} 보고서`,
       meta: [
         ['기간', doc.label],
         ['대상', `${name} · 설비 ${fmt(f.kw, 2)} kW`],

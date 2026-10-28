@@ -54,17 +54,18 @@ export function generateGhgStatementHtml(d: GhgFormData): string {
   return `<!doctype html><html><head><meta charset="utf-8"><title>온실가스 감축 실적 명세서</title>
 <style>
   * { box-sizing: border-box; }
-  body { margin: 0; background: #e5e7eb; font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif; color: #111; }
+  @font-face { font-family: 'DocFont'; src: url('/fonts/NotoSansKR-Regular.ttf') format('truetype'); }
+  body { margin: 0; background: #e5e7eb; font-family: 'DocFont', 'Noto Sans KR', 'Malgun Gothic', sans-serif; color: #000; }
   .a4 { width: 210mm; min-height: 297mm; margin: 12px auto; padding: 18mm 16mm; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
   h1 { margin: 0 0 12mm; text-align: center; font-size: 22px; letter-spacing: 2px; }
   h2 { margin: 0 0 6px; font-size: 13px; }
   table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11.5px; margin-bottom: 8mm; }
-  th, td { border: 1px solid #555; padding: 7px 6px; text-align: center; vertical-align: middle; word-break: keep-all; overflow-wrap: anywhere; }
-  th { background: #f1f3f5; font-weight: 600; }
+  th, td { border: 1px solid #000; padding: 7px 6px; text-align: center; vertical-align: middle; word-break: keep-all; overflow-wrap: anywhere; }
+  th { font-weight: 700; }
   td.l { text-align: left; }
   td.r { text-align: right; font-variant-numeric: tabular-nums; }
   td.b { font-weight: 700; }
-  .basis { font-size: 11px; line-height: 1.8; color: #333; }
+  .basis { font-size: 11px; line-height: 1.8; }
   .sign { margin-top: 14mm; text-align: right; font-size: 12px; }
   @page { size: A4 portrait; margin: 0; }
   @media print { body { background: #fff; } .a4 { margin: 0; box-shadow: none; } }
@@ -116,11 +117,23 @@ export function fitA4(html: string) {
   );
 }
 
-/** PDF — 인쇄 창을 연다(PDF로 저장) */
+/** PDF — 미리보기와 같은 문서로 인쇄 창을 연다(PDF로 저장). 명세서 · 보고서 · 청구서 공용 */
 export function printGhgStatement(html: string) {
-  const w = window.open('', '_blank');
-  if (!w) return;
-  w.document.write(html);
-  w.document.close();
-  setTimeout(() => w.print(), 600);
+  const f = document.createElement('iframe');
+  f.setAttribute('aria-hidden', 'true');
+  f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+  f.srcdoc = html;
+  f.onload = () => {
+    const w = f.contentWindow;
+    if (!w) return;
+    const go = () =>
+      setTimeout(() => {
+        w.addEventListener('afterprint', () => f.remove());
+        w.focus();
+        w.print();
+      }, 100);
+    if (w.document.fonts?.ready) void w.document.fonts.ready.then(go);
+    else setTimeout(go, 600);
+  };
+  document.body.appendChild(f);
 }

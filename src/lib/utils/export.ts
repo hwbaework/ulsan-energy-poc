@@ -564,7 +564,7 @@ export interface ReportPreviewSection {
 
 export interface ReportPreviewDoc {
   title: string;
-  kindLabel: string; // 통합관제 · 월간 보고서
+  kindLabel: string; // 문서 제목(가운데) — 발전 실적 월간 보고서
   meta: [string, string][]; // 기간 · 대상 · 생성일
   sections: ReportPreviewSection[];
   note: string;
@@ -575,10 +575,12 @@ export function generateReportHtml(doc: ReportPreviewDoc): string {
   const esc = (v: string | number | undefined) =>
     String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-  const metaRows = doc.meta
-    .map(
-      ([label, value]) =>
-        `<div class="meta-row"><span class="meta-label">${esc(label)}</span><span class="meta-value">${esc(value)}</span></div>`,
+  // 머리 정보 — 표 한 줄에 두 칸씩(라벨 | 값 | 라벨 | 값), 홀수면 마지막 값이 줄 끝까지
+  const metaRows = Array.from({ length: Math.ceil(doc.meta.length / 2) }, (_, i) => doc.meta.slice(i * 2, i * 2 + 2))
+    .map(([a, b]) =>
+      b
+        ? `<tr><th>${esc(a![0])}</th><td>${esc(a![1])}</td><th>${esc(b[0])}</th><td>${esc(b[1])}</td></tr>`
+        : `<tr><th>${esc(a![0])}</th><td colspan="3">${esc(a![1])}</td></tr>`,
     )
     .join('');
 
@@ -613,34 +615,32 @@ export function generateReportHtml(doc: ReportPreviewDoc): string {
 <title>${esc(doc.title)}</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { background: #eceff3; color: #1a1a1a; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; }
-  .paper { background: #fff; margin: 14px; padding: 26px 26px 30px; box-shadow: 0 2px 10px rgba(0,0,0,.15); }
-  .kind { font-size: 11px; color: #888; margin-bottom: 4px; }
-  h1 { font-size: 16px; font-weight: 800; letter-spacing: -0.3px; margin-bottom: 12px; }
-  .meta { border-top: 1px solid #ddd; border-bottom: 1px solid #ddd; padding: 9px 0; margin-bottom: 18px; }
-  .meta-row { display: flex; gap: 12px; font-size: 12px; line-height: 1.9; }
-  .meta-label { color: #888; min-width: 50px; flex-shrink: 0; }
-  .meta-value { font-weight: 600; }
-  section { margin-bottom: 18px; }
-  h2 { font-size: 12.5px; font-weight: 700; margin-bottom: 7px; }
-  table.doc { width: 100%; border-collapse: collapse; font-size: 11.5px; }
-  table.doc th, table.doc td { border: 1px solid #ccd2d8; padding: 5px 8px; }
-  table.doc thead tr { background: #dce4ec; }
+  @font-face { font-family: 'DocFont'; src: url('/fonts/NotoSansKR-Regular.ttf') format('truetype'); }
+  html, body { background: #eceff3; color: #000; font-family: 'DocFont', 'Noto Sans KR', 'Malgun Gothic', sans-serif; }
+  .paper { width: 210mm; min-height: 297mm; background: #fff; margin: 12px auto; padding: 18mm 16mm; box-shadow: 0 2px 10px rgba(0,0,0,.15); }
+  h1 { font-size: 20px; font-weight: 800; text-align: center; letter-spacing: 1px; margin-bottom: 10mm; }
+  section { margin-bottom: 8mm; }
+  h2 { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+  table.doc { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11.5px; }
+  table.doc th, table.doc td { border: 1px solid #000; padding: 7px 8px; word-break: keep-all; overflow-wrap: anywhere; }
   table.doc th { font-weight: 700; }
   table.doc .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   table.doc .tl { text-align: left; }
-  table.doc.list th.lbl { background: #f2f5f8; color: #555; font-weight: 600; text-align: left; width: 45%; }
-  table.doc tr.total-row td { background: #edf1f5; font-weight: 800; }
-  p.empty { font-size: 12px; color: #999; padding: 14px 0; text-align: center; border: 1px dashed #ddd; }
-  .note { border-top: 1px solid #ddd; padding-top: 10px; font-size: 11px; color: #777; line-height: 1.6; }
-  @media print { html, body { background: #fff; } .paper { margin: 0; box-shadow: none; padding: 0; } @page { size: A4 portrait; margin: 16mm; } }
+  table.doc.meta th { width: 18%; text-align: center; }
+  table.doc.meta td { width: 32%; text-align: left; }
+  table.doc.list th.lbl { text-align: center; width: 30%; }
+  table.doc tr.total-row td { font-weight: 800; }
+  p.empty { font-size: 12px; padding: 14px 0; text-align: center; border: 1px solid #000; }
+  .note { font-size: 11px; line-height: 1.8; }
+  @page { size: A4 portrait; margin: 0; }
+  @media print { html, body { background: #fff; } .paper { margin: 0; box-shadow: none; } }
 </style>
+<script>/* A4 한 장을 창 너비에 맞춰 줄인다(미리보기 · 새 창 모두) */function fit(){var a=document.querySelector('.paper');if(!a||window.innerWidth<100)return;document.body.style.zoom=1;var z=Math.min(1,(window.innerWidth-24)/a.offsetWidth);document.body.style.zoom=z}addEventListener('load',fit);addEventListener('resize',fit);addEventListener('beforeprint',function(){document.body.style.zoom=1});addEventListener('afterprint',fit)</script>
 </head>
 <body>
 <div class="paper">
-  <p class="kind">${esc(doc.kindLabel)}</p>
-  <h1>${esc(doc.title)}</h1>
-  <div class="meta">${metaRows}</div>
+  <h1>${esc(doc.kindLabel)}</h1>
+  <section><table class="doc meta"><tbody>${metaRows}</tbody></table></section>
   ${sections}
   <p class="note">${esc(doc.note)}</p>
 </div>

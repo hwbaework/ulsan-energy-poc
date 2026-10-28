@@ -252,7 +252,7 @@ function InvoiceEditor({ b }: { b: Bill }) {
   );
 }
 
-/** 원본 칸 — 올렸으면 등록, 아니면 기업 계정은 [올리기] · 관리자는 미등록 */
+/** PDF 칸 — 올렸으면 등록, 아니면 기업 계정은 [올리기] · 관리자는 미등록 */
 function OriginalCell({ s }: { s: Bill }) {
   const { original, upload, canUpload } = useTaxOriginal(s.contractId, s.period);
   if (original) return <StatusPill tone="normal" label="등록" />;
@@ -331,7 +331,7 @@ function BillingScreen({ kind }: { kind: Kind }) {
   // 세금계산서 원본 — 전자세금계산서 업체에서 발행한 파일을 올렸는지. 기업은 여기서 바로 올린다
   const originalCol: Column<Bill> = {
     key: 'original',
-    header: '원본',
+    header: 'PDF',
     width: '110px',
     render: (s) => <OriginalCell s={s} />,
   };
