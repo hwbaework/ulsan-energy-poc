@@ -116,7 +116,6 @@ function HistoryTable({ rows }: { rows: HistoryRow[] }) {
         <thead>
           <tr className={TABLE_HEAD_ROW}>
             <th className={cn(TABLE_TH, 'whitespace-nowrap')}>월</th>
-            <th className={TABLE_TH}>이전</th>
             <th className={TABLE_TH}>변경</th>
             <th className={TABLE_TH}>출처</th>
             <th className={cn(TABLE_TH, 'whitespace-nowrap')}>변경한 사람</th>
@@ -126,7 +125,6 @@ function HistoryTable({ rows }: { rows: HistoryRow[] }) {
           {shown.map((h, i) => (
             <tr key={`${h.at}-${page}-${i}`} className={TABLE_ROW}>
               <td className={cn(TABLE_TD, 'whitespace-nowrap')}>{h.at.slice(0, 7)}</td>
-              <td className={TABLE_TD}>{h.before}</td>
               <td className={cn(TABLE_TD, 'text-white')}>{h.after}</td>
               <td className={TABLE_TD}>{h.source}</td>
               <td className={cn(TABLE_TD, 'whitespace-nowrap')}>{h.by}</td>
@@ -134,7 +132,7 @@ function HistoryTable({ rows }: { rows: HistoryRow[] }) {
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={5} className={cn(TABLE_TD, 'py-8 text-center text-slate-500')}>
+              <td colSpan={4} className={cn(TABLE_TD, 'py-8 text-center text-slate-500')}>
                 변경 이력 없음
               </td>
             </tr>
@@ -374,7 +372,7 @@ export function GhgFactorSettings() {
                   variant="danger"
                   size="sm"
                   className="mr-auto"
-                  disabled={!src.trim() || pending}
+                  disabled={pending}
                   onClick={() =>
                     void save(
                       factors.filter((f) => f.id !== edit.id),
