@@ -9,6 +9,7 @@ import { SectionCard } from '@/components/features';
 import { TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { Pagination } from '@/components/ui/Pagination';
 import { cn } from '@/lib/utils';
 import { useEnergySettings, useSaveEnergySettings } from '@/hooks/common/useSettings';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -61,7 +62,7 @@ const parseHistory = (raw?: string): HistoryRow[] => {
 const nowText = () => {
   const d = new Date();
   const p2 = (x: number) => String(x).padStart(2, '0');
-  return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+  return `${d.getFullYear()}-${p2(d.getMonth() + 1)}`;
 };
 const FIELD =
   'h-9 w-full rounded-md bg-white/[0.04] ring-1 ring-white/[0.08] px-2.5 text-sm text-white tabular-nums focus:outline-none focus:ring-primary/60';
@@ -94,14 +95,27 @@ function useFactorSave() {
   return { energy, history, commit, pending: save.isPending };
 }
 
+/** 이력 — 그 계수의 기록, 맨 끝(가장 오래된)에 '최초' 한 줄(처음 넣은 값 · 출처) */
+function rowsOf(history: HistoryRow[], key: string, first: Omit<HistoryRow, 'key' | 'at' | 'by' | 'before'>): HistoryRow[] {
+  const own = history.filter((h) => h.key === key);
+  const firstRow: HistoryRow = { key, at: FIRST_MONTH, by: '최초 등록', before: '', ...first };
+  return [...own, firstRow];
+}
+/** 최초 등록 달 — 플랫폼에 계수를 처음 넣은 달(데이터 수집 시작 달) */
+const FIRST_MONTH = '2025-03';
+
 /** 계수 하나의 변경 이력 표 */
+const PAGE = 5;
 function HistoryTable({ rows }: { rows: HistoryRow[] }) {
+  const [page, setPage] = useState(0);
+  const total = Math.max(1, Math.ceil(rows.length / PAGE));
+  const shown = rows.slice(page * PAGE, page * PAGE + PAGE);
   return (
-    <div className="max-h-[40vh] overflow-auto">
+    <div>
       <table className={cn(TABLE, 'tabular-nums')}>
         <thead>
           <tr className={TABLE_HEAD_ROW}>
-            <th className={cn(TABLE_TH, 'whitespace-nowrap')}>일시</th>
+            <th className={cn(TABLE_TH, 'whitespace-nowrap')}>월</th>
             <th className={TABLE_TH}>이전</th>
             <th className={TABLE_TH}>변경</th>
             <th className={TABLE_TH}>출처</th>
@@ -109,9 +123,9 @@ function HistoryTable({ rows }: { rows: HistoryRow[] }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((h, i) => (
-            <tr key={`${h.at}-${i}`} className={TABLE_ROW}>
-              <td className={cn(TABLE_TD, 'whitespace-nowrap')}>{h.at}</td>
+          {shown.map((h, i) => (
+            <tr key={`${h.at}-${page}-${i}`} className={TABLE_ROW}>
+              <td className={cn(TABLE_TD, 'whitespace-nowrap')}>{h.at.slice(0, 7)}</td>
               <td className={TABLE_TD}>{h.before}</td>
               <td className={cn(TABLE_TD, 'text-white')}>{h.after}</td>
               <td className={TABLE_TD}>{h.source}</td>
@@ -127,6 +141,7 @@ function HistoryTable({ rows }: { rows: HistoryRow[] }) {
           )}
         </tbody>
       </table>
+      {rows.length > PAGE && <Pagination page={page} totalPages={total} totalElements={rows.length} onPageChange={setPage} className="mt-3" />}
     </div>
   );
 }
@@ -145,6 +160,15 @@ export function BaseFactorCards() {
   const [val, setVal] = useState('');
   const [src, setSrc] = useState('');
   const valueOf = (f: BaseField) => energy?.[f.key] ?? (f.def != null ? String(f.def) : '');
+  const baseRows = (f: BaseField) => {
+    const own = history.filter((h) => h.key === f.key);
+    const oldest = own[own.length - 1];
+    return rowsOf(history, f.key, {
+      item: f.label,
+      after: oldest ? oldest.before : `${valueOf(f)} ${f.unit}`,
+      source: oldest ? SOURCE_DEFAULT[f.key] ?? '' : (energy?.[srcKey(f.key)] ?? SOURCE_DEFAULT[f.key] ?? ''),
+    });
+  };
   const sourceOf = (f: BaseField) => energy?.[srcKey(f.key)] ?? SOURCE_DEFAULT[f.key] ?? '';
   const open = (f: BaseField) => {
     setEdit(f);
@@ -168,7 +192,7 @@ export function BaseFactorCards() {
                     <span className="text-sm tabular-nums text-white">{valueOf(f)}</span>
                     <span className="ml-2 shrink-0 text-xs text-slate-500">{f.unit}</span>
                   </div>
-                  <Button size="sm" variant="secondary" onClick={() => open(f)}>
+                  <Button size="sm" variant="secondary" className="shrink-0 whitespace-nowrap" onClick={() => open(f)}>
                     <Pencil size={13} className="mr-1" /> 변경
                   </Button>
                 </div>
@@ -215,7 +239,7 @@ export function BaseFactorCards() {
             </label>
             <SourceField value={src} onChange={setSrc} />
             <p className="pt-2 text-sm font-medium text-white">변경 이력</p>
-            <HistoryTable rows={history.filter((h) => h.key === edit.key)} />
+            <HistoryTable rows={baseRows(edit)} />
           </div>
         </Modal>
       )}
@@ -268,6 +292,13 @@ export function GhgFactorSettings() {
     n2o: Number(d.n2o),
   });
   const before = edit && !isNew ? factors.find((f) => f.id === edit.id) : undefined;
+  const factorRows = (id: string) => {
+    const base0 = GHG_FACTORS.find((g) => g.id === id);
+    const own = history.filter((h) => h.key === `factor:${id}`);
+    // 지침 기본값 줄은 최초 = 기본값 · 근거. 직접 추가한 줄은 '추가' 기록이 최초라 따로 붙이지 않는다
+    if (!base0) return own;
+    return rowsOf(history, `factor:${id}`, { item: nameOf(base0), after: summary(toDraft(base0)), source: base0.basis });
+  };
 
   return (
     <SectionCard
@@ -319,8 +350,8 @@ export function GhgFactorSettings() {
                     {f[k].toLocaleString()} <span className="text-xs text-slate-500">{unitOf(f.category, k)}</span>
                   </td>
                 ))}
-                <td className={cn(TABLE_TD, 'w-[88px] px-3')}>
-                  <Button size="sm" variant="secondary" onClick={() => (setSrc(''), setEdit(toDraft(f)))}>
+                <td className={cn(TABLE_TD, 'w-[96px] whitespace-nowrap px-3 text-right')}>
+                  <Button size="sm" variant="secondary" className="whitespace-nowrap" onClick={() => (setSrc(''), setEdit(toDraft(f)))}>
                     <Pencil size={13} className="mr-1" /> 변경
                   </Button>
                 </td>
@@ -410,7 +441,7 @@ export function GhgFactorSettings() {
             {!isNew && (
               <>
                 <p className="pt-2 text-sm font-medium text-white">변경 이력</p>
-                <HistoryTable rows={history.filter((h) => h.key === `factor:${edit.id}`)} />
+                <HistoryTable rows={factorRows(edit.id)} />
               </>
             )}
           </div>
