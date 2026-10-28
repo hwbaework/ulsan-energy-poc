@@ -4,11 +4,12 @@
 // 화면의 값은 보기만. 바꿀 때는 계수마다 [변경] 팝업에서 새 값 + 출처(필수)를 같이 넣고 그 자리에서 저장 → 그 계수 이력에 한 줄.
 // 이력 · 출처는 에너지 설정(ENERGY_HISTORY · `${key}_SOURCE` · 배출원 계수 basis)에 둔다. 계산은 지금 값 하나(연도별 계수 없음).
 import { useState } from 'react';
-import { Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { SectionCard } from '@/components/features';
 import { TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { cn } from '@/lib/utils';
 import { useEnergySettings, useSaveEnergySettings } from '@/hooks/common/useSettings';
@@ -245,7 +246,7 @@ export function BaseFactorCards() {
   );
 }
 
-/** 배출원 계수(Scope 1 · 2, 연료별) — 표는 보기만, 줄마다 [변경] · [계수 추가] · [기본값으로] 모두 출처를 받고 그 자리에서 저장 */
+/** 배출원 계수(Scope 1 · 2, 연료별) — 표는 보기만, 줄마다 [변경] · [계수 추가] 출처를 받고 그 자리에서 저장. 표에 있는 줄이 전부(기본값을 따로 두지 않는다), 삭제는 확인 알림 */
 const GHG_SCOPES = [1, 2, 3];
 const GHG_NUMS = ['ncv', 'co2', 'ch4', 'n2o'] as const;
 const NUM_LABEL: Record<(typeof GHG_NUMS)[number], string> = { ncv: '순발열량', co2: 'CO₂', ch4: 'CH₄', n2o: 'N₂O' };
@@ -258,9 +259,10 @@ const summary = (x: Pick<Draft, (typeof GHG_NUMS)[number]>) => GHG_NUMS.map((k) 
 export function GhgFactorSettings() {
   const factors = useGhgFactorList();
   const { history, commit, pending } = useFactorSave();
-  // 팝업 — edit: 줄 하나(없는 id 면 추가), reset: 기본값으로
+  // 팝업 — edit: 줄 하나(없는 id 면 추가)
   const [edit, setEdit] = useState<Draft | null>(null);
-  const [reset, setReset] = useState(false);
+  // 삭제 확인
+  const [delAsk, setDelAsk] = useState(false);
   const [src, setSrc] = useState('');
   const isNew = edit != null && !factors.some((f) => f.id === edit.id);
   const set = (patch: Partial<Draft>) => setEdit((d) => (d ? { ...d, ...patch } : d));
@@ -275,7 +277,6 @@ export function GhgFactorSettings() {
     const ok = await commit({ [GHG_FACTORS_KEY]: JSON.stringify(next) }, row);
     if (ok) {
       setEdit(null);
-      setReset(false);
     }
   };
   const fromDraft = (d: Draft): GhgFactor => ({
@@ -303,9 +304,6 @@ export function GhgFactorSettings() {
       title="배출원 계수"
       actions={
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="secondary" onClick={() => (setSrc(''), setReset(true))}>
-            <RotateCcw size={14} className="mr-1" /> 기본값으로
-          </Button>
           <Button
             size="sm"
             variant="secondary"
@@ -373,12 +371,7 @@ export function GhgFactorSettings() {
                   size="sm"
                   className="mr-auto"
                   disabled={pending}
-                  onClick={() =>
-                    void save(
-                      factors.filter((f) => f.id !== edit.id),
-                      { key: `factor:${edit.id}`, item: nameOf(before ?? edit), before: summary(toDraft(before ?? fromDraft(edit))), after: '삭제', source: src.trim() },
-                    )
-                  }
+                  onClick={() => setDelAsk(true)}
                 >
                   <Trash2 size={14} className="mr-1" /> 삭제
                 </Button>
@@ -446,35 +439,24 @@ export function GhgFactorSettings() {
         </Modal>
       )}
 
-      {reset && (
-        <Modal
-          open
-          onClose={() => setReset(false)}
-          title="기본값으로"
-          size="md"
-          footer={
-            <>
-              <Button variant="cancel" size="sm" onClick={() => setReset(false)}>
-                취소
-              </Button>
-              <Button
-                size="sm"
-                disabled={!src.trim() || pending}
-                onClick={() =>
-                  void save(GHG_FACTORS, { key: 'factor:*', item: '배출원 계수 전체', before: `${factors.length}종`, after: `기본값 ${GHG_FACTORS.length}종`, source: src.trim() })
-                }
-              >
-                저장
-              </Button>
-            </>
-          }
-        >
-          <div className="space-y-4">
-            <p className="text-sm tabular-nums text-slate-300">{`배출원 계수 ${factors.length}종 → 지침 기본값 ${GHG_FACTORS.length}종`}</p>
-            <SourceField value={src} onChange={setSrc} />
-          </div>
-        </Modal>
+      {edit && !isNew && (
+        <ConfirmDialog
+          open={delAsk}
+          onClose={() => setDelAsk(false)}
+          onConfirm={() => {
+            setDelAsk(false);
+            void save(
+              factors.filter((f) => f.id !== edit.id),
+              { key: `factor:${edit.id}`, item: nameOf(before ?? edit), before: summary(toDraft(before ?? fromDraft(edit))), after: '삭제', source: src.trim() },
+            );
+          }}
+          title="계수 삭제"
+          message={nameOf(before ?? edit)}
+          confirmLabel="삭제"
+          variant="danger"
+        />
       )}
+
     </SectionCard>
   );
 }
