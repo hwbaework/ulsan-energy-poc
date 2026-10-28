@@ -1,22 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, History, Loader2, Plus, RotateCcw, Save, Trash2 } from 'lucide-react';
+import { Check, Loader2, Plus, Save, Trash2 } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
+import { BaseFactorCards, GhgFactorSettings } from '@/components/features/settings/FactorSettings';
 import { SectionCard } from '@/components/features';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { Modal } from '@/components/ui/Modal';
-import { useAuthStore } from '@/stores/useAuthStore';
 import { Select } from '@/components/ui/Select';
 import { cn } from '@/lib/utils';
 import { TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useToastStore } from '@/stores/useToastStore';
 import { useEnergySettings, useHolidays, useKepcoTariff, useSaveEnergySettings, useSaveHolidays, useSaveKepcoTariff } from '@/hooks/common/useSettings';
-import { PINE_PER_TCO2, TOE_PER_MWH } from '@/lib/constants/env-benefit';
-import { GHG_FACTORS, type GhgFactor } from '@/lib/ghg-factors';
-import { GHG_FACTORS_KEY, useGhgFactorList } from '@/lib/ghg-reduction';
 import { holidayMap, opRuleOf, opYear, weekdayOf, type Holiday, type OpRule } from '@/lib/op-calendar';
 
 const WEEK_KO = ['일', '월', '화', '수', '목', '금', '토'];
@@ -29,52 +25,6 @@ import { F1, PLAN_LABEL, TARIFF_LIM, TARIFF_YEAR_LIM, cagrOf, shareOfHours, tabl
 // · 한전 요금표는 연도별(그 해 마지막 고시). 최근 해 = 무료진단 계산, 해마다 평균 전력량요금 → 전년 대비 · 실적 CAGR 자동
 //   계산식은 원본 그대로, 값만 여기서 읽는다
 
-/** 기준값 칸 — 카드 · 키 · 이름 · 단위 · 범위 · 소수 */
-const BASE_FIELDS = [
-  { card: 'co2', key: 'CO2_EMISSION_FACTOR', label: '탄소 배출계수 (전력 1MWh당 tCO₂)', unit: 't/MWh', lim: [0, 2], dec: true },
-  { card: 'adj', key: 'CLIMATE_CHG', label: '기후환경요금', unit: '원/kWh', lim: [0, 100], dec: true },
-  { card: 'adj', key: 'FUEL_ADJ', label: '연료비조정요금', unit: '원/kWh', lim: [-100, 100], dec: true, minus: true },
-  { card: 'co2', key: 'TOE_PER_MWH', label: '화석에너지 대체 (전력 1MWh당 TOE)', unit: 'TOE/MWh', lim: [0, 1], dec: true, def: TOE_PER_MWH },
-  { card: 'co2', key: 'PINE_PER_TCO2', label: '소나무 식재 (tCO₂당 그루 · 20년생)', unit: '그루/t', lim: [0, 1000], dec: true, def: PINE_PER_TCO2 },] as const;
-/** 값마다 출처 — 에너지 설정에 `${key}_SOURCE` 로 저장. 처음엔 지금 값의 근거 */
-const SOURCE_DEFAULT: Record<string, string> = {
-  CO2_EMISSION_FACTOR: '온실가스종합정보센터 국가 전력 배출계수 (2023년 소비단, 2025-12-17 공표)',
-  CLIMATE_CHG: '한국전력공사 전기요금표 기후환경요금',
-  FUEL_ADJ: '한국전력공사 연료비조정단가',
-  TOE_PER_MWH: '에너지법 시행규칙 에너지열량 환산기준 (전기 소비기준 9.6 MJ/kWh)',
-  PINE_PER_TCO2: '국립산림과학원 소나무 1그루 연 6.6 kg CO₂ 흡수',
-};
-const srcKey = (key: string) => `${key}_SOURCE`;
-/** 변경 이력 — 저장할 때 바뀐 값만 한 줄씩. 최신이 위 */
-const HISTORY_KEY = 'ENERGY_HISTORY';
-interface HistoryRow {
-  /** 계수 — 기준값은 키(CO2_EMISSION_FACTOR 등), 배출원 계수는 factor:id */
-  key?: string;
-  at: string;
-  item: string;
-  before: string;
-  after: string;
-  source: string;
-  by: string;
-}
-const parseHistory = (raw?: string): HistoryRow[] => {
-  try {
-    const v = JSON.parse(raw ?? '[]') as unknown;
-    return Array.isArray(v) ? (v as HistoryRow[]) : [];
-  } catch {
-    return [];
-  }
-};
-const nowText = () => {
-  const d = new Date();
-  const p2 = (x: number) => String(x).padStart(2, '0');
-  return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
-};
-
-const BASE_CARDS = [
-  { card: 'co2', title: '탄소 배출계수' },
-  { card: 'adj', title: '한전 요금 가산' },
-] as const;
 const PLANS: Plan[] = ['1', '2'];
 const PARTS = [
   { k: 'light', label: '경부하' },
@@ -110,67 +60,11 @@ const numOnly = (v: string, dot: boolean) => {
   return rest.length ? `${head}.${rest.join('')}` : head;
 };
 
-/** 배출원 계수(Scope 1 · 2) 편집용 — 숫자는 글자로 들고 있다가 저장할 때 바꾼다 */
-/** Scope — 고도화로 늘면 여기만 늘린다 */
-const GHG_SCOPES = [1, 2, 3];
-const GHG_NUMS = ['ncv', 'co2', 'ch4', 'n2o'] as const;
-type FactorDraft = Omit<GhgFactor, (typeof GHG_NUMS)[number]> & Record<(typeof GHG_NUMS)[number], string>;
-const toFactorDraft = (f: GhgFactor): FactorDraft => ({ ...f, ncv: String(f.ncv), co2: String(f.co2), ch4: String(f.ch4), n2o: String(f.n2o) });
-/** 칸 단위 — 전기는 t·kg/MWh, 그 밖은 kg/TJ */
-const ghgUnitOf = (c: string, k: (typeof GHG_NUMS)[number]) =>
-  k === 'ncv' ? 'MJ' : c === '외부 전기' ? (k === 'co2' ? 't/MWh' : 'kg/MWh') : 'kg/TJ';
-
-/** [출처] — 계수 하나의 출처 · 변경 이력 팝업을 연다 */
-function SourceButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.preventDefault();
-        onClick();
-      }}
-      className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white/[0.06] px-2 py-0.5 text-xs text-slate-300 ring-1 ring-white/[0.08] hover:bg-white/[0.10] hover:text-white"
-    >
-      <History size={12} /> 출처
-    </button>
-  );
-}
-
 export default function EnergySettingsPage() {
   const addToast = useToastStore((s) => s.add);
   // 산정 기준값
   const { data: energy, isLoading: energyLoading } = useEnergySettings();
   const saveEnergy = useSaveEnergySettings();
-  const [base, setBase] = useState<Record<string, string>>({});
-  const [baseDirty, setBaseDirty] = useState(false);
-
-  useEffect(() => {
-    if (energy && !baseDirty)
-      setBase(
-        Object.fromEntries(
-          BASE_FIELDS.flatMap((f) => [
-            [f.key, energy[f.key] ?? ('def' in f ? String(f.def) : '')],
-            [srcKey(f.key), energy[srcKey(f.key)] ?? SOURCE_DEFAULT[f.key] ?? ''],
-          ]),
-        ),
-      );
-  }, [energy, baseDirty]);
-  // 변경 이력 — 계수마다 [출처] 팝업에서 본다
-  const userName = useAuthStore((s) => s.user?.name ?? '');
-  const history = parseHistory(energy?.[HISTORY_KEY]);
-  // [출처] 팝업 — 계수 하나의 현재 출처(고침) · 변경 이력
-  const [sourceOf, setSourceOf] = useState<{ key: string; label: string } | null>(null);
-  // 배출원 계수(Scope 1 · 2, 연료별) — 화면에서 바로 고치고 맨 위 [저장]으로 함께 저장
-  const ghgFactors = useGhgFactorList();
-  const [factors, setFactors] = useState<FactorDraft[]>([]);
-  const [factorDirty, setFactorDirty] = useState(false);
-  useEffect(() => {
-    if (!factorDirty) setFactors(ghgFactors.map(toFactorDraft));
-  }, [ghgFactors, factorDirty]);
-  const editFactor = (i: number, patch: Partial<FactorDraft>) => {
-    setFactors((prev) => prev.map((r, k) => (k === i ? { ...r, ...patch } : r)));
-    setFactorDirty(true);
-  };
   // 무료진단 PPA 쉬는 날 — 이 규칙 · 금년 공휴일(특일 정보)로 가동일을 센다
   const [opRule, setOpRule] = useState<OpRule | null>(null);
   const [opDirty, setOpDirty] = useState(false);
@@ -191,10 +85,6 @@ export default function EnergySettingsPage() {
     if (holidays && !holDirty) setHol(holidays);
   }, [holidays, holDirty]);
   const opYr = opRule ? opYear(opYearNo, holidayMap(hol), opRule) : null;
-  const editBase = (key: string, v: string) => {
-    setBase((prev) => ({ ...prev, [key]: v }));
-    setBaseDirty(true);
-  };
   // 연도별 한전 요금표 — 고른 해(sel) 하나를 펼쳐 고친다. 처음엔 가장 최근 해
   const { data: kepco, isLoading: kepcoLoading } = useKepcoTariff();
   const saveKepco = useSaveKepcoTariff();
@@ -241,12 +131,7 @@ export default function EnergySettingsPage() {
   const cagrBy = (pl: Plan) => cagrOf(avgRows.map((r) => ({ year: r.year, price: r.avg[pl] })));
 
   const onSave = async () => {
-    // 산정 기준값 검사
-    for (const f of BASE_FIELDS) {
-      const v = (base[f.key] ?? '').trim();
-      const n = Number(v);
-      if (v === '' || !Number.isFinite(n) || n < f.lim[0] || n > f.lim[1]) return addToast('error', `${f.label}은 ${f.lim[0]}~${f.lim[1].toLocaleString()} 사이로 입력하세요`);
-    }    // 한전 요금표 검사
+    // 한전 요금표 검사
     if (book) {
       const years = book.map((d) => Number(d.year));
       if (years.some((y) => !Number.isInteger(y) || y < TARIFF_YEAR_LIM.year[0] || y > TARIFF_YEAR_LIM.year[1])) return addToast('error', `연도는 ${TARIFF_YEAR_LIM.year[0]}~${TARIFF_YEAR_LIM.year[1]} 사이로 입력하세요`);
@@ -264,73 +149,14 @@ export default function EnergySettingsPage() {
         for (const part of PARTS) if (table[pl][part.k].some((x) => x === '' || !(Number(x) >= TARIFF_LIM.unit[0] && Number(x) <= TARIFF_LIM.unit[1]))) return addToast('error', `전력량요금은 ${TARIFF_LIM.unit[0]}~${TARIFF_LIM.unit[1].toLocaleString()}원/kWh 사이로 입력하세요`);
       }
     }
-    // 배출원 계수 검사
-    if (factorDirty)
-      for (const r of factors) {
-        if (!r.category.trim() || !r.fuel.trim() || !r.unit.trim()) return addToast('error', '배출원 계수의 배출활동 · 연료 · 에너지 · 단위를 입력하세요');
-        if (GHG_NUMS.some((k) => r[k].trim() === '' || !Number.isFinite(Number(r[k]))))
-          return addToast('error', `${r.fuel} — 순발열량 · CO₂ · CH₄ · N₂O 를 숫자로 입력하세요`);
-      }
-    // 변경 이력 — 기준값(값 · 출처) · 배출원 계수에서 바뀐 것만
-    const at = nowText();
-    const logs: HistoryRow[] = [];
-    if (baseDirty)
-      for (const f of BASE_FIELDS) {
-        const before = energy?.[f.key] ?? ('def' in f ? String(f.def) : '');
-        const after = (base[f.key] ?? '').trim();
-        const srcBefore = energy?.[srcKey(f.key)] ?? SOURCE_DEFAULT[f.key] ?? '';
-        const srcAfter = (base[srcKey(f.key)] ?? '').trim();
-        if (before !== after || srcBefore !== srcAfter)
-          logs.push({ key: f.key, at, item: f.label, before: `${before} ${f.unit}`, after: `${after} ${f.unit}`, source: srcAfter, by: userName });
-      }
-    if (factorDirty) {
-      const prev = new Map(ghgFactors.map((g) => [g.id, g]));
-      const next = new Map(factors.map((r) => [r.id, r]));
-      const name = (x: { scope: number; category: string; fuel: string }) => `배출원 계수 · Scope ${x.scope} ${x.category} ${x.fuel}`;
-      for (const r of factors) {
-        const g = prev.get(r.id);
-        if (!g) {
-          logs.push({ key: `factor:${r.id}`, at, item: name(r), before: '', after: '추가', source: r.basis.trim(), by: userName });
-          continue;
-        }
-        const diff = [
-          g.scope !== r.scope ? `Scope ${g.scope} → ${r.scope}` : '',
-          g.category !== r.category.trim() ? `배출활동 ${g.category} → ${r.category.trim()}` : '',
-          g.fuel !== r.fuel.trim() ? `연료 ${g.fuel} → ${r.fuel.trim()}` : '',
-          g.unit !== r.unit.trim() ? `단위 ${g.unit} → ${r.unit.trim()}` : '',
-          ...GHG_NUMS.map((k) => (String(g[k]) !== r[k].trim() ? `${k.toUpperCase()} ${g[k]} → ${r[k].trim()}` : '')),
-          g.basis !== r.basis.trim() ? '출처' : '',
-        ].filter(Boolean);
-        if (diff.length) logs.push({ key: `factor:${r.id}`, at, item: name(r), before: diff.map((d) => d.split(' → ')[0]).join(', '), after: diff.map((d) => d.split(' → ')[1] ?? d).join(', '), source: r.basis.trim(), by: userName });
-      }
-      for (const g of ghgFactors) if (!next.has(g.id)) logs.push({ key: `factor:${g.id}`, at, item: name(g), before: '', after: '삭제', source: g.basis, by: userName });
-    }
     try {
-      if (logs.length) await saveEnergy.mutateAsync({ [HISTORY_KEY]: JSON.stringify([...logs, ...history].slice(0, 300)) });
-      if (factorDirty)
-        await saveEnergy.mutateAsync({
-          [GHG_FACTORS_KEY]: JSON.stringify(
-            factors.map((r) => ({ ...r, category: r.category.trim(), fuel: r.fuel.trim(), unit: r.unit.trim(), basis: r.basis.trim(), ncv: Number(r.ncv), co2: Number(r.co2), ch4: Number(r.ch4), n2o: Number(r.n2o) })),
-          ),
-        });
-      if (baseDirty)
-        await saveEnergy.mutateAsync(
-          Object.fromEntries(
-            BASE_FIELDS.flatMap((f) => [
-              [f.key, (base[f.key] ?? '').trim()],
-              [srcKey(f.key), (base[srcKey(f.key)] ?? '').trim()],
-            ]),
-          ),
-        );
       if (opDirty && opRule)
         await saveEnergy.mutateAsync({ PPA_WEEKEND_OFF: opRule.weekendOff ? '1' : '0', PPA_HOLIDAY_OFF: opRule.holidayOff ? '1' : '0', PPA_OFF_START: opRule.offStart ?? '', PPA_ON_TIME: opRule.onTime ?? '' });
       if (holDirty) await saveHol.mutateAsync(hol);
       setOpDirty(false);
       setHolDirty(false);
       if (tableDirty && book) await saveKepco.mutateAsync(book.map(toTable));
-      setBaseDirty(false);
       setTableDirty(false);
-      setFactorDirty(false);
       addToast('success', '에너지 설정을 저장했습니다');
     } catch {
       addToast('error', '저장에 실패했습니다');
@@ -338,7 +164,7 @@ export default function EnergySettingsPage() {
   };
 
   const pending = saveEnergy.isPending || saveKepco.isPending || saveHol.isPending;
-  const anyDirty = baseDirty || tableDirty || opDirty || holDirty || factorDirty;
+  const anyDirty = tableDirty || opDirty || holDirty;
 
   return (
     <div className="space-y-6">
@@ -364,198 +190,9 @@ export default function EnergySettingsPage() {
         </Button>
       </div>
 
-      {/* [출처] 팝업 — 계수 하나. 위: 현재 출처(고치면 맨 위 [저장]으로 함께 저장), 아래: 그 계수의 변경 이력(최신이 위) */}
-      {(() => {
-        if (!sourceOf) return null;
-        const isFactor = sourceOf.key.startsWith('factor:');
-        const fi = isFactor ? factors.findIndex((r) => `factor:${r.id}` === sourceOf.key) : -1;
-        const src = isFactor ? (factors[fi]?.basis ?? '') : (base[srcKey(sourceOf.key)] ?? '');
-        const rows = history.filter((h) => h.key === sourceOf.key);
-        return (
-          <Modal open onClose={() => setSourceOf(null)} title={`출처 · ${sourceOf.label}`} size="lg">
-            <label className="block">
-              <span className="mb-1.5 block text-sm text-slate-300">현재 출처</span>
-              <input
-                aria-label="현재 출처"
-                maxLength={120}
-                value={src}
-                onChange={(e) => (isFactor ? fi >= 0 && editFactor(fi, { basis: e.target.value }) : editBase(srcKey(sourceOf.key), e.target.value))}
-                className={`${FIELD} text-left`}
-              />
-            </label>
-            <p className="mb-2 mt-5 text-sm font-medium text-white">변경 이력</p>
-            <div className="max-h-[50vh] overflow-auto">
-              <table className={cn(TABLE, 'tabular-nums')}>
-                <thead>
-                  <tr className={TABLE_HEAD_ROW}>
-                    <th className={cn(TABLE_TH, 'whitespace-nowrap')}>일시</th>
-                    <th className={TABLE_TH}>이전</th>
-                    <th className={TABLE_TH}>변경</th>
-                    <th className={TABLE_TH}>출처</th>
-                    <th className={cn(TABLE_TH, 'whitespace-nowrap')}>변경한 사람</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((h, i) => (
-                    <tr key={`${h.at}-${i}`} className={TABLE_ROW}>
-                      <td className={cn(TABLE_TD, 'whitespace-nowrap')}>{h.at}</td>
-                      <td className={TABLE_TD}>{h.before}</td>
-                      <td className={cn(TABLE_TD, 'text-white')}>{h.after}</td>
-                      <td className={TABLE_TD}>{h.source}</td>
-                      <td className={cn(TABLE_TD, 'whitespace-nowrap')}>{h.by}</td>
-                    </tr>
-                  ))}
-                  {rows.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className={cn(TABLE_TD, 'py-8 text-center text-slate-500')}>
-                        변경 이력 없음
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Modal>
-        );
-      })()}
-
-      {BASE_CARDS.map((c) => (
-        <SectionCard key={c.card} title={c.title}>
-          <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-            {BASE_FIELDS.filter((f) => f.card === c.card).map((f) => (
-              <label key={f.key} className="block">
-                <span className="mb-1.5 flex items-center justify-between gap-2 text-sm text-slate-300">
-                  {f.label}
-                  <SourceButton onClick={() => setSourceOf({ key: f.key, label: f.label })} />
-                </span>
-                {/* 단위는 값 옆 따로 — 단위가 길어도(TOE/MWh) 숫자와 겹치지 않게 */}
-                <div className="flex h-9 items-center rounded-md bg-white/[0.04] px-2.5 ring-1 ring-white/[0.08] focus-within:ring-primary/60">
-                  <input
-                    aria-label={f.label}
-                    inputMode="decimal"
-                    maxLength={10}
-                    value={base[f.key] ?? ''}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      const neg = 'minus' in f && f.minus && raw.trim().startsWith('-');
-                      editBase(f.key, (neg ? '-' : '') + numOnly(raw, f.dec));
-                    }}
-                    className="h-full min-w-0 flex-1 bg-transparent text-right text-sm text-white tabular-nums focus:outline-none"
-                  />
-                  <span className="ml-2 shrink-0 text-xs text-slate-500">{f.unit}</span>
-                </div>
-              </label>
-            ))}
-          </div>
-        </SectionCard>
-      ))}
-
-      {/* 배출원 계수(Scope 1 · 2, 연료별) — 화면에서 바로 고친다. 온실가스 › 배출계수 관리 표가 이 값을 읽는다 */}
-      <SectionCard
-        title="배출원 계수"
-        actions={
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                setFactors(GHG_FACTORS.map(toFactorDraft));
-                setFactorDirty(true);
-              }}
-            >
-              <RotateCcw size={14} className="mr-1" /> 기본값으로
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                setFactors((prev) => [...prev, { id: `u${Date.now()}`, scope: 1, category: '', fuel: '', unit: '', ncv: '', co2: '', ch4: '', n2o: '', basis: '' }]);
-                setFactorDirty(true);
-              }}
-            >
-              <Plus size={14} className="mr-1" /> 계수 추가
-            </Button>
-          </div>
-        }
-        noPadding
-      >
-        <div className="overflow-x-auto">
-          <table className={cn(TABLE, 'min-w-[1080px] tabular-nums')}>
-            <thead>
-              <tr className={TABLE_HEAD_ROW}>
-                <th className={cn(TABLE_TH, 'px-3')}>Scope</th>
-                <th className={cn(TABLE_TH, 'px-3')}>배출활동</th>
-                <th className={cn(TABLE_TH, 'px-3')}>연료 · 에너지</th>
-                <th className={cn(TABLE_TH, 'px-3')}>단위</th>
-                <th className={cn(TABLE_TH, 'px-3')}>순발열량</th>
-                <th className={cn(TABLE_TH, 'px-3')}>CO₂</th>
-                <th className={cn(TABLE_TH, 'px-3')}>CH₄</th>
-                <th className={cn(TABLE_TH, 'px-3')}>N₂O</th>
-                <th className={cn(TABLE_TH, 'px-3')} />
-                <th className={cn(TABLE_TH, 'px-3')} />
-              </tr>
-            </thead>
-            <tbody>
-              {factors.map((r, i) => (
-                <tr key={r.id} className={TABLE_ROW}>
-                  <td className={cn(TABLE_TD, 'w-[120px] px-3')}>
-                    <select
-                      aria-label="Scope"
-                      value={r.scope}
-                      onChange={(e) => editFactor(i, { scope: Number(e.target.value) })}
-                      className={`${FIELD} text-left [color-scheme:dark]`}
-                    >
-                      {GHG_SCOPES.map((n) => (
-                        <option key={n} value={n}>{`Scope ${n}`}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className={cn(TABLE_TD, 'w-[150px] px-3')}>
-                    <input aria-label="배출활동" maxLength={30} value={r.category} onChange={(e) => editFactor(i, { category: e.target.value })} className={`${FIELD} text-left`} />
-                  </td>
-                  <td className={cn(TABLE_TD, 'w-[170px] px-3')}>
-                    <input aria-label="연료 · 에너지" maxLength={30} value={r.fuel} onChange={(e) => editFactor(i, { fuel: e.target.value })} className={`${FIELD} text-left`} />
-                  </td>
-                  <td className={cn(TABLE_TD, 'w-[90px] px-3')}>
-                    <input aria-label="단위" maxLength={10} value={r.unit} onChange={(e) => editFactor(i, { unit: e.target.value })} className={`${FIELD} text-left`} />
-                  </td>
-                  {GHG_NUMS.map((k) => (
-                    <td key={k} className={cn(TABLE_TD, 'w-[140px] px-3')}>
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          aria-label={k}
-                          inputMode="decimal"
-                          maxLength={12}
-                          value={r[k]}
-                          onChange={(e) => editFactor(i, { [k]: numOnly(e.target.value, true) })}
-                          className={FIELD}
-                        />
-                        <span className="shrink-0 text-xs text-slate-500">{ghgUnitOf(r.category, k)}</span>
-                      </div>
-                    </td>
-                  ))}
-                  <td className={cn(TABLE_TD, 'w-[72px] px-3')}>
-                    <SourceButton onClick={() => setSourceOf({ key: `factor:${r.id}`, label: `Scope ${r.scope} ${r.category} ${r.fuel}` })} />
-                  </td>
-                  <td className={cn(TABLE_TD, 'w-[48px] px-3')}>
-                    <button
-                      type="button"
-                      aria-label={`${r.fuel || '계수'} 삭제`}
-                      onClick={() => {
-                        setFactors((prev) => prev.filter((_, k) => k !== i));
-                        setFactorDirty(true);
-                      }}
-                      className="rounded-md p-1.5 text-slate-500 hover:bg-red-500/10 hover:text-red-400"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </SectionCard>
+      {/* 계수 — 값은 보기만, 계수마다 [변경] 팝업에서 새 값 + 출처(필수) → 그 자리에서 저장 · 이력 */}
+      <BaseFactorCards />
+      <GhgFactorSettings />
 
       {/* 가동일 — 쉬는 날 인버터 OFF 기준(무료진단 · 운전 일정 기본값). 공휴일은 특일 정보(한국천문연구원) + 사람이 더하고 뺌, 주말은 달력 */}
       {opRule && opYr && (
