@@ -812,13 +812,13 @@ export function GhgCalculationScreen() {
       <SectionCard title={month ? '일별 탄소 감축량' : '월별 탄소 감축량'}>
         <RmsLineChart data={chart} xKey="x" lines={lines} height={260} />
       </SectionCard>
-      <SectionCard title={`배출원별 월 탄소 감축량 (${matrix.length})`} noPadding>
+      <SectionCard title="배출원별 월 탄소 감축량" noPadding>
         <div className="overflow-x-auto [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap" data-table>
           <DataTable data={matrix} columns={matrixCols} rowKey={(x) => x.f.id} />
         </div>
       </SectionCard>
       <SectionCard
-        title={`${month ? '일별' : '월별'} 산정 (${calcRows.length})`}
+        title={month ? '일별 산정' : '월별 산정'}
         actions={<span className="text-sm text-slate-300">탄소 감축량 = 발전량 (MWh) × 배출계수</span>}
         noPadding
       >
