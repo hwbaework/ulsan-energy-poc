@@ -4,9 +4,9 @@
 // 입력 없음: 발전 데이터를 가져와 보여 주고 내려받기만. 관리자는 전체 기업(기업별로 나눠), 기업 계정은 자기 회사만.
 // 메뉴 이름은 그대로(배출시설 정보 · 배출원 등록 · 배출계수 관리 · 배출량 산정 · 명세서 · 보고서), 내용만 감축량 기준.
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { exportPdf, generateReportHtml, type ReportPreviewDoc } from '@/lib/utils';
 import {
   ChevronLeft,
@@ -19,10 +19,6 @@ import { StatCard, StatsGrid } from '@/components/features/StatCard';
 import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { BackButton } from '@/components/layout/PageTitle';
-import { useMonitoringPlantDetail } from '@/hooks/monitoring/useMonitoring';
-import { Badge } from '@/components/ui/Badge/Badge';
-import { StatusPill } from '@/components/ui/Design';
 import { tco2PerUnit, type GhgFactor } from '@/lib/ghg-factors';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -63,7 +59,6 @@ const strong = (v: ReactNode) => (
 );
 const ALL_MONTHS = monthsBetween(FIRST_MONTH, LAST_MONTH);
 const MONTH_OPTIONS = ALL_MONTHS.map((m) => ({ value: m, label: m }));
-const kindBadge = (f: Facility) => <Badge variant={f.kind === 'PPA' ? 'info' : 'default'}>{f.kind}</Badge>;
 
 /** 화면 제목 — E-데이터마켓 › 온실가스 인벤토리 › 화면 */
 export function GhgHeader({ title, actions, badge }: { title: string; actions?: ReactNode; badge?: string }) {
@@ -502,7 +497,6 @@ export function GhgOverviewScreen() {
 }
 
 /* ══ 3.1.2 배출원 등록 — 감축 설비(태양광). 설비는 계약에서 자동으로 들어온다. 줄을 누르면 배출원 상세 ══ */
-const SOURCES = '/e-data/inventory/sources';
 /** 명세서 양식(배출량 보고 및 인증 지침 별지 제11호) — 태양광 */
 const GHG_CODES = {
   facilityCode: '0120',
@@ -545,26 +539,19 @@ function sourceHeadCols<T>(get: (x: T) => SrcRow): Column<T>[] {
 }
 export function GhgSourcesScreen() {
   const role = useGhgRole();
-  const router = useRouter();
   const [q, setQ] = useState('');
   const word = q.trim();
   // 체결된 설비만 — 해지된 계약은 안 보인다(해지 전 기간 감축량은 산정 · 명세서에 남음)
   const active = role.facilities.filter((f) => f.status === 'ACTIVE');
   const rows: SrcRow[] = active.map((f) => solarRow(f)).filter((r) => !word || r.company.includes(word));
   const kw = active.reduce((a, f) => a + f.kw, 0);
-  // 기업 계정에 배출원이 하나면 목록 없이 바로 상세. 관리자는 항상 목록
-  const single = !role.isAdmin && active.length === 1 ? active[0] : null;
-  useEffect(() => {
-    if (single) router.replace(`${SOURCES}/view?id=${single.id}`);
-  }, [single, router]);
   const self = (r: SrcRow) => r;
   const cols: Column<SrcRow>[] = [
     ...sourceHeadCols(self),
     { key: 'no', header: '계약번호', render: (r) => num(r.solar.contractNo) },
-    { key: 'go', header: '', render: () => <ChevronRight size={15} className="text-slate-600" /> },
+    { key: 'addr', header: '소재지', render: (r) => cell(r.solar.address) },
   ];
 
-  if (single) return null;
   return (
     <div className="space-y-6">
       <GhgHeader title="배출원 등록" />
@@ -588,93 +575,9 @@ export function GhgSourcesScreen() {
             columns={cols}
             rowKey={(r) => r.key}
             emptyMessage="체결된 전력거래 계약이 없습니다"
-            onRowClick={(r) => router.push(`${SOURCES}/view?id=${r.solar.id}`)}
           />
         </div>
       </SectionCard>
-    </div>
-  );
-}
-
-/* ══ 3.1.2 배출원 상세 — 등록된 설비 정보만. 계산(그래프 · 산정 표 · 계산식)은 배출량 산정 한 곳 ══ */
-export function GhgSourceDetailScreen() {
-  const role = useGhgRole();
-  const [id, setId] = useState<number | null>(null);
-  useEffect(() => {
-    setId(Number(new URLSearchParams(window.location.search).get('id')));
-  }, []);
-  const f = role.facilities.find((x) => x.id === id);
-  // 설비 구성 — 계약에 연결된 통합관제 발전소의 인버터. 이름 · 통신 · 상태 표시는 통합관제 인버터 표를 따른다(INV-001, 정상 / 오류)
-  const { data: plant } = useMonitoringPlantDetail(f?.plantId ?? 0);
-  const inverters = plant?.inverters ?? [];
-  type Inv = (typeof inverters)[number];
-  const invCols: Column<Inv>[] = [
-    { key: 'no', header: '인버터', render: (v) => cell(`INV-${String(v.number).padStart(3, '0')}`, 'font-semibold text-white') },
-    { key: 'kw', header: '용량 (kW)', render: (v) => num(fmt(v.capacity, 2)) },
-    {
-      key: 'conn',
-      header: '통신',
-      render: (v) => (
-        <StatusPill tone={v.connectionState === 'NORMAL' ? 'normal' : 'danger'} label={v.connectionState === 'NORMAL' ? '정상' : '오류'} />
-      ),
-    },
-    {
-      key: 'st',
-      header: '상태',
-      render: (v) =>
-        v.statusMessages.length > 0 ? (
-          <StatusPill tone="warning" label={v.statusMessages[0]!} />
-        ) : (
-          <StatusPill tone="normal" label="정상" />
-        ),
-    },
-    { key: 'at', header: '최근 수신', render: (v) => num(v.lastDataAt.replace('T', ' ').slice(0, 16)) },
-  ];
-  // 기업 계정에 배출원이 하나면 돌아갈 목록이 없다
-  const single = !role.isAdmin && role.facilities.filter((x) => x.status === 'ACTIVE').length === 1;
-
-  return (
-    <div className="space-y-6">
-      <Breadcrumb
-        items={[
-          { label: 'E-데이터마켓', path: '/e-data/inventory' },
-          { label: '온실가스 인벤토리' },
-          ...(single ? [{ label: '배출원 등록' }] : [{ label: '배출원 등록', path: SOURCES }, { label: '배출원 상세' }]),
-        ]}
-      />
-      <div className="flex items-center gap-3">
-        {!single && <BackButton href={SOURCES} label="배출원 등록으로" />}
-        <h1 className="text-2xl font-bold text-white">
-          {f ? `${f.company} ${sourceOf(f.source).label} 발전설비` : '배출원 상세'}
-        </h1>
-        {f && kindBadge(f)}
-      </div>
-      {!f ? (
-        id != null && <p className="text-sm text-slate-400">배출원이 없습니다</p>
-      ) : (
-        <SectionCard title="설비 정보">
-          <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
-            {(
-              [
-                ['기업', f.company],
-                ['소재지', f.address],
-                ['발전원', sourceOf(f.source).label],
-                ['계약 유형', f.kind],
-                ['설비 용량', `${fmt(f.kw, 2)} kW`],
-                ['Scope', GHG_CODES.scope],
-                ['전력거래 계약번호', f.contractNo],
-              ] as [string, ReactNode][]
-            ).map(([label, value]) => (
-              <Info key={label} label={label} value={value} />
-            ))}
-          </div>
-        </SectionCard>
-      )}
-      {f && (
-        <SectionCard title="설비 구성" noPadding>
-          <DataTable data={inverters} columns={invCols} rowKey={(v) => v.number} emptyMessage="연결된 발전소 없음" />
-        </SectionCard>
-      )}
     </div>
   );
 }
