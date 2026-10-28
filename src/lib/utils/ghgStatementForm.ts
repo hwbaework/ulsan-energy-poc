@@ -1,5 +1,5 @@
-// 온실가스 감축 실적 명세서 — 한 달 × 계약 하나 = 한 장. 형태 고정(1. 기업 정보 · 2. 배출시설 정보 · 3. 감축 실적 · 4. 산정 근거).
-// 정부 검증 제출용이 아니라서 법정 서식(별지 제11호) 전체를 쓰지 않고, '8. 사업장 배출시설별 온실가스 감축실적'을 준용한다.
+// 온실가스 감축 실적 명세서 — 한 달 × 계약 하나 = 한 장. 형태 고정(1. 기업 정보 · 2. 배출시설 정보 · 3. 감축 실적 · 4. 기준선 · 5. 산정 방법).
+// 정부 검증 제출용이 아닌 플랫폼 자체 문서. 감축수단 코드(7114)만 별지 제11호 [참고7]을 따른다.
 // 한일튜브처럼 계약이 둘이면 한일튜브(자가소비) · 한일튜브(PPA) 각각 따로(통합관제 · RE100 과 같다). 플랫폼에 없는 값은 지어내지 않는다.
 
 /** 별지 제11호 [참고7] 저감수단 코드 — 대체에너지 › 태양에너지 › 태양전지를 이용한 전력생산 */
@@ -56,10 +56,7 @@ export function generateGhgStatementHtml(d: GhgFormData): string {
   * { box-sizing: border-box; }
   body { margin: 0; background: #e5e7eb; font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif; color: #111; }
   .a4 { width: 210mm; min-height: 297mm; margin: 12px auto; padding: 18mm 16mm; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
-  h1 { margin: 0; text-align: center; font-size: 22px; letter-spacing: 2px; }
-  .period { margin: 10px 0 0; text-align: center; font-size: 15px; font-weight: 700; }
-  .range { margin: 2px 0 0; text-align: center; font-size: 12px; color: #555; }
-  .based { margin: 4px 0 12mm; text-align: center; font-size: 10.5px; color: #555; }
+  h1 { margin: 0 0 12mm; text-align: center; font-size: 22px; letter-spacing: 2px; }
   h2 { margin: 0 0 6px; font-size: 13px; }
   table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11.5px; margin-bottom: 8mm; }
   th, td { border: 1px solid #555; padding: 7px 6px; text-align: center; vertical-align: middle; word-break: keep-all; overflow-wrap: anywhere; }
@@ -74,9 +71,6 @@ export function generateGhgStatementHtml(d: GhgFormData): string {
 </style></head><body>
 <div class="a4">
   <h1>온실가스 감축 실적 명세서</h1>
-  <p class="period">대상 기간 ${esc(p.name)}</p>
-  <p class="range">${esc(p.range)}</p>
-  <p class="based">「온실가스 배출권거래제의 배출량 보고 및 인증에 관한 지침」 [별지 제11호 서식] 8. 사업장 배출시설별 온실가스 감축실적 준용</p>
 
   <h2>1. 기업 정보</h2>
   <table>
@@ -96,19 +90,27 @@ export function generateGhgStatementHtml(d: GhgFormData): string {
 
   <h2>3. 감축 실적</h2>
   <table>
-    <colgroup><col style="width:25%"><col style="width:25%"><col style="width:25%"><col style="width:25%"></colgroup>
-    <tr><th>발전량 (kWh)</th><th>발전량 (MWh)</th><th>전력 배출계수<br>(tCO₂eq/MWh)</th><th>감축량 (tCO₂eq)</th></tr>
-    <tr><td class="r">${n(f.kwh)}</td><td class="r">${n(f.kwh / 1000, 3)}</td><td class="r">${d.co2Factor}</td><td class="r b">${n(f.tco2, 3)}</td></tr>
+    <colgroup><col style="width:28%"><col style="width:18%"><col style="width:18%"><col style="width:18%"><col style="width:18%"></colgroup>
+    <tr><th>기간</th><th>발전량 (kWh)</th><th>발전량 (MWh)</th><th>전력 배출계수<br>(tCO₂eq/MWh)</th><th>감축량 (tCO₂eq)</th></tr>
+    <tr><td>${esc(p.range)}</td><td class="r">${n(f.kwh)}</td><td class="r">${n(f.kwh / 1000, 3)}</td><td class="r">${d.co2Factor}</td><td class="r b">${n(f.tco2, 3)}</td></tr>
   </table>
 
-  <h2>4. 산정 근거</h2>
+  <h2>4. 기준선</h2>
+  <table>
+    <colgroup><col style="width:16%"><col style="width:22%"><col style="width:40%"><col style="width:22%"></colgroup>
+    <tr><th>구분</th><th>배출원</th><th>설명</th><th>배출량 (tCO₂eq)</th></tr>
+    <tr><th>기준선</th><td class="l">한전 전력</td><td class="l">태양광 발전량만큼 한전 전력을 썼을 때의 배출</td><td class="r">${n(f.tco2, 3)}</td></tr>
+    <tr><th>사업</th><td class="l">태양광 발전설비</td><td class="l">연료 연소 없음</td><td class="r">0</td></tr>
+  </table>
+
+  <h2>5. 산정 방법</h2>
   <div class="basis">
-    감축량 = 발전량 (MWh) × 전력 배출계수<br>
-    발전량: 통합관제에서 수집한 ${esc(p.range)} 발전 이력<br>
-    준용 문서: 온실가스 배출권거래제의 배출량 보고 및 인증에 관한 지침(환경부고시 제2025-64호) [별지 제11호 서식]
+    감축량 = 기준선 배출량 − 사업 배출량<br>
+    기준선 배출량 = 발전량 (MWh) × 전력 배출계수<br>
+    발전량: 통합관제에서 수집한 기간 내 발전 이력
   </div>
 
-  <p class="sign">작성일 ${esc(d.writtenAt)} &nbsp; ${esc(c.name)}</p>
+  <p class="sign">작성일 ${esc(d.writtenAt)}</p>
 </div></body></html>`;
 }
 
