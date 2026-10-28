@@ -4,7 +4,9 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { Area, CartesianGrid, ComposedChart, Line, LineChart, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { SectionCard } from '@/components/features';
 import { DataTable, type Column } from '@/components/features/DataList';
+import { Info } from 'lucide-react';
 import { StatusPill } from '@/components/ui/Design';
+import { Tooltip as Hint } from '@/components/ui/Tooltip';
 import { useMonitoringPlantHistory } from '@/hooks/monitoring/useMonitoring';
 import { useDxForecast, useDxLatest, useDxSafety, useDxSafetyHistory } from '@/hooks/control/useDx';
 import {
@@ -31,10 +33,20 @@ const NONE = '미산출';
 const fx = (v: number | null | undefined, d = 1) =>
   v == null ? null : v.toLocaleString('ko-KR', { minimumFractionDigits: d, maximumFractionDigits: d });
 
-function Kpi({ label, value, unit, badge, lines }: { label: string; value: string | null; unit?: string; badge?: ReactNode; lines: ReactNode[] }) {
+/** 요약 카드 — 값 아래엔 값(시각 · 누적)만, 지표 설명은 (i) 에 올리면 보인다 */
+function Kpi({ label, value, unit, badge, info, lines }: { label: string; value: string | null; unit?: string; badge?: ReactNode; info?: string; lines: ReactNode[] }) {
   return (
     <div className="rounded-xl bg-[#0d1520] p-5 ring-1 ring-white/[0.06]">
-      <p className="text-sm text-slate-300">{label}</p>
+      <div className="flex items-center gap-1.5">
+        <p className="text-sm text-slate-300">{label}</p>
+        {info && (
+          <Hint content={info} wide position="bottom">
+            <span tabIndex={0} role="img" aria-label={`${label} 설명`} className="inline-flex">
+              <Info size={14} className="cursor-help text-slate-400 hover:text-white" />
+            </span>
+          </Hint>
+        )}
+      </div>
       <div className="mt-2 flex items-center gap-2">
         <span className={`text-3xl font-bold tabular-nums ${value ? 'text-white' : 'text-slate-500'}`}>{value ?? NONE}</span>
         {value && unit && <span className="text-base text-slate-400">{unit}</span>}
@@ -144,25 +156,33 @@ export function DxPredictiveBoard({ plantId }: { plantId: number }) {
           label="전기안전지수"
           value={fx(worst?.safetyIndex)}
           badge={worst && <StatusPill tone={DX_LEVEL[worst.riskLevel].tone} label={DX_LEVEL[worst.riskLevel].label} />}
-          lines={['0~100, 높을수록 양호', ...(many ? ['센서 중 가장 낮은 값'] : []), `5분 갱신${worst ? ` · 산출 ${hhmm(worst.diagnosedAt)}` : ''}`]}
+          info={`0~100, 높을수록 양호합니다.${many ? ' 센서 중 가장 낮은 값입니다.' : ''} 5분마다 갱신됩니다. 당사 운영 기준의 상태 지표이며 법정 · 표준 판정이 아닙니다. 보호계전기 동작을 대신하지 않습니다.`}
+          lines={worst ? [`산출 ${hhmm(worst.diagnosedAt)}`] : []}
         />
         <Kpi
           label="설비 상태 (Health Index)"
           value={fx(lowHealth?.healthIndex)}
           unit="/ 100"
-          lines={['설비 상태 점수 0~100, 높을수록 양호', ...(many ? ['센서 중 가장 낮은 값'] : []), `1시간 갱신${lowHealth ? ` · ${hhmm(lowHealth.windowStartedAt)}~${hhmm(lowHealth.windowEndedAt)}` : ''}`]}
+          info={`설비 상태 점수 0~100, 높을수록 양호합니다.${many ? ' 센서 중 가장 낮은 값입니다.' : ''} 1시간마다 갱신됩니다. 경보 · 등급 판단은 전기안전지수로 합니다.`}
+          lines={lowHealth ? [`${hhmm(lowHealth.windowStartedAt)}~${hhmm(lowHealth.windowEndedAt)}`] : []}
         />
         <Kpi
           label="발전량 예측"
           value={fx(nextHour?.p50)}
           unit="kWh · 다음 1시간"
-          lines={[`금일 실측 누적 ${Math.round(todayActual).toLocaleString('ko-KR')} kWh`, `금일 예측 누적 ${Math.round(todayActual + todayForecastRest).toLocaleString('ko-KR')} kWh`]}
+          info="P50 이 대표 예측값이고, P10~P90 은 확률 구간이 아닌 참고 범위입니다. 흐리거나 비가 오면 오차가 커집니다."
+          lines={[
+            `금일 실측 누적 ${Math.round(todayActual).toLocaleString('ko-KR')} kWh`,
+            `금일 예측 누적 ${Math.round(todayActual + todayForecastRest).toLocaleString('ko-KR')} kWh`,
+            ...(nextHour ? [`발행 ${hhmm(nextHour.issuedAt)}`] : []),
+          ]}
         />
         <Kpi
           label="아크 지수"
           value={null}
           badge={<StatusPill tone="muted" label="판정 보류" />}
-          lines={['시범 산출 중']}
+          info="시범 산출 중이라 아직 값이 없습니다. 아크 발생 확률이나 화재 가능성 판정이 아니며, 아크 차단기를 대신하지 않습니다."
+          lines={[]}
         />
       </div>
 
@@ -189,7 +209,7 @@ export function DxPredictiveBoard({ plantId }: { plantId: number }) {
               </ComposedChart>
             </ResponsiveContainer>
           </div>
-          <p className="mt-2 text-sm text-slate-400">— 실측 · ┅ 예측 P50 · ▒ P10~P90{nextHour ? ` · 발행 ${hhmm(nextHour.issuedAt)}` : ''}</p>
+          <p className="mt-2 text-sm text-slate-400">— 실측 · ┅ 예측 P50 · ▒ P10~P90 참고 범위{nextHour ? ` · 발행 ${hhmm(nextHour.issuedAt)}` : ''}</p>
         </SectionCard>
       </div>
 
