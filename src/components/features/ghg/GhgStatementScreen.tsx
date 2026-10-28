@@ -11,6 +11,9 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { useCompany } from '@/hooks/platform/useCompanies';
+import { useEnergySettings } from '@/hooks/common/useSettings';
+import { factorSource } from '@/components/features/settings/FactorSettings';
+import { sourceOf } from '@/lib/design';
 import { GHG_TODAY, YEARS, fmt, fmtT, monthsBetween, totalsOf, yearRange } from '@/lib/ghg-reduction';
 import { fitA4, generateGhgStatementHtml, periodText, printGhgStatement, type GhgFormData } from '@/lib/utils/ghgStatementForm';
 import { GhgHeader, contractGroups, useGhgRole, useRows } from './GhgScreens';
@@ -66,6 +69,7 @@ export function GhgStatementScreen() {
   // 미리보기 — 고른 달 · 계약
   const f = sel?.g.fs[0];
   const { data: co } = useCompany(sel?.g.companyId ?? 0);
+  const { data: es } = useEnergySettings();
   const form: GhgFormData | null = useMemo(() => {
     if (!sel || !f) return null;
     return {
@@ -81,14 +85,16 @@ export function GhgStatementScreen() {
       facility: {
         name: '태양광 발전설비',
         kind: f.kind,
+        source: sourceOf(f.source).label,
         kw: sel.g.fs.reduce((a, x) => a + x.kw, 0),
         startDate: f.startDate,
         kwh: sel.kwh,
         tco2: sel.tco2,
       },
       co2Factor: fx.co2,
+      co2Source: factorSource(es, 'CO2_EMISSION_FACTOR'),
     };
-  }, [sel, f, co, fx.co2]);
+  }, [sel, f, co, fx.co2, es]);
   const html = form ? generateGhgStatementHtml(form) : '';
 
   return (

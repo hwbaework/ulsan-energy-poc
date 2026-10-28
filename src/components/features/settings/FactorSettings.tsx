@@ -41,6 +41,8 @@ const SOURCE_DEFAULT: Record<string, string> = {
   PINE_PER_TCO2: '국립산림과학원 소나무 1그루 연 6.6 kg CO₂ 흡수',
 };
 const srcKey = (key: string) => `${key}_SOURCE`;
+/** 계수 출처 — 에너지 설정에 넣은 출처, 없으면 처음 근거 */
+export const factorSource = (es: Record<string, string> | undefined, key: string) => es?.[srcKey(key)] || SOURCE_DEFAULT[key] || '';
 const HISTORY_KEY = 'ENERGY_HISTORY';
 interface HistoryRow {
   /** 계수 — 기준값은 키, 배출원 계수는 factor:id */

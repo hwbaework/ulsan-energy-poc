@@ -7,7 +7,8 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { exportPdf, generateReportHtml, type ReportPreviewDoc } from '@/lib/utils';
+import { generateReportHtml, type ReportPreviewDoc } from '@/lib/utils';
+import { printGhgStatement } from '@/lib/utils/ghgStatementForm';
 import {
   ChevronLeft,
   ChevronRight,
@@ -913,9 +914,7 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
   );
   // 처음부터 맨 위 문서가 열려 있고, 다른 행을 누르면 오른쪽이 그 문서로 바뀐다
   const selected = docs.find((d) => d.id === selectedId) ?? docs[0] ?? null;
-  const f = selected?.f;
   const name = selected?.name ?? '';
-  const days = useMemo(() => (f ? reductionDays(fx, [f]) : []), [fx, f]);
   type ReportDoc = (typeof docs)[number];
 
   /** 선택 문서의 합계 + 일별(감축 실적) / 월별(연간) 줄 */
@@ -926,7 +925,7 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
     let acc = 0;
     const lines =
       doc.kind === 'month'
-        ? days
+        ? reductionDays(fx, [doc.f])
             .filter((d) => d.date.startsWith(doc.period) && d.kwh > 0)
             .map((d) => {
               acc += d.tco2;
@@ -942,33 +941,20 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
     return { sum, lines };
   };
 
-  /* 내보내기 — 통합관제처럼 발전소 실적 한 줄 */
-  const exportData = (doc: ReportDoc) => {
-    const { sum } = build(doc);
+  /* 문서 — 통합관제 월간 보고서와 같은 구성(기간 · 대상 · 계약 유형 · 생성일 → 요약 → 실적 → 일별). 미리보기와 PDF 가 같은 문서 */
+  const docOf = (doc: ReportDoc): ReportPreviewDoc => {
+    const { sum, lines } = build(doc);
+    const isYear = doc.kind === 'year';
+    const f = doc.f;
+    const name = doc.name;
     return {
-      file: `${doc.title} · ${doc.name}`,
-      headers: ['발전소', '발전원', '계약 유형', '설비 용량 kW', '발전량 kWh', '감축량 tCO2eq'],
-      rows: [[doc.name, sourceOf(doc.f.source).label, doc.f.kind, doc.f.kw, sum.kwh, sum.tco2]],
-    };
-  };
-  const onPdf = (doc: ReportDoc) => {
-    const d = exportData(doc);
-    void exportPdf(d.file, d.file, d.headers, d.rows);
-  };
-
-  /* 미리보기에 그릴 문서 — 통합관제 월간 보고서와 같은 구성(기간 · 대상 · 계약 유형 · 생성일 → 요약 → 실적 → 일별) */
-  const previewDoc = useMemo<ReportPreviewDoc | null>(() => {
-    if (!selected || !f) return null;
-    const { sum, lines } = build(selected);
-    const isYear = selected.kind === 'year';
-    return {
-      title: `${selected.title} · ${name}`,
+      title: `${doc.title} · ${name}`,
       kindLabel: `온실가스 인벤토리 · ${isYear ? '연간' : '월간'} 보고서`,
       meta: [
-        ['기간', selected.label],
+        ['기간', doc.label],
         ['대상', `${name} · 설비 ${fmt(f.kw, 2)} kW`],
         ['계약 유형', f.kind],
-        ['생성일', selected.createdAt],
+        ['생성일', doc.createdAt],
       ],
       sections: [
         {
@@ -996,7 +982,9 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
       ],
       note: `통합관제에서 수집한 발전 이력에 전력 배출계수를 곱해 ${isYear ? '연' : '월'} 단위로 집계한 보고서입니다. ${isYear ? '연' : '월'} 마감 후 자동 생성됩니다.`,
     };
-  }, [selected, f, rows, days, fx, name]); // eslint-disable-line react-hooks/exhaustive-deps
+  };
+  const previewDoc = selected ? docOf(selected) : null;
+  const onPdf = (doc: ReportDoc) => printGhgStatement(generateReportHtml(docOf(doc)));
 
   const th = 'px-4 py-2.5 text-left text-xs font-medium text-slate-400';
   const td = 'px-4 py-3 text-sm';

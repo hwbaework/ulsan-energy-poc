@@ -1,10 +1,6 @@
-// 온실가스 감축 실적 명세서 — 한 달 × 계약 하나 = 한 장. 형태 고정(1. 기업 정보 · 2. 배출시설 정보 · 3. 감축 실적 · 4. 기준선 · 5. 산정 방법).
-// 정부 검증 제출용이 아닌 플랫폼 자체 문서. 감축수단 코드(7114)만 별지 제11호 [참고7]을 따른다.
+// 온실가스 감축 실적 명세서 — 한 달 × 계약 하나 = 한 장. 형태 고정(1. 기업 정보 · 2. 배출시설 정보 · 3. 감축 실적 · 4. 산정 방법).
+// 정부 검증 제출용이 아닌 플랫폼 자체 문서. 플랫폼이 가진 값(발전량 · 전력 배출계수)만 쓴다 — 사업 배출량처럼 모르는 값은 넣지 않는다.
 // 한일튜브처럼 계약이 둘이면 한일튜브(자가소비) · 한일튜브(PPA) 각각 따로(통합관제 · RE100 과 같다). 플랫폼에 없는 값은 지어내지 않는다.
-
-/** 별지 제11호 [참고7] 저감수단 코드 — 대체에너지 › 태양에너지 › 태양전지를 이용한 전력생산 */
-const REDUCE_CODE = '7114';
-const REDUCE_NAME = '태양전지를 이용한 전력생산';
 
 export interface GhgFormCompany {
   name: string;
@@ -18,6 +14,8 @@ export interface GhgFormFacility {
   name: string;
   /** 계약 유형 — 자가소비 / PPA */
   kind: string;
+  /** 발전원 — 태양광 / ORC / 연료전지 */
+  source: string;
   kw: number;
   startDate: string;
   kwh: number;
@@ -29,6 +27,8 @@ export interface GhgFormData {
   company: GhgFormCompany;
   facility: GhgFormFacility;
   co2Factor: number;
+  /** 전력 배출계수 출처 — 에너지 설정 */
+  co2Source: string;
   /** 작성일 YYYY-MM-DD */
   writtenAt: string;
 }
@@ -85,7 +85,7 @@ export function generateGhgStatementHtml(d: GhgFormData): string {
     <colgroup><col style="width:18%"><col style="width:32%"><col style="width:18%"><col style="width:32%"></colgroup>
     <tr><th>배출시설명</th><td class="l">${esc(f.name)}</td><th>계약 유형</th><td class="l">${esc(f.kind)}</td></tr>
     <tr><th>설비 용량</th><td class="l">${n(f.kw, 2)} kW</td><th>가동일</th><td class="l">${esc(f.startDate)}</td></tr>
-    <tr><th>감축수단</th><td class="l" colspan="3">${REDUCE_CODE} ${REDUCE_NAME}</td></tr>
+    <tr><th>발전원</th><td class="l" colspan="3">${esc(f.source)}</td></tr>
   </table>
 
   <h2>3. 감축 실적</h2>
@@ -95,19 +95,12 @@ export function generateGhgStatementHtml(d: GhgFormData): string {
     <tr><td>${esc(p.range)}</td><td class="r">${n(f.kwh)}</td><td class="r">${n(f.kwh / 1000, 3)}</td><td class="r">${d.co2Factor}</td><td class="r b">${n(f.tco2, 3)}</td></tr>
   </table>
 
-  <h2>4. 기준선</h2>
-  <table>
-    <colgroup><col style="width:16%"><col style="width:22%"><col style="width:40%"><col style="width:22%"></colgroup>
-    <tr><th>구분</th><th>배출원</th><th>설명</th><th>배출량 (tCO₂eq)</th></tr>
-    <tr><th>기준선</th><td class="l">한전 전력</td><td class="l">태양광 발전량만큼 한전 전력을 썼을 때의 배출</td><td class="r">${n(f.tco2, 3)}</td></tr>
-    <tr><th>사업</th><td class="l">태양광 발전설비</td><td class="l">연료 연소 없음</td><td class="r">0</td></tr>
-  </table>
-
-  <h2>5. 산정 방법</h2>
+  <h2>4. 산정 방법</h2>
   <div class="basis">
-    감축량 = 기준선 배출량 − 사업 배출량<br>
-    기준선 배출량 = 발전량 (MWh) × 전력 배출계수<br>
-    발전량: 통합관제에서 수집한 기간 내 발전 이력
+    감축량 = 발전량 (MWh) × 전력 배출계수<br>
+    = ${n(f.kwh / 1000, 3)} MWh × ${d.co2Factor} tCO₂eq/MWh = ${n(f.tco2, 3)} tCO₂eq<br>
+    발전량: 통합관제에서 수집한 기간 내 발전 이력<br>
+    전력 배출계수: ${esc(d.co2Source)}
   </div>
 
   <p class="sign">작성일 ${esc(d.writtenAt)}</p>
