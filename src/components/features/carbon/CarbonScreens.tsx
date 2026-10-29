@@ -411,64 +411,22 @@ export function CarbonKrxScreen() {
   );
 }
 
-/* ══ 3.2.3 탄소배출권 장외거래 — 우리 기업은 KOC 이전 ══ */
+/* ══ 3.2.3 탄소배출권 장외거래 — 외부사업 인증실적 이전 신청서 서식. 신청은 기업이 직접 ══ */
 export function CarbonOtcScreen() {
   return (
     <div className="space-y-6">
       <Header title="탄소배출권 장외거래" />
-      <SectionCard title="장외거래 구분">
-        <TextTable
-          head={['거래 대상', '거래 주체', '신청 · 신고 절차', '근거']}
-          rows={[
-            [
-              'KOC (외부사업 인증실적)',
-              '외부사업 참여자 (상쇄등록부 보유계정 법인)',
-              '양도인이 이전신청서 · 계약 증빙자료를 상쇄등록부에 전자 제출',
-              '지침 제37조',
-            ],
-            [
-              'KAU · KCU (배출권)',
-              '할당대상업체 · 배출권거래중개회사 · 신탁업자',
-              '양도인이 장외거래 신고서 · 공증 서류를 배출권등록부에 제출',
-              '거래 고시 제26조의2 · 제27조',
-            ],
-          ]}
-        />
-      </SectionCard>
-      <FormBoard forms={[CARBON_FORMS.transfer]} />
+      <FormBoard title="문서" forms={[CARBON_FORMS.transfer]} />
     </div>
   );
 }
 
-/* ══ 3.2.4 탄소배출권 계약관리 — 거래 신고 항목 · 절차 · 신고서 서식 ══ */
+/* ══ 3.2.4 탄소배출권 계약관리 — 장외 거래 신고서 서식. 신고는 기업이 직접 ══ */
 export function CarbonContractScreen() {
   return (
     <div className="space-y-6">
       <Header title="탄소배출권 계약관리" />
-      <SectionCard title="계약 · 신고 필수 항목">
-        <TextTable
-          head={['항목', '근거']}
-          rows={[
-            ['배출권 종류 · 이행연도', '시행령 제33조제1항'],
-            ['수량 (tCO₂eq) · 가격 (원)', '시행령 제33조제1항'],
-            ['거래 일시', '시행령 제33조제1항'],
-            ['양도인 · 양수인 법인 정보', '거래 고시 별지 제7호'],
-            ['거래 합의 공증서류', '거래 고시 제27조제2항'],
-          ]}
-        />
-      </SectionCard>
-      <SectionCard title="신고 절차">
-        <TextTable
-          head={['단계', '내용', '근거']}
-          rows={[
-            ['1. 거래', '양도인 · 양수인 합의, 공증', '거래 고시 제27조'],
-            ['2. 신고', '양도인이 거래 후 지체 없이 배출권등록부에 신고서 제출', '거래 고시 제27조제1항'],
-            ['3. 승인', '기후에너지환경부장관 승인 → 온실가스종합정보센터 통지', '시행령 제33조제3항'],
-            ['4. 이전', '양도인 계정 → 양수인 계정, 등록 시 효력', '법 제21조'],
-          ]}
-        />
-      </SectionCard>
-      <FormBoard forms={[CARBON_FORMS.otcReport]} />
+      <FormBoard title="문서" forms={[CARBON_FORMS.otcReport]} />
     </div>
   );
 }

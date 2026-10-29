@@ -61,8 +61,16 @@ export const CARBON_FORMS = {
   approval: form('approval', '외부사업 승인/사업계획 변경 신청서', '5', LAW.offset, 'offset-approval-form-5'),
   monitoring: form('monitoring', '외부사업 모니터링 보고서', '17', LAW.offset, 'offset-monitoring-form-17'),
   certify: form('certify', '외부사업 온실가스 감축량 인증신청서', '18', LAW.offset, 'offset-certify-form-18'),
-  transfer: form('transfer', '외부사업 인증실적 이전 신청서', '22', LAW.offset, 'koc-transfer-form-22'),
-  otcReport: form('otcReport', '장외 거래 신고서', '7', LAW.trade, 'otc-report-form-7'),
+  transfer: {
+    ...form('transfer', '외부사업 인증실적 이전 신청서', '22', LAW.offset, 'koc-transfer-form-22'),
+    /** 이전 신청서는 상쇄등록부에 낸다 */
+    site: { href: LINKS.ors, label: '상쇄등록부' },
+  },
+  otcReport: {
+    ...form('otcReport', '장외 거래 신고서', '7', LAW.trade, 'otc-report-form-7'),
+    /** 신고서는 배출권등록부에 낸다 */
+    site: { href: LINKS.etrs, label: '배출권등록부' },
+  },
   /** 참고 문서 — 태양광 자가소비 사업에 적용하는 승인 방법론(GIR 상쇄등록부 원문, PDF 만 있음) */
   method: {
     key: 'method',
