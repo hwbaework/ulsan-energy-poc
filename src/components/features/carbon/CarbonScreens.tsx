@@ -2,7 +2,7 @@
 
 // E-데이터마켓 › 카본 마켓플레이스 — 연동 · 거래 실행 없음.
 // 공식 공개 정보는 링크로 보내고, 서식은 법제처 원본 그대로 보여주고 받게 한다. 법령이 바뀌면 관리자가 새 서식을 올린다.
-// 근거 · 절차: docs/카본마켓-조사.md (2026-10-08). 감축량은 온실가스 인벤토리와 같은 값(자가소비 설비만).
+// 근거 · 절차: docs/카본마켓-조사.md (2026-10-08).
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Download, ExternalLink, RotateCcw, Upload } from 'lucide-react';
@@ -16,26 +16,12 @@ import { PAPER } from '@/components/features/trading-poc/BillingPaper';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useCarbonFormStore, type FormFileKind, type UploadedForm } from '@/stores/useCarbonFormStore';
 import { useToastStore } from '@/stores/useToastStore';
-import { useGhgRole, useRows, type Role } from '@/components/features/ghg/GhgScreens';
-import { fmt } from '@/lib/ghg-reduction';
-import {
-  CARBON_FORMS,
-  LAST12,
-  LINKS,
-  METHOD,
-  annualOf,
-  scaleOf,
-  selfFacilities,
-  type CarbonForm,
-} from '@/lib/carbon-docs';
+import { useGhgRole } from '@/components/features/ghg/GhgScreens';
+import { CARBON_FORMS, LINKS, type CarbonForm } from '@/lib/carbon-docs';
 import { fitPdf } from '@/lib/utils/fitPdf';
 
 /* ── 공통 ── */
 const cell = (v: ReactNode, cls = 'text-slate-300') => <span className={`text-sm ${cls}`}>{v}</span>;
-const num = (v: ReactNode) => <span className="whitespace-nowrap text-sm tabular-nums text-slate-300">{v}</span>;
-const strong = (v: ReactNode) => (
-  <span className="whitespace-nowrap text-sm font-medium tabular-nums text-white">{v}</span>
-);
 
 function Header({ title, actions }: { title: string; actions?: ReactNode }) {
   return (
@@ -101,7 +87,7 @@ const nowText = () =>
 /** 오늘 YYYY-MM-DD (한국 시각) */
 const today = () => nowText().slice(0, 10);
 
-const base = (f: CarbonForm) => `${f.form}_${f.title.replace('/', '·')}`;
+const base = (f: CarbonForm) => `${f.form}_${f.title.replace(/\//g, '·')}`;
 
 /** 서식 파일 — 관리자가 올린 파일이 있으면 그것, 없으면 법제처 원본 */
 function useFormFile(f: CarbonForm) {
@@ -259,16 +245,24 @@ function FormButtons({ f }: { f: CarbonForm }) {
           <FormUploadModal f={f} open={open} onClose={() => setOpen(false)} />
         </>
       )}
-      <a href={ff.hwp} download={ff.hwpName}>
-        <Button variant="secondary" size="sm">
-          <Download size={14} /> HWP
-        </Button>
-      </a>
+      {ff.hwp && (
+        <a href={ff.hwp} download={ff.hwpName}>
+          <Button variant="secondary" size="sm">
+            <Download size={14} /> HWP
+          </Button>
+        </a>
+      )}
       <a href={ff.pdf} download={ff.pdfName}>
         <Button variant="secondary" size="sm">
           <Download size={14} /> PDF
         </Button>
       </a>
+      {/* 바깥 사이트는 파일 버튼과 떨어뜨려 오른쪽 끝에 */}
+      {f.site && (
+        <div className="ml-auto">
+          <OutLink href={f.site.href} label={f.site.label} />
+        </div>
+      )}
     </div>
   );
 }
@@ -294,16 +288,25 @@ function FormHead({ f }: { f: CarbonForm }) {
 }
 
 /** 서식 — 목록 왼쪽 · 원본 오른쪽(줄을 누르면 오른쪽이 그 서식으로), 명세서 화면과 같은 배치 */
-function FormBoard({ forms }: { forms: CarbonForm[] }) {
+function FormBoard({ forms, title = '서식' }: { forms: CarbonForm[]; title?: string }) {
   const [key, setKey] = useState(forms[0]?.key);
   const sel = forms.find((f) => f.key === key) ?? forms[0];
   const cols: Column<CarbonForm>[] = [
-    { key: 'title', header: '서식', render: (f) => cell(f.title, 'font-medium text-white') },
+    {
+      key: 'title',
+      header: title,
+      render: (f) => (
+        <span className="inline-flex items-center gap-2">
+          {f.ref && <Badge variant="info">참고</Badge>}
+          {cell(f.title, 'font-medium text-white')}
+        </span>
+      ),
+    },
     { key: 'from', header: '기준일', render: (f) => cell(<FormFrom f={f} />, 'whitespace-nowrap text-slate-300') },
   ];
   return (
     <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] xl:grid-cols-[minmax(0,1fr)_560px]">
-      <SectionCard title="서식" noPadding className="min-w-0 !h-auto">
+      <SectionCard title={title} noPadding className="min-w-0 !h-auto">
         <DataTable
           columns={cols}
           data={forms}
@@ -323,44 +326,6 @@ function FormBoard({ forms }: { forms: CarbonForm[] }) {
         </div>
       )}
     </div>
-  );
-}
-
-/** 기업별 외부사업 규모 — 최근 12개월 자가소비 감축량 */
-function ScaleCard({ role }: { role: Role }) {
-  const { rows } = useRows();
-  const list = role.companies.map((c) => {
-    const a = annualOf(rows, c.id);
-    const kw = selfFacilities(role.facilities, c.id).reduce((x, f) => x + f.kw, 0);
-    return { ...c, kw, ...a };
-  });
-  const sum = list.reduce((a, c) => a + c.tco2, 0);
-  type R = (typeof list)[number];
-  const cols: Column<R>[] = [
-    { key: 'name', header: '기업', render: (c) => cell(c.name, 'font-medium text-white') },
-    { key: 'kw', header: '자가소비 설비 (kW)', align: 'right', render: (c) => num(fmt(c.kw, 2)) },
-    { key: 'mwh', header: '연 발전량 (MWh)', align: 'right', render: (c) => num(fmt(c.mwh, 1)) },
-    {
-      key: 'tco2',
-      header: '연 감축량 (tCO₂eq)',
-      align: 'right',
-      sortable: true,
-      sortValue: (c) => c.tco2,
-      render: (c) => strong(fmt(c.tco2, 2)),
-    },
-    { key: 'scale', header: '사업 규모', render: (c) => cell(scaleOf(c.tco2)) },
-  ];
-  return (
-    <SectionCard title={`기업별 외부사업 규모 (${list.length})`} description={`${LAST12[0]} ~ ${LAST12[1]}`}>
-      <DataTable data={list} columns={cols} rowKey={(c) => c.id} />
-      {role.isAdmin && list.length > 1 && (
-        <div className="flex justify-end gap-6 border-t border-white/[0.06] px-5 py-3 text-sm">
-          <span className="text-slate-400">합계</span>
-          <span className="font-medium tabular-nums text-white">{fmt(sum, 2)} tCO₂eq</span>
-          <span className="text-slate-300">묶음 {sum <= 500 ? '극소규모' : '소규모'}</span>
-        </div>
-      )}
-    </SectionCard>
   );
 }
 
@@ -508,66 +473,12 @@ export function CarbonContractScreen() {
   );
 }
 
-/* ══ 3.2.5 외부감축사업 정보 — 조건 · 방법론 · 절차 · 사업계획서 · 승인 신청서 서식 ══ */
+/* ══ 3.2.5 외부감축사업 정보 — 참고 문서(방법론) · 사업계획서 · 승인 신청서 서식. 절차는 기업이 직접 ══ */
 export function CarbonOffsetScreen() {
-  const role = useGhgRole();
   return (
     <div className="space-y-6">
       <Header title="외부감축사업 정보" />
-      <SectionCard title="신청 조건">
-        <TextTable
-          head={['조건', '내용', '근거']}
-          rows={[
-            ['조직경계 밖', '할당대상업체가 아닌 기업(또는 조직경계 밖)의 감축', '지침 제2조제1호 · 제8조제2항'],
-            ['시작 시점', '2016-12-03 이후 시작한 사업', '법 제30조제1항'],
-            ['의무 설치 아님', '다른 법령 의무로 설치한 설비가 아닐 것', '지침 제8조제2항제4호'],
-            ['추가성', '연 60,000 t 이하 사업은 법적 · 제도적 추가성만', '지침 제14조'],
-            ['승인 방법론', `${METHOD.code} 등 인증위원회 승인 방법론`, '지침 제8조제2항제7호'],
-            ['중복 금지', 'REC · RE100 등 다른 제도와 같은 감축량을 함께 쓰지 않을 것', '시행령 제49조제5항'],
-          ]}
-        />
-      </SectionCard>
-      <SectionCard title="적용 방법론">
-        <TextTable
-          head={['고유번호', '방법론', '유효 시작일']}
-          rows={[
-            [METHOD.code, METHOD.name, METHOD.from],
-            [
-              '01B-008-Ver01',
-              '전력 자가사용 및 독립된 소규모 계통 연계를 위한 재생에너지 발전사업의 방법론',
-              '2020-06-05',
-            ],
-            ['01B-004-Ver01', '재생에너지를 이용한 전력 생산 및 자가 사용 사업의 방법론', '2016-05-26'],
-          ]}
-        />
-      </SectionCard>
-      <SectionCard title="절차">
-        <TextTable
-          head={['단계', '내용', '기한', '서류']}
-          rows={[
-            ['0. 보유계정', '상쇄등록부 보유계정 등록', '', '별지 제36호'],
-            [
-              '1. 승인 신청',
-              '사업계획서 · 승인 신청서 제출 → 타당성 평가',
-              '평가 30일 (연장 30일)',
-              '별지 제1호 · 제5호',
-            ],
-            ['2. 승인', '기후에너지환경부 협의 → 인증위원회 → 승인서', '협의 30일', ''],
-            ['3. 착수신고', '승인일부터 1년 안에 사업 시작', '1년', '별지 제16호'],
-            ['4. 모니터링', '발전량 수집 → 모니터링 보고서', '기간 종료 후 12개월', '별지 제17호'],
-            ['5. 검증', '지정 검증기관 검증', '', '검증보고서'],
-            ['6. 인증 신청', '감축량 인증신청서 (1 t 이상, 정수)', '검토 30일', '별지 제18호'],
-            ['7. KOC 발행 · 판매', 'KRX 전문회원 매매 또는 장외 이전', '', '별지 제22호'],
-          ]}
-        />
-      </SectionCard>
-      <ScaleCard role={role} />
-      <FormBoard forms={[CARBON_FORMS.plan, CARBON_FORMS.approval]} />
-      <SectionCard title="공식 사이트">
-        <div className="flex flex-wrap gap-2">
-          <OutLink href={LINKS.orsMethod} label="방법론 현황" />
-        </div>
-      </SectionCard>
+      <FormBoard title="문서" forms={[CARBON_FORMS.method, CARBON_FORMS.plan, CARBON_FORMS.approval]} />
     </div>
   );
 }
