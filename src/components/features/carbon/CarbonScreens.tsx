@@ -333,7 +333,7 @@ export function CarbonKrxScreen() {
         actions={
           <>
             <OutLink href={LINKS.krxPrice} label="KRX 시세조회" />
-            <OutLink href={LINKS.krxBoard} label="KRX 공지 · 시장동향" />
+            <OutLink href={LINKS.krxBoard} label="KRX 공지사항" />
           </>
         }
       />
@@ -361,9 +361,8 @@ export function CarbonKrxScreen() {
       </SectionCard>
       <SectionCard title="공식 사이트">
         <div className="flex flex-wrap gap-2">
-          <OutLink href={LINKS.krxItems} label="거래종목" />
-          <OutLink href={LINKS.krxHours} label="매매제도" />
-          <OutLink href={LINKS.krxMember} label="회원자격요건" />
+          <OutLink href={LINKS.krxHours} label="KRX 매매거래시간" />
+          <OutLink href={LINKS.krxMember} label="KRX 회원자격요건" />
         </div>
       </SectionCard>
     </div>
