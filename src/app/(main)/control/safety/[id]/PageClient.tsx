@@ -1,5 +1,6 @@
 'use client';
 
+import { KstNowChip } from '@/components/features/control/KstNowChip';
 import { useParams } from 'next/navigation';
 import { Breadcrumb } from '@/components/layout';
 import { BackButton } from '@/components/layout/PageTitle';
@@ -30,9 +31,10 @@ export default function SafetyDetailPage() {
   return (
     <div className="space-y-6">
       <Breadcrumb items={[{ label: '통합관제', path: '/dashboard' }, { label: '안전', path: '/control/safety' }, { label: plant.name }]} />
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         {showBack && <BackButton href="/control/safety" label="안전 목록으로" />}
         <h1 className="text-xl font-bold text-white">{plant.name}</h1>
+        <KstNowChip />
       </div>
       {/* DX 센서는 태양광 발전소만(연료전지 · ORC 는 대상 아님) — 예지보전 상세와 같다 */}
       {plant.type === 'SOLAR' && <SafetyCompanyCard plant={plant} />}

@@ -105,18 +105,26 @@ export function DxPredictiveBoard({ plantId }: { plantId: number }) {
     const actual = (histQ.data ?? [])
       .map((p) => ({ key: p.time.replace('T', ' ').slice(0, 13), kwh: p.acPower }))
       .filter((p) => p.key >= from && p.key <= nowKey);
-    const fc = (forecastQ.data ?? []).map((f) => ({ key: f.start.slice(0, 13), p50: f.p50, band: [f.p10, f.p90] as [number, number] }));
+    // 예측은 다음 정시부터 36시간까지만(문서 6.3) — 지난 24시간 실측 + 향후 36시간
+    const until = kst(now + 36 * 3600_000).slice(0, 13);
+    const fc = (forecastQ.data ?? [])
+      .map((f) => ({ key: f.start.slice(0, 13), p50: f.p50, band: [f.p10, f.p90] as [number, number] }))
+      .filter((f) => f.key > nowKey && f.key <= until);
     const keys = [...new Set([...actual.map((a) => a.key), ...fc.map((f) => f.key)])].sort();
     return keys.map((k) => {
       const a = actual.find((x) => x.key === k);
       const f = fc.find((x) => x.key === k);
-      return { key: k, label: `${k.slice(8, 10)}일 ${k.slice(11, 13)}시`, 실측: a?.kwh, 예측: f?.p50, band: f?.band };
+      // 가로축 — 어제 · 오늘 · 내일 · 모레 + 시(문서 6.3 표시안처럼)
+      const rel = ['어제', '오늘', '내일', '모레'][Math.round((Date.parse(k.slice(0, 10)) - Date.parse(today)) / 86_400_000) + 1] ?? k.slice(5, 10);
+      return { key: k, label: `${rel} ${Number(k.slice(11, 13))}시`, 실측: a?.kwh, 예측: f?.p50, band: f?.band };
     });
   }, [histQ.data, forecastQ.data]); // eslint-disable-line react-hooks/exhaustive-deps
   const nextHour = forecastQ.data?.[0];
   const todayActual = (histQ.data ?? []).filter((p) => p.time.startsWith(today) && p.time.replace('T', ' ').slice(0, 13) <= kst(now).slice(0, 13)).reduce((a, p) => a + p.acPower, 0);
   const todayForecastRest = (forecastQ.data ?? []).filter((f) => f.start.startsWith(today)).reduce((a, f) => a + f.p50, 0);
   const nowLabel = series.find((s) => s.key === kst(now).slice(0, 13))?.label;
+  // 눈금 — 처음(24시간 전) · 매일 0시 · 끝(36시간 뒤)만
+  const ticks = series.filter((x, i) => i === 0 || i === series.length - 1 || x.key.endsWith(' 00')).map((x) => x.label);
 
   const cols: Column<Row>[] = [
     { key: 'name', header: '센서', render: (r) => <span className="whitespace-nowrap font-medium text-white">{r.name}</span> },
@@ -171,7 +179,7 @@ export function DxPredictiveBoard({ plantId }: { plantId: number }) {
           label="발전량 예측"
           value={fx(nextHour?.p50)}
           unit="kWh · 다음 1시간"
-          info="P50 이 대표 예측값이고, P10~P90 은 확률 구간이 아닌 참고 범위입니다. 흐리거나 비가 오면 오차가 커집니다."
+          info="예측값은 다음 1시간의 대표 예측값이고, 예상 범위는 적게 · 많게 나올 때의 폭입니다. 확률 구간이 아닌 참고 범위이며, 흐리거나 비가 오면 폭이 커집니다."
           lines={[
             `금일 실측 누적 ${Math.round(todayActual).toLocaleString('ko-KR')} kWh`,
             `금일 예측 누적 ${Math.round(todayActual + todayForecastRest).toLocaleString('ko-KR')} kWh`,
@@ -197,20 +205,20 @@ export function DxPredictiveBoard({ plantId }: { plantId: number }) {
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={series} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#cbd5e1' }} interval={11} axisLine={false} tickLine={false} />
+                <XAxis dataKey="label" ticks={ticks} interval={0} tick={{ fontSize: 12, fill: '#cbd5e1' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 12, fill: '#cbd5e1' }} axisLine={false} tickLine={false} width={48} unit="" />
                 <Tooltip
                   contentStyle={{ background: '#0d1520', border: '1px solid rgba(255,255,255,.1)', borderRadius: 8, fontSize: 13 }}
-                  formatter={(v: unknown, n?: unknown) => (Array.isArray(v) ? [`${v[0]} ~ ${v[1]} kWh`, 'P10~P90'] : [`${v} kWh`, String(n ?? '')])}
+                  formatter={(v: unknown, n?: unknown) => (Array.isArray(v) ? [`${v[0]} ~ ${v[1]} kWh`, '예상 범위'] : [`${v} kWh`, String(n ?? '')])}
                 />
-                <Area dataKey="band" stroke="none" fill="#3B82F6" fillOpacity={0.18} isAnimationActive={false} name="P10~P90" />
+                <Area dataKey="band" stroke="none" fill="#3B82F6" fillOpacity={0.18} isAnimationActive={false} name="예상 범위" />
                 <Line dataKey="실측" stroke="#e2e8f0" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls={false} />
-                <Line dataKey="예측" stroke="#3B82F6" strokeWidth={2} strokeDasharray="5 4" dot={false} isAnimationActive={false} name="예측 P50" />
+                <Line dataKey="예측" stroke="#3B82F6" strokeWidth={2} strokeDasharray="5 4" dot={false} isAnimationActive={false} name="예측값" />
                 {nowLabel && <ReferenceLine x={nowLabel} stroke="#94a3b8" strokeDasharray="3 3" label={{ value: `현재 ${hhmm(kst(now))}`, fill: '#cbd5e1', fontSize: 12, position: 'top' }} />}
               </ComposedChart>
             </ResponsiveContainer>
           </div>
-          <p className="mt-2 text-sm text-slate-400">— 실측 · ┅ 예측 P50 · ▒ P10~P90 참고 범위{nextHour ? ` · 발행 ${hhmm(nextHour.issuedAt)}` : ''}</p>
+          <p className="mt-2 text-sm text-slate-400">— 실측 · ┅ 예측값 · ▒ 예상 범위{nextHour ? ` · 발행 ${hhmm(nextHour.issuedAt)}` : ''}</p>
         </SectionCard>
       </div>
 

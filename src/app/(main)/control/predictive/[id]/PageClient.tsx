@@ -1,6 +1,7 @@
 'use client';
 
 import { BackButton } from '@/components/layout/PageTitle';
+import { KstNowChip } from '@/components/features/control/KstNowChip';
 import { useParams } from 'next/navigation';
 import { Breadcrumb } from '@/components/layout';
 import { useMonitoringPlantDetail } from '@/hooks/monitoring/useMonitoring';
@@ -38,11 +39,12 @@ export default function PredictiveDetailPage() {
           { label: plant.name },
         ]}
       />
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         {showBack && (
           <BackButton href="/control/predictive" label="예지보전 목록으로" />
         )}
         <h1 className="text-xl font-bold text-white">{plant.name}</h1>
+        <KstNowChip />
       </div>
 
       {/* DX 스마트센서 대시보드(아이티공간 연계 v1.1 7장) — 값이 없으면 미수신 · 미산출 */}
