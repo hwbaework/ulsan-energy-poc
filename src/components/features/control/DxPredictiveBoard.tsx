@@ -17,6 +17,7 @@ import {
   isSafetyLate,
   isStale,
   kst,
+  stopLabel,
   topRisk,
   worstSafety,
   type DxLatest,
@@ -143,7 +144,7 @@ export function DxPredictiveBoard({ plantId }: { plantId: number }) {
       header: 'Health',
       width: '84px',
       render: (r) =>
-        isStale(r.lt) ? <span className="text-slate-500">{r.lt ? '수집 중단' : '미수신'}</span> : <span className="tabular-nums text-slate-200">{fx(r.lt?.health?.healthIndex) ?? NONE}</span>,
+        isStale(r.lt) ? <span className="text-slate-500">{stopLabel(r.mac, latestQ.isSuccess)}</span> : <span className="tabular-nums text-slate-200">{fx(r.lt?.health?.healthIndex) ?? NONE}</span>,
     },
     { key: 'top', header: '가장 높은 위험 항목', width: '140px', render: (r) => <span className="text-slate-300">{topRisk(r.sf)?.label ?? '-'}</span> },
   ];

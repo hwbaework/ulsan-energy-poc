@@ -10,7 +10,7 @@ import { PlantNameCell } from '@/components/features/monitoring/PlantNameCell';
 import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
 import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
 import { useDxLatestAll, useDxSafetyAll } from '@/hooks/control/useDx';
-import { DX_LEVEL, dxSensorsOf, isStale, topRisk, worstSafety, type DxLatest, type DxSafety } from '@/lib/dx';
+import { DX_LEVEL, dxSensorsOf, isDxTarget, isStale, topRisk, worstSafety, type DxLatest, type DxSafety } from '@/lib/dx';
 import { getPersona, usePersonaOverride } from '@/lib/persona';
 import { useAuthStore } from '@/stores/useAuthStore';
 import type { MonitoringPlant } from '@/types/monitoring';
@@ -48,7 +48,8 @@ export default function PredictivePage() {
   if (directPlantId != null) return null;
 
   const rows: Row[] = plants.map((p) => {
-    const macs = dxSensorsOf(p.plantId).map((s) => s.mac);
+    // 연계 대상 센서만(아직 목록에 없는 장비는 미수신) — 응답에 없는 대상 센서는 수신 수에서 빠져 수집 중단으로 보인다
+    const macs = dxSensorsOf(p.plantId).filter((s) => isDxTarget(s.mac)).map((s) => s.mac);
     const lt = (latestQ.data ?? []).filter((x: DxLatest) => macs.includes(x.macAddress));
     const sf = (safetyQ.data ?? []).filter((x: DxSafety) => macs.includes(x.macAddress));
     const live = lt.filter((x) => !isStale(x));

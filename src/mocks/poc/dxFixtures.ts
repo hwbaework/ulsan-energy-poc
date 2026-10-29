@@ -5,7 +5,7 @@
  * 경우의 수: 정상 / 관찰(한일튜브3 — 전류 불평형) / 주의(용인금속03 — 누설전류) / 수집 중단·갱신 지연(용인금속04).
  */
 import { registerMock } from './registry';
-import { DX_SENSORS, DX_SAFETY_MODEL, kst, type DxLatest, type DxRiskLevel, type DxSafety, type DxSensor } from '@/lib/dx';
+import { DX_SENSORS, DX_SAFETY_MODEL, isDxTarget, kst, type DxLatest, type DxRiskLevel, type DxSafety, type DxSensor } from '@/lib/dx';
 import { LASEE_PLANTS } from '@/constants/plant-mapping';
 
 /** 결정적 난수 0~1 */
@@ -128,9 +128,10 @@ function safetyAt(s: DxSensor, t: number, now: number): DxSafety {
   };
 }
 
+// 실제 API 처럼 연계 대상 9대만 돌려준다(아직 목록에 없는 한길 · 건호이엔씨는 응답 없음 → 미수신)
 const pick = (codes: string | null, mac: string | null) =>
   DX_SENSORS.filter(
-    (s) => (!codes || codes.split(',').map(Number).includes(s.plantCode)) && (!mac || s.mac === mac),
+    (s) => isDxTarget(s.mac) && (!codes || codes.split(',').map(Number).includes(s.plantCode)) && (!mac || s.mac === mac),
   );
 
 // API-003 예지보전 최신

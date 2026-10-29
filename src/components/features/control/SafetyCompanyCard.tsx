@@ -12,7 +12,9 @@ import {
   hasDx,
   hhmm,
   isSafetyLate,
+  isDxTarget,
   isStale,
+  stopLabel,
   topRisk,
   worstSafety,
 } from '@/lib/dx';
@@ -57,6 +59,8 @@ export function SafetyCompanyCard({ plant }: { plant: MonitoringPlant }) {
     .sort()
     .at(-1);
   const receiving = live.length;
+  // 수신 n/m — 연계 대상 센서만 센다(아직 목록에 없는 장비는 미수신)
+  const targets = sensors.filter((s) => isDxTarget(s.mac)).length;
 
   return (
     <div className="rounded-xl bg-[#0d1520] p-5 ring-1 ring-white/[0.06]">
@@ -64,9 +68,9 @@ export function SafetyCompanyCard({ plant }: { plant: MonitoringPlant }) {
         {/* 수신 상태 — 센서 몇 대가 지금 값을 보내는지(회사 이름은 페이지 제목) */}
         <span className="flex items-center gap-1.5 text-sm text-slate-300">
           <span
-            className={`h-2 w-2 rounded-full ${sensors.length === 0 ? 'bg-slate-500' : receiving === sensors.length ? 'animate-pulse bg-emerald-400' : receiving > 0 ? 'bg-amber-400' : 'bg-red-400'}`}
+            className={`h-2 w-2 rounded-full ${targets === 0 ? 'bg-slate-500' : receiving === targets ? 'animate-pulse bg-emerald-400' : receiving > 0 ? 'bg-amber-400' : 'bg-red-400'}`}
           />
-          {sensors.length === 0 ? '미수신' : `수신 ${receiving}/${sensors.length}`}
+          {targets === 0 ? '미수신' : `수신 ${receiving}/${targets}`}
           {lastAt && <span className="tabular-nums text-slate-400">· {lastAt.slice(11, 19)}</span>}
         </span>
       </div>
@@ -157,9 +161,9 @@ export function SafetyCompanyCard({ plant }: { plant: MonitoringPlant }) {
                     {cellNum(v('thdi'))}
                     {cellNum(v('current_unbalance'))}
                     <td
-                      className={`${TABLE_TD} whitespace-nowrap tabular-nums ${stale ? 'text-red-300' : 'text-slate-400'}`}
+                      className={`${TABLE_TD} whitespace-nowrap tabular-nums ${stale && isDxTarget(sn.mac) && latestQ.isSuccess ? 'text-red-300' : stale ? 'text-slate-500' : 'text-slate-400'}`}
                     >
-                      {stale ? (lt ? '수집 중단' : '미수신') : (lt?.receivedAt.slice(11, 19) ?? '-')}
+                      {stale ? stopLabel(sn.mac, latestQ.isSuccess) : (lt?.receivedAt.slice(11, 19) ?? '-')}
                     </td>
                   </tr>
                 );
