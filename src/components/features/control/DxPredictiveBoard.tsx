@@ -19,7 +19,7 @@ const fx = (v: number | null | undefined, d = 1) =>
   v == null ? null : v.toLocaleString('ko-KR', { minimumFractionDigits: d, maximumFractionDigits: d });
 const rst = (v: number | number[] | null, d = 1) => (Array.isArray(v) ? v.map((x) => fx(x, d) ?? '-').join(' / ') : null);
 
-/** 요약 카드 — 값 아래에 척도 · 센서 중 가장 낮은 값 · 갱신 주기를 한 줄씩 */
+/** 요약 카드 — 값 아래에 척도 · 갱신 주기를 한 줄씩 */
 function Kpi({ label, value, unit, badge, lines }: { label: string; value: string | null; unit?: string; badge?: ReactNode; lines: ReactNode[] }) {
   return (
     <div className="rounded-xl bg-[#0d1520] p-5 ring-1 ring-white/[0.06]">
@@ -72,7 +72,6 @@ export function DxPredictiveBoard({ plantId }: { plantId: number }) {
     .filter((r) => !isStale(r.lt) && r.lt?.health?.healthIndex != null)
     .map((r) => r.lt!.health!)
     .sort((a, b) => (a.healthIndex as number) - (b.healthIndex as number))[0];
-  const many = sensors.length > 1;
 
   /* 발전량 — 지난 24시간 실측(발전 이력) + 향후 36시간 예측 */
   const now = Date.now();
@@ -148,7 +147,7 @@ export function DxPredictiveBoard({ plantId }: { plantId: number }) {
           label="설비 상태 (Health Index)"
           value={fx(lowHealth?.healthIndex)}
           unit="/ 100"
-          lines={['설비 상태 점수 0~100, 높을수록 양호', ...(many ? ['센서 중 가장 낮은 값'] : []), `1시간 갱신${lowHealth ? ` · ${hhmm(lowHealth.windowStartedAt)}~${hhmm(lowHealth.windowEndedAt)}` : ''}`]}
+          lines={['설비 상태 점수 0~100, 높을수록 양호', `1시간 갱신${lowHealth ? ` · ${hhmm(lowHealth.windowStartedAt)}~${hhmm(lowHealth.windowEndedAt)}` : ''}`]}
         />
         <Kpi
           label="발전량 예측"

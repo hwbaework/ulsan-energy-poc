@@ -103,10 +103,10 @@ export default function SafetyPage() {
       header: '가장 높은 위험 항목',
       width: '170px',
       align: 'center',
-      // 항목과 위험점수(0~100) — 전기안전지수 = 100 − 이 점수
+      // 항목과 위험점수(0~100) — 지수를 낮춘 항목
       render: (r) => {
         const t = topRisk(r.worst);
-        return <span className="tabular-nums text-slate-300">{t ? `${t.label} ${fx(t.score)}` : '-'}</span>;
+        return <span className="tabular-nums text-slate-300">{t ? `${t.label} ${Math.round(t.score)}` : '-'}</span>;
       },
     },
   ];
