@@ -338,6 +338,7 @@ export const ENDPOINTS = {
     safetyRules: `${V1}/control/safety/rules`,
     // DX 스마트센서(아이티공간 UMEI 연계 v1.1) — API-003 · 006 · 007, 발전량 예측
     dxLatest: `${V1}/external/dx/predictive/latest`,
+    dxFeatureHistory: `${V1}/external/dx/predictive/features/history`,
     dxSafety: `${V1}/external/dx/safety/latest`,
     dxSafetyHistory: `${V1}/external/dx/safety/history`,
     dxForecast: `${V1}/external/dx/forecast`,

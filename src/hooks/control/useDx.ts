@@ -4,7 +4,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { getApiClient } from '@/api/client';
 import { ENDPOINTS } from '@/api/endpoints';
-import { DX_SAFETY_MODEL, dxCodesOf, type DxForecast, type DxLatest, type DxSafety } from '@/lib/dx';
+import { DX_SAFETY_MODEL, dxCodesOf, type DxFeature, type DxForecast, type DxLatest, type DxSafety } from '@/lib/dx';
 
 const api = () => getApiClient();
 type Items<T> = { items?: T[] };
@@ -17,6 +17,15 @@ export function useDxLatest(plantId: number | undefined) {
       (await api().get<Items<DxLatest>>(ENDPOINTS.control.dxLatest, { plantCode: dxCodesOf(plantId!).join(',') })).items ?? [],
     enabled: plantId != null && dxCodesOf(plantId).length > 0,
     refetchInterval: 60_000,
+  });
+}
+/** API-005 — 선택 센서 5분 특징값 이력(최근 hours 시간) — 측정값 추이 */
+export function useDxFeatureHistory(mac: string | undefined, hours = 24) {
+  return useQuery({
+    queryKey: ['dx', 'featureHistory', mac, hours],
+    queryFn: async () => (await api().get<Items<DxFeature>>(ENDPOINTS.control.dxFeatureHistory, { macAddress: mac, hours })).items ?? [],
+    enabled: !!mac,
+    refetchInterval: 300_000,
   });
 }
 /** API-006 — 센서별 최신 전기안전지수(종합 모델만) */

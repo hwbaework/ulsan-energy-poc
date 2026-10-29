@@ -5,7 +5,7 @@
  * 경우의 수: 정상 / 관찰(한일튜브3 — 전류 불평형) / 주의(용인금속03 — 누설전류) / 수집 중단·갱신 지연(용인금속04).
  */
 import { registerMock } from './registry';
-import { DX_SENSORS, DX_SAFETY_MODEL, isDxTarget, kst, type DxLatest, type DxRiskLevel, type DxSafety, type DxSensor } from '@/lib/dx';
+import { DX_SENSORS, DX_SAFETY_MODEL, isDxTarget, kst, type DxFeature, type DxLatest, type DxRiskLevel, type DxSafety, type DxSensor } from '@/lib/dx';
 import { LASEE_PLANTS } from '@/constants/plant-mapping';
 
 /** 결정적 난수 0~1 */
@@ -63,8 +63,8 @@ function latestOf(s: DxSensor, now: number): DxLatest {
       { metricCode: 'power_factor', metricName: '역률', value: sun > 0.05 ? r(96.4 + rnd(i, 7) * 2) : null, unit: '%' },
       { metricCode: 'frequency', metricName: '주파수', value: r(59.98 + rnd(i, at / 60_000) * 0.04, 2), unit: 'Hz' },
       { metricCode: 'ground_current', metricName: '누설/지락 전류', value: r(p.leakage ?? 0.01 + rnd(i, 8) * 0.03, 3), unit: 'A' },
-      { metricCode: 'thdi', metricName: '전류 고조파 왜곡률', value: r(sun > 0.05 ? 2.6 + rnd(i, 9) * 2.2 : 7.5 + rnd(i, 9) * 2), unit: '%' },
-      { metricCode: 'temperature', metricName: '온도, 습도', value: [r(27 + sun * 9 + rnd(i, 10) * 2), r(48 + rnd(i, 11) * 10)], unit: 'degC' },
+      { metricCode: 'thdi', metricName: '전류 고조파 왜곡률', value: null, unit: '%' }, // 실제 응답 미산출 — 값을 지어 넣지 않는다
+      { metricCode: 'temperature', metricName: '온도, 습도', value: null, unit: 'degC' }, // 실제 응답 미산출
       { metricCode: 'current_unbalance', metricName: '전류 불평형률', value: r(ub), unit: '%' },
       { metricCode: 'voltage_unbalance', metricName: '전압 불평형률', value: r(0.2 + rnd(i, 12) * 0.3), unit: '%' },
     ],
@@ -74,8 +74,8 @@ function latestOf(s: DxSensor, now: number): DxLatest {
       mean: r(amp * 0.9),
       maxPf: sun > 0.05 ? 98.0 : null,
       maxGround: r((p.leakage ?? 0.03) * 1.2, 3),
-      maxThdi: 5.1,
-      maxTemp: r(29 + sun * 9),
+      maxThdi: null,
+      maxTemp: null,
       windowStartedAt: kst(hourStart - 3600_000),
       windowEndedAt: kst(hourStart),
     },
@@ -88,25 +88,23 @@ function safetyAt(s: DxSensor, t: number, now: number): DxSafety {
   const p = PROFILE[s.deviceName] ?? { health: 96 };
   const hoursAgo = (now - t) / 3600_000;
   const wave = Math.sin(t / 2_700_000 + i) * 0.9 + (rnd(i, Math.floor(t / 300_000)) - 0.5) * 0.6;
-  let index = 94.5 - (i % 3) * 1.6 + wave;
+  const r1 = (v: number) => Math.round(v * 10) / 10;
   const risks: DxSafety['risks'] = {
-    current: Math.round((6 + rnd(i, 21) * 6) * 10) / 10,
-    voltage: Math.round((3 + rnd(i, 22) * 4) * 10) / 10,
-    leakage: Math.round((1 + rnd(i, 23) * 4) * 10) / 10,
-    harmonic: Math.round((5 + rnd(i, 24) * 8) * 10) / 10,
-    temperature: Math.round((4 + sunAt(t) * 6) * 10) / 10,
-    powerQuality: sunAt(t) > 0.05 ? Math.round((2 + rnd(i, 25) * 4) * 10) / 10 : null,
+    current: r1(4.5 + rnd(i, 21) * 3 + wave),
+    voltage: r1(1.5 + rnd(i, 22) * 2),
+    leakage: r1(0.5 + rnd(i, 23) * 2),
+    harmonic: r1(2 + rnd(i, 24) * 3),
+    temperature: r1(1 + sunAt(t) * 3),
+    powerQuality: sunAt(t) > 0.05 ? r1(1 + rnd(i, 25) * 2) : null,
     arc: null, // 아크 지수 제공 전까지 null(문서 6.4)
     communication: 0,
   };
-  if (p.unbalance && hoursAgo < 3) {
-    index = 88.6 + wave * 0.6;
-    risks.current = 32;
-  }
-  if (p.leakage && hoursAgo < 6) {
-    index = 72.4 + wave;
-    risks.leakage = 46;
-  }
+  // 관찰(한일튜브3 — 전류 불평형) · 주의(용인금속03 — 누설전류) 는 최근 몇 시간에 그 항목 점수가 오른다
+  if (p.unbalance && hoursAgo < 3) risks.current = r1(11.4 + wave * 0.6);
+  if (p.leakage && hoursAgo < 6) risks.leakage = r1(27.6 + wave);
+  // 전기안전지수 = 100 − 가장 높은 위험점수(문서 5.4 응답 예시: current 8.6 → 91.4), anomalyScore 도 그 점수
+  const top = Math.max(...Object.entries(risks).filter(([k, v]) => k !== 'communication' && typeof v === 'number').map(([, v]) => v as number));
+  const index = 100 - top;
   const level: DxRiskLevel = index < 60 ? 'warning' : index < 80 ? 'caution' : index < 90 ? 'watch' : 'normal';
   const ws = Math.floor(t / 300_000) * 300_000;
   const plant = LASEE_PLANTS.find((x) => x.laseeId === s.plantId);
@@ -121,9 +119,9 @@ function safetyAt(s: DxSensor, t: number, now: number): DxSafety {
     diagnosedAt: kst(ws + 300_000 + 240_000),
     modelName: DX_SAFETY_MODEL,
     modelVersion: 'v1',
-    safetyIndex: Math.round(index * 1000) / 1000,
+    safetyIndex: Math.round(index * 10) / 10,
     riskLevel: level,
-    anomalyScore: Math.round((100 - index) * 10) / 10,
+    anomalyScore: top,
     risks,
   };
 }
@@ -157,6 +155,45 @@ registerMock(/^\/external\/dx\/safety\/history$/, ({ query }) => {
   for (const s of pick(query.get('plantCode'), query.get('macAddress'))) {
     const late = (PROFILE[s.deviceName]?.staleMin ?? 0) * 60_000;
     for (let t = now - hours * 3600_000; t <= now - 600_000 - late; t += 300_000) items.push(safetyAt(s, t, now));
+  }
+  return { items };
+});
+
+/** 그 5분 구간의 특징값(API-005) — 최신 측정과 같은 식, 온도 · 고조파는 실제 응답처럼 미산출 */
+function featureAt(s: DxSensor, t: number): DxFeature {
+  const i = idx(s);
+  const p = PROFILE[s.deviceName] ?? { health: 96 };
+  const sun = sunAt(t);
+  const kw = (RATED[s.plantId] ?? 50) * 0.82 * sun * (0.94 + rnd(i, t / 300_000) * 0.08);
+  const amp = sun > 0 ? (kw * 1000) / (Math.sqrt(3) * 380 * 0.97) : 0;
+  const ub = p.unbalance ?? 0.9 + rnd(i, 3) * 1.1;
+  const r = (v: number, d = 1) => Math.round(v * 10 ** d) / 10 ** d;
+  return {
+    sourceType: 'DX_PREDICTIVE_FEATURE',
+    plantCode: s.plantCode,
+    macAddress: s.mac,
+    observedAt: kst(t),
+    windowEndedAt: kst(t + 300_000),
+    sampleCount: 297 + Math.floor(rnd(i, t / 300_000) * 4),
+    measurements: [
+      { metricCode: 'current_rst', metricName: 'R/S/T 최대 전류', value: [r(amp * 1.04 * (1 + ub / 200)), r(amp * 1.04), r(amp * 1.04 * (1 - ub / 200))], unit: 'A' },
+      { metricCode: 'voltage_mean', metricName: '평균 전압', value: r(380.3 + (rnd(i, t / 300_000) - 0.5) * 1.6), unit: 'V' },
+      { metricCode: 'temperature', metricName: '평균 온도', value: null, unit: 'degC' },
+      { metricCode: 'thdi', metricName: '평균 전류 THD', value: null, unit: '%' },
+      { metricCode: 'ground_current', metricName: '평균 누설 전류', value: r(p.leakage ?? 0.01 + rnd(i, 8) * 0.03, 3), unit: 'A' },
+      { metricCode: 'power_factor', metricName: '평균 역률', value: sun > 0.05 ? r(96.4 + rnd(i, t / 300_000) * 2) : null, unit: '%' },
+    ],
+  };
+}
+// API-005 예지보전 5분 특징값 이력 — 기본 최근 24시간, 수집이 멈춘 센서는 멈춘 뒤 구간 없음
+registerMock(/^\/external\/dx\/predictive\/features\/history$/, ({ query }) => {
+  const now = Date.now();
+  const hours = Number(query.get('hours') ?? 24);
+  const items: DxFeature[] = [];
+  for (const s of pick(query.get('plantCode'), query.get('macAddress'))) {
+    const late = (PROFILE[s.deviceName]?.staleMin ?? 0) * 60_000;
+    const start = Math.floor((now - hours * 3600_000) / 300_000) * 300_000;
+    for (let t = start; t <= now - 300_000 - late; t += 300_000) items.push(featureAt(s, t));
   }
   return { items };
 });

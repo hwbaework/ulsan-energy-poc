@@ -67,6 +67,20 @@ export interface DxLatest {
   measurements: DxMeasurement[];
   health: DxHealth | null;
 }
+/** API-005 예지보전 5분 특징값 — 구간 하나(문서 5.3). deviceName 은 없어 macAddress 로 구분 */
+export interface DxFeature {
+  sourceType: 'DX_PREDICTIVE_FEATURE';
+  plantCode: number | null;
+  macAddress: string;
+  /** 5분 구간 시작 */
+  observedAt: string;
+  windowEndedAt: string;
+  /** 구간에 들어간 1초 측정 건수 — 정상이면 약 300 */
+  sampleCount: number;
+  measurements: DxMeasurement[];
+}
+/** 수집이 끊긴 구간 — sampleCount 가 300보다 크게 작으면 추세에서 뺀다(문서 5.3). 80% 미만을 끊긴 것으로 본다 */
+export const isThinWindow = (f: DxFeature) => f.sampleCount < 240;
 export type DxRiskLevel = 'danger' | 'warning' | 'caution' | 'watch' | 'normal';
 export type DxRiskKey = 'current' | 'voltage' | 'leakage' | 'harmonic' | 'temperature' | 'powerQuality' | 'arc' | 'communication';
 export interface DxSafety {

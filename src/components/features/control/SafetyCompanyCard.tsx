@@ -1,177 +1,174 @@
 'use client';
 
-import { Info } from 'lucide-react';
+import { useState } from 'react';
+import { CartesianGrid, Line, LineChart, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { SectionCard } from '@/components/features';
 import { StatusPill } from '@/components/ui/Design';
-import { Tooltip as Hint } from '@/components/ui/Tooltip';
-import { useDxLatest, useDxSafety } from '@/hooks/control/useDx';
-import {
-  DX_LEVEL,
-  dxMetric,
-  dxSensorsOf,
-  firstNum,
-  hasDx,
-  hhmm,
-  isSafetyLate,
-  isDxTarget,
-  isStale,
-  stopLabel,
-  topRisk,
-  worstSafety,
-} from '@/lib/dx';
+import { useDxSafety, useDxSafetyHistory } from '@/hooks/control/useDx';
+import { DX_LEVEL, DX_RISK_ITEMS, dxSensorsOf, hasDx, hhmm, isDxTarget, isSafetyLate, topRisk, worstSafety, type DxSafety } from '@/lib/dx';
 import { TABLE, TABLE_HEAD_ROW, TABLE_ROW, TABLE_TD, TABLE_TH } from '@/components/features/DataList';
 import type { MonitoringPlant } from '@/types/monitoring';
 
-// 안전 상세 — 회사(발전소) 하나의 DX 스마트센서 실시간 값(아이티공간 UMEI 연계 v1.1).
-// 전기안전지수(API-006, 5분)와 과열·전기 징후(API-003, 1분). 센서가 여러 대면 가장 나쁜 값.
-// 값이 없으면 미수신 · 수집 중단 · 갱신 지연(한길 · 건호이엔씨는 연계 문서 v1.1 센서 목록에 아직 없어 미수신).
+// 안전 상세 — 발전소 하나의 전기안전지수(아이티공간 UMEI 연계 v1.1 API-006 · 007, 5분).
+// 측정값(℃ · A · %)이 아니라 0~100 점수만: 전기안전지수(높을수록 양호) · 등급 · 항목별 위험점수(높을수록 위험).
+// 전기안전지수 = 100 − 가장 높은 위험점수(문서 5.4 응답 예시) — 그 항목을 주황색으로 강조한다(문서 6.2).
+// 센서가 잰 값은 예지보전에 있다(2026-10-29 사용자 확정).
+const NONE = '미산출';
 const fx = (v: number | null | undefined, d = 1) =>
   v == null ? null : v.toLocaleString('ko-KR', { minimumFractionDigits: d, maximumFractionDigits: d });
 
-function Val({ label, value, unit }: { label: string; value: string | null; unit: string }) {
-  return (
-    <div>
-      <p className="text-sm text-slate-400">{label}</p>
-      <p className={`mt-0.5 text-lg font-semibold tabular-nums ${value ? 'text-white' : 'text-slate-500'}`}>
-        {value ?? '미산출'}
-        {value && <span className="ml-1 text-sm font-normal text-slate-400">{unit}</span>}
-      </p>
-    </div>
-  );
-}
-
-/** 회사 하나의 안전 — 전기안전지수 · 과열 · 전기 징후 · 센서별 표 */
+/** 발전소 하나의 안전 — 요약(가장 나쁜 센서) · 센서별 점수 표 · 선택 센서 추이 */
 export function SafetyCompanyCard({ plant }: { plant: MonitoringPlant }) {
   const dx = hasDx(plant.plantId);
-  const latestQ = useDxLatest(dx ? plant.plantId : undefined);
   const safetyQ = useDxSafety(dx ? plant.plantId : undefined);
-  const sensors = dxSensorsOf(plant.plantId);
+  // 센서 번호 순(한일튜브1 → 4)
+  const sensors = [...dxSensorsOf(plant.plantId)].sort((a, b) => a.deviceName.localeCompare(b.deviceName, 'ko', { numeric: true }));
+  const [picked, setPicked] = useState<string | null>(null);
+  const sel = sensors.find((s) => s.mac === picked) ?? sensors.find((s) => isDxTarget(s.mac));
 
-  const live = (latestQ.data ?? []).filter((x) => !isStale(x));
-  const worst = worstSafety(safetyQ.data ?? []);
+  const all = safetyQ.data ?? [];
+  const worst = worstSafety(all);
   // 센서 결과가 모두 15분 넘게 멈췄으면 '미산출'이 아니라 '갱신 지연'(연계 문서 6.2)
-  const allLate = !worst && (safetyQ.data ?? []).length > 0 && (safetyQ.data ?? []).every((x) => isSafetyLate(x));
-  const max = (code: string) => {
-    const v = live.map((x) => firstNum(dxMetric(x, code))).filter((n): n is number => n != null);
-    return v.length ? Math.max(...v) : null;
-  };
-  const lastAt = live
-    .map((x) => x.receivedAt)
-    .sort()
-    .at(-1);
-  const receiving = live.length;
-  // 수신 n/m — 연계 대상 센서만 센다(아직 목록에 없는 장비는 미수신)
-  const targets = sensors.filter((s) => isDxTarget(s.mac)).length;
+  const allLate = !worst && all.length > 0 && all.every((x) => isSafetyLate(x));
+  const many = sensors.length > 1;
 
   return (
-    <div className="rounded-xl bg-[#0d1520] p-5 ring-1 ring-white/[0.06]">
-      <div className="flex flex-wrap items-center gap-2">
-        {/* 수신 상태 — 센서 몇 대가 지금 값을 보내는지(회사 이름은 페이지 제목) */}
-        <span className="flex items-center gap-1.5 text-sm text-slate-300">
-          <span
-            className={`h-2 w-2 rounded-full ${targets === 0 ? 'bg-slate-500' : receiving === targets ? 'animate-pulse bg-emerald-400' : receiving > 0 ? 'bg-amber-400' : 'bg-red-400'}`}
-          />
-          {targets === 0 ? '미수신' : `수신 ${receiving}/${targets}`}
-          {lastAt && <span className="tabular-nums text-slate-400">· {lastAt.slice(11, 19)}</span>}
-        </span>
-      </div>
-
-      {/* 제목 줄 · 숫자 줄을 나누고, 등급은 숫자 바로 옆 · 산출 시각은 제목 줄 오른쪽 */}
-      <div className="mt-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5">
-            <p className="text-sm text-slate-400">전기안전지수</p>
-            <Hint content="0~100, 높을수록 양호합니다. 센서가 여러 대면 가장 낮은 값입니다. 당사 운영 기준의 상태 지표이며 법정 · 표준 판정이 아닙니다. 보호계전기 동작을 대신하지 않습니다." wide position="bottom">
-              <span tabIndex={0} role="img" aria-label="전기안전지수 설명" className="inline-flex">
-                <Info size={14} className="cursor-help text-slate-400 hover:text-white" />
-              </span>
-            </Hint>
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="rounded-xl bg-[#0d1520] p-5 ring-1 ring-white/[0.06]">
+          <p className="text-sm text-slate-300">전기안전지수</p>
+          <div className="mt-2 flex items-center gap-2">
+            <span className={`text-3xl font-bold tabular-nums ${worst ? 'text-white' : 'text-slate-500'}`}>{fx(worst?.safetyIndex) ?? (allLate ? '-' : NONE)}</span>
+            {worst && <StatusPill tone={DX_LEVEL[worst.riskLevel].tone} label={DX_LEVEL[worst.riskLevel].label} />}
+            {allLate && <StatusPill tone="muted" label="갱신 지연" />}
           </div>
-          {worst && <span className="text-sm tabular-nums text-slate-400">산출 {hhmm(worst.diagnosedAt)}</span>}
+          <div className="mt-3 space-y-0.5 text-sm text-slate-400">
+            <p>0~100, 높을수록 양호 · 100 − 가장 높은 위험점수</p>
+            {many && <p>센서 중 가장 낮은 값{worst ? ` · ${sensors.find((s) => s.mac === worst.macAddress)?.deviceName ?? ''}` : ''}</p>}
+            <p>5분 갱신{worst ? ` · 산출 ${hhmm(worst.diagnosedAt)}` : ''}</p>
+          </div>
         </div>
-        <div className="mt-1 flex items-center gap-2.5">
-          <span className={`text-3xl font-bold tabular-nums ${worst ? 'text-white' : 'text-slate-500'}`}>
-            {fx(worst?.safetyIndex) ?? (allLate ? '-' : '미산출')}
-          </span>
-          {worst && <StatusPill tone={DX_LEVEL[worst.riskLevel].tone} label={DX_LEVEL[worst.riskLevel].label} />}
-          {allLate && <StatusPill tone="muted" label="갱신 지연" />}
+        <div className="rounded-xl bg-[#0d1520] p-5 ring-1 ring-white/[0.06]">
+          <p className="text-sm text-slate-300">아크 지수</p>
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-3xl font-bold text-slate-500">{NONE}</span>
+            <StatusPill tone="muted" label="판정 보류" />
+          </div>
+          <div className="mt-3 space-y-0.5 text-sm text-slate-400">
+            <p>시범 산출 중</p>
+          </div>
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-white/[0.06] pt-4 sm:grid-cols-4">
-        <Val label="설비 온도" value={fx(max('temperature'))} unit="℃" />
-        <Val label="누설전류" value={fx(max('ground_current'), 3)} unit="A" />
-        <Val label="고조파 THD" value={fx(max('thdi'))} unit="%" />
-        <Val label="전류 불평형" value={fx(max('current_unbalance'))} unit="%" />
-      </div>
-
-      {/* 센서별 — 위 값은 센서 중 가장 나쁜 값, 여기서 센서마다 */}
-      {sensors.length > 0 && (
-        <div className="mt-4 overflow-x-auto border-t border-white/[0.06] pt-3">
+      {/* 센서별 — 전기안전지수 · 등급 · 항목별 위험점수(0~100). 줄을 누르면 아래 추이가 그 센서로 */}
+      <SectionCard title="센서별 전기안전지수" noPadding>
+        <div className="overflow-x-auto">
           <table className={TABLE}>
             <thead>
               <tr className={TABLE_HEAD_ROW}>
-                <th className={TABLE_TH}>센서</th>
-                <th className={`${TABLE_TH}`}>안전지수</th>
-                <th className={TABLE_TH}>등급</th>
-                <th className={TABLE_TH}>위험 항목</th>
-                <th className={`${TABLE_TH}`}>온도 ℃</th>
-                <th className={`${TABLE_TH}`}>누설 A</th>
-                <th className={`${TABLE_TH}`}>THD %</th>
-                <th className={`${TABLE_TH}`}>불평형 %</th>
-                <th className={TABLE_TH}>수신</th>
+                <th className={TABLE_TH} rowSpan={2}>
+                  센서
+                </th>
+                <th className={TABLE_TH} rowSpan={2}>
+                  전기안전지수
+                </th>
+                <th className={TABLE_TH} rowSpan={2}>
+                  등급
+                </th>
+                <th className={`${TABLE_TH} text-center`} colSpan={DX_RISK_ITEMS.length}>
+                  항목별 위험점수 (0~100, 높을수록 위험)
+                </th>
+                <th className={TABLE_TH} rowSpan={2}>
+                  산출 시각
+                </th>
+              </tr>
+              <tr className={TABLE_HEAD_ROW}>
+                {DX_RISK_ITEMS.map((it) => (
+                  <th key={it.key} className={TABLE_TH}>
+                    {it.label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {sensors.map((sn) => {
-                const lt = latestQ.data?.find((x) => x.macAddress === sn.mac);
-                const sf = safetyQ.data?.find((x) => x.macAddress === sn.mac);
-                const stale = isStale(lt);
+                const sf = all.find((x) => x.macAddress === sn.mac);
                 const late = isSafetyLate(sf);
-                const t = topRisk(sf);
-                const v = (code: string, d = 1) => (stale ? null : fx(firstNum(dxMetric(lt, code)), d));
-                const cellNum = (x: string | null) => (
-                  <td
-                    className={`${TABLE_TD} whitespace-nowrap tabular-nums ${x ? 'text-slate-200' : 'text-slate-500'}`}
-                  >
-                    {x ?? '-'}
-                  </td>
-                );
+                const top = topRisk(sf);
                 return (
-                  <tr key={sn.mac} className={TABLE_ROW}>
+                  <tr
+                    key={sn.mac}
+                    onClick={() => isDxTarget(sn.mac) && setPicked(sn.mac)}
+                    className={`${TABLE_ROW} ${isDxTarget(sn.mac) ? 'cursor-pointer' : ''} ${sel?.mac === sn.mac ? 'bg-white/[0.04]' : ''}`}
+                  >
                     <td className={`${TABLE_TD} whitespace-nowrap font-medium text-white`}>{sn.deviceName}</td>
-                    <td
-                      className={`${TABLE_TD} tabular-nums ${sf && !late ? 'text-white' : 'text-slate-500'}`}
-                    >
-                      {fx(sf?.safetyIndex) ?? '미산출'}
+                    <td className={`${TABLE_TD} tabular-nums ${sf && !late ? 'font-semibold text-white' : 'text-slate-500'}`}>
+                      {fx(sf?.safetyIndex) ?? (isDxTarget(sn.mac) ? NONE : '미수신')}
                     </td>
                     <td className={`${TABLE_TD} whitespace-nowrap`}>
                       {!sf ? (
-                        '-'
+                        <span className="text-slate-500">-</span>
                       ) : late ? (
                         <StatusPill tone="muted" label="갱신 지연" />
                       ) : (
                         <StatusPill tone={DX_LEVEL[sf.riskLevel].tone} label={DX_LEVEL[sf.riskLevel].label} />
                       )}
                     </td>
-                    <td className={`${TABLE_TD} whitespace-nowrap text-slate-300`}>
-                      {t ? `${t.label} ${Math.round(t.score)}` : '-'}
-                    </td>
-                    {cellNum(v('temperature'))}
-                    {cellNum(v('ground_current', 3))}
-                    {cellNum(v('thdi'))}
-                    {cellNum(v('current_unbalance'))}
-                    <td
-                      className={`${TABLE_TD} whitespace-nowrap tabular-nums ${stale && isDxTarget(sn.mac) && latestQ.isSuccess ? 'text-red-300' : stale ? 'text-slate-500' : 'text-slate-400'}`}
-                    >
-                      {stale ? stopLabel(sn.mac, latestQ.isSuccess) : (lt?.receivedAt.slice(11, 19) ?? '-')}
-                    </td>
+                    {DX_RISK_ITEMS.map((it) => {
+                      const v = sf?.risks[it.key];
+                      const isTop = !late && top?.label === it.label;
+                      return (
+                        <td
+                          key={it.key}
+                          className={`${TABLE_TD} whitespace-nowrap tabular-nums ${typeof v !== 'number' ? 'text-slate-500' : isTop ? 'font-semibold text-amber-400' : late ? 'text-slate-500' : 'text-slate-200'}`}
+                        >
+                          {typeof v === 'number' ? fx(v) : sf ? NONE : '-'}
+                        </td>
+                      );
+                    })}
+                    <td className={`${TABLE_TD} whitespace-nowrap tabular-nums ${late ? 'text-slate-500' : 'text-slate-400'}`}>{sf ? hhmm(sf.diagnosedAt) : '-'}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
-      )}
+      </SectionCard>
+
+      <SafetyTrend mac={sel?.mac} name={sel?.deviceName} />
     </div>
+  );
+}
+
+/** 선택 센서 추이 — 전기안전지수(API-007, 5분, 최근 24시간). 등급이 바뀐 시각은 점 */
+function SafetyTrend({ mac, name }: { mac?: string; name?: string }) {
+  const q = useDxSafetyHistory(mac, 24);
+  const data = (q.data ?? [])
+    .filter((x: DxSafety) => x.safetyIndex != null)
+    .map((x) => ({ t: x.windowStartedAt.slice(11, 16), v: Math.round((x.safetyIndex as number) * 10) / 10, l: x.riskLevel }));
+  const changes = data.filter((d, i) => i > 0 && d.l !== data[i - 1]!.l);
+  const lo = data.length ? Math.max(0, Math.floor((Math.min(...data.map((d) => d.v)) - 5) / 5) * 5) : 70;
+  return (
+    <SectionCard title={`선택 센서 추이${name ? ` · ${name}` : ''}`}>
+      <div className="h-[230px]">
+        {data.length ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <XAxis dataKey="t" tick={{ fontSize: 12, fill: '#cbd5e1' }} interval={47} axisLine={false} tickLine={false} />
+              <YAxis domain={[lo, 100]} tick={{ fontSize: 12, fill: '#cbd5e1' }} axisLine={false} tickLine={false} width={40} />
+              <Tooltip contentStyle={{ background: '#0d1520', border: '1px solid rgba(255,255,255,.1)', borderRadius: 8, fontSize: 13 }} />
+              <Line dataKey="v" name="전기안전지수" stroke="#e2e8f0" strokeWidth={1.6} dot={false} isAnimationActive={false} />
+              {changes.map((c, i) => (
+                <ReferenceDot key={i} x={c.t} y={c.v} r={4} fill="#3B82F6" stroke="none" label={{ value: `${DX_LEVEL[c.l].label} 진입`, fill: '#93c5fd', fontSize: 12, position: 'bottom' }} />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm text-slate-500">{q.isLoading ? '불러오는 중' : NONE}</div>
+        )}
+      </div>
+      <p className="mt-2 text-sm text-slate-400">— 전기안전지수(5분) · 최근 24시간 · 점 = 등급이 바뀐 시각</p>
+    </SectionCard>
   );
 }

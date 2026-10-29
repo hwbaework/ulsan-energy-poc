@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DataTable, type Column } from '@/components/features/DataList';
-import { SectionCard } from '@/components/features';
+import { SectionCard, StatCard, StatsGrid } from '@/components/features';
 import { Breadcrumb } from '@/components/layout';
 import { StatusPill } from '@/components/ui/Design';
 import { PlantNameCell } from '@/components/features/monitoring/PlantNameCell';
@@ -58,6 +58,10 @@ export default function SafetyPage() {
   const order = (r: Row) => (r.worst ? DX_LEVEL[r.worst.riskLevel].order : 9);
   rows.sort((a, b) => order(a) - order(b) || (a.worst?.safetyIndex ?? 101) - (b.worst?.safetyIndex ?? 101));
 
+  // 점검 필요 = 위험 · 경고 · 주의, 관찰 = 관찰(예지보전 목록에서 옮김 — 등급은 안전 값)
+  const needCheck = rows.filter((r) => r.worst && DX_LEVEL[r.worst.riskLevel].order <= 2).length;
+  const watch = rows.filter((r) => r.worst?.riskLevel === 'watch').length;
+
   const columns: Column<Row>[] = [
     { key: 'name', header: '발전소', render: (r) => <PlantNameCell type={r.plant.type} name={r.plant.name} /> },
     {
@@ -97,6 +101,11 @@ export default function SafetyPage() {
     <div className="space-y-6">
       <Breadcrumb items={[{ label: '통합관제', path: '/dashboard' }, { label: '안전' }]} />
       <h1 className="text-xl font-bold text-white">안전</h1>
+
+      <StatsGrid columns={2}>
+        <StatCard label="점검 필요" value={`${needCheck}개소`} />
+        <StatCard label="관찰" value={`${watch}개소`} />
+      </StatsGrid>
       <SectionCard title={`발전소별 안전 현황 (${rows.length})`}>
         <DataTable
           columns={columns}

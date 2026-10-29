@@ -9,7 +9,7 @@ import { SectionCard, StatCard, StatsGrid } from '@/components/features';
 
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { StatusPill } from '@/components/ui/Design';
-import { CONTRACT_KIND, CONTRACT_KIND_LABEL, CONTRACT_KIND_ORDER, commStatusOf, contractKindsOf, gradeOf, isAnomaly } from '@/lib/design';
+import { CONTRACT_KIND, CONTRACT_KIND_LABEL, CONTRACT_KIND_ORDER, commStatusOf, contractKindsOf, isAnomaly } from '@/lib/design';
 import { getPersona } from '@/lib/persona';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { contractDisplayName } from '@/lib/contract-plants';
@@ -47,7 +47,6 @@ function getDeviceLabel(r: AnomalyRow): string {
 }
 
 export default function AnomaliesPage() {
-  const [severity, setSeverity] = useState('all');
   const [status, setStatus] = useState('all');
   const [query, setQuery] = useState('');
   // 관리자는 전체를 한 번에, 발전사업자 · 전기사용자는 계약 유형(자가소비 / PPA)을 골라서 본다 — 계약마다 주체가 다르다
@@ -114,17 +113,12 @@ export default function AnomaliesPage() {
   const filtered = anomalies.filter((a) => {
     // 계약을 모르는 이상(발전소 단위 RTU 등)은 두 유형 모두에 보인다
     if (pickKind && a.contractKind && a.contractKind !== kindTab) return false;
-    if (severity !== 'all' && a.severity !== severity) return false;
     if (status !== 'all' && a.status !== status) return false;
     if (q && !a.displayName.toLowerCase().includes(q) && !a.title.toLowerCase().includes(q)) return false;
     return true;
   });
 
   // 필터 항목 = 데이터에 실제 있는 값만 (하드코딩 금지)
-  const severityOptions = useMemo(() => {
-    const codes = [...new Set(anomalies.map((a) => a.severity))].sort((x, y) => gradeOf(x).order - gradeOf(y).order);
-    return [{ value: 'all', label: '전체 등급' }, ...codes.map((c) => ({ value: c, label: gradeOf(c).label }))];
-  }, [anomalies]);
   const statusOptions = useMemo(() => {
     const codes = [...new Set(anomalies.map((a) => a.status))].sort((x, y) => commStatusOf(x).order - commStatusOf(y).order);
     return [{ value: 'all', label: '전체 상태' }, ...codes.map((c) => ({ value: c, label: commStatusOf(c).label }))];
@@ -186,15 +180,6 @@ export default function AnomaliesPage() {
       render: (r) => <span className="text-sm text-white truncate block max-w-[200px]">{r.title}</span>,
     },
     {
-      key: 'severity',
-      header: '등급',
-      width: '80px',
-      render: (r) => {
-        const s = gradeOf(r.severity);
-        return <StatusPill tone={s.tone} label={s.label} />;
-      },
-    },
-    {
       key: 'status',
       header: '상태',
       width: '80px',
@@ -241,9 +226,6 @@ export default function AnomaliesPage() {
           /* /guide 표기 규칙: 필터 → 검색 */
           <div className="flex items-center gap-3">
             <div className="w-32">
-              <Select options={severityOptions} value={severity} onChange={(e) => setSeverity(e.target.value)} />
-            </div>
-            <div className="w-32">
               <Select options={statusOptions} value={status} onChange={(e) => setStatus(e.target.value)} />
             </div>
             <div className="relative w-64">
@@ -262,7 +244,7 @@ export default function AnomaliesPage() {
           columns={columns}
           data={filtered}
           rowKey={(r) => r.id}
-          emptyMessage={q || severity !== 'all' || status !== 'all' ? '검색 결과가 없습니다' : '이상 감지 내역이 없습니다'}
+          emptyMessage={q || status !== 'all' ? '검색 결과가 없습니다' : '이상 감지 내역이 없습니다'}
         />
       </SectionCard>
 
