@@ -63,8 +63,9 @@ function latestOf(s: DxSensor, now: number): DxLatest {
       { metricCode: 'power_factor', metricName: '역률', value: sun > 0.05 ? r(96.4 + rnd(i, 7) * 2) : null, unit: '%' },
       { metricCode: 'frequency', metricName: '주파수', value: r(59.98 + rnd(i, at / 60_000) * 0.04, 2), unit: 'Hz' },
       { metricCode: 'ground_current', metricName: '누설/지락 전류', value: r(p.leakage ?? 0.01 + rnd(i, 8) * 0.03, 3), unit: 'A' },
-      { metricCode: 'thdi', metricName: '전류 고조파 왜곡률', value: null, unit: '%' }, // 실제 응답 미산출 — 값을 지어 넣지 않는다
-      { metricCode: 'temperature', metricName: '온도, 습도', value: null, unit: 'degC' }, // 실제 응답 미산출
+      // 온도 · 고조파 — 들어온다고 가정(2026-10-29 사용자). 낮엔 THD 가 낮고 무부하(밤)엔 높다, 온도는 해 따라 오른다
+      { metricCode: 'thdi', metricName: '전류 고조파 왜곡률', value: r(sun > 0.05 ? 2.6 + rnd(i, 9) * 2.2 : 7.5 + rnd(i, 9) * 2), unit: '%' },
+      { metricCode: 'temperature', metricName: '온도, 습도', value: [r(27 + sun * 9 + rnd(i, 10) * 2), r(48 + rnd(i, 11) * 10)], unit: 'degC' },
       { metricCode: 'current_unbalance', metricName: '전류 불평형률', value: r(ub), unit: '%' },
       { metricCode: 'voltage_unbalance', metricName: '전압 불평형률', value: r(0.2 + rnd(i, 12) * 0.3), unit: '%' },
     ],
@@ -74,8 +75,8 @@ function latestOf(s: DxSensor, now: number): DxLatest {
       mean: r(amp * 0.9),
       maxPf: sun > 0.05 ? 98.0 : null,
       maxGround: r((p.leakage ?? 0.03) * 1.2, 3),
-      maxThdi: null,
-      maxTemp: null,
+      maxThdi: r(sun > 0.05 ? 5.1 : 9.6),
+      maxTemp: r(29 + sun * 9),
       windowStartedAt: kst(hourStart - 3600_000),
       windowEndedAt: kst(hourStart),
     },
@@ -159,7 +160,7 @@ registerMock(/^\/external\/dx\/safety\/history$/, ({ query }) => {
   return { items };
 });
 
-/** 그 5분 구간의 특징값(API-005) — 최신 측정과 같은 식, 온도 · 고조파는 실제 응답처럼 미산출 */
+/** 그 5분 구간의 특징값(API-005) — 최신 측정과 같은 식(온도 · 고조파 포함) */
 function featureAt(s: DxSensor, t: number): DxFeature {
   const i = idx(s);
   const p = PROFILE[s.deviceName] ?? { health: 96 };
@@ -178,8 +179,8 @@ function featureAt(s: DxSensor, t: number): DxFeature {
     measurements: [
       { metricCode: 'current_rst', metricName: 'R/S/T 최대 전류', value: [r(amp * 1.04 * (1 + ub / 200)), r(amp * 1.04), r(amp * 1.04 * (1 - ub / 200))], unit: 'A' },
       { metricCode: 'voltage_mean', metricName: '평균 전압', value: r(380.3 + (rnd(i, t / 300_000) - 0.5) * 1.6), unit: 'V' },
-      { metricCode: 'temperature', metricName: '평균 온도', value: null, unit: 'degC' },
-      { metricCode: 'thdi', metricName: '평균 전류 THD', value: null, unit: '%' },
+      { metricCode: 'temperature', metricName: '평균 온도', value: r(27 + sun * 9 + rnd(i, t / 300_000) * 1.5), unit: 'degC' },
+      { metricCode: 'thdi', metricName: '평균 전류 THD', value: r(sun > 0.05 ? 2.6 + rnd(i, t / 300_000) * 2 : 7.5 + rnd(i, t / 300_000) * 1.8), unit: '%' },
       { metricCode: 'ground_current', metricName: '평균 누설 전류', value: r(p.leakage ?? 0.01 + rnd(i, 8) * 0.03, 3), unit: 'A' },
       { metricCode: 'power_factor', metricName: '평균 역률', value: sun > 0.05 ? r(96.4 + rnd(i, t / 300_000) * 2) : null, unit: '%' },
     ],

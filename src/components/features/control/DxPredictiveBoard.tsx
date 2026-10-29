@@ -12,7 +12,7 @@ import { dxMetric, dxSensorsOf, firstNum, hhmm, isDxTarget, isStale, isThinWindo
  * 예지보전 — 센서가 잰 값(아이티공간 연계 v1.1 API-003 · 005)과 발전량 예측만.
  * 전기안전지수 · 등급 · 항목별 위험점수(API-006 · 007)는 0~100 점수라 안전 페이지에 있다(2026-10-29 사용자 확정).
  *   요약 카드(설비 상태 Health Index · 발전량 예측) → 설비별 측정값 표 → 발전량 실측·예측 추이 · 선택 센서 측정값 추이
- * 온도 · 고조파는 문서 항목이라 칸은 두되, 실제 응답이 null 이면 '미산출'(값을 지어 넣지 않는다).
+ * 온도 · 고조파 THD 도 들어온다고 보고 칸 · 추이에 둔다(2026-10-29 사용자) — 응답이 null 이면 '미산출'.
  */
 const NONE = '미산출';
 const fx = (v: number | null | undefined, d = 1) =>
