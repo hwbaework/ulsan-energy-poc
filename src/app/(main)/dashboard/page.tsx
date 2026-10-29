@@ -698,15 +698,15 @@ export default function DashboardPage() {
             ) : null}
           </div>
 
-          {/* 카드 4개 — 자가소비 = 설비 용량 · 전년 · 금월 · 금일 발전량 / PPA = 설비 용량 · 금월 · 금일 발전량 · 금일 금액 / 관리자 PPA = 보유 설비 용량 · 금년 · 금월 발전량 · 금일 금액 */}
+          {/* 카드 4개 — 자가소비 = 설비 용량 · 전년 · 금월 · 금일 발전량 / PPA = 설비 용량 · 금월 · 금일 발전량 · 금일 금액 / 관리자 PPA = 총 설비 용량 · 총 금년 · 총 금월 발전량 · 총 금일 금액(관리자는 전체 합계라 '총', 2026-10-29 사용자) */}
           <StatsGrid columns={4}>
             {/* StatsGrid 는 자식 하나를 칸 하나로 감싼다 — Fragment 로 묶으면 한 칸에 몰리므로 배열로 */}
             {(adminPpa
               ? [
-                  <StatCard key="cap" label="보유 설비 용량" value={fmtKw(kpiCapacity)} />,
-                  <StatCard key="y" label="금년 발전량" value={fmtKwh(yearKwh)} />,
-                  <StatCard key="m" label="금월 발전량" value={fmtKwh(monthKwh)} />,
-                  <StatCard key="d" label="금일 금액" value={fmtWon(todayAmount)} />,
+                  <StatCard key="cap" label="총 설비 용량" value={fmtKw(kpiCapacity)} />,
+                  <StatCard key="y" label="총 금년 발전량" value={fmtKwh(yearKwh)} />,
+                  <StatCard key="m" label="총 금월 발전량" value={fmtKwh(monthKwh)} />,
+                  <StatCard key="d" label="총 금일 금액" value={fmtWon(todayAmount)} />,
                 ]
               : [
                   <StatCard key="cap" label="설비 용량" value={fmtKw(kpiCapacity)} />,

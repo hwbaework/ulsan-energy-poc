@@ -438,7 +438,7 @@ export function GhgOverviewScreen() {
         {[
           <StatCard
             key="kw"
-            label={role.isAdmin ? '보유 설비 용량' : '설비 용량'}
+            label={role.isAdmin ? '총 설비 용량' : '설비 용량'}
             value={`${fmt(kwOf(role.facilities), 2)} kW`}
           />,
           <StatCard key="y" label="금년 감축량" value={`${fmtT(yearT)} tCO₂eq`} />,
