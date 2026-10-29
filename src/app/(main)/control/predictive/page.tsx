@@ -82,8 +82,7 @@ export default function PredictivePage() {
       <Breadcrumb items={[{ label: '통합관제', path: '/dashboard' }, { label: '예지보전' }]} />
       <h1 className="text-xl font-bold text-white">예지보전</h1>
 
-
-      <SectionCard title={`발전소별 예지보전 현황 (${rows.length})`}>
+      <SectionCard title="발전소별 예지보전 현황">
         <DataTable
           columns={columns}
           data={rows}

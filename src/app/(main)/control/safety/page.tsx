@@ -120,7 +120,7 @@ export default function SafetyPage() {
         <StatCard label="점검 필요" value={`${needCheck}개소`} />
         <StatCard label="관찰" value={`${watch}개소`} />
       </StatsGrid>
-      <SectionCard title={`발전소별 안전 현황 (${rows.length})`}>
+      <SectionCard title="발전소별 안전 현황">
         <DataTable
           columns={columns}
           data={rows}
