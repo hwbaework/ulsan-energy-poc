@@ -87,12 +87,23 @@ function CompanyPicker({ role, value, onChange }: { role: Role; value: number; o
   );
 }
 
-/** 표 — 칸 이름 · 줄(글자) */
-function TextTable({ head, rows, keyCol = 0 }: { head: string[]; rows: ReactNode[][]; keyCol?: number }) {
+/** 표 — 칸 이름 · 줄(글자), widths 를 주면 위아래 표 칸 너비를 맞춘다 */
+function TextTable({
+  head,
+  rows,
+  keyCol = 0,
+  widths,
+}: {
+  head: string[];
+  rows: ReactNode[][];
+  keyCol?: number;
+  widths?: (string | undefined)[];
+}) {
   type R = { i: number; cells: ReactNode[] };
   const cols: Column<R>[] = head.map((h, ci) => ({
     key: String(ci),
     header: h,
+    width: widths?.[ci],
     render: (r) => (ci === keyCol ? cell(r.cells[ci], 'font-medium text-white') : cell(r.cells[ci])),
   }));
   return <DataTable data={rows.map((cells, i) => ({ i, cells }))} columns={cols} rowKey={(r) => r.i} />;
@@ -272,35 +283,25 @@ function ScaleCard({ role }: { role: Role }) {
 
 /* ══ 3.2.1 탄소배출권 정보 ══ */
 export function CarbonInfoScreen() {
-  const role = useGhgRole();
-  const { rows } = useRows();
-  const ids = role.companies.map((c) => c.id);
-  const a = ids.reduce((s, id) => s + annualOf(rows, id).tco2, 0);
+  // 위아래 표 칸 너비를 같게 — 근거 칸이 같은 자리에 오도록
+  const widths = ['22%', undefined, '28%'];
   return (
     <div className="space-y-6">
       <Header title="탄소배출권 정보" />
-      <StatsGrid columns={3}>
-        <StatCard label="연 감축량 (자가소비)" value={`${fmt(a, 2)} tCO₂eq`} sub={`${LAST12[0]} ~ ${LAST12[1]}`} />
-        <StatCard label="적용 방법론" value={METHOD.code} />
-        <StatCard label="받을 수 있는 실적" value="KOC (외부사업 감축량)" />
-      </StatsGrid>
-      <SectionCard title="거래 종목 (3)">
+      <SectionCard title="거래 종목">
         <TextTable
-          head={['종목', '뜻', '근거', '우리 기업']}
+          widths={widths}
+          head={['종목', '뜻', '근거']}
           rows={[
-            ['KAU 할당배출권', '할당대상업체에 할당된 배출허용량. 이행연도별 상장', '법 제12조', '해당 없음'],
-            ['KCU 상쇄배출권', '외부사업 감축량에서 전환된 배출권. 전환은 할당대상업체만', '법 제29조', '해당 없음'],
-            [
-              'KOC 외부사업 감축량',
-              '할당대상업체 밖에서 줄여 정부 인증을 받은 실적',
-              '법 제30조',
-              '외부사업 승인 · 인증 후 판매',
-            ],
+            ['KAU 할당배출권', '할당대상업체에 할당된 배출허용량. 이행연도별 상장', '법 제12조'],
+            ['KCU 상쇄배출권', '외부사업 감축량에서 전환된 배출권. 전환은 할당대상업체만', '법 제29조'],
+            ['KOC 외부사업 감축량', '할당대상업체 밖에서 줄여 정부 인증을 받은 실적', '법 제30조'],
           ]}
         />
       </SectionCard>
       <SectionCard title="참여 자격">
         <TextTable
+          widths={widths}
           head={['구분', '할 수 있는 것', '근거']}
           rows={[
             ['할당대상업체', 'KAU · KCU 장내 · 장외 거래, 상쇄배출권 전환', '법 제19조 · 거래 고시 제26조의2'],
@@ -313,15 +314,10 @@ export function CarbonInfoScreen() {
           ]}
         />
       </SectionCard>
-      <ScaleCard role={role} />
       <SectionCard title="공식 사이트">
         <div className="flex flex-wrap gap-2">
           <OutLink href={LINKS.krxItems} label="KRX 거래종목" />
-          <OutLink href={LINKS.etrs} label="배출권등록부 ETRS" />
-          <OutLink href={LINKS.ors} label="상쇄등록부 ORS" />
-          <OutLink href={LINKS.allocList} label="할당대상업체 현황" />
-          <OutLink href={LINKS.lawAct} label="배출권거래법" />
-          <OutLink href={LINKS.lawOffset} label="외부사업 지침" />
+          <OutLink href={LINKS.krxMember} label="KRX 회원자격요건" />
         </div>
       </SectionCard>
     </div>
