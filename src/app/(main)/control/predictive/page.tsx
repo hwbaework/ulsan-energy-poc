@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DataTable, type Column } from '@/components/features/DataList';
-import { SectionCard, StatCard, StatsGrid } from '@/components/features';
+import { SectionCard } from '@/components/features';
 import { Breadcrumb } from '@/components/layout';
 import { StatusPill } from '@/components/ui/Design';
 import { PlantNameCell } from '@/components/features/monitoring/PlantNameCell';
@@ -55,7 +55,6 @@ export default function PredictivePage() {
     return { plant: p, sensors: macs.length, receiving: live.length, health: hs.length ? Math.min(...hs) : null };
   });
 
-  const receivingPlants = rows.filter((r) => r.sensors > 0 && r.receiving === r.sensors).length;
 
   const columns: Column<Row>[] = [
     { key: 'name', header: '발전소', render: (r) => <PlantNameCell type={r.plant.type} name={r.plant.name} /> },
@@ -83,9 +82,6 @@ export default function PredictivePage() {
       <Breadcrumb items={[{ label: '통합관제', path: '/dashboard' }, { label: '예지보전' }]} />
       <h1 className="text-xl font-bold text-white">예지보전</h1>
 
-      <StatsGrid columns={2}>
-        <StatCard label="센서 수신" value={`${receivingPlants} / ${rows.length}`} />
-      </StatsGrid>
 
       <SectionCard title={`발전소별 예지보전 현황 (${rows.length})`}>
         <DataTable
