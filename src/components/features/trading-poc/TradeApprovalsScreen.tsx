@@ -69,6 +69,7 @@ function SignMarkView({ mark, fallbackAt, company }: { mark?: SignMark; fallback
 }
 import { fmtNum } from './meta';
 import { fmtDateTime } from './meta';
+import { fitPdf } from '@/lib/utils/fitPdf';
 
 
 const arrow = {
@@ -355,7 +356,7 @@ export function TradeApprovalDetailScreen({ section = 'approvals' }: { section?:
               >
                 <iframe
                   title={`${c.no} 계약서`}
-                  src={`${CONTRACT_PDF}#view=FitH`}
+                  src={fitPdf(CONTRACT_PDF)}
                   className="aspect-[210/297] w-full rounded-lg bg-white"
                 />
               </SectionCard>

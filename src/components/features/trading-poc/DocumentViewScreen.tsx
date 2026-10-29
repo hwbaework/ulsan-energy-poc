@@ -10,6 +10,7 @@ import { useTradingRole } from './useTradingRole';
 import { CONTRACT_PDF, docsBase, isContractDoc } from './DocumentsScreen';
 import { DocumentSheet, periodOf, printSheet } from './DocumentSheet';
 import { BillingPaper } from './BillingPaper';
+import { fitPdf } from '@/lib/utils/fitPdf';
 
 /** 문서 관리 › 문서 보기 — ?id=문서번호(&pdf=1 이면 열리자마자 PDF 저장). 계약서는 원문 PDF, 청구서·세금계산서·합의서는 A4 문서 */
 export function DocumentViewScreen() {
@@ -86,7 +87,7 @@ export function DocumentViewScreen() {
       ) : doc && isContractDoc(doc) ? (
         <iframe
           title={doc.title}
-          src={`${CONTRACT_PDF}#view=FitH`}
+          src={fitPdf(CONTRACT_PDF)}
           className="aspect-[210/297] w-full rounded-xl bg-white"
         />
       ) : doc && contract && billing ? (

@@ -11,10 +11,9 @@ import { useToastStore } from '@/stores/useToastStore';
 import { periodOf } from './DocumentSheet';
 import { useTradingRole } from './useTradingRole';
 import type { Contract } from '@/types/trading-poc';
+import { fitPdf } from '@/lib/utils/fitPdf';
 
-const PAPER = { height: '80vh', minHeight: 640, border: 'none' } as const;
-/** 올린 PDF 를 다른 문서 미리보기처럼 — 도구 막대 없이 너비에 맞춰(가로 스크롤 없게) */
-const fitPdf = (url: string) => `${url}#toolbar=0&navpanes=0&view=FitH`;
+export const PAPER = { height: '80vh', minHeight: 640, border: 'none' } as const;
 
 /**
  * 세금계산서 원본 — 플랫폼이 만들어 주지 않는다. 전자세금계산서 업체(ASP)에서 발행해 내려받은 PDF 를

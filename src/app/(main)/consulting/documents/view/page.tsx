@@ -6,6 +6,7 @@ import { Download } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Button } from '@/components/ui/Button';
 import { useConsultingDocs } from '@/hooks/consulting/useConsultingDocs';
+import { fitPdf } from '@/lib/utils/fitPdf';
 
 /** 컨설팅 › 문서관리 › 결과보고서 보기 — ?id=문서번호. 실제 보고서 PDF 를 페이지 안에서 그대로 */
 export default function ConsultingDocumentViewPage() {
@@ -46,7 +47,7 @@ export default function ConsultingDocumentViewPage() {
       {id !== null && !isLoading && !doc ? (
         <div className="rounded-2xl bg-[#0d1520] ring-1 ring-white/[0.06] p-10 text-center text-sm text-slate-400">문서를 찾을 수 없습니다</div>
       ) : doc ? (
-        <iframe title={doc.title} src={`${doc.pdf}#view=FitH`} className="aspect-[210/297] w-full rounded-xl bg-white" />
+        <iframe title={doc.title} src={fitPdf(doc.pdf)} className="aspect-[210/297] w-full rounded-xl bg-white" />
       ) : null}
     </div>
   );

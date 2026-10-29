@@ -1,5 +1,7 @@
 'use client';
 
+import { fitPdf } from '@/lib/utils/fitPdf';
+
 /**
  * 사업자등록증 보기 — 가입 · 변경 때 올린 파일(PDF 또는 사진)을 그대로 띄운다.
  * 데모 데이터처럼 파일이 없으면 국세청 샘플 이미지(public/samples)를 대신 보여 준다.
@@ -15,7 +17,7 @@ export function BizLicenseSheet({ fileUrl, fileName }: { fileUrl?: string; fileN
     // 옆 칸(신청 내용) 높이만큼 늘어나고, 등록증은 잘리지 않게 통째로 맞춘다
     <div className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-lg bg-white ring-1 ring-white/10">
       {isPdf ? (
-        <iframe src={src} title={fileName} className="h-full w-full" />
+        <iframe src={fitPdf(src)} title={fileName} className="h-full w-full" />
       ) : (
         <img src={src} alt={fileName} className="h-full w-full object-contain" />
       )}

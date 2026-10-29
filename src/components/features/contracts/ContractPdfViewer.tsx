@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { FileText, Download, Loader2 } from 'lucide-react';
 import { getViewUrl, getDownloadUrl } from '@/api/common/files';
+import { fitPdf } from '@/lib/utils/fitPdf';
 
 /* 계약서 PDF 뷰어 — fetch 로 PDF를 blob 으로 받아 blob: URL 을 iframe 에 렌더
  * (서버 X-Frame-Options/인증 영향 없이 same-origin blob 으로 표시) */
@@ -78,7 +79,7 @@ export function ContractPdfViewer({
           </a>
         </div>
       ) : (
-        <iframe src={blobUrl} title="계약서" className={`w-full ${height} bg-white`} />
+        <iframe src={fitPdf(blobUrl)} title="계약서" className={`w-full ${height} bg-white`} />
       )}
     </div>
   );

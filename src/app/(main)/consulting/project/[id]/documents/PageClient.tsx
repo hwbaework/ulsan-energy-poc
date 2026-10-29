@@ -14,6 +14,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { uploadReportFile, getDownloadUrl, getViewUrl } from '@/api/common/files';
 import { useQueryClient } from '@tanstack/react-query';
+import { fitPdf } from '@/lib/utils/fitPdf';
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   DIRECTION: '방향 보고서',
@@ -245,7 +246,7 @@ function DocumentsContent() {
             </button>
           </div>
         </div>
-        <iframe src={previewUrl} className="flex-1 w-full bg-white" title={selectedDoc.name} />
+        <iframe src={fitPdf(previewUrl)} className="flex-1 w-full bg-white" title={selectedDoc.name} />
       </div>
     );
   }
@@ -496,7 +497,7 @@ function DocumentsContent() {
                         <Loader2 className="animate-spin text-slate-400" size={28} />
                       </div>
                     ) : previewUrl ? (
-                      <iframe src={previewUrl} className="w-full h-full" title={selectedDoc.name} />
+                      <iframe src={fitPdf(previewUrl)} className="w-full h-full" title={selectedDoc.name} />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-slate-50">
                         <p className="text-sm text-slate-400">PDF를 불러올 수 없습니다</p>

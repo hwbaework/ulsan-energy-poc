@@ -70,6 +70,7 @@ import { useConsumerSites, useCreateConsumerSite } from '@/hooks/consumer/useCon
 import { useAuthStore } from '@/stores/useAuthStore';
 import { getDownloadUrl, getViewUrl, uploadReportFile } from '@/api/common/files';
 import { useQueryClient } from '@tanstack/react-query';
+import { fitPdf } from '@/lib/utils/fitPdf';
 
 const TIME_SLOTS = ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00'];
 const DOC_TYPE_LABELS: Record<string, string> = {
@@ -3316,7 +3317,7 @@ export default function ConsultingDetailPage() {
                 </button>
               </div>
             </div>
-            <iframe src={pdfBlobUrl} className="flex-1 w-full bg-white" title={selectedDoc.name} />
+            <iframe src={fitPdf(pdfBlobUrl)} className="flex-1 w-full bg-white" title={selectedDoc.name} />
           </div>
         ) : (
           <Modal
@@ -3561,7 +3562,7 @@ export default function ConsultingDetailPage() {
                             </div>
                           ) : pdfBlobUrl ? (
                             <iframe
-                              src={pdfBlobUrl}
+                              src={fitPdf(pdfBlobUrl)}
                               className="w-full h-full"
                               style={{ minHeight: '350px' }}
                               title={selectedDoc.name}
