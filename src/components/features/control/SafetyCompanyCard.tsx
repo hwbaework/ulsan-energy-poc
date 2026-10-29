@@ -14,6 +14,9 @@ import type { MonitoringPlant } from '@/types/monitoring';
 // 전기안전지수 = 100 − 가장 높은 위험점수(문서 5.4 응답 예시) — 그 항목을 주황색으로 강조한다(문서 6.2).
 // 센서가 잰 값은 예지보전에 있다(2026-10-29 사용자 확정).
 const NONE = '미산출';
+// 등급 ~ 산출 시각은 가운데 정렬(2026-10-29 사용자)
+const TH_C = TABLE_TH.replace('text-left', 'text-center');
+const TD_C = `${TABLE_TD} text-center`;
 const fx = (v: number | null | undefined, d = 1) =>
   v == null ? null : v.toLocaleString('ko-KR', { minimumFractionDigits: d, maximumFractionDigits: d });
 
@@ -72,19 +75,19 @@ export function SafetyCompanyCard({ plant }: { plant: MonitoringPlant }) {
                 <th className={TABLE_TH} rowSpan={2}>
                   전기안전지수
                 </th>
-                <th className={TABLE_TH} rowSpan={2}>
+                <th className={TH_C} rowSpan={2}>
                   등급
                 </th>
-                <th className={`${TABLE_TH} text-center`} colSpan={DX_RISK_ITEMS.length}>
+                <th className={TH_C} colSpan={DX_RISK_ITEMS.length}>
                   항목별 위험점수 (0~100, 높을수록 위험)
                 </th>
-                <th className={TABLE_TH} rowSpan={2}>
+                <th className={TH_C} rowSpan={2}>
                   산출 시각
                 </th>
               </tr>
               <tr className={TABLE_HEAD_ROW}>
                 {DX_RISK_ITEMS.map((it) => (
-                  <th key={it.key} className={TABLE_TH}>
+                  <th key={it.key} className={TH_C}>
                     {it.label}
                   </th>
                 ))}
@@ -105,7 +108,7 @@ export function SafetyCompanyCard({ plant }: { plant: MonitoringPlant }) {
                     <td className={`${TABLE_TD} tabular-nums ${sf && !late ? 'font-semibold text-white' : 'text-slate-500'}`}>
                       {fx(sf?.safetyIndex) ?? (isDxTarget(sn.mac) ? NONE : '미수신')}
                     </td>
-                    <td className={`${TABLE_TD} whitespace-nowrap`}>
+                    <td className={`${TD_C} whitespace-nowrap`}>
                       {!sf ? (
                         <span className="text-slate-500">-</span>
                       ) : late ? (
@@ -120,13 +123,13 @@ export function SafetyCompanyCard({ plant }: { plant: MonitoringPlant }) {
                       return (
                         <td
                           key={it.key}
-                          className={`${TABLE_TD} whitespace-nowrap tabular-nums ${typeof v !== 'number' ? 'text-slate-500' : isTop ? 'font-semibold text-amber-400' : late ? 'text-slate-500' : 'text-slate-200'}`}
+                          className={`${TD_C} whitespace-nowrap tabular-nums ${typeof v !== 'number' ? 'text-slate-500' : isTop ? 'font-semibold text-amber-400' : late ? 'text-slate-500' : 'text-slate-200'}`}
                         >
                           {typeof v === 'number' ? fx(v) : sf ? NONE : '-'}
                         </td>
                       );
                     })}
-                    <td className={`${TABLE_TD} whitespace-nowrap tabular-nums ${late ? 'text-slate-500' : 'text-slate-400'}`}>{sf ? hhmm(sf.diagnosedAt) : '-'}</td>
+                    <td className={`${TD_C} whitespace-nowrap tabular-nums ${late ? 'text-slate-500' : 'text-slate-400'}`}>{sf ? hhmm(sf.diagnosedAt) : '-'}</td>
                   </tr>
                 );
               })}

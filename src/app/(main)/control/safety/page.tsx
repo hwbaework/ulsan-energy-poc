@@ -9,20 +9,23 @@ import { StatusPill } from '@/components/ui/Design';
 import { PlantNameCell } from '@/components/features/monitoring/PlantNameCell';
 import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
 import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
-import { useDxLatestAll, useDxSafetyAll } from '@/hooks/control/useDx';
-import { DX_LEVEL, dxSensorsOf, isDxTarget, isSafetyLate, isStale, topRisk, worstSafety, type DxLatest, type DxSafety } from '@/lib/dx';
+import { useDxSafetyAll } from '@/hooks/control/useDx';
+import { DX_LEVEL, dxSensorsOf, isDxTarget, isSafetyLate, topRisk, worstSafety, type DxSafety } from '@/lib/dx';
 import { getPersona, usePersonaOverride } from '@/lib/persona';
 import { useAuthStore } from '@/stores/useAuthStore';
 import type { MonitoringPlant } from '@/types/monitoring';
 
 // 안전 — 회사(발전소)마다 한 줄, 줄을 누르면 그 회사 한 곳의 안전 상세로(예지보전과 같은 방식).
 // 기업 스코프: 각 기업은 자기 발전소만(바로 상세로), 관리자는 전체.
+// 안전 = 전기안전지수(API-006) 값만 — '산출 n/m' 도 측정 수신(API-003)이 아니라 15분 안에 지수가 나온 센서 수(2026-10-29 사용자).
 const fx = (v: number | null | undefined) => (v == null ? null : v.toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 
 interface Row {
   plant: MonitoringPlant;
+  /** 연계 대상 센서 수(한길 · 건호이엔씨는 아직 목록에 없어 0 → 미수신) */
   sensors: number;
-  receiving: number;
+  /** 그중 전기안전지수가 15분 안에 산출된 센서 수(문서 6.2) */
+  computed: number;
   worst?: DxSafety;
   /** 센서 결과가 모두 15분 넘게 멈춤 — '갱신 지연'(연계 문서 6.2) */
   late: boolean;
@@ -37,7 +40,6 @@ export default function SafetyPage() {
   const myPlantMatcher = useMyPlantMatcher();
   // 기업 = 태양광 발전소(연료전지 · ORC 는 DX 대상이 아님)
   const plants = filterPlantsByOwnership(allPlants, myPlantMatcher).filter((p) => p.type === 'SOLAR');
-  const latestQ = useDxLatestAll();
   const safetyQ = useDxSafetyAll();
 
   // 발전사업자는 본인 발전소만 보므로 목록을 건너뛰고 상세로 바로 진입한다
@@ -48,12 +50,11 @@ export default function SafetyPage() {
   if (directPlantId != null) return null;
 
   const rows: Row[] = plants.map((p) => {
-    // 연계 대상 센서만(아직 목록에 없는 장비는 미수신) — 응답에 없는 대상 센서는 수신 수에서 빠져 수집 중단으로 보인다
+    // 연계 대상 센서만(아직 목록에 없는 장비는 미수신)
     const macs = dxSensorsOf(p.plantId).filter((s) => isDxTarget(s.mac)).map((s) => s.mac);
-    const lt = (latestQ.data ?? []).filter((x: DxLatest) => macs.includes(x.macAddress));
     const sf = (safetyQ.data ?? []).filter((x: DxSafety) => macs.includes(x.macAddress));
     const worst = worstSafety(sf);
-    return { plant: p, sensors: macs.length, receiving: lt.filter((x) => !isStale(x)).length, worst, late: !worst && sf.length > 0 && sf.every((x) => isSafetyLate(x)) };
+    return { plant: p, sensors: macs.length, computed: sf.filter((x) => !isSafetyLate(x)).length, worst, late: !worst && sf.length > 0 && sf.every((x) => isSafetyLate(x)) };
   });
   const order = (r: Row) => (r.worst ? DX_LEVEL[r.worst.riskLevel].order : 9);
   rows.sort((a, b) => order(a) - order(b) || (a.worst?.safetyIndex ?? 101) - (b.worst?.safetyIndex ?? 101));
@@ -65,26 +66,29 @@ export default function SafetyPage() {
   const columns: Column<Row>[] = [
     { key: 'name', header: '발전소', render: (r) => <PlantNameCell type={r.plant.type} name={r.plant.name} /> },
     {
-      key: 'recv',
-      header: '센서 수신',
-      width: '130px',
+      key: 'computed',
+      header: '산출',
+      width: '110px',
+      align: 'center',
       render: (r) =>
         r.sensors === 0 ? (
           <StatusPill tone="muted" label="미수신" />
         ) : (
-          <StatusPill tone={r.receiving === r.sensors ? 'normal' : r.receiving > 0 ? 'warning' : 'danger'} label={`${r.receiving}/${r.sensors}`} />
+          <StatusPill tone={r.computed === r.sensors ? 'normal' : r.computed > 0 ? 'warning' : 'danger'} label={`${r.computed}/${r.sensors}`} />
         ),
     },
     {
       key: 'si',
       header: '전기안전지수',
       width: '130px',
+      align: 'center',
       render: (r) => <span className={`tabular-nums ${r.worst ? 'font-semibold text-white' : 'text-slate-500'}`}>{fx(r.worst?.safetyIndex) ?? (r.late ? '-' : '미산출')}</span>,
     },
     {
       key: 'lv',
       header: '등급',
       width: '110px',
+      align: 'center',
       render: (r) =>
         r.worst ? (
           <StatusPill tone={DX_LEVEL[r.worst.riskLevel].tone} label={DX_LEVEL[r.worst.riskLevel].label} />
@@ -94,7 +98,17 @@ export default function SafetyPage() {
           <span className="text-slate-500">-</span>
         ),
     },
-    { key: 'top', header: '가장 높은 위험 항목', width: '170px', render: (r) => <span className="text-slate-300">{topRisk(r.worst)?.label ?? '-'}</span> },
+    {
+      key: 'top',
+      header: '가장 높은 위험 항목',
+      width: '170px',
+      align: 'center',
+      // 항목과 위험점수(0~100) — 전기안전지수 = 100 − 이 점수
+      render: (r) => {
+        const t = topRisk(r.worst);
+        return <span className="tabular-nums text-slate-300">{t ? `${t.label} ${fx(t.score)}` : '-'}</span>;
+      },
+    },
   ];
 
   return (
