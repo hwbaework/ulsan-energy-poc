@@ -815,8 +815,8 @@ function FormBoard({ board, forms: base, title = '서식' }: { board: string; fo
             <FormHead f={sel} />
             <FormButtons f={sel} companyId={companyId} />
           </div>
-          {!sel.ref && <FormInfoPanel key={sel.key} f={sel} companyId={companyId} onCompany={setPicked} />}
-          <FormPdf key={sel.key} f={sel} />
+          {!sel.ref && <FormInfoPanel key={`info-${sel.key}`} f={sel} companyId={companyId} onCompany={setPicked} />}
+          <FormPdf key={`pdf-${sel.key}`} f={sel} />
         </div>
       )}
     </div>
