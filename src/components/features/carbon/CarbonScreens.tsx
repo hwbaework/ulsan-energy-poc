@@ -24,7 +24,6 @@ import { CARBON_FORMS, LINKS, type CarbonForm } from '@/lib/carbon-docs';
 import { useCompany } from '@/hooks/platform/useCompanies';
 import { Select } from '@/components/ui/Select';
 import { fillHwpx, type HwpxCell, type HwpxReplace } from '@/lib/utils/fillHwpx';
-import { useCarbonFillStore } from '@/stores/useCarbonFillStore';
 import { fitPdf } from '@/lib/utils/fitPdf';
 
 /* ── 공통 ── */
@@ -567,15 +566,12 @@ type FillKey = 'name' | 'bizNo' | 'rep' | 'staffName' | 'staffDept' | 'staffPos'
 type FillDoc = {
   cells: (Omit<HwpxCell, 'text'> & { key: FillKey })[];
   /** 표 안 글자 바꾸기 — 값으로 만든 글자 */
-  replaces: (v: Record<FillKey, string> & { date: string; amount: string }) => HwpxReplace[];
-  /** 이전 신청량 입력이 있는 서식 */
-  transfer?: boolean;
+  replaces: (v: Record<FillKey, string> & { date: string }) => HwpxReplace[];
 };
 const FILL: Record<string, FillDoc> = {
   // 외부사업 인증실적 이전 신청서(별지 제22호) — 1쪽 양도인 신청서, 2쪽 양수인 신청서. 우리 기업 = 양도인.
-  // 양수인은 누가 받을지 모르니(플랫폼 밖 기업일 수도) 비워 두고 직접 쓴다 — 양수인 칸 · 2쪽 날짜 · 서명란
+  // 양수인 · 이전 신청량은 플랫폼이 모르니 비워 두고 직접 쓴다 — 양수인은 플랫폼 밖 기업일 수도, 신청량은 인증받은 실적(기간별) 중 넘길 양
   transfer: {
-    transfer: true,
     cells: [
       // 1쪽 — 양도인 정보
       { key: 'name', table: 0, col: 2, row: 2 },
@@ -591,9 +587,6 @@ const FILL: Record<string, FillDoc> = {
       { key: 'staffEmail', table: 1, col: 6, row: 10 },
     ],
     replaces: (v) => [
-      // 이전 신청량 — 'tCO₂-eq' 앞에 수량
-      { table: 0, find: 'tCO', text: v.amount ? `${v.amount} tCO` : '' },
-      { table: 1, find: 'tCO', text: v.amount ? `${v.amount} tCO` : '' },
       // 날짜 · 서명란 — 1쪽 양도인(우리)만
       { table: 0, find: '  년    월    일', text: v.date },
       { table: 0, find: '양 도 인 : (법인명/사업장명)   ', text: v.name ? `양 도 인 : ${v.name}   ` : '' },
@@ -643,7 +636,6 @@ function useFormInfo(companyId: number) {
 /** 채울 수 있는 서식(원본 그대로)이면 HWP 에 넣을 칸 · 글자, 아니면 null */
 function useFill(f: CarbonForm, companyId: number) {
   const ff = useFormFile(f);
-  const ctx = useCarbonFillStore((s) => s.byForm[f.key]);
   const info = useFormInfo(companyId);
   const doc = FILL[f.key];
   if (!doc || ff.up || f.custom || !info.co) return null;
@@ -651,7 +643,7 @@ function useFill(f: CarbonForm, companyId: number) {
   return {
     company: v.name,
     cells: doc.cells.map(({ key, ...c }) => ({ ...c, text: v[key] })),
-    replaces: doc.replaces({ ...v, date: info.date, amount: ctx?.amount ?? '' }),
+    replaces: doc.replaces({ ...v, date: info.date }),
   };
 }
 
@@ -664,16 +656,13 @@ function FormPdf({ f }: { f: CarbonForm }) {
   return <iframe src={fitPdf(ff.pdf)} title={f.form} className="w-full bg-white" style={PAPER} />;
 }
 
-/** 작성 정보 — 접었다 폈다. 플랫폼이 가진 값을 파란 글자로(복사), 이전 신청서는 신청량 입력 */
-function FormInfoPanel({ f, companyId, onCompany }: { f: CarbonForm; companyId: number; onCompany: (id: number) => void }) {
+/** 작성 정보 — 접었다 폈다. 플랫폼이 가진 값만 파란 글자로(복사). 모르는 값(양수인 · 신청량 등)은 서식에 직접 쓴다 */
+function FormInfoPanel({ companyId, onCompany }: { companyId: number; onCompany: (id: number) => void }) {
   const role = useGhgRole();
   const toast = useToastStore((s) => s.add);
   const companies = usePlatformCompanies();
-  const ctx = useCarbonFillStore((s) => s.byForm[f.key]);
-  const setCtx = useCarbonFillStore((s) => s.set);
   const info = useFormInfo(companyId);
   const [open, setOpen] = useState(false);
-  const transfer = FILL[f.key]?.transfer;
   const v = info.values;
   const groups: [string, [string, string][]][] = [
     ['기업', [['법인명', v.name], ['사업자등록번호', v.bizNo], ['대표자', v.rep], ['소재지', info.address]]],
@@ -704,21 +693,6 @@ function FormInfoPanel({ f, companyId, onCompany }: { f: CarbonForm; companyId: 
       </div>
       {open && (
         <div className="mt-3 space-y-3">
-          {transfer && (
-            <div className="max-w-sm">
-              <label className="flex items-center gap-2">
-                <span className="w-20 shrink-0 text-sm text-slate-400">이전 신청량</span>
-                <input
-                  aria-label="이전 신청량"
-                  inputMode="decimal"
-                  value={ctx?.amount ?? ''}
-                  placeholder="tCO₂-eq"
-                  onChange={(e) => setCtx(f.key, { amount: e.target.value.replace(/[^\d.,]/g, '') })}
-                  className={FIELD}
-                />
-              </label>
-            </div>
-          )}
           {groups.map(([g, items]) => (
             <div key={g}>
               <p className="mb-1 text-xs text-slate-500">{g}</p>
@@ -815,7 +789,7 @@ function FormBoard({ board, forms: base, title = '서식' }: { board: string; fo
             <FormHead f={sel} />
             <FormButtons f={sel} companyId={companyId} />
           </div>
-          {!sel.ref && <FormInfoPanel key={`info-${sel.key}`} f={sel} companyId={companyId} onCompany={setPicked} />}
+          {!sel.ref && <FormInfoPanel key={`info-${sel.key}`} companyId={companyId} onCompany={setPicked} />}
           <FormPdf key={`pdf-${sel.key}`} f={sel} />
         </div>
       )}

@@ -37,6 +37,9 @@ export const COMPANIES: MockCompany[] = [
   { id: 3, name: '한길', businessNumber: '610-81-30003', representativeName: '이수용', address: '울산 남구 용연동 490-11', phone: '052-300-3000', email: 'consumer@test.com', status: 'ACTIVE', businessTypes: ['전기사용자'], employeeCount: 58, createdAt: daysAgo(300), updatedAt: daysAgo(4) },
   { id: 4, name: '한일튜브', businessNumber: '610-81-40004', representativeName: '최한일', address: '울산 남구 부곡동 273-6', phone: '052-400-4000', email: 'kim@hanil.co.kr', status: 'ACTIVE', businessTypes: ['전기사용자', '발전사업자'], employeeCount: 140, createdAt: daysAgo(320), updatedAt: daysAgo(2) },
   { id: 5, name: '용인금속', businessNumber: '610-81-50005', representativeName: '정용인', address: '울산 남구 여천동 887-18', phone: '052-500-5000', email: 'park@yongin.co.kr', status: 'PENDING', businessTypes: ['전기사용자'], employeeCount: 72, createdAt: daysAgo(1), updatedAt: daysAgo(1) },
+  // 실제 대상 기업 나머지 둘 — 전력거래 데모(CO.TAESUNG · CO.GUNHO)와 같은 번호, 주소는 통합관제 발전소 주소
+  { id: 6, name: '태성산업', businessNumber: '610-81-60006', representativeName: '강태성', address: '울산 남구 여천동 358-8', phone: '052-600-6000', email: 'info@taesung.co.kr', status: 'ACTIVE', businessTypes: ['전기사용자'], employeeCount: 45, createdAt: daysAgo(280), updatedAt: daysAgo(6) },
+  { id: 7, name: '건호이엔씨', businessNumber: '610-81-70007', representativeName: '윤건호', address: '울산 남구 부곡동 22-5', phone: '052-700-7000', email: 'info@gunho.co.kr', status: 'ACTIVE', businessTypes: ['전기사용자'], employeeCount: 36, createdAt: daysAgo(260), updatedAt: daysAgo(5) },
 ];
 
 /* ── 회원 ─────────────────────────────────────────────── */
@@ -228,7 +231,9 @@ if (typeof window !== 'undefined') {
   try {
     const saved = JSON.parse(window.localStorage.getItem(ADMIN_KEY) ?? 'null') as { companies?: MockCompany[]; users?: MockUser[] } | null;
     if (saved?.companies && saved.users) {
-      COMPANIES.splice(0, COMPANIES.length, ...saved.companies);
+      // 저장본에 없는 시드 기업(나중에 추가한 태성산업 · 건호이엔씨 등)은 붙인다
+      const seeds = COMPANIES.filter((c) => !saved.companies!.some((x) => x.id === c.id));
+      COMPANIES.splice(0, COMPANIES.length, ...saved.companies, ...seeds);
       USERS.splice(0, USERS.length, ...saved.users);
     }
   } catch {
@@ -357,7 +362,19 @@ registerMock(/^\/companies$/, ({ query }) => {
   if (q) rows = rows.filter((c) => c.name.includes(q) || c.businessNumber.includes(q));
   return pageOf(rows, 100);
 });
-registerMock(/^\/companies\/(\d+)$/, ({ match }) => COMPANIES.find((c) => c.id === Number(match[1])) ?? COMPANIES[0], 'GET');
+// 전력거래 데모의 한길은 2번(CO.CONSUMER_LOGIN), 기업 관리의 한길은 3번 — 같은 기업으로 본다.
+// 없는 번호는 첫 기업(울산 에너지 플랫폼)으로 돌리지 않는다(다른 기업 정보가 섞여 보이지 않게)
+const COMPANY_ALIAS: Record<number, number> = { 2: 3 };
+registerMock(
+  /^\/companies\/(\d+)$/,
+  ({ match }) => {
+    const id = COMPANY_ALIAS[Number(match[1])] ?? Number(match[1]);
+    const c = COMPANIES.find((x) => x.id === id);
+    if (!c) throw new Error('기업을 찾을 수 없습니다');
+    return c;
+  },
+  'GET',
+);
 registerMock(/^\/companies\/(\d+)$/, ({ match, body }) => updateCompanyFixture(Number(match[1]), body), 'PUT');
 registerMock(/^\/companies\/(\d+)\/activate$/, ({ match }) => setCompanyStatus(Number(match[1]), 'ACTIVE'), 'PATCH');
 registerMock(/^\/companies\/(\d+)\/suspend$/, ({ match }) => setCompanyStatus(Number(match[1]), 'SUSPENDED'), 'PATCH');
