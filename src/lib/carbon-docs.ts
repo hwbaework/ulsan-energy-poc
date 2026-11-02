@@ -43,6 +43,10 @@ export interface CarbonForm {
   ref?: boolean;
   /** 원본이 있는 공식 사이트 — 문서 버튼 옆에 */
   site?: { href: string; label: string };
+  /** 관리자가 추가한 서식 — 파일 이름(받을 때 이 이름), 삭제 가능 */
+  custom?: boolean;
+  pdfName?: string;
+  hwpName?: string;
 }
 
 const form = (key: string, title: string, no: string, basis: string, file: string): CarbonForm => ({
@@ -59,8 +63,14 @@ const form = (key: string, title: string, no: string, basis: string, file: strin
 export const CARBON_FORMS = {
   plan: form('plan', '외부사업 사업계획서', '1', LAW.offset, 'offset-plan-form-1'),
   approval: form('approval', '외부사업 승인/사업계획 변경 신청서', '5', LAW.offset, 'offset-approval-form-5'),
-  monitoring: form('monitoring', '외부사업 모니터링 보고서', '17', LAW.offset, 'offset-monitoring-form-17'),
-  certify: form('certify', '외부사업 온실가스 감축량 인증신청서', '18', LAW.offset, 'offset-certify-form-18'),
+  monitoring: {
+    ...form('monitoring', '외부사업 모니터링 보고서', '17', LAW.offset, 'offset-monitoring-form-17'),
+    site: { href: LINKS.ors, label: '상쇄등록부' },
+  },
+  certify: {
+    ...form('certify', '외부사업 온실가스 감축량 인증신청서', '18', LAW.offset, 'offset-certify-form-18'),
+    site: { href: LINKS.ors, label: '상쇄등록부' },
+  },
   transfer: {
     ...form('transfer', '외부사업 인증실적 이전 신청서', '22', LAW.offset, 'koc-transfer-form-22'),
     /** 이전 신청서는 상쇄등록부에 낸다 */
