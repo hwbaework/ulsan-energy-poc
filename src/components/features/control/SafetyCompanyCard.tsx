@@ -13,7 +13,7 @@ import type { MonitoringPlant } from '@/types/monitoring';
 // 안전 상세 — 발전소 하나의 전기안전지수(아이티공간 UMEI 연계 v1.1 API-006 · 007, 5분).
 // 측정값(℃ · A · %)이 아니라 0~100 점수만: 전기안전지수(높을수록 양호) · 등급 · 항목별 위험점수(높을수록 위험).
 // 가장 높은 위험점수 = 지수를 낮춘 항목이라 주황색으로 강조한다(문서 6.2). 계산식은 화면에 쓰지 않는다(2026-10-29 사용자).
-// 위험점수는 정수로 온다(2026-10-29 사용자) — 소수점 없이.
+// 위험점수는 소수 1자리(문서 5.4 응답 예시 8.6 · 2.1, 2026-11-03 사용자).
 // 센서가 잰 값은 예지보전에 있다(2026-10-29 사용자 확정).
 const NONE = '미산출';
 /** 등급 색 — StatusPill 과 같은 색(위험 · 경고 빨강, 주의 amber, 관찰 회색, 정상 초록) */
@@ -138,7 +138,7 @@ export function SafetyCompanyCard({ plant }: { plant: MonitoringPlant }) {
                           key={it.key}
                           className={`${TD_C} whitespace-nowrap tabular-nums ${typeof v !== 'number' ? 'text-slate-500' : isTop ? 'font-semibold text-amber-400' : late ? 'text-slate-500' : 'text-slate-200'}`}
                         >
-                          {typeof v === 'number' ? fx(v, 0) : sf ? NONE : '-'}
+                          {typeof v === 'number' ? fx(v) : sf ? NONE : '-'}
                         </td>
                       );
                     })}

@@ -89,8 +89,8 @@ function safetyAt(s: DxSensor, t: number, now: number): DxSafety {
   const p = PROFILE[s.deviceName] ?? { health: 96 };
   const hoursAgo = (now - t) / 3600_000;
   const wave = Math.sin(t / 2_700_000 + i) * 0.9 + (rnd(i, Math.floor(t / 300_000)) - 0.5) * 0.6;
-  // 위험점수는 정수(2026-10-29 사용자)
-  const r1 = (v: number) => Math.round(v);
+  // 위험점수는 소수 1자리(문서 5.4 응답 예시 8.6 · 2.1, 2026-11-03 사용자)
+  const r1 = (v: number) => Math.round(v * 10) / 10;
   const risks: DxSafety['risks'] = {
     current: r1(4.5 + rnd(i, 21) * 3 + wave),
     voltage: r1(1.5 + rnd(i, 22) * 2),
@@ -106,7 +106,7 @@ function safetyAt(s: DxSensor, t: number, now: number): DxSafety {
   if (p.leakage && hoursAgo < 6) risks.leakage = r1(28 + wave);
   // 전기안전지수 = 100 − 가장 높은 위험점수(문서 5.4 응답 예시: current 8.6 → 91.4), anomalyScore 도 그 점수
   const top = Math.max(...Object.entries(risks).filter(([k, v]) => k !== 'communication' && typeof v === 'number').map(([, v]) => v as number));
-  const index = 100 - top;
+  const index = Math.round((100 - top) * 10) / 10;
   const level: DxRiskLevel = index < 60 ? 'warning' : index < 80 ? 'caution' : index < 90 ? 'watch' : 'normal';
   const ws = Math.floor(t / 300_000) * 300_000;
   const plant = LASEE_PLANTS.find((x) => x.laseeId === s.plantId);

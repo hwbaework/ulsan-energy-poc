@@ -106,7 +106,7 @@ export default function SafetyPage() {
       // 항목과 위험점수(0~100) — 지수를 낮춘 항목
       render: (r) => {
         const t = topRisk(r.worst);
-        return <span className="tabular-nums text-slate-300">{t ? `${t.label} ${Math.round(t.score)}` : '-'}</span>;
+        return <span className="tabular-nums text-slate-300">{t ? `${t.label} ${t.score.toFixed(1)}` : '-'}</span>;
       },
     },
   ];
