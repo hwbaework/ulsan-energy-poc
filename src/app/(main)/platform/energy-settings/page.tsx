@@ -19,7 +19,7 @@ const WEEK_KO = ['일', '월', '화', '수', '목', '금', '토'];
 import { F1, PLAN_LABEL, TARIFF_LIM, TARIFF_YEAR_LIM, cagrOf, shareOfHours, tableAvg, type Plan, type TariffYearTable } from '@/lib/solar-sim';
 
 // 에너지 설정 — 정부 공표·고시·사업 배정에 따라 바뀌는 값을 한 곳에서 관리한다.
-// · 탄소 배출계수 → 무료진단 기본값 · 대시보드 · RE100 · PPA 보고서
+// · 전력배출계수 → 무료진단 기본값 · 대시보드 · RE100 · PPA 보고서
 // · 환경 편익 환산(화석에너지 대체 TOE · 소나무 식재) → 무료진단 검토서 누적 효과
 // · 한전 요금 가산(기후환경요금 · 연료비조정요금) · 한전 요금표 → 무료진단 태양광 대체단가 · 기본요금 절감
 // · 한전 요금표는 연도별(그 해 마지막 고시). 최근 해 = 무료진단 계산, 해마다 평균 전력량요금 → 전년 대비 · 실적 CAGR 자동

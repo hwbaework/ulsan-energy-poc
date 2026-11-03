@@ -39,6 +39,8 @@ export interface CarbonForm {
   pdf: string;
   /** 원본이 PDF 로만 있으면 없음 */
   hwp?: string;
+  /** 엑셀 자료(업체 명단 등) — 미리보기 없이 받기만 */
+  xls?: string;
   /** 참고 문서 — 서식이 아니라 읽어 보는 문서 */
   ref?: boolean;
   /** 원본이 있는 공식 사이트 — 문서 버튼 옆에 */
@@ -91,5 +93,16 @@ export const CARBON_FORMS = {
     pdf: '/docs/offset-method-01b-011.pdf',
     ref: true,
     site: { href: LINKS.orsMethod, label: '방법론 현황' },
+  },
+  /** 참고 문서 — 목표관리 · 할당대상업체 명단(엑셀 그대로, 매년 관리자가 새 파일 업로드). 배출권 장외거래는 이 중 할당대상업체만(법 제19조) */
+  targetList: {
+    key: 'targetList',
+    title: '온실가스 에너지 목표관리 명세서 주요정보',
+    form: '업체 명단',
+    basis: '온실가스 에너지 목표관리 명세서 주요정보',
+    from: '2026-11-02',
+    pdf: '',
+    xls: '/docs/ghg-target-companies-2025.xls',
+    ref: true,
   },
 } as const satisfies Record<string, CarbonForm>;

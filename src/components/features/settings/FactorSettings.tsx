@@ -1,6 +1,6 @@
 'use client';
 
-// 관리 › 에너지 설정 — 계수(탄소 배출계수 · 환경 편익 · 한전 요금 가산 · 배출원 계수).
+// 관리 › 에너지 설정 — 계수(전력배출계수 · 환경 편익 · 한전 요금 가산 · 배출원 계수).
 // 화면의 값은 보기만. 바꿀 때는 계수마다 [변경] 팝업에서 새 값 + 출처(필수)를 같이 넣고 그 자리에서 저장 → 그 계수 이력에 한 줄.
 // 이력 · 출처는 에너지 설정(ENERGY_HISTORY · `${key}_SOURCE` · 배출원 계수 basis)에 둔다. 계산은 지금 값 하나(연도별 계수 없음).
 import { useState } from 'react';
@@ -21,7 +21,7 @@ import { GHG_FACTORS_KEY, useGhgFactorList } from '@/lib/ghg-reduction';
 
 /** 기준값 칸 — 카드 · 키 · 이름 · 단위 · 범위 · 소수 */
 const BASE_FIELDS = [
-  { card: 'co2', key: 'CO2_EMISSION_FACTOR', label: '탄소 배출계수 (전력 1MWh당 tCO₂)', unit: 't/MWh', lim: [0, 2], def: undefined, minus: false },
+  { card: 'co2', key: 'CO2_EMISSION_FACTOR', label: '전력배출계수 (전력 1MWh당 tCO₂)', unit: 't/MWh', lim: [0, 2], def: undefined, minus: false },
   { card: 'co2', key: 'TOE_PER_MWH', label: '화석에너지 대체 (전력 1MWh당 TOE)', unit: 'TOE/MWh', lim: [0, 1], def: TOE_PER_MWH, minus: false },
   { card: 'co2', key: 'PINE_PER_TCO2', label: '소나무 식재 (tCO₂당 그루 · 20년생)', unit: '그루/t', lim: [0, 1000], def: PINE_PER_TCO2, minus: false },
   { card: 'adj', key: 'CLIMATE_CHG', label: '기후환경요금', unit: '원/kWh', lim: [0, 100], def: undefined, minus: false },
@@ -29,7 +29,7 @@ const BASE_FIELDS = [
 ] as const;
 type BaseField = (typeof BASE_FIELDS)[number];
 const BASE_CARDS = [
-  { card: 'co2', title: '탄소 배출계수' },
+  { card: 'co2', title: '전력배출계수' },
   { card: 'adj', title: '한전 요금 가산' },
 ] as const;
 /** 값마다 출처 — 처음엔 지금 값의 근거 */
@@ -165,7 +165,7 @@ const SourceField = ({ value, onChange }: { value: string; onChange: (v: string)
   </label>
 );
 
-/** 탄소 배출계수 · 한전 요금 가산 카드 — 값은 보기만, [변경]으로 새 값 + 출처 */
+/** 전력배출계수 · 한전 요금 가산 카드 — 값은 보기만, [변경]으로 새 값 + 출처 */
 export function BaseFactorCards() {
   const { energy, history, commit, pending } = useFactorSave();
   const [edit, setEdit] = useState<BaseField | null>(null);

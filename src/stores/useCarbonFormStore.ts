@@ -15,11 +15,13 @@ export interface UploadedForm {
   at: string;
   by: string;
 }
-export type FormFileKind = 'pdf' | 'hwp';
+export type FormFileKind = 'pdf' | 'hwp' | 'xls';
 
 export interface FormOverride {
   pdf?: UploadedForm;
   hwp?: UploadedForm;
+  /** 엑셀 자료(업체 명단) — 매년 새 파일로 */
+  xls?: UploadedForm;
   /** 시행일 YYYY-MM-DD — 올린 날과 다를 수 있어 관리자가 넣는다 */
   from: string;
 }

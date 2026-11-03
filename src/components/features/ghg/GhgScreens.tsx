@@ -591,7 +591,7 @@ export function GhgFactorsScreen() {
   const list = [
     {
       key: 'co2',
-      name: '탄소 배출계수',
+      name: '전력배출계수',
       value: `${fx.co2} tCO₂eq/MWh`,
       use: '감축량 = 발전량 (MWh) × 계수',
     },

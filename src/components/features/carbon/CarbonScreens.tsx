@@ -239,7 +239,7 @@ const base = (f: CarbonForm) => `${f.form}_${f.title.replace(/\//g, '·')}`;
 function useFormFile(f: CarbonForm) {
   const up = useCarbonFormStore((s) => s.files[f.key]);
   const pdf = up?.pdf?.url ?? f.pdf;
-  const last = [up?.pdf, up?.hwp]
+  const last = [up?.pdf, up?.hwp, up?.xls]
     .filter((x) => x !== undefined)
     .sort((a, b) => (a.at < b.at ? 1 : -1))[0];
   const from = up?.from ?? f.from;
@@ -247,9 +247,11 @@ function useFormFile(f: CarbonForm) {
     up,
     pdf,
     hwp: up?.hwp?.url ?? f.hwp,
+    xls: up?.xls?.url ?? f.xls,
     /** 저장된 문서 이름 — 올린 파일은 그 이름, 원본은 별지 · 서식 이름 (받을 때도 이 이름) */
     pdfName: up?.pdf?.name ?? f.pdfName ?? `${base(f)}.pdf`,
     hwpName: up?.hwp?.name ?? f.hwpName ?? `${base(f)}.hwpx`,
+    xlsName: up?.xls?.name ?? `${f.title}.xls`,
     /** 시행일 — 관리자가 넣은 날, 없으면 법제처 원본 시행일 */
     from,
     /** 아직 시행 전 — 미리 올린 서식 */
@@ -276,6 +278,8 @@ function FormUploadModal({ f, open, onClose }: { f: CarbonForm; open: boolean; o
   const save = useCarbonFormStore((s) => s.save);
   const toast = useToastStore((s) => s.add);
   const ff = useFormFile(f);
+  // 엑셀 자료(업체 명단)는 엑셀 + 기준일, 서식은 HWP + 시행일
+  const kind: FormFileKind = f.xls ? 'xls' : 'hwp';
   const [pick, setPick] = useState<Partial<Record<FormFileKind, File>>>({});
   const [from, setFrom] = useState(today());
   const hwpRef = useRef<HTMLInputElement>(null);
@@ -288,22 +292,27 @@ function FormUploadModal({ f, open, onClose }: { f: CarbonForm; open: boolean; o
   const choose = (kind: FormFileKind, file?: File) => {
     if (!file) return;
     const ext = file.name.toLowerCase().split('.').pop() ?? '';
-    const ok = kind === 'pdf' ? ext === 'pdf' : ext === 'hwp' || ext === 'hwpx';
-    if (!ok) return toast('error', kind === 'pdf' ? 'PDF 파일만 올릴 수 있습니다' : 'HWP · HWPX 파일만 올릴 수 있습니다');
+    const ok = kind === 'pdf' ? ext === 'pdf' : kind === 'xls' ? ext === 'xls' || ext === 'xlsx' : ext === 'hwp' || ext === 'hwpx';
+    if (!ok)
+      return toast(
+        'error',
+        kind === 'pdf' ? 'PDF 파일만 올릴 수 있습니다' : kind === 'xls' ? 'XLS, XLSX 파일만 올릴 수 있습니다' : 'HWP, HWPX 파일만 올릴 수 있습니다',
+      );
     if (file.size > MAX_MB * 1024 * 1024) return toast('error', `${MAX_MB}MB 이하 파일만 올릴 수 있습니다`);
     setPick((p) => ({ ...p, [kind]: file }));
   };
-  // 새 HWP 가 있거나, 이미 올린 서식의 시행일만 고치는 경우
-  const canSave = !!from && (!!pick.hwp || !!ff.up);
+  // 새 파일이 있거나, 이미 올린 서식의 시행일만 고치는 경우
+  const canSave = !!from && (!!pick[kind] || !!ff.up);
 
   const onSave = async () => {
     try {
       const at = nowText();
       const by = user?.name ?? '관리자';
       const files: Partial<Record<FormFileKind, UploadedForm>> = {};
-      if (pick.hwp) files.hwp = { name: pick.hwp.name, url: await toDataUrl(pick.hwp), at, by };
+      const file = pick[kind];
+      if (file) files[kind] = { name: file.name, url: await toDataUrl(file), at, by };
       save(f.key, from, files);
-      toast('success', '서식을 저장했습니다');
+      toast('success', f.xls ? '파일을 저장했습니다' : '서식을 저장했습니다');
       onClose();
     } catch {
       toast('error', '저장에 실패했습니다');
@@ -327,7 +336,7 @@ function FormUploadModal({ f, open, onClose }: { f: CarbonForm; open: boolean; o
         <Upload size={14} /> 파일 선택
       </Button>
       <span className="min-w-0 truncate text-sm text-slate-300">
-        {pick[kind]?.name ?? (kind === 'pdf' ? ff.pdfName : ff.hwpName)}
+        {pick[kind]?.name ?? (kind === 'pdf' ? ff.pdfName : kind === 'xls' ? ff.xlsName : ff.hwpName)}
       </span>
     </div>
   );
@@ -336,7 +345,7 @@ function FormUploadModal({ f, open, onClose }: { f: CarbonForm; open: boolean; o
     <Modal
       open={open}
       onClose={onClose}
-      title={`서식 업로드 · ${f.title}`}
+      title={`${f.xls ? '파일' : '서식'} 업로드 · ${f.title}`}
       size="md"
       footer={
         <div className="flex justify-end gap-2">
@@ -350,9 +359,9 @@ function FormUploadModal({ f, open, onClose }: { f: CarbonForm; open: boolean; o
       }
     >
       <div className="space-y-4">
-        {row('hwp', 'HWP', '.hwp,.hwpx', hwpRef)}
+        {kind === 'xls' ? row('xls', '엑셀', '.xls,.xlsx', hwpRef) : row('hwp', 'HWP', '.hwp,.hwpx', hwpRef)}
         <div className="flex items-center gap-3">
-          <span className="w-14 shrink-0 text-sm text-slate-400">시행일</span>
+          <span className="w-14 shrink-0 text-sm text-slate-400">{f.xls ? '기준일' : '시행일'}</span>
           <input
             type="date"
             value={from}
@@ -480,8 +489,8 @@ function FormRowActions({ board, f }: { board: string; f: CarbonForm }) {
   const [upOpen, setUpOpen] = useState(false);
   const [ask, setAsk] = useState(false);
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-      {!f.ref && (
+    <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+      {(!f.ref || f.xls) && (
         <Button variant="secondary" size="sm" onClick={() => setUpOpen(true)}>
           <Upload size={14} /> 업로드
         </Button>
@@ -547,8 +556,15 @@ function FormButtons({ f, companyId }: { f: CarbonForm; companyId: number }) {
             </Button>
           </a>
         ))}
+      {ff.xls && (
+        <a href={ff.xls} download={ff.xlsName}>
+          <Button variant="secondary" size="sm">
+            <Download size={14} /> 엑셀
+          </Button>
+        </a>
+      )}
       {/* 서식은 기업이 채워 내는 것이라 HWP 만 받는다. 원문이 PDF 뿐인 참고 문서(방법론)만 PDF */}
-      {!ff.hwp && (
+      {!ff.hwp && ff.pdf && (
         <a href={ff.pdf} download={ff.pdfName}>
           <Button variant="secondary" size="sm">
             <Download size={14} /> PDF
@@ -650,7 +666,8 @@ function useFill(f: CarbonForm, companyId: number) {
 /** 원본 서식 그대로 — 값은 얹지 않는다(값은 작성 정보 칸, 넣는 건 HWP). 새로 올린 HWP · 추가한 서식은 미리보기 없음 */
 function FormPdf({ f }: { f: CarbonForm }) {
   const ff = useFormFile(f);
-  if (f.custom || (ff.up && !f.ref)) {
+  // 추가 · 새로 올린 서식, PDF 가 없는 자료(엑셀)는 미리보기 없음
+  if (f.custom || (ff.up && !f.ref) || !ff.pdf) {
     return <div className="flex h-60 items-center justify-center text-sm text-slate-400">미리보기 없음</div>;
   }
   return <iframe src={fitPdf(ff.pdf)} title={f.form} className="w-full bg-white" style={PAPER} />;
@@ -734,7 +751,18 @@ function FormHead({ f }: { f: CarbonForm }) {
 }
 
 /** 서식 — 목록 왼쪽 · 원본 오른쪽(줄을 누르면 오른쪽이 그 서식으로), 명세서 화면과 같은 배치 */
-function FormBoard({ board, forms: base, title = '서식' }: { board: string; forms: CarbonForm[]; title?: string }) {
+function FormBoard({
+  board,
+  forms: base,
+  title = '서식',
+  info = true,
+}: {
+  board: string;
+  forms: CarbonForm[];
+  title?: string;
+  /** 작성 정보 칸 — 우리 기업이 쓰지 않는 서식만 있는 화면(장외거래)은 끈다 */
+  info?: boolean;
+}) {
   const role = useGhgRole();
   const added = useCarbonFormStore((s) => s.added[board]);
   const forms = [...base, ...(added ?? [])];
@@ -745,19 +773,25 @@ function FormBoard({ board, forms: base, title = '서식' }: { board: string; fo
   const [picked, setPicked] = useState<number | null>(null);
   const companyId = role.isAdmin ? (picked ?? firstCompany) : role.myId;
   const sel = forms.find((f) => f.key === key) ?? forms[0];
+  // 기준일 · 관리 칸은 들어갈 것만큼만 — 시행 전 표시 · 버튼 2개(원본으로 / 삭제)인 줄이 있을 때만 넓혀 문서 이름 칸을 넉넉하게
+  const files = useCarbonFormStore((s) => s.files);
+  const anyBefore = forms.some((f) => (files[f.key]?.from ?? f.from) > today());
+  const anyTwo = forms.some((f) => f.custom || (files[f.key] && (!f.ref || f.xls)));
   const cols: Column<CarbonForm>[] = [
     {
       key: 'title',
       header: title,
       render: (f) => (
-        <span className="inline-flex items-center gap-2">
-          {f.ref && <Badge variant="info">참고</Badge>}
-          {cell(f.title, 'font-medium text-white')}
+        // 긴 문서 이름은 … 로 줄이고(전체는 마우스 올리면), 기준일 · 관리 칸은 폭 고정
+        <span className="flex min-w-0 items-center gap-2" title={f.title}>
+          <span className="min-w-0 truncate text-sm font-medium text-white">{f.title}</span>
         </span>
       ),
     },
-    { key: 'from', header: '기준일', render: (f) => cell(<FormFrom f={f} />, 'whitespace-nowrap text-slate-300') },
-    ...(role.isAdmin ? [{ key: 'manage', header: '', align: 'right' as const, render: (f: CarbonForm) => <FormRowActions board={board} f={f} /> }] : []),
+    { key: 'from', header: '기준일', width: anyBefore ? '170px' : '120px', render: (f) => cell(<FormFrom f={f} />, 'whitespace-nowrap text-slate-300') },
+    ...(role.isAdmin
+      ? [{ key: 'manage', header: '', width: anyTwo ? '220px' : '120px', align: 'right' as const, render: (f: CarbonForm) => <FormRowActions board={board} f={f} /> }]
+      : []),
   ];
   return (
     <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] xl:grid-cols-[minmax(0,1fr)_560px]">
@@ -789,7 +823,7 @@ function FormBoard({ board, forms: base, title = '서식' }: { board: string; fo
             <FormHead f={sel} />
             <FormButtons f={sel} companyId={companyId} />
           </div>
-          {!sel.ref && <FormInfoPanel key={`info-${sel.key}`} companyId={companyId} onCompany={setPicked} />}
+          {info && !sel.ref && <FormInfoPanel key={`info-${sel.key}`} companyId={companyId} onCompany={setPicked} />}
           <FormPdf key={`pdf-${sel.key}`} f={sel} />
         </div>
       )}
@@ -881,22 +915,23 @@ export function CarbonKrxScreen() {
   );
 }
 
-/* ══ 3.2.3 탄소배출권 장외거래 — 외부사업 인증실적 이전 신청서 서식. 신청은 기업이 직접 ══ */
+/* ══ 3.2.3 탄소배출권 장외거래 — 거래할 수 있는 업체 명단(엑셀) + 배출권(KAU) 장외 거래 신고서 서식. 작성 정보 없음.
+   배출권 거래는 시장 참여자만(법 제19조 · 시행령 제31조: 할당대상업체 · 시장조성자 · 중개회사 · 금융기관 등) — 전기사용자 기업은 해당 없음 ══ */
 export function CarbonOtcScreen() {
   return (
     <div className="space-y-6">
       <Header title="탄소배출권 장외거래" />
-      <FormBoard board="otc" title="문서" forms={[CARBON_FORMS.transfer]} />
+      <FormBoard board="otc" title="문서" info={false} forms={[CARBON_FORMS.targetList, CARBON_FORMS.otcReport]} />
     </div>
   );
 }
 
-/* ══ 3.2.4 탄소배출권 계약관리 — 장외 거래 신고서 서식. 신고는 기업이 직접 ══ */
+/* ══ 3.2.4 탄소배출권 계약관리 — 외부사업 인증실적(KOC) 판매 문서. 이전 신청서 + 계약 증빙을 양도인(기업)이 직접 낸다(외부사업 지침 제37조) ══ */
 export function CarbonContractScreen() {
   return (
     <div className="space-y-6">
       <Header title="탄소배출권 계약관리" />
-      <FormBoard board="contract" title="문서" forms={[CARBON_FORMS.otcReport]} />
+      <FormBoard board="contract" title="문서" forms={[CARBON_FORMS.transfer]} />
     </div>
   );
 }
