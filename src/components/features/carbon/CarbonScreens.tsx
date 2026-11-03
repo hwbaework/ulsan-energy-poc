@@ -251,7 +251,7 @@ function useFormFile(f: CarbonForm) {
     /** 저장된 문서 이름 — 올린 파일은 그 이름, 원본은 별지 · 서식 이름 (받을 때도 이 이름) */
     pdfName: up?.pdf?.name ?? f.pdfName ?? `${base(f)}.pdf`,
     hwpName: up?.hwp?.name ?? f.hwpName ?? `${base(f)}.hwpx`,
-    xlsName: up?.xls?.name ?? `${f.title}.xls`,
+    xlsName: up?.xls?.name ?? f.xlsName ?? `${f.title}.xls`,
     /** 시행일 — 관리자가 넣은 날, 없으면 법제처 원본 시행일 */
     from,
     /** 아직 시행 전 — 미리 올린 서식 */
@@ -272,184 +272,91 @@ function FormFrom({ f }: { f: CarbonForm }) {
   );
 }
 
-/** 서식 업로드 — HWP + 시행일(PDF 는 받지 않는다) */
-function FormUploadModal({ f, open, onClose }: { f: CarbonForm; open: boolean; onClose: () => void }) {
+/** 문서 팝업 — 문서 등록 · 업로드가 같은 칸(문서 이름 · 구분 · 시행일 · 파일).
+ *  추가(f 없음): 다 비워 두고 파일은 HWP 또는 엑셀(XLS · XLSX). 업로드(f 있음): 이름 · 구분은 그 문서 값(고치지 않음), 파일은 그 문서와 같은 종류만.
+ *  PDF 는 받지 않는다 — 원본(법제처 · 공식 사이트) 서식만 미리보기 */
+function FormModal({ board, f, open, onClose }: { board: string; f?: CarbonForm; open: boolean; onClose: () => void }) {
   const user = useAuthStore((s) => s.user);
+  const add = useCarbonFormStore((s) => s.add);
   const save = useCarbonFormStore((s) => s.save);
   const toast = useToastStore((s) => s.add);
-  const ff = useFormFile(f);
-  // 엑셀 자료(업체 명단)는 엑셀 + 기준일, 서식은 HWP + 시행일
-  const kind: FormFileKind = f.xls ? 'xls' : 'hwp';
-  const [pick, setPick] = useState<Partial<Record<FormFileKind, File>>>({});
-  const [from, setFrom] = useState(today());
-  const hwpRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    setPick({});
-    setFrom(ff.up?.from ?? today());
-  }, [open, ff.up?.from]);
-
-  const choose = (kind: FormFileKind, file?: File) => {
-    if (!file) return;
-    const ext = file.name.toLowerCase().split('.').pop() ?? '';
-    const ok = kind === 'pdf' ? ext === 'pdf' : kind === 'xls' ? ext === 'xls' || ext === 'xlsx' : ext === 'hwp' || ext === 'hwpx';
-    if (!ok)
-      return toast(
-        'error',
-        kind === 'pdf' ? 'PDF 파일만 올릴 수 있습니다' : kind === 'xls' ? 'XLS, XLSX 파일만 올릴 수 있습니다' : 'HWP, HWPX 파일만 올릴 수 있습니다',
-      );
-    if (file.size > MAX_MB * 1024 * 1024) return toast('error', `${MAX_MB}MB 이하 파일만 올릴 수 있습니다`);
-    setPick((p) => ({ ...p, [kind]: file }));
-  };
-  // 새 파일이 있거나, 이미 올린 서식의 시행일만 고치는 경우
-  const canSave = !!from && (!!pick[kind] || !!ff.up);
-
-  const onSave = async () => {
-    try {
-      const at = nowText();
-      const by = user?.name ?? '관리자';
-      const files: Partial<Record<FormFileKind, UploadedForm>> = {};
-      const file = pick[kind];
-      if (file) files[kind] = { name: file.name, url: await toDataUrl(file), at, by };
-      save(f.key, from, files);
-      toast('success', f.xls ? '파일을 저장했습니다' : '서식을 저장했습니다');
-      onClose();
-    } catch {
-      toast('error', '저장에 실패했습니다');
-    }
-  };
-
-  const row = (kind: FormFileKind, label: string, accept: string, ref: React.RefObject<HTMLInputElement | null>) => (
-    <div className="flex items-center gap-3">
-      <span className="w-14 shrink-0 text-sm text-slate-400">{label}</span>
-      <input
-        ref={ref}
-        type="file"
-        accept={accept}
-        className="hidden"
-        onChange={(e) => {
-          choose(kind, e.target.files?.[0]);
-          e.target.value = '';
-        }}
-      />
-      <Button variant="secondary" size="sm" onClick={() => ref.current?.click()}>
-        <Upload size={14} /> 파일 선택
-      </Button>
-      <span className="min-w-0 truncate text-sm text-slate-300">
-        {pick[kind]?.name ?? (kind === 'pdf' ? ff.pdfName : kind === 'xls' ? ff.xlsName : ff.hwpName)}
-      </span>
-    </div>
-  );
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={`${f.xls ? '파일' : '서식'} 업로드 · ${f.title}`}
-      size="md"
-      footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" size="sm" onClick={onClose}>
-            취소
-          </Button>
-          <Button variant="primary" size="sm" disabled={!canSave} onClick={() => void onSave()}>
-            저장
-          </Button>
-        </div>
-      }
-    >
-      <div className="space-y-4">
-        {kind === 'xls' ? row('xls', '엑셀', '.xls,.xlsx', hwpRef) : row('hwp', 'HWP', '.hwp,.hwpx', hwpRef)}
-        <div className="flex items-center gap-3">
-          <span className="w-14 shrink-0 text-sm text-slate-400">{f.xls ? '기준일' : '시행일'}</span>
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="rounded-md bg-white/[0.04] px-3 py-1.5 text-sm text-white ring-1 ring-white/[0.1]"
-          />
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-/** 서식 추가 — 문서 이름 · 구분 · 시행일 · HWP(필수). 추가한 서식은 미리보기 없이 HWP 받기 */
-function FormAddModal({ board, open, onClose }: { board: string; open: boolean; onClose: () => void }) {
-  const add = useCarbonFormStore((s) => s.add);
-  const toast = useToastStore((s) => s.add);
+  const ff = useFormFile(f ?? EMPTY_FORM);
   const [title, setTitle] = useState('');
   const [no, setNo] = useState('');
   const [from, setFrom] = useState(today());
-  const [pick, setPick] = useState<Partial<Record<FormFileKind, File>>>({});
-  const hwpRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!open) return;
-    setTitle('');
-    setNo('');
-    setFrom(today());
-    setPick({});
-  }, [open]);
-  const choose = (kind: FormFileKind, file?: File) => {
-    if (!file) return;
-    const ext = file.name.toLowerCase().split('.').pop() ?? '';
-    const ok = kind === 'pdf' ? ext === 'pdf' : ext === 'hwp' || ext === 'hwpx';
-    if (!ok) return toast('error', kind === 'pdf' ? 'PDF 파일만 올릴 수 있습니다' : 'HWP · HWPX 파일만 올릴 수 있습니다');
-    if (file.size > MAX_MB * 1024 * 1024) return toast('error', `${MAX_MB}MB 이하 파일만 올릴 수 있습니다`);
-    setPick((p) => ({ ...p, [kind]: file }));
+    setTitle(f?.title ?? '');
+    setNo(f?.form ?? '');
+    setFrom(f ? (ff.up?.from ?? today()) : today());
+    setFile(null);
+  }, [open, f, ff.up?.from]);
+
+  // 업로드는 그 문서와 같은 종류만, 추가는 둘 다
+  const kinds: ('hwp' | 'xls')[] = f ? [f.xls ? 'xls' : 'hwp'] : ['hwp', 'xls'];
+  const kindOf = (name: string): 'hwp' | 'xls' | null => {
+    const ext = name.toLowerCase().split('.').pop() ?? '';
+    return ext === 'hwp' || ext === 'hwpx' ? 'hwp' : ext === 'xls' || ext === 'xlsx' ? 'xls' : null;
   };
-  const canSave = !!title.trim() && !!no.trim() && !!from && !!pick.hwp;
+  const accept = kinds.map((k) => (k === 'hwp' ? '.hwp,.hwpx' : '.xls,.xlsx')).join(',');
+  const choose = (picked?: File) => {
+    if (!picked) return;
+    const k = kindOf(picked.name);
+    if (!k || !kinds.includes(k)) {
+      return toast('error', kinds.length > 1 ? 'HWP, 엑셀 파일만 올릴 수 있습니다' : kinds[0] === 'xls' ? '엑셀 파일만 올릴 수 있습니다' : 'HWP 파일만 올릴 수 있습니다');
+    }
+    if (picked.size > MAX_MB * 1024 * 1024) return toast('error', `${MAX_MB}MB 이하 파일만 올릴 수 있습니다`);
+    setFile(picked);
+  };
+  // 추가는 전부 필수, 업로드는 새 파일 또는(이미 올린 서식의) 시행일만 고치기
+  const canSave = !!from && (f ? !!file || !!ff.up : !!title.trim() && !!no.trim() && !!file);
+
   const onSave = async () => {
-    if (!pick.hwp) return;
     try {
-      const form: CarbonForm = {
-        key: `custom-${Date.now()}`,
-        title: title.trim(),
-        form: no.trim(),
-        basis: '',
-        from,
-        pdf: '',
-        hwp: await toDataUrl(pick.hwp),
-        hwpName: pick.hwp.name,
-        custom: true,
-      };
-      add(board, form);
-      toast('success', `${form.title} 서식을 추가했습니다`);
+      if (!f) {
+        if (!file) return;
+        const k = kindOf(file.name);
+        const url = await toDataUrl(file);
+        const form: CarbonForm = {
+          key: `custom-${Date.now()}`,
+          title: title.trim(),
+          form: no.trim(),
+          basis: '',
+          from,
+          pdf: '',
+          ...(k === 'xls' ? { xls: url, xlsName: file.name } : { hwp: url, hwpName: file.name }),
+          custom: true,
+        };
+        add(board, form);
+        toast('success', `${form.title} 문서를 등록했습니다`);
+      } else {
+        const k = f.xls ? 'xls' : 'hwp';
+        const files: Partial<Record<FormFileKind, UploadedForm>> = {};
+        if (file) files[k] = { name: file.name, url: await toDataUrl(file), at: nowText(), by: user?.name ?? '관리자' };
+        save(f.key, from, files);
+        toast('success', '문서를 저장했습니다');
+      }
       onClose();
     } catch {
       toast('error', '저장에 실패했습니다');
     }
   };
-  const fileRow = (kind: FormFileKind, label: string, accept: string, ref: React.RefObject<HTMLInputElement | null>) => (
-    <div className="flex items-center gap-3">
-      <span className="w-16 shrink-0 text-sm text-slate-400">{label}</span>
-      <input
-        ref={ref}
-        type="file"
-        accept={accept}
-        className="hidden"
-        onChange={(e) => {
-          choose(kind, e.target.files?.[0]);
-          e.target.value = '';
-        }}
-      />
-      <Button variant="secondary" size="sm" onClick={() => ref.current?.click()}>
-        <Upload size={14} /> 파일 선택
-      </Button>
-      <span className="min-w-0 truncate text-sm text-slate-300">{pick[kind]?.name ?? ''}</span>
-    </div>
-  );
-  const textRow = (label: string, value: string, set: (v: string) => void, placeholder = '') => (
+
+  const label = (text: string) => <span className="w-16 shrink-0 text-sm text-slate-400">{text}</span>;
+  const textRow = (text: string, value: string, set: (v: string) => void, placeholder = '') => (
     <label className="flex items-center gap-3">
-      <span className="w-16 shrink-0 text-sm text-slate-400">{label}</span>
-      <input aria-label={label} value={value} placeholder={placeholder} onChange={(e) => set(e.target.value)} className={FIELD} />
+      {label(text)}
+      <input aria-label={text} value={value} placeholder={placeholder} disabled={!!f} onChange={(e) => set(e.target.value)} className={`${FIELD} disabled:opacity-60`} />
     </label>
   );
+  const current = f ? (f.xls ? ff.xlsName : ff.hwpName) : '';
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title="서식 추가"
+      title={f ? '문서 업로드' : '문서 등록'}
       size="md"
       footer={
         <div className="flex justify-end gap-2">
@@ -466,7 +373,7 @@ function FormAddModal({ board, open, onClose }: { board: string; open: boolean; 
         {textRow('문서 이름', title, setTitle)}
         {textRow('구분', no, setNo, '별지 제00호서식')}
         <div className="flex items-center gap-3">
-          <span className="w-16 shrink-0 text-sm text-slate-400">시행일</span>
+          {label('시행일')}
           <input
             type="date"
             value={from}
@@ -474,11 +381,30 @@ function FormAddModal({ board, open, onClose }: { board: string; open: boolean; 
             className="rounded-md bg-white/[0.04] px-3 py-1.5 text-sm text-white ring-1 ring-white/[0.1]"
           />
         </div>
-        {fileRow('hwp', 'HWP', '.hwp,.hwpx', hwpRef)}
+        <div className="flex items-center gap-3">
+          {label('파일')}
+          <input
+            ref={fileRef}
+            type="file"
+            accept={accept}
+            className="hidden"
+            onChange={(e) => {
+              choose(e.target.files?.[0]);
+              e.target.value = '';
+            }}
+          />
+          <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()}>
+            <Upload size={14} /> 파일 선택
+          </Button>
+          <span className="min-w-0 truncate text-sm text-slate-300">{file?.name ?? current}</span>
+        </div>
       </div>
     </Modal>
   );
 }
+
+/** 훅 순서를 지키려고 업로드 대상이 없을 때(문서 등록) 쓰는 빈 서식 */
+const EMPTY_FORM: CarbonForm = { key: '', title: '', form: '', basis: '', from: '', pdf: '' };
 
 /** 문서 줄의 관리 — [업로드] · [원본으로](원본 서식을 바꿨을 때) · [삭제](추가한 서식) */
 function FormRowActions({ board, f }: { board: string; f: CarbonForm }) {
@@ -505,16 +431,16 @@ function FormRowActions({ board, f }: { board: string; f: CarbonForm }) {
           <Trash2 size={14} /> 삭제
         </Button>
       )}
-      <FormUploadModal f={f} open={upOpen} onClose={() => setUpOpen(false)} />
+      <FormModal board={board} f={f} open={upOpen} onClose={() => setUpOpen(false)} />
       <ConfirmDialog
         open={ask}
         onClose={() => setAsk(false)}
         onConfirm={() => {
           remove(board, f.key);
           setAsk(false);
-          toast('success', `${f.title} 서식을 삭제했습니다`);
+          toast('success', `${f.title} 문서를 삭제했습니다`);
         }}
-        title="서식 삭제"
+        title="문서 삭제"
         message={`'${f.title}'을(를) 지웁니다. 올린 파일도 함께 지워집니다.`}
         confirmLabel="삭제"
         variant="danger"
@@ -547,19 +473,19 @@ function FormButtons({ f, companyId }: { f: CarbonForm; companyId: number }) {
       {ff.hwp &&
         (fill ? (
           <Button variant="secondary" size="sm" onClick={() => void onHwp()}>
-            <Download size={14} /> HWP
+            <Download size={14} /> 다운로드
           </Button>
         ) : (
           <a href={ff.hwp} download={ff.hwpName}>
             <Button variant="secondary" size="sm">
-              <Download size={14} /> HWP
+              <Download size={14} /> 다운로드
             </Button>
           </a>
         ))}
       {ff.xls && (
         <a href={ff.xls} download={ff.xlsName}>
           <Button variant="secondary" size="sm">
-            <Download size={14} /> 엑셀
+            <Download size={14} /> 다운로드
           </Button>
         </a>
       )}
@@ -567,7 +493,7 @@ function FormButtons({ f, companyId }: { f: CarbonForm; companyId: number }) {
       {!ff.hwp && ff.pdf && (
         <a href={ff.pdf} download={ff.pdfName}>
           <Button variant="secondary" size="sm">
-            <Download size={14} /> PDF
+            <Download size={14} /> 다운로드
           </Button>
         </a>
       )}
@@ -754,7 +680,7 @@ function FormHead({ f }: { f: CarbonForm }) {
 function FormBoard({
   board,
   forms: base,
-  title = '서식',
+  title = '문서',
   info = true,
 }: {
   board: string;
@@ -800,7 +726,7 @@ function FormBoard({
         actions={
           role.isAdmin ? (
             <Button variant="secondary" size="sm" onClick={() => setAddOpen(true)}>
-              <Plus size={14} /> 서식 추가
+              <Plus size={14} /> 문서 등록
             </Button>
           ) : undefined
         }
@@ -814,7 +740,7 @@ function FormBoard({
           onRowClick={(f) => setKey(f.key)}
           rowClassName={(f) => (f.key === sel?.key ? '!bg-primary/10' : '')}
         />
-        <FormAddModal board={board} open={addOpen} onClose={() => setAddOpen(false)} />
+        <FormModal board={board} open={addOpen} onClose={() => setAddOpen(false)} />
       </SectionCard>
       {sel && (
         <div className="min-w-0 overflow-hidden rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] md:sticky md:top-4">

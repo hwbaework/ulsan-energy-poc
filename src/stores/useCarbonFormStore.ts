@@ -34,7 +34,7 @@ interface CarbonFormState {
   save: (key: string, from: string, files: Partial<Record<FormFileKind, UploadedForm>>) => void;
   /** 법제처 원본으로 되돌린다 */
   reset: (key: string) => void;
-  /** 서식 추가 — 그 화면 목록 맨 아래 */
+  /** 문서 등록 — 그 화면 목록 맨 아래 */
   add: (board: string, form: CarbonForm) => void;
   /** 추가한 서식 삭제 — 올린 파일도 함께 */
   remove: (board: string, key: string) => void;

@@ -49,6 +49,7 @@ export interface CarbonForm {
   custom?: boolean;
   pdfName?: string;
   hwpName?: string;
+  xlsName?: string;
 }
 
 const form = (key: string, title: string, no: string, basis: string, file: string): CarbonForm => ({
@@ -97,9 +98,9 @@ export const CARBON_FORMS = {
   /** 참고 문서 — 목표관리 · 할당대상업체 명단(엑셀 그대로, 매년 관리자가 새 파일 업로드). 배출권 장외거래는 이 중 할당대상업체만(법 제19조) */
   targetList: {
     key: 'targetList',
-    title: '온실가스 에너지 목표관리 명세서 주요정보',
+    title: '온실가스 명세서(할당대상업체+관리업체) 주요정보',
     form: '업체 명단',
-    basis: '온실가스 에너지 목표관리 명세서 주요정보',
+    basis: '온실가스종합정보센터 명세서 주요정보',
     from: '2026-11-02',
     pdf: '',
     xls: '/docs/ghg-target-companies-2025.xls',

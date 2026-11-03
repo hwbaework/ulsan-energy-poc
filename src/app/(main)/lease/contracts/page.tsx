@@ -1027,7 +1027,7 @@ export default function LeaseContractsPage() {
       <Modal
         open={openModal === 'history'}
         onClose={() => setOpenModal(null)}
-        title={`${selected.label} · 변경 이력`}
+        title="변경 이력"
         size="lg"
       >
         <div className="max-h-80 overflow-y-auto">

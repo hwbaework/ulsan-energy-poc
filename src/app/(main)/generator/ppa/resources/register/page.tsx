@@ -1240,7 +1240,7 @@ export default function GeneratorPpaResourcesPage() {
       <Modal
         open={!!supplyEdit}
         onClose={() => setSupplyEdit(null)}
-        title={`신청 수정 — ${supplyEdit?.plantName ?? ''}`}
+        title="신청 수정"
         size="md"
         footer={
           <>
