@@ -592,11 +592,8 @@ export function GhgFactorsScreen() {
     {
       key: 'co2',
       name: '전력배출계수',
-      // 적용년도별 — 최근 연도부터
-      value: `${Object.keys(fx.co2ByYear)
-        .sort((x, y) => y.localeCompare(x))
-        .map((y) => `${y}년 ${fx.co2ByYear[y]}`)
-        .join(', ')} tCO₂eq/MWh`,
+      // 현재 값만 — 금일이 속한 해의 계수(연도별 목록은 관리 › 에너지 설정)
+      value: `${fx.co2For(GHG_TODAY)} tCO₂eq/MWh`,
       use: '감축량 = 발전량 (MWh) × 그 해 계수',
     },
     {
@@ -630,7 +627,7 @@ export function GhgFactorsScreen() {
     { key: 'co2', header: 'CO₂', render: (f) => num(isElec(f) ? `${f.co2} t/MWh` : `${fmt(f.co2, 1)} kg/TJ`) },
     { key: 'ch4', header: 'CH₄', render: (f) => num(`${f.ch4} ${isElec(f) ? 'kg/MWh' : 'kg/TJ'}`) },
     { key: 'n2o', header: 'N₂O', render: (f) => num(`${f.n2o} ${isElec(f) ? 'kg/MWh' : 'kg/TJ'}`) },
-    { key: 'unitT', header: '1단위당 (tCO₂eq)', render: (f) => strong(`${tco2PerUnit(f, fx.co2).toFixed(6)} /${f.unit}`) },
+    { key: 'unitT', header: '1단위당 (tCO₂eq)', render: (f) => strong(`${tco2PerUnit(f, fx.co2For(GHG_TODAY)).toFixed(6)} /${f.unit}`) },
   ];
   return (
     <div className="space-y-6">

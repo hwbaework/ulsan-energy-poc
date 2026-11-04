@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, Loader2, Plus, Save, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Save, Trash2 } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { BaseFactorCards, GhgFactorSettings } from '@/components/features/settings/FactorSettings';
 import { SectionCard } from '@/components/features';
@@ -184,10 +184,25 @@ export default function EnergySettingsPage() {
       {/* 제목 · 오른쪽 저장 — 스크롤해도 상단(헤더 100px 아래)에 따라다닌다 */}
       <div className="sticky top-[100px] z-20 flex flex-wrap items-center justify-between gap-3 py-3 backdrop-blur">
         <h1 className="text-2xl font-bold text-white">에너지 설정</h1>
-        <Button onClick={() => setSaveAsk(true)} disabled={!anyDirty || pending || energyLoading || kepcoLoading}>
-          {pending ? <Loader2 size={14} className="mr-1 animate-spin" /> : anyDirty ? <Save size={14} className="mr-1" /> : <Check size={14} className="mr-1" />}
-          {pending ? '저장 중…' : anyDirty ? '저장' : '저장됨'}
-        </Button>
+        {/* 취소 · 저장 — 바꾼 값(가동일 · 공휴일 · 한전 요금표)이 없으면 둘 다 비활성. 취소는 저장된 값으로 되돌린다 */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="cancel"
+            onClick={() => {
+              setOpDirty(false);
+              setHolDirty(false);
+              setTableDirty(false);
+              setNewHol({ date: '', name: '' });
+            }}
+            disabled={!anyDirty || pending}
+          >
+            취소
+          </Button>
+          <Button onClick={() => setSaveAsk(true)} disabled={!anyDirty || pending || energyLoading || kepcoLoading}>
+            {pending ? <Loader2 size={14} className="mr-1 animate-spin" /> : <Save size={14} className="mr-1" />}
+            저장
+          </Button>
+        </div>
       </div>
 
       {/* 계수 — 값은 보기만, 계수마다 [변경] 팝업에서 새 값 + 출처(필수) → 그 자리에서 저장 · 이력 */}

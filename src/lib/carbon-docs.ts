@@ -22,7 +22,7 @@ export const LINKS = {
   orsMethod: 'https://ors.gir.go.kr/home/orme010/activeList.do?menuId=12',
   energyOffset: 'https://offset.energy.or.kr',
   lawAct: 'https://www.law.go.kr/법령/온실가스배출권의할당및거래에관한법률',
-  lawOffset: 'https://www.law.go.kr/admRulLsInfoP.do?admRulSeq=2100000267466',
+  lawOffset: 'https://www.law.go.kr/LSW//admRulInfoP.do?admRulSeq=2100000267466&chrClsCd=010201',
   lawTrade: 'https://www.law.go.kr/admRulLsInfoP.do?admRulSeq=2100000267472',
   /** 온실가스종합정보센터 명세서 배출량 통계 — 할당대상업체 + 관리업체 목록(연도 골라 검색 · 엑셀) */
   girStatement: 'https://www.gir.go.kr/home/index.do?menuId=37',
@@ -115,3 +115,62 @@ export const CARBON_FORMS = {
     ref: true,
   },
 } as const satisfies Record<string, CarbonForm>;
+
+/** 외부사업 지침 별지 한 장 — 번호 '11의2' 처럼 '의'가 붙는 것도 있다. 파일은 public/docs/offset-form-{번호}.hwpx · .pdf(법제처 원본) */
+const offsetForm = (no: string, title: string): CarbonForm => {
+  const [n, sub] = no.split('의');
+  const file = `offset-form-${sub ? `${n}-${sub}` : n}`;
+  return {
+    key: `offset-${no}`,
+    title,
+    form: `별지 제${n}호${sub ? `의${sub}` : ''}서식`,
+    basis: LAW.offset,
+    from: '2025-10-07',
+    pdf: `/docs/${file}.pdf`,
+    hwp: `/docs/${file}.hwpx`,
+  };
+};
+
+/** 외부사업 지침 별지 전부(제1호 ~ 제36호, 번호 순) — 외부감축사업 보고서 문서 목록. 이미 쓰던 서식은 같은 객체(올린 파일 · 이름이 같이 간다).
+ *  (사업자 수신용)은 관장기관이 사업자에게 보내는 서식 */
+export const OFFSET_FORMS: CarbonForm[] = [
+  CARBON_FORMS.plan,
+  offsetForm('2', '외부사업 사업계획서 - 묶음 감축사업 사업계획서'),
+  offsetForm('3', '외부사업 사업계획서 - 프로그램 감축사업 사업계획서'),
+  offsetForm('4', '외부사업 사업계획서-단위사업 사업계획서'),
+  CARBON_FORMS.approval,
+  offsetForm('6', '외부사업 사업계획 국문요약서'),
+  offsetForm('7', '감축실적 보유 현황서'),
+  offsetForm('8', '외부사업 타당성 평가/사업계획변경평가 의견서 (사업자 수신용)'),
+  offsetForm('9', '외부사업 타당성 평가/사업계획변경평가 결과서 (사업자 수신용)'),
+  offsetForm('10', '외부사업 승인서'),
+  offsetForm('11', '이의신청서'),
+  offsetForm('11의2', '이의신청 결과 통보서'),
+  offsetForm('12', '외부사업 방법론 신청서'),
+  offsetForm('13', '외부사업 방법론 제안서'),
+  offsetForm('14', '외부사업 방법론 검토 의견서 (사업자 수신용)'),
+  offsetForm('15', '외부사업 방법론 심의 결과서 (사업자 수신용)'),
+  offsetForm('16', '외부사업 착수신고서'),
+  CARBON_FORMS.monitoring,
+  offsetForm('17의2', '외부사업 모니터링 보고서 국문요약서'),
+  offsetForm('17의3', '외부사업 온실가스 감축량 검증 보고서'),
+  CARBON_FORMS.certify,
+  offsetForm('19', '외부사업 온실가스 감축량 인증 검토서 (사업자 수신용)'),
+  offsetForm('20', '외부사업 온실가스 감축량 인증 결과서 (사업자 수신용)'),
+  offsetForm('21', '외부사업 온실가스 감축량 인증서'),
+  CARBON_FORMS.transfer,
+  offsetForm('23', '상쇄배출권 전환신청서'),
+  offsetForm('24', '외부사업 인증유효기간 갱신 신청서'),
+  offsetForm('25', '외부사업 인증유효기간 갱신 검토 의견서 (사업자 수신용)'),
+  offsetForm('26', '외부사업 인증유효기간 갱신 심의 결과서 (사업자 수신용)'),
+  offsetForm('27', '외부사업 인증유효기간 갱신 승인서'),
+  offsetForm('28', '외부사업 사업계획 변경 승인서'),
+  offsetForm('29', '외부사업 인증유효기간 시작일 변경 신청서'),
+  offsetForm('30', '외부사업 인증유효기간 시작일 변경 심의 결과서 (사업자 수신용)'),
+  offsetForm('31', '외부사업 인증유효기간 시작일 변경 승인서'),
+  offsetForm('32', '외부사업 정보 비공개 신청서'),
+  offsetForm('33', '외부사업 정보 비공개 여부 심의 결과서 (사업자 수신용)'),
+  offsetForm('34', '권리ㆍ의무 승계 신청서'),
+  offsetForm('35', '권리ㆍ의무의 승계 통보서 (사업자 수신용)'),
+  CARBON_FORMS.account,
+];

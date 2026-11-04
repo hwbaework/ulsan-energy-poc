@@ -16,11 +16,12 @@ import { Modal } from '@/components/ui/Modal';
 import { PAPER } from '@/components/features/trading-poc/BillingPaper';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useCarbonInfoStore } from '@/stores/useCarbonInfoStore';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { useCarbonFormStore, type FormFileKind, type UploadedForm } from '@/stores/useCarbonFormStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { useGhgRole, useRows } from '@/components/features/ghg/GhgScreens';
 import { GHG_TODAY, fmt, fmtT, totalsOf } from '@/lib/ghg-reduction';
-import { CARBON_FORMS, LINKS, type CarbonForm } from '@/lib/carbon-docs';
+import { CARBON_FORMS, LINKS, OFFSET_FORMS, type CarbonForm } from '@/lib/carbon-docs';
 import { useCompany } from '@/hooks/platform/useCompanies';
 import { fillHwpx, type HwpxCell, type HwpxReplace } from '@/lib/utils/fillHwpx';
 import { fitPdf } from '@/lib/utils/fitPdf';
@@ -84,18 +85,22 @@ function TextTable({
   rows,
   keyCol = 0,
   widths,
+  wrap,
 }: {
   head: string[];
   rows: ReactNode[][];
   keyCol?: number;
   widths?: (string | undefined)[];
+  /** 긴 글을 … 로 자르지 않고 줄바꿈해 다 보인다(정보 안내 표) */
+  wrap?: boolean;
 }) {
   type R = { i: number; cells: ReactNode[] };
+  const w = wrap ? ' whitespace-normal break-keep leading-relaxed' : '';
   const cols: Column<R>[] = head.map((h, ci) => ({
     key: String(ci),
     header: h,
     width: widths?.[ci],
-    render: (r) => (ci === keyCol ? cell(r.cells[ci], 'font-medium text-white') : cell(r.cells[ci])),
+    render: (r) => (ci === keyCol ? cell(r.cells[ci], `font-medium text-white${w}`) : cell(r.cells[ci], `text-slate-300${w}`)),
   }));
   return <DataTable data={rows.map((cells, i) => ({ i, cells }))} columns={cols} rowKey={(r) => r.i} />;
 }
@@ -113,12 +118,21 @@ function EditTable({
   widths,
   view,
   check,
+  wrap,
+  onRemove,
+  screen,
 }: {
   id: string;
   title: string;
   head: string[];
   rows: string[][];
   widths?: (string | undefined)[];
+  /** 긴 글을 줄바꿈해 다 보인다 — 고칠 때도 여러 줄 칸 */
+  wrap?: boolean;
+  /** 관리자가 더한 섹션 — 고칠 때 [섹션 삭제](확인 후 표째로 지움) */
+  onRemove?: () => void;
+  /** 정보 화면 키 — 있으면 원래 섹션도 [섹션 삭제](그 화면에서만 숨김) */
+  screen?: string;
   /** 보기 모양 — 없으면 표 */
   view?: (rows: string[][]) => ReactNode;
   /** 저장 전 검사 — 문제가 있으면 알림 글자, 없으면 null */
@@ -126,30 +140,44 @@ function EditTable({
 }) {
   const role = useGhgRole();
   const saved = useCarbonInfoStore((s) => s.rows[id]);
+  const savedTitle = useCarbonInfoStore((s) => s.titles?.[id]);
+  const hidden = useCarbonInfoStore((s) => (screen ? s.hiddenSections?.[screen]?.includes(id) : false));
+  const hideSection = useCarbonInfoStore((s) => s.hideSection);
+  // 지우기 — 더한 섹션은 표째 삭제, 원래 섹션은 그 화면에서 숨김
+  const remove = onRemove ?? (screen ? () => hideSection(screen, id) : undefined);
   const setRows = useCarbonInfoStore((s) => s.setRows);
   const toast = useToastStore((s) => s.add);
   const rows = saved ?? defaults;
+  // 표 제목도 관리자가 고친다 — 없으면 코드의 제목
+  const shownTitle = savedTitle || title;
   const [draft, setDraft] = useState<string[][] | null>(null);
+  const [titleDraft, setTitleDraft] = useState('');
   /** 삭제 확인할 줄 */
   const [ask, setAsk] = useState<number | null>(null);
+  const [removeAsk, setRemoveAsk] = useState(false);
 
   const cellAt = (r: number, c: number, v: string) =>
     setDraft((d) => d && d.map((row, ri) => (ri === r ? row.map((x, ci) => (ci === c ? v : x)) : row)));
   const save = () => {
     if (!draft) return;
     const next = draft.filter((row) => row.some((x) => x.trim())).map((row) => row.map((x) => x.trim()));
-    const bad = check?.(next);
+    const bad = !titleDraft.trim() ? '표 제목을 넣어 주세요' : check?.(next);
     if (bad) {
       toast('error', bad);
       return;
     }
-    setRows(id, next);
+    setRows(id, next, titleDraft.trim());
     setDraft(null);
-    toast('success', `${title}을(를) 저장했습니다`);
+    toast('success', `${titleDraft.trim()}을(를) 저장했습니다`);
   };
 
   const actions = !role.isAdmin ? undefined : draft ? (
     <div className="flex flex-wrap items-center gap-2">
+      {remove && (
+        <Button size="sm" variant="danger" onClick={() => setRemoveAsk(true)}>
+          <Trash2 size={14} className="mr-1" /> 섹션 삭제
+        </Button>
+      )}
       <Button size="sm" variant="secondary" onClick={() => setDraft([...draft, head.map(() => '')])}>
         <Plus size={14} className="mr-1" /> 줄 추가
       </Button>
@@ -161,28 +189,70 @@ function EditTable({
       </Button>
     </div>
   ) : (
-    <Button size="sm" variant="secondary" onClick={() => setDraft(rows.map((r) => [...r]))}>
+    <Button
+      size="sm"
+      variant="secondary"
+      onClick={() => {
+        setDraft(rows.map((r) => [...r]));
+        setTitleDraft(shownTitle);
+      }}
+    >
       <Pencil size={14} className="mr-1" /> 수정
     </Button>
   );
 
+  if (hidden) return null;
+
   return (
-    <SectionCard title={title} actions={actions} noPadding>
-      {draft ? (
+    <SectionCard
+      title={
+        // 고칠 때는 제목 자리에서 바로 — 카드 머리 그대로 입력 칸
+        draft ? (
+          <input
+            aria-label="표 제목"
+            value={titleDraft}
+            placeholder="표 제목"
+            onChange={(e) => setTitleDraft(e.target.value)}
+            className={`${FIELD} w-72 font-semibold sm:w-96`}
+          />
+        ) : (
+          shownTitle
+        )
+      }
+      actions={actions}
+      noPadding
+    >
+      {draft && draft.length === 0 ? (
+        // 줄이 없을 때도 보기 화면과 같은 빈 칸 — [수정]을 눌러도 높이가 줄지 않게
+        <EmptyState title="데이터가 없습니다" />
+      ) : draft ? (
         <div className="space-y-2 p-4">
           {draft.map((row, ri) => (
             <div key={ri} className="flex items-center gap-2">
-              {row.map((v, ci) => (
-                <input
-                  key={ci}
-                  aria-label={head[ci]}
-                  value={v}
-                  placeholder={head[ci]}
-                  onChange={(e) => cellAt(ri, ci, e.target.value)}
-                  style={widths?.[ci] ? { width: widths[ci], flex: 'none' } : undefined}
-                  className={FIELD}
-                />
-              ))}
+              {row.map((v, ci) =>
+                wrap ? (
+                  <textarea
+                    key={ci}
+                    aria-label={head[ci]}
+                    value={v}
+                    rows={2}
+                    placeholder={head[ci]}
+                    onChange={(e) => cellAt(ri, ci, e.target.value)}
+                    style={widths?.[ci] ? { width: widths[ci], flex: 'none' } : undefined}
+                    className={`${FIELD} h-auto resize-y py-2 leading-relaxed`}
+                  />
+                ) : (
+                  <input
+                    key={ci}
+                    aria-label={head[ci]}
+                    value={v}
+                    placeholder={head[ci]}
+                    onChange={(e) => cellAt(ri, ci, e.target.value)}
+                    style={widths?.[ci] ? { width: widths[ci], flex: 'none' } : undefined}
+                    className={FIELD}
+                  />
+                ),
+              )}
               <button
                 type="button"
                 aria-label={`${row[0] || '줄'} 삭제`}
@@ -197,7 +267,7 @@ function EditTable({
       ) : view ? (
         view(rows)
       ) : (
-        <TextTable head={head} rows={rows} widths={widths} />
+        <TextTable head={head} rows={rows} widths={widths} wrap={wrap} />
       )}
       <ConfirmDialog
         open={ask !== null}
@@ -211,6 +281,22 @@ function EditTable({
         confirmLabel="삭제"
         variant="danger"
       />
+      {remove && (
+        <ConfirmDialog
+          open={removeAsk}
+          onClose={() => setRemoveAsk(false)}
+          onConfirm={() => {
+            setRemoveAsk(false);
+            setDraft(null);
+            remove();
+            toast('success', `${shownTitle}을(를) 삭제했습니다`);
+          }}
+          title="섹션 삭제"
+          message={`'${shownTitle}' 섹션을 지웁니다. 표 안의 줄도 함께 지워집니다.`}
+          confirmLabel="삭제"
+          variant="danger"
+        />
+      )}
     </SectionCard>
   );
 }
@@ -729,6 +815,38 @@ function FormBoard({
   );
 }
 
+/** 관리자가 더한 섹션(표) — 제도가 바뀌어 표가 더 필요할 때. 정보 화면마다(screen) 따로, 공식 사이트 칸 위.
+ *  새 표는 '새 섹션'(구분 | 내용, 빈 표) — [수정]에서 이름 · 줄을 고치고, [섹션 삭제]로 표째 지운다 */
+function AddedSections({ screen }: { screen: string }) {
+  const role = useGhgRole();
+  const added = useCarbonInfoStore((st) => st.sections?.[screen]);
+  const addSection = useCarbonInfoStore((st) => st.addSection);
+  const removeSection = useCarbonInfoStore((st) => st.removeSection);
+  return (
+    <>
+      {(added ?? []).map((sid) => (
+        <EditTable
+          key={sid}
+          id={sid}
+          title="새 섹션"
+          widths={['22%', undefined]}
+          wrap
+          head={['구분', '내용']}
+          rows={[]}
+          onRemove={() => removeSection(screen, sid)}
+        />
+      ))}
+      {role.isAdmin && (
+        <div className="flex justify-end">
+          <Button size="sm" variant="secondary" onClick={() => addSection(screen, `${screen}-add-${Date.now()}`, '새 섹션')}>
+            <Plus size={14} className="mr-1" /> 섹션 추가
+          </Button>
+        </div>
+      )}
+    </>
+  );
+}
+
 /* ══ 3.2.1 탄소배출권 정보 ══ */
 export function CarbonInfoScreen() {
   // 위아래 표 칸 너비를 같게 — 근거 칸이 같은 자리에 오도록
@@ -737,6 +855,7 @@ export function CarbonInfoScreen() {
     <div className="space-y-6">
       <Header title="탄소배출권 정보" />
       <EditTable
+        screen="info"
         id="items"
         title="거래 종목"
         widths={widths}
@@ -748,6 +867,7 @@ export function CarbonInfoScreen() {
         ]}
       />
       <EditTable
+        screen="info"
         id="members"
         title="참여 자격"
         widths={widths}
@@ -762,6 +882,7 @@ export function CarbonInfoScreen() {
           ['배출권거래중개회사 · 신탁업자 등', '중개 · 금융투자상품 목적 거래', '시행령 제31조'],
         ]}
       />
+      <AddedSections screen="info" />
       <SiteLinks
         id="sites-info"
         rows={[
@@ -779,6 +900,7 @@ export function CarbonKrxScreen() {
     <div className="space-y-6">
       <Header title="탄소배출권 KRX 거래" />
       <EditTable
+        screen="krx"
         id="hours"
         title="매매시간"
         head={['구분', '시간']}
@@ -791,6 +913,7 @@ export function CarbonKrxScreen() {
         ]}
       />
       <EditTable
+        screen="krx"
         id="krxMembers"
         title="KRX 회원 구분"
         head={['회원 구분', '자격 대상', '거래 범위']}
@@ -800,6 +923,7 @@ export function CarbonKrxScreen() {
           ['거래중개회원', '배출권거래중개회사(증권사)', '위탁 중개'],
         ]}
       />
+      <AddedSections screen="krx" />
       <SiteLinks
         id="sites-krx"
         rows={[
@@ -849,31 +973,199 @@ export function CarbonContractScreen() {
   );
 }
 
-/* ══ 3.2.5 외부감축사업 정보 — 사업 등록 · 계정 문서: 방법론(참고) · 사업계획서 · 승인 신청서 · 보유계정 등록신청서, 공식 사이트(관리자 수정).
-   모니터링 보고서 · 인증신청서는 3.2.6 보고서. 검증 · 인증(KOC 발행)은 검증기관 · 관장기관이 한다 — 플랫폼은 문서만 ══ */
+/* ══ 3.2.5 외부감축사업 정보 — 「외부사업 타당성 평가 및 감축량 인증에 관한 지침」을 진행 순서대로 풀어 쓴 표(근거 칸 없음, 관리자 [수정]) + 공식 사이트 + 적용 방법론 + 공식 사이트.
+   탄소배출권 정보와 같은 모양. 별지 서식은 3.2.6 보고서. 원문: 국가법령정보센터(시행 2025-10-07) ══ */
 export function CarbonOffsetScreen() {
+  // 지침 요약 표 — 장마다 표 하나, 조문마다 한 줄(구분 = 조문 제목, 내용 = 요약). 근거 칸 없이 풀어 쓴다. 원문은 아래 공식 사이트의 지침 원문
+  const widths2 = ['22%', undefined];
   return (
     <div className="space-y-6">
       <Header title="외부감축사업 정보" />
-      <FormBoard board="offset" title="문서" forms={[CARBON_FORMS.method, CARBON_FORMS.plan, CARBON_FORMS.approval, CARBON_FORMS.account]} />
+      <EditTable
+        screen="offset"
+        id="offset-s-terms"
+        title="제1장 총칙"
+        widths={widths2}
+        wrap
+        head={['구분', '내용']}
+        rows={[
+          ['목적', '외부사업 타당성 평가, 감축량 인증, 상쇄등록부에 관한 기준과 절차를 정합니다.'],
+          ['용어의 정의', '외부사업은 할당대상업체가 아닌 곳에서 온실가스를 줄이거나 흡수·제거하는 사업입니다. 외부사업 인증실적(KOC)은 그중 관장기관이 인증해 상쇄등록부에 올린 양입니다. 방법론은 감축량 계산·측정 기준을 적은 문서이고, 추가성은 보통의 경영 활동 이상의 추가 노력을 말합니다. 계정은 발행·보유·취소·처분·산림예치·상쇄배출권 계정으로 나뉩니다.'],
+          ['다른 지침과의 관계', '배출권거래제 상쇄에 관해서는 다른 지침보다 이 지침이 먼저 적용됩니다.'],
+          ['주무관청 역할분담', '부문별 관장기관이 타당성 평가·승인, 방법론, 감축량 인증, 상쇄등록부를 맡습니다. 기후에너지환경부는 총괄, 인증위원회 운영, 검증기관 지정, 그리고 평가·방법론·인증에 대한 협의와 의견을 맡습니다.'],
+          ['검증기관의 업무', '상쇄등록부에 등록된 외부사업 감축량을 검증하고, 인증 때 수정·보완 요청에 따릅니다.'],
+          ['비밀 준수', '업무 중 얻은 정보는 다른 용도로 쓰거나 밖으로 내보낼 수 없습니다.'],
+          ['자료제출 요청', '기후에너지환경부와 관장기관은 검증기관과 사업자에게 필요한 자료를 요청할 수 있고, 요청받으면 협조해야 합니다.'],
+        ]}
+      />
+      <EditTable
+        screen="offset"
+        id="offset-s-approve"
+        title="제2장 외부사업의 승인"
+        widths={widths2}
+        wrap
+        head={['구분', '내용']}
+        rows={[
+          ['승인 대상', '배출원을 근본적으로 없애거나 개선하는 사업이어야 하고, 단순 생산 감소·유지 보수는 안 됩니다. 할당대상업체가 아닌 곳에서 스스로 하는 감축이고, 다른 법의 의무가 아니어야 하며, 추가 노력으로 생긴 감축을 측정·검증할 수 있어야 하고, 승인된 방법론을 써야 합니다.'],
+          ['승인대상 외부사업의 규모 및 종류', '최소 규모는 없습니다. 연간 예상 감축량이 3,000 t 초과면 일반, 100~3,000 t면 소규모, 100 t 이하면 극소규모입니다. 작은 사업은 여러 개를 묶어 신청할 수 있습니다(소규모 묶음 15,000 t, 극소규모 묶음 500 t까지).'],
+          ['사업 시작일', '계약일, 첫 지출일, 설치 시작일 중 가장 빠른 날입니다. 타당성 조사 같은 사전 비용은 시작일로 보지 않고, 2010-04-14 이후 시작한 사업이어야 등록할 수 있습니다.'],
+          ['인증유효기간', '갱신형은 5년 이내(2번까지 연장), 고정형은 10년 이내(연장 없음)입니다. 묶음 사업은 모든 사업이 같은 기간을 가집니다.'],
+          ['외부사업 승인 신청', '승인신청서(별지 제5호)와 사업계획서(별지 제1~4호)를 관장기관에 냅니다. 극소규모는 관장기관이 정한 간단한 양식을 쓸 수 있습니다.'],
+          ['외부사업 타당성 평가', '관장기관이 일반요건, 방법론, 베이스라인, 추가성, 산정방식, 모니터링 계획 등을 평가하고 30일 안에 의견서(별지 제8호)를 줍니다(30일 연장 가능). 수정·보완은 3번까지이고, 극소규모는 기준을 완화할 수 있습니다.'],
+          ['추가성 평가', '법적·제도적 추가성과 경제적 추가성을 평가합니다. 연 60,000 t 이하 사업은 법적·제도적 추가성만 봅니다.'],
+          ['타당성평가 결과에 대한 협의', '평가가 끝나면 기후에너지환경부와 협의하고, 30일 안에 의견을 받습니다.'],
+          ['외부사업 승인에 대한 심의요청', '협의 결과를 반영해 인증위원회가 심의하고, 결과(별지 제9호)를 사업자에게 알려 줍니다.'],
+          ['외부사업의 승인', '승인되면 승인서(별지 제10호)를 받고, 상쇄등록부에 고유번호를 붙여 등록됩니다.'],
+          ['승인 취소', '거짓으로 승인받았거나, 승인 뒤 1년 안에 사업을 시작하지 않았거나, 추가성이 사라지면 취소될 수 있습니다. 취소 전에 30일 동안 의견을 낼 수 있습니다(별지 제11호).'],
+        ]}
+      />
+      <EditTable
+        screen="offset"
+        id="offset-s-method"
+        title="제3장 외부사업 방법론"
+        widths={widths2}
+        wrap
+        head={['구분', '내용']}
+        rows={[
+          ['방법론 등록 신청', '방법론 신청서(별지 제12호), 제안서(별지 제13호), 그 방법론을 쓴 사업계획서를 냅니다.'],
+          ['방법론 검토', '적용조건, 베이스라인, 모니터링 방법을 검토하고 60일 안에 의견서(별지 제14호)를 줍니다(60일 연장 가능). 수정·보완은 3번까지입니다.'],
+          ['방법론 승인 심의', '기후에너지환경부와 협의(30일)한 뒤 인증위원회가 심의하고, 결과(별지 제15호)를 알려 줍니다.'],
+          ['방법론 등록', '승인되면 상쇄등록부에 고유번호를 붙여 등록되고, 다른 사업자도 쓸 수 있습니다.'],
+          ['방법론 개정', '계산이 과대·과소하거나, 법·기술이 바뀌었거나, 오류가 있거나, 더 쉽게 고칠 필요가 있으면 개정할 수 있고 사업자도 신청할 수 있습니다. 다른 사업의 적용 범위를 줄이는 개정은 신청할 수 없습니다.'],
+          ['방법론 개정 평가 및 승인', '등록 때와 같은 검토·심의·등록 절차를 거칩니다. 결과에 이의가 있으면 이의신청서(별지 제11호)를 냅니다.'],
+          ['방법론 개정의 효과', '개정 뒤 등록 신청하는 사업은 개정 방법론을 쓰고, 이미 등록된 사업은 쓰던 방법론을 그대로 씁니다.'],
+        ]}
+      />
+      <EditTable
+        screen="offset"
+        id="offset-s-run"
+        title="제4장 외부사업의 시행 및 모니터링"
+        widths={widths2}
+        wrap
+        head={['구분', '내용']}
+        rows={[
+          ['외부사업의 시행', '승인일부터 1년 안에 사업을 시작하고 착수신고서(별지 제16호)를 냅니다. 이미 시작한 사업이면 낸 것으로 봅니다. 사업계획서대로 운영해야 합니다.'],
+          ['외부사업 모니터링의 원칙', '사업계획서와 방법론을 지키고, 불확도를 줄이며, 일관성·재현성·투명성·정확성을 지킵니다. 추정이 필요한 값은 보수적으로(적게) 잡습니다.'],
+          ['외부사업의 모니터링 보고서 작성', '사업 개요, 이행·변경, 모니터링 시스템, 데이터, 감축량 산정을 담아 모니터링 보고서(별지 제17호)를 냅니다. 한 번에 최대 2년치이고, 소규모·극소규모는 인증유효기간까지 묶을 수 있습니다. 일반 사업은 기간이 끝나고 12개월 안에 검증보고서와 함께 내야 합니다.'],
+        ]}
+      />
+      <EditTable
+        screen="offset"
+        id="offset-s-certify"
+        title="제5장 외부사업 온실가스 감축량의 검증 및 인증"
+        widths={widths2}
+        wrap
+        head={['구분', '내용']}
+        rows={[
+          ['검증의 원칙', '객관적인 자료와 검증지침에 따라 사실에 근거해 검증하고 검증보고서에 투명하게 남깁니다.'],
+          ['외부사업 온실가스 감축량의 검증', '모니터링 보고서로 지정 검증기관에 검증을 맡깁니다. 검증기관은 이행, 데이터, 다른 제도 중복 인증 여부 등을 보고 검증보고서(극소규모는 별지 제17호의3)를 써 줍니다.'],
+          ['외부사업 온실가스 감축량의 인증신청', '검증이 적합이면, 줄인 양이 1 t 이상일 때 인증신청서(별지 제18호)에 모니터링 보고서와 검증보고서를 붙여 냅니다. 인증은 정수(t) 단위입니다.'],
+          ['외부사업 온실가스 감축량 검증 결과에 대한 검토', '관장기관이 서류 일치, 다른 제도 중복 인증 여부, 검증 절차 등을 보고 30일 안에 검토서(별지 제19호)를 줍니다(30일 연장 가능). 수정·보완은 3번까지입니다.'],
+          ['감축량 인증 의견수렴 및 심의요청', '기후에너지환경부 의견(30일)을 받은 뒤 인증위원회가 심의하고, 결과(별지 제20호)를 알려 줍니다.'],
+          ['외부사업 온실가스 감축량 인증서의 발급', '인증서(별지 제21호)를 받습니다. 인증일부터 5년 안에 상쇄배출권으로 전환되어야 하는 조건이 붙고, 상쇄등록부에 등록됩니다.'],
+          ['외부사업 온실가스 감축량 인증 취소', '거짓 인증, 의무 이행의 결과이거나 같은 양을 다른 제도·사업에서 함께 쓴 경우 등은 취소될 수 있습니다. 취소 전에 30일 동안 의견을 낼 수 있습니다.'],
+        ]}
+      />
+      <EditTable
+        screen="offset"
+        id="offset-s-credit"
+        title="제6장 외부사업 인증실적 관리"
+        widths={widths2}
+        wrap
+        head={['구분', '내용']}
+        rows={[
+          ['외부사업 인증실적의 발행', '인증된 양을 발행계정에 정수로 발행하고, 사업계획서의 소유 비율대로 사업자 보유계정에 넣어 줍니다.'],
+          ['외부사업 인증실적의 이전', '팔 때는 이전신청서(별지 제22호)와 계약서를 냅니다. 거래소 밖에서 팔면 파는 쪽(양도인)이 전자로 내고, 거래소에서 팔면 거래소 결제로 처리됩니다.'],
+          ['인증실적 처분 및 상쇄배출권 전환', '할당대상업체만 전환신청서(별지 제23호)로 인증실적을 상쇄배출권으로 바꿀 수 있습니다.'],
+        ]}
+      />
+      <EditTable
+        screen="offset"
+        id="offset-s-account"
+        title="제7장 상쇄등록부의 구축 및 관리"
+        widths={widths2}
+        wrap
+        head={['구분', '내용']}
+        rows={[
+          ['상쇄등록부의 구축', '외부사업 등록부터 인증실적 발행·이전·전환까지 전자적으로 기록하는 상쇄등록부를 둡니다.'],
+          ['상쇄등록부의 관리 및 운영', '상쇄등록부를 안전하게 관리하고, 사업 목록, 인증실적, 방법론 등을 공개할 수 있습니다.'],
+          ['보유계정 등의 등록', 'KOC를 받으려면 보유계정이 있어야 합니다. 계정 신청서(별지 제36호)와 법인 증명 서류, 동의서를 전자로 냅니다. 법인이나 만 18세 이상이면 신청할 수 있습니다.'],
+          ['등록신청의 반려', '자격이나 서류가 맞지 않으면 반려되고, 통지를 받은 날부터 20일 안에 이의를 신청할 수 있습니다.'],
+          ['계정대표자 및 계정관리인', '법인 계정은 대표자가 계정대표자이고, 계정관리인을 2명까지 둘 수 있습니다. KOC를 넘기는 신청은 이 두 사람만 할 수 있습니다.'],
+          ['계정 정지', '범죄 목적 사용, 정보 갱신을 안 한 경우 등은 계정 사용이 정지됩니다. 사유가 없어지면 정지가 풀립니다.'],
+          ['계정 폐쇄', '계정대표자가 폐쇄를 신청하면 20일 안에 닫히고, 남은 인증실적은 취소계정으로 옮겨집니다.'],
+          ['계정정보의 갱신', '등록 정보가 바뀌면 10일 안에 알려야 하고, 매년 정보가 최신인지 확인해 알려야 합니다.'],
+          ['계정대표자 및 계정관리인의 변경', '대표자나 관리인이 바뀌면 바로 변경을 신청하고, 관장기관은 10일 안에 처리합니다.'],
+        ]}
+      />
+      <EditTable
+        screen="offset"
+        id="offset-s-renew"
+        title="제8장 인증유효기간 갱신"
+        widths={widths2}
+        wrap
+        head={['구분', '내용']}
+        rows={[
+          ['인증유효기간 갱신 접수', '기간이 끝나기 6개월 전까지 사업계획서와 갱신 신청서(별지 제24호)를 냅니다. 이때까지 내지 않으면 갱신할 뜻이 없는 것으로 봅니다.'],
+          ['인증유효기간 갱신 심사', '최신 방법론을 쓰는지, 자료·변수가 아직 맞는지, 법이나 여건이 바뀌지 않았는지 보고 검토의견서(별지 제25호)를 줍니다.'],
+          ['인증유효기간 갱신 협의', '기후에너지환경부와 협의하고 30일 안에 의견을 받습니다.'],
+          ['인증유효기간 갱신 심의 및 통보', '인증위원회가 심의하고 결과(별지 제26호)를 알려 줍니다.'],
+          ['인증유효기간 갱신 등록', '갱신 승인서(별지 제27호)를 받고 상쇄등록부에 바뀐 기간이 등록됩니다.'],
+        ]}
+      />
+      <EditTable
+        screen="offset"
+        id="offset-s-change"
+        title="제9장 사후변경"
+        widths={widths2}
+        wrap
+        head={['구분', '내용']}
+        rows={[
+          ['사업계획의 변경 접수', '사업자명, 연락처, 감축량 소유 비율이 바뀌면 14일 안에 증빙을 냅니다. 추가성, 규모, 방법론 적용조건, 모니터링 계획 등이 바뀌면 변경 신청서(별지 제5호)를 냅니다.'],
+          ['사업계획 변경 심사', '승인 때처럼 타당성·추가성 평가를 하고 기후에너지환경부와 협의합니다.'],
+          ['사업계획 변경 승인', '평가 결과(별지 제9호)를 알려 주고, 승인되면 변경 승인서(별지 제28호)를 줍니다. 사업명과 고유번호는 그대로입니다.'],
+          ['인증유효기간 시작일의 변경', '변경 신청서(별지 제29호)로 처음 시작일 앞뒤 2년 안에서 바꿀 수 있고, 전체 기간 길이는 그대로입니다.'],
+          ['인증유효기간 시작일의 변경 심의 요청', '기후에너지환경부와 협의하고 인증위원회가 심의해 결과(별지 제30호)를 알려 줍니다.'],
+          ['인증유효기간 시작일의 변경 승인', '승인되면 변경 승인서(별지 제31호)를 받고 상쇄등록부에 등록됩니다.'],
+        ]}
+      />
+      <EditTable
+        screen="offset"
+        id="offset-s-etc"
+        title="제10장 보칙"
+        widths={widths2}
+        wrap
+        head={['구분', '내용']}
+        rows={[
+          ['정보공개', '사업계획서와 검증보고서는 원문이 공개됩니다. 숨기고 싶은 항목은 승인·인증 신청 때 비공개 신청서(별지 제32호)를 내면 인증위원회가 정하고 결과(별지 제33호)를 알려 줍니다.'],
+          ['이의신청', '승인, 방법론, 인증, 인증 취소, 갱신 심의 결과에 이의가 있으면 30일 안에 이의신청서(별지 제11호)를 냅니다. 30일 안에 결과(별지 제11호의2)를 받습니다.'],
+          ['산림분야 외부사업 온실가스 인증실적 발행에 관한 특례', '산림 사업은 인증실적 일부를 위험에 대비해 산림예치계정에 맡겨 둡니다.'],
+          ['업무의 위탁', '관장기관은 한국에너지공단, 한국환경공단, 한국농업기술진흥원 등에 업무를 맡길 수 있어 실제 접수처가 이 기관일 수 있습니다.'],
+          ['권리ㆍ의무의 승계 신청', '합병, 분할, 사업 이전으로 사업이나 인증실적의 주인이 바뀌면 승계 신청서(별지 제34호)를 냅니다.'],
+          ['권리ㆍ의무의 승계 승인', '관장기관이 30일 안에 결과(별지 제35호)를 알려 주고 상쇄등록부에 등록합니다.'],
+          ['규제의재검토', '기후에너지환경부가 3년마다(2024-01-01 기준) 이 고시가 타당한지 검토합니다.'],
+          ['재검토기한', '훈령·예규 관리 규정에 따라 3년마다(2024-01-01 기준) 타당성을 검토합니다.'],
+        ]}
+      />
+      <AddedSections screen="offset" />
       <SiteLinks
         id="sites-offset"
         rows={[
+          ['외부사업 지침 원문', LINKS.lawOffset],
           ['상쇄등록부', LINKS.ors],
           ['방법론 · 외부사업 · 감축량 인증 현황', LINKS.orsMethod],
-          ['온실가스 검증기관 지정현황', LINKS.verifiers],
         ]}
       />
     </div>
   );
 }
 
-/* ══ 3.2.6 외부감축사업 보고서 — 모니터링 보고서 · 인증신청서 서식 ══ */
+/* ══ 3.2.6 외부감축사업 보고서 — 방법론 원문(참고, PDF) + 외부사업 지침 별지 전부(제1호 ~ 제36호, 번호 순) ══ */
 export function CarbonOffsetReportScreen() {
   return (
     <div className="space-y-6">
       <Header title="외부감축사업 보고서" />
-      <FormBoard board="offsetReport" title="문서" forms={[CARBON_FORMS.monitoring, CARBON_FORMS.certify]} />
+      <FormBoard board="offsetReport" title="문서" forms={[CARBON_FORMS.method, ...OFFSET_FORMS]} />
     </div>
   );
 }
