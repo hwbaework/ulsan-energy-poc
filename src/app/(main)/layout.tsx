@@ -120,7 +120,7 @@ const RE100_EDU = (admin: boolean): GnbChild =>
 const EDATA_CHILDREN: GnbChild[] = [
   // 3.1 온실가스 인벤토리
   { to: '/e-data/inventory', icon: Factory, label: '배출시설 정보', section: '온실가스 인벤토리', end: true }, // 3.1.1
-  { to: '/e-data/inventory/sources', icon: Database, label: '배출원 등록', section: '온실가스 인벤토리' }, // 3.1.2
+  { to: '/e-data/inventory/sources', icon: Database, label: '배출원 현황', section: '온실가스 인벤토리' }, // 3.1.2
   { to: '/e-data/inventory/factors', icon: Calculator, label: '배출계수 관리', section: '온실가스 인벤토리' }, // 3.1.3
   { to: '/e-data/inventory/calculation', icon: BarChart3, label: '배출량 산정', section: '온실가스 인벤토리' }, // 3.1.4
   { to: '/e-data/inventory/statement', icon: FileText, label: '명세서', section: '온실가스 인벤토리' }, // 3.1.5

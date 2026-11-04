@@ -1,9 +1,9 @@
 // 온실가스 인벤토리 — 태양광으로 줄인 탄소(감축량)만 다룬다.
 // · 발전량: 데이터 마켓과 같은 출처(useDataMarketStore.generationOf). 기업이 쓰는 전기 = 발전량 전부(자가소비)
-// · 감축량 = 발전량(MWh) × 전력 배출계수 / 화석에너지 대체 = MWh × TOE 계수 / 소나무 식재 = tCO₂ × 그루 계수
+// · 감축량 = 발전량(MWh) × 그 달 적용년도의 전력 배출계수 / 화석에너지 대체 = MWh × TOE 계수 / 소나무 식재 = tCO₂ × 그루 계수
 // · 계수는 관리 › 에너지 설정 한 곳에서 읽는다(없으면 고시 기본값)
 // · 회사 전체 전력 사용량 · 배출량은 다루지 않는다(매월 다르고 파워플래너로만 알 수 있어 임의 값으로 만들지 않음)
-import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
+import { CO2_BY_YEAR_KEY, ELEC_FACTOR, factorOfYear, parseFactorByYear, yearsOf, type FactorByYear } from '@/lib/constants/emission-factor';
 import { PINE_PER_TCO2, TOE_PER_MWH } from '@/lib/constants/env-benefit';
 import { energyNum, useEnergySettings } from '@/hooks/common/useSettings';
 import { GHG_FACTORS, scopeOf, type GhgFactor } from '@/lib/ghg-factors';
@@ -92,7 +92,14 @@ export const LAST_MONTH = '2026-09';
 
 /** 계수 — 에너지 설정 값 */
 export interface GhgFactors {
+  /** 최근 적용년도의 전력배출계수 — 연도 구분 없는 화면용 */
   co2: number;
+  /** 적용년도별 전력배출계수 */
+  co2ByYear: FactorByYear;
+  /** 그 달(YYYY-MM · YYYY-MM-DD)의 전력배출계수 */
+  co2For: (date: string) => number;
+  /** 다시 계산할지 비교용 — 연도별 계수를 글자로 */
+  co2Key: string;
   toe: number;
   pine: number;
   /** 배출계수 기준 연도 · 공표일 */
@@ -101,8 +108,14 @@ export interface GhgFactors {
 }
 export function useGhgFactorValues(): GhgFactors {
   const { data: es } = useEnergySettings();
+  const fallback = energyNum(es, 'CO2_EMISSION_FACTOR', ELEC_FACTOR);
+  const co2ByYear = parseFactorByYear(es?.[CO2_BY_YEAR_KEY], YEARS, es?.CO2_EMISSION_FACTOR ? Number(es.CO2_EMISSION_FACTOR) : undefined);
+  const latest = yearsOf(co2ByYear)[0];
   return {
-    co2: energyNum(es, 'CO2_EMISSION_FACTOR', ELEC_FACTOR),
+    co2: latest ? co2ByYear[latest]! : fallback,
+    co2ByYear,
+    co2For: (date: string) => factorOfYear(co2ByYear, date.slice(0, 4), fallback),
+    co2Key: JSON.stringify([co2ByYear, fallback]),
     toe: energyNum(es, 'TOE_PER_MWH', TOE_PER_MWH),
     pine: energyNum(es, 'PINE_PER_TCO2', PINE_PER_TCO2),
     year: es?.CO2_FACTOR_YEAR ?? '2023',
@@ -217,7 +230,7 @@ export function reductionDays(fx: GhgFactors, facilities: Facility[]): Reduction
   return facilityMonths(facilities).flatMap(({ facility, month, kwh }) =>
     splitDays(facility.companyId, month, kwh)
       .filter((d) => d.date <= GHG_TODAY)
-      .map((d) => ({ date: d.date, facility, kwh: d.kwh, tco2: r3((d.kwh / 1000) * fx.co2) })),
+      .map((d) => ({ date: d.date, facility, kwh: d.kwh, tco2: r3((d.kwh / 1000) * fx.co2For(d.date)) })),
   );
 }
 
@@ -238,7 +251,7 @@ function facilityGeneration(facilities: Facility[]) {
 export function reductionRows(fx: GhgFactors, facilities: Facility[]): ReductionRow[] {
   return facilityGeneration(facilities).map(({ facility, month, hours, kwh }) => {
     const mwh = kwh / 1000;
-    const tco2 = mwh * fx.co2;
+    const tco2 = mwh * fx.co2For(month);
     return {
       key: `${facility.id}-${month}`,
       month,

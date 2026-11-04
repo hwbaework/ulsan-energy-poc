@@ -5,7 +5,7 @@
 // 근거 · 절차: docs/카본마켓-조사.md (2026-10-08).
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, Copy, Download, ExternalLink, Pencil, Plus, RotateCcw, Trash2, Upload } from 'lucide-react';
+import { Download, ExternalLink, Pencil, Plus, RotateCcw, Trash2, Upload } from 'lucide-react';
 import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
@@ -18,11 +18,10 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useCarbonInfoStore } from '@/stores/useCarbonInfoStore';
 import { useCarbonFormStore, type FormFileKind, type UploadedForm } from '@/stores/useCarbonFormStore';
 import { useToastStore } from '@/stores/useToastStore';
-import { contractGroups, useGhgRole, useRows } from '@/components/features/ghg/GhgScreens';
+import { useGhgRole, useRows } from '@/components/features/ghg/GhgScreens';
 import { GHG_TODAY, fmt, fmtT, totalsOf } from '@/lib/ghg-reduction';
 import { CARBON_FORMS, LINKS, type CarbonForm } from '@/lib/carbon-docs';
 import { useCompany } from '@/hooks/platform/useCompanies';
-import { Select } from '@/components/ui/Select';
 import { fillHwpx, type HwpxCell, type HwpxReplace } from '@/lib/utils/fillHwpx';
 import { fitPdf } from '@/lib/utils/fitPdf';
 
@@ -233,6 +232,9 @@ const nowText = () =>
 /** 오늘 YYYY-MM-DD (한국 시각) */
 const today = () => nowText().slice(0, 10);
 
+/** 화면에 보이는 문서 이름 — '(별지 제1호) 외부사업 사업계획서'. 구분 끝의 '서식'은 뺀다 */
+const nameOf = (f: CarbonForm) => (f.form ? `(${f.form.replace(/\s*서식$/, '')}) ${f.title}` : f.title);
+
 const base = (f: CarbonForm) => `${f.form}_${f.title.replace(/\//g, '·')}`;
 
 /** 서식 파일 — 관리자가 올린 파일이 있으면 그것, 없으면 법제처 원본 */
@@ -245,6 +247,8 @@ function useFormFile(f: CarbonForm) {
   const from = up?.from ?? f.from;
   return {
     up,
+    /** 새 파일을 올렸는지 — 이름 · 구분 · 시행일만 고친 건 아님 */
+    newFile: !!(up?.hwp || up?.xls || up?.pdf),
     pdf,
     hwp: up?.hwp?.url ?? f.hwp,
     xls: up?.xls?.url ?? f.xls,
@@ -279,8 +283,11 @@ function FormModal({ board, f, open, onClose }: { board: string; f?: CarbonForm;
   const user = useAuthStore((s) => s.user);
   const add = useCarbonFormStore((s) => s.add);
   const save = useCarbonFormStore((s) => s.save);
+  const remove = useCarbonFormStore((s) => s.remove);
   const toast = useToastStore((s) => s.add);
   const ff = useFormFile(f ?? EMPTY_FORM);
+  // 삭제 확인 — 업로드 팝업 왼쪽 아래 빨간 버튼(배출원 계수 변경 팝업과 같은 자리)
+  const [delAsk, setDelAsk] = useState(false);
   const [title, setTitle] = useState('');
   const [no, setNo] = useState('');
   const [from, setFrom] = useState(today());
@@ -290,28 +297,31 @@ function FormModal({ board, f, open, onClose }: { board: string; f?: CarbonForm;
     if (!open) return;
     setTitle(f?.title ?? '');
     setNo(f?.form ?? '');
-    setFrom(f ? (ff.up?.from ?? today()) : today());
+    setFrom(f ? ff.from : today());
     setFile(null);
-  }, [open, f, ff.up?.from]);
+    // 팝업을 열 때만 채운다 — f 는 목록이 다시 그려질 때마다 새 객체라 key 로 비교(입력 중 값이 지워지지 않게)
+  }, [open, f?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 업로드는 그 문서와 같은 종류만, 추가는 둘 다
-  const kinds: ('hwp' | 'xls')[] = f ? [f.xls ? 'xls' : 'hwp'] : ['hwp', 'xls'];
-  const kindOf = (name: string): 'hwp' | 'xls' | null => {
+  // 업로드는 그 문서와 같은 종류만(PDF 만 있는 방법론은 PDF), 등록은 HWP · 엑셀
+  const kinds: FileKind[] = f ? [docKind(f)] : ['hwp', 'xls'];
+  const kindOf = (name: string): FileKind | null => {
     const ext = name.toLowerCase().split('.').pop() ?? '';
-    return ext === 'hwp' || ext === 'hwpx' ? 'hwp' : ext === 'xls' || ext === 'xlsx' ? 'xls' : null;
+    return ext === 'hwp' || ext === 'hwpx' ? 'hwp' : ext === 'xls' || ext === 'xlsx' ? 'xls' : ext === 'pdf' ? 'pdf' : null;
   };
-  const accept = kinds.map((k) => (k === 'hwp' ? '.hwp,.hwpx' : '.xls,.xlsx')).join(',');
+  const accept = kinds.map((k) => ACCEPT[k]).join(',');
   const choose = (picked?: File) => {
     if (!picked) return;
     const k = kindOf(picked.name);
     if (!k || !kinds.includes(k)) {
-      return toast('error', kinds.length > 1 ? 'HWP, 엑셀 파일만 올릴 수 있습니다' : kinds[0] === 'xls' ? '엑셀 파일만 올릴 수 있습니다' : 'HWP 파일만 올릴 수 있습니다');
+      return toast('error', `${kinds.map((k) => KIND_LABEL[k]).join(', ')} 파일만 올릴 수 있습니다`);
     }
     if (picked.size > MAX_MB * 1024 * 1024) return toast('error', `${MAX_MB}MB 이하 파일만 올릴 수 있습니다`);
     setFile(picked);
   };
   // 추가는 전부 필수, 업로드는 새 파일 또는(이미 올린 서식의) 시행일만 고치기
-  const canSave = !!from && (f ? !!file || !!ff.up : !!title.trim() && !!no.trim() && !!file);
+  // 등록은 전부 필수, 업로드는 이름 · 구분 · 시행일 중 하나라도 바꾸거나 새 파일
+  const canSave =
+    !!from && !!title.trim() && !!no.trim() && (f ? !!file || title.trim() !== f.title || no.trim() !== f.form || from !== ff.from : !!file);
 
   const onSave = async () => {
     try {
@@ -332,10 +342,13 @@ function FormModal({ board, f, open, onClose }: { board: string; f?: CarbonForm;
         add(board, form);
         toast('success', `${form.title} 문서를 등록했습니다`);
       } else {
-        const k = f.xls ? 'xls' : 'hwp';
+        const k = docKind(f);
         const files: Partial<Record<FormFileKind, UploadedForm>> = {};
         if (file) files[k] = { name: file.name, url: await toDataUrl(file), at: nowText(), by: user?.name ?? '관리자' };
-        save(f.key, from, files);
+        save(f.key, from, files, {
+          ...(title.trim() !== f.title ? { title: title.trim() } : {}),
+          ...(no.trim() !== f.form ? { form: no.trim() } : {}),
+        });
         toast('success', '문서를 저장했습니다');
       }
       onClose();
@@ -348,10 +361,10 @@ function FormModal({ board, f, open, onClose }: { board: string; f?: CarbonForm;
   const textRow = (text: string, value: string, set: (v: string) => void, placeholder = '') => (
     <label className="flex items-center gap-3">
       {label(text)}
-      <input aria-label={text} value={value} placeholder={placeholder} disabled={!!f} onChange={(e) => set(e.target.value)} className={`${FIELD} disabled:opacity-60`} />
+      <input aria-label={text} value={value} placeholder={placeholder} onChange={(e) => set(e.target.value)} className={FIELD} />
     </label>
   );
-  const current = f ? (f.xls ? ff.xlsName : ff.hwpName) : '';
+  const current = f ? { xls: ff.xlsName, hwp: ff.hwpName, pdf: ff.pdfName }[docKind(f)] : '';
   return (
     <Modal
       open={open}
@@ -359,14 +372,19 @@ function FormModal({ board, f, open, onClose }: { board: string; f?: CarbonForm;
       title={f ? '문서 업로드' : '문서 등록'}
       size="md"
       footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" size="sm" onClick={onClose}>
+        <>
+          {f && (
+            <Button variant="danger" size="sm" className="mr-auto" onClick={() => setDelAsk(true)}>
+              <Trash2 size={14} className="mr-1" /> 삭제
+            </Button>
+          )}
+          <Button variant="cancel" size="sm" onClick={onClose}>
             취소
           </Button>
           <Button variant="primary" size="sm" disabled={!canSave} onClick={() => void onSave()}>
             저장
           </Button>
-        </div>
+        </>
       }
     >
       <div className="space-y-3">
@@ -393,12 +411,31 @@ function FormModal({ board, f, open, onClose }: { board: string; f?: CarbonForm;
               e.target.value = '';
             }}
           />
-          <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()}>
+          {/* 파일 이름이 길어도 버튼은 줄지 않고 한 줄 — 이름만 … 로 줄인다 */}
+          <Button variant="secondary" size="sm" className="shrink-0 whitespace-nowrap" onClick={() => fileRef.current?.click()}>
             <Upload size={14} /> 파일 선택
           </Button>
-          <span className="min-w-0 truncate text-sm text-slate-300">{file?.name ?? current}</span>
+          <span className="min-w-0 truncate text-sm text-slate-300" title={file?.name ?? current}>
+            {file?.name ?? current}
+          </span>
         </div>
       </div>
+      {f && (
+        <ConfirmDialog
+          open={delAsk}
+          onClose={() => setDelAsk(false)}
+          onConfirm={() => {
+            remove(board, f.key);
+            setDelAsk(false);
+            onClose();
+            toast('success', `${f.title} 문서를 삭제했습니다`);
+          }}
+          title="문서 삭제"
+          message={f.custom ? `'${f.title}'을(를) 지웁니다. 올린 파일도 함께 지워집니다.` : `'${f.title}'을(를) 이 화면 문서 목록에서 지웁니다.`}
+          confirmLabel="삭제"
+          variant="danger"
+        />
+      )}
     </Modal>
   );
 }
@@ -407,44 +444,30 @@ function FormModal({ board, f, open, onClose }: { board: string; f?: CarbonForm;
 const EMPTY_FORM: CarbonForm = { key: '', title: '', form: '', basis: '', from: '', pdf: '' };
 
 /** 문서 줄의 관리 — [업로드] · [원본으로](원본 서식을 바꿨을 때) · [삭제](추가한 서식) */
+/** 문서 파일 종류 — 엑셀 / HWP / PDF 만 있는 문서(방법론) */
+type FileKind = 'hwp' | 'xls' | 'pdf';
+const docKind = (f: CarbonForm): FileKind => (f.xls ? 'xls' : f.hwp ? 'hwp' : 'pdf');
+const ACCEPT: Record<FileKind, string> = { hwp: '.hwp,.hwpx', xls: '.xls,.xlsx', pdf: '.pdf' };
+const KIND_LABEL: Record<FileKind, string> = { hwp: 'HWP', xls: '엑셀', pdf: 'PDF' };
+
+/** 줄 버튼 수 — 업로드는 늘, 원본 문서를 고쳤으면 원본으로(삭제는 업로드 팝업 안) */
+const rowButtons = (f: CarbonForm, changed: boolean) => 1 + (changed && !f.custom ? 1 : 0);
+
 function FormRowActions({ board, f }: { board: string; f: CarbonForm }) {
   const reset = useCarbonFormStore((s) => s.reset);
-  const remove = useCarbonFormStore((s) => s.remove);
-  const toast = useToastStore((s) => s.add);
   const ff = useFormFile(f);
   const [upOpen, setUpOpen] = useState(false);
-  const [ask, setAsk] = useState(false);
   return (
     <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-      {(!f.ref || f.xls) && (
-        <Button variant="secondary" size="sm" onClick={() => setUpOpen(true)}>
-          <Upload size={14} /> 업로드
-        </Button>
-      )}
+      <Button variant="secondary" size="sm" className="shrink-0 whitespace-nowrap" onClick={() => setUpOpen(true)}>
+        <Upload size={14} /> 업로드
+      </Button>
       {ff.up && !f.custom && (
-        <Button variant="secondary" size="sm" onClick={() => reset(f.key)}>
+        <Button variant="secondary" size="sm" className="shrink-0 whitespace-nowrap" onClick={() => reset(f.key)}>
           <RotateCcw size={14} /> 원본으로
         </Button>
       )}
-      {f.custom && (
-        <Button variant="secondary" size="sm" onClick={() => setAsk(true)}>
-          <Trash2 size={14} /> 삭제
-        </Button>
-      )}
       <FormModal board={board} f={f} open={upOpen} onClose={() => setUpOpen(false)} />
-      <ConfirmDialog
-        open={ask}
-        onClose={() => setAsk(false)}
-        onConfirm={() => {
-          remove(board, f.key);
-          setAsk(false);
-          toast('success', `${f.title} 문서를 삭제했습니다`);
-        }}
-        title="문서 삭제"
-        message={`'${f.title}'을(를) 지웁니다. 올린 파일도 함께 지워집니다.`}
-        confirmLabel="삭제"
-        variant="danger"
-      />
     </div>
   );
 }
@@ -501,7 +524,7 @@ function FormButtons({ f, companyId }: { f: CarbonForm; companyId: number }) {
   );
 }
 
-/** 서식 채움 — 원본 서식의 HWP 칸(표 · 열 · 행)에 값을 넣어 받는다. 미리보기는 원본 그대로, 값은 '작성 정보' 칸에서 본다.
+/** 서식 채움 — 원본 서식의 HWP 칸(표 · 열 · 행)에 값을 넣어 받는다. 미리보기는 원본 그대로.
  *  원본 서식을 고정해 두고 한 번 맞춘다. 관리자가 새로 올리거나 추가한 서식은 칸이 달라 채우지 않는다(보기 · 받기만).
  *  기업이 늘어나는 건 그대로 된다(값은 기업 정보 · 내 계정에서) */
 type FillKey = 'name' | 'bizNo' | 'rep' | 'staffName' | 'staffDept' | 'staffPos' | 'staffPhone' | 'staffEmail';
@@ -537,13 +560,7 @@ const FILL: Record<string, FillDoc> = {
   },
 };
 
-/** 플랫폼 기업 목록(계약 단위 묶음의 기업) */
-function usePlatformCompanies() {
-  const role = useGhgRole();
-  return [...new Map(contractGroups(role.facilities).map((g) => [g.companyId, g.fs[0]!.company])).entries()];
-}
-
-/** 작성 정보 값 — 기업 · 내 계정 · 설비 · 감축량 */
+/** HWP 에 넣을 값 — 기업 · 내 계정 · 설비 · 감축량 */
 function useFormInfo(companyId: number) {
   const role = useGhgRole();
   const user = useAuthStore((s) => s.user);
@@ -580,7 +597,8 @@ function useFill(f: CarbonForm, companyId: number) {
   const ff = useFormFile(f);
   const info = useFormInfo(companyId);
   const doc = FILL[f.key];
-  if (!doc || ff.up || f.custom || !info.co) return null;
+  // 새 파일을 올렸으면 칸이 달라 채우지 않는다(이름 · 구분만 고친 건 원본 그대로)
+  if (!doc || ff.newFile || f.custom || !info.co) return null;
   const v = info.values;
   return {
     company: v.name,
@@ -589,77 +607,37 @@ function useFill(f: CarbonForm, companyId: number) {
   };
 }
 
-/** 원본 서식 그대로 — 값은 얹지 않는다(값은 작성 정보 칸, 넣는 건 HWP). 새로 올린 HWP · 추가한 서식은 미리보기 없음 */
+/** 원본 서식 그대로 — 값은 얹지 않는다(넣는 건 HWP). 새로 올린 HWP · 추가한 서식은 미리보기 없음 */
 function FormPdf({ f }: { f: CarbonForm }) {
   const ff = useFormFile(f);
+  // 올린 PDF 는 data URL 이라 브라우저 PDF 보기가 열리지 않을 수 있어 blob 주소로 바꿔 띄운다
+  const blobUrl = useBlobUrl(ff.up?.pdf?.url);
   // 추가 · 새로 올린 서식, PDF 가 없는 자료(엑셀)는 미리보기 없음
-  if (f.custom || (ff.up && !f.ref) || !ff.pdf) {
-    return <div className="flex h-60 items-center justify-center text-sm text-slate-400">미리보기 없음</div>;
+  if (f.custom || (ff.newFile && !f.ref) || !ff.pdf) {
+    // 높이는 미리보기(PDF)와 같게 — 문서를 바꿔도 화면 높이가 튀지 않게
+    return (
+      <div className="flex items-center justify-center text-sm text-slate-400" style={{ height: PAPER.height, minHeight: PAPER.minHeight }}>
+        미리보기 없음
+      </div>
+    );
   }
-  return <iframe src={fitPdf(ff.pdf)} title={f.form} className="w-full bg-white" style={PAPER} />;
+  return <iframe src={fitPdf(blobUrl ?? ff.pdf)} title={f.form} className="w-full bg-white" style={PAPER} />;
 }
 
-/** 작성 정보 — 접었다 폈다. 플랫폼이 가진 값만 파란 글자로(복사). 모르는 값(양수인 · 신청량 등)은 서식에 직접 쓴다 */
-function FormInfoPanel({ companyId, onCompany }: { companyId: number; onCompany: (id: number) => void }) {
-  const role = useGhgRole();
-  const toast = useToastStore((s) => s.add);
-  const companies = usePlatformCompanies();
-  const info = useFormInfo(companyId);
-  const [open, setOpen] = useState(false);
-  const v = info.values;
-  const groups: [string, [string, string][]][] = [
-    ['기업', [['법인명', v.name], ['사업자등록번호', v.bizNo], ['대표자', v.rep], ['소재지', info.address]]],
-    ['담당자', [['성명', v.staffName], ['부서', v.staffDept], ['직위', v.staffPos], ['전화', v.staffPhone], ['E-mail', v.staffEmail]]],
-    ['설비 · 감축량', [['설비 용량', info.kw], ['가동일', info.start], ['누적 감축량', info.total], ['금년 감축량', info.thisYear]]],
-  ];
-  const copy = (text: string) => {
-    void navigator.clipboard
-      ?.writeText(text)
-      .then(() => toast('success', '복사했습니다'))
-      .catch(() => toast('error', '복사하지 못했습니다'));
-  };
-  return (
-    <div className="border-b border-white/[0.06] px-5 py-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-1.5 text-sm font-semibold text-white hover:text-blue-300">
-          <ChevronDown size={16} className={`transition-transform ${open ? 'rotate-180' : ''}`} /> 작성 정보
-        </button>
-        {role.isAdmin && companies.length > 0 && (
-          <div className="w-52">
-            <Select
-              options={companies.map(([id, name]) => ({ value: String(id), label: name }))}
-              value={String(companyId)}
-              onChange={(e) => onCompany(Number(e.target.value))}
-            />
-          </div>
-        )}
-      </div>
-      {open && (
-        <div className="mt-3 space-y-3">
-          {groups.map(([g, items]) => (
-            <div key={g}>
-              <p className="mb-1 text-xs text-slate-500">{g}</p>
-              <dl className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
-                {items.map(([k, val]) => (
-                  <div key={k} className="contents">
-                    <dt className="text-slate-400">{k}</dt>
-                    <dd className={`truncate ${val ? 'text-blue-300' : 'text-slate-500'}`}>{val || '-'}</dd>
-                    <span>
-                      {val && (
-                        <button type="button" aria-label={`${k} 복사`} onClick={() => copy(val)} className="rounded p-1 text-slate-500 hover:bg-white/[0.06] hover:text-white">
-                          <Copy size={13} />
-                        </button>
-                      )}
-                    </span>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+/** data URL → blob 주소(화면을 떠나면 놓는다) */
+function useBlobUrl(dataUrl?: string) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!dataUrl?.startsWith('data:')) return setUrl(null);
+    const [head = '', body = ''] = dataUrl.split(',');
+    const bin = atob(body);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const u = URL.createObjectURL(new Blob([bytes], { type: head.slice(5).split(';')[0] || 'application/pdf' }));
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [dataUrl]);
+  return url;
 }
 
 /** 미리보기 머리 — 서식 이름 · 별지, 올린 적 있으면 올린 일시 · 올린 사람 */
@@ -668,9 +646,7 @@ function FormHead({ f }: { f: CarbonForm }) {
   return (
     <div className="min-w-0">
       <p className="text-xs text-slate-400">미리보기</p>
-      <p className="truncate text-sm font-semibold text-white">
-        {f.title} ({f.form})
-      </p>
+      <p className="truncate text-sm font-semibold text-white">{nameOf(f)}</p>
       {uploaded && <p className="mt-0.5 text-xs text-slate-500">{uploaded}</p>}
     </div>
   );
@@ -681,42 +657,39 @@ function FormBoard({
   board,
   forms: base,
   title = '문서',
-  info = true,
 }: {
   board: string;
   forms: CarbonForm[];
   title?: string;
-  /** 작성 정보 칸 — 우리 기업이 쓰지 않는 서식만 있는 화면(장외거래)은 끈다 */
-  info?: boolean;
 }) {
   const role = useGhgRole();
   const added = useCarbonFormStore((s) => s.added[board]);
-  const forms = [...base, ...(added ?? [])];
+  const files = useCarbonFormStore((s) => s.files);
+  // 관리자가 고친 문서 이름 · 구분을 얹는다
+  const hidden = useCarbonFormStore((s) => s.hidden?.[board]);
+  const forms = [...base, ...(added ?? [])].filter((f) => !hidden?.includes(f.key)).map((f) => ({ ...f, title: files[f.key]?.title ?? f.title, form: files[f.key]?.form ?? f.form }));
   const [addOpen, setAddOpen] = useState(false);
   const [key, setKey] = useState(forms[0]?.key);
-  // 채울 기업 — 관리자는 셀렉트(처음엔 첫 기업), 기업 계정은 자기 기업
-  const firstCompany = contractGroups(role.facilities)[0]?.companyId ?? 0;
-  const [picked, setPicked] = useState<number | null>(null);
-  const companyId = role.isAdmin ? (picked ?? firstCompany) : role.myId;
+  // 채울 기업 — 기업 계정은 자기 기업 값이 들어간 HWP, 관리자는 원본(기업을 고르는 칸이 없다)
+  const companyId = role.isAdmin ? 0 : role.myId;
   const sel = forms.find((f) => f.key === key) ?? forms[0];
   // 기준일 · 관리 칸은 들어갈 것만큼만 — 시행 전 표시 · 버튼 2개(원본으로 / 삭제)인 줄이 있을 때만 넓혀 문서 이름 칸을 넉넉하게
-  const files = useCarbonFormStore((s) => s.files);
   const anyBefore = forms.some((f) => (files[f.key]?.from ?? f.from) > today());
-  const anyTwo = forms.some((f) => f.custom || (files[f.key] && (!f.ref || f.xls)));
+  const maxButtons = Math.max(1, ...forms.map((f) => rowButtons(f, !!files[f.key])));
   const cols: Column<CarbonForm>[] = [
     {
       key: 'title',
       header: title,
       render: (f) => (
         // 긴 문서 이름은 … 로 줄이고(전체는 마우스 올리면), 기준일 · 관리 칸은 폭 고정
-        <span className="flex min-w-0 items-center gap-2" title={f.title}>
-          <span className="min-w-0 truncate text-sm font-medium text-white">{f.title}</span>
+        <span className="flex min-w-0 items-center gap-2" title={nameOf(f)}>
+          <span className="min-w-0 truncate text-sm font-medium text-white">{nameOf(f)}</span>
         </span>
       ),
     },
     { key: 'from', header: '기준일', width: anyBefore ? '170px' : '120px', render: (f) => cell(<FormFrom f={f} />, 'whitespace-nowrap text-slate-300') },
     ...(role.isAdmin
-      ? [{ key: 'manage', header: '', width: anyTwo ? '220px' : '120px', align: 'right' as const, render: (f: CarbonForm) => <FormRowActions board={board} f={f} /> }]
+      ? [{ key: 'manage', header: '', width: maxButtons > 1 ? '220px' : '120px', align: 'right' as const, render: (f: CarbonForm) => <FormRowActions board={board} f={f} /> }]
       : []),
   ];
   return (
@@ -749,7 +722,6 @@ function FormBoard({
             <FormHead f={sel} />
             <FormButtons f={sel} companyId={companyId} />
           </div>
-          {info && !sel.ref && <FormInfoPanel key={`info-${sel.key}`} companyId={companyId} onCompany={setPicked} />}
           <FormPdf key={`pdf-${sel.key}`} f={sel} />
         </div>
       )}
@@ -841,33 +813,57 @@ export function CarbonKrxScreen() {
   );
 }
 
-/* ══ 3.2.3 탄소배출권 장외거래 — 거래할 수 있는 업체 명단(엑셀) + 배출권(KAU) 장외 거래 신고서 서식. 작성 정보 없음.
+/* ══ 3.2.3 탄소배출권 장외거래 — 거래할 수 있는 업체 명단(엑셀) + 배출권(KAU) 장외 거래 신고서 서식.
    배출권 거래는 시장 참여자만(법 제19조 · 시행령 제31조: 할당대상업체 · 시장조성자 · 중개회사 · 금융기관 등) — 전기사용자 기업은 해당 없음 ══ */
 export function CarbonOtcScreen() {
   return (
     <div className="space-y-6">
       <Header title="탄소배출권 장외거래" />
-      <FormBoard board="otc" title="문서" info={false} forms={[CARBON_FORMS.targetList, CARBON_FORMS.otcReport]} />
+      <FormBoard board="otc" title="문서" forms={[CARBON_FORMS.targetList, CARBON_FORMS.otcReport]} />
+      {/* 업체 명단(엑셀)의 원본 — 할당대상업체 + 관리업체 목록 */}
+      <SiteLinks id="sites-otc" rows={[['명세서 배출량 통계', LINKS.girStatement]]} />
     </div>
   );
 }
 
-/* ══ 3.2.4 탄소배출권 계약관리 — 외부사업 인증실적(KOC) 판매 문서. 이전 신청서 + 계약 증빙을 양도인(기업)이 직접 낸다(외부사업 지침 제37조) ══ */
+/* ══ 3.2.4 탄소배출권 계약관리 — KOC 를 팔기까지 문서 전부, 절차 순서대로: 사업계획서(제1호) · 승인 신청서(제5호) · 보유계정 등록신청서(제36호)
+   · 모니터링 보고서(제17호) · 감축량 인증신청서(제18호) · 이전 신청서(제22호, 기업 값 채운 HWP). 같은 서식은 외부감축사업 정보 · 보고서 화면과 같은 파일 ══ */
 export function CarbonContractScreen() {
   return (
     <div className="space-y-6">
       <Header title="탄소배출권 계약관리" />
-      <FormBoard board="contract" title="문서" forms={[CARBON_FORMS.transfer]} />
+      <FormBoard
+        board="contract"
+        title="문서"
+        forms={[CARBON_FORMS.plan, CARBON_FORMS.approval, CARBON_FORMS.account, CARBON_FORMS.monitoring, CARBON_FORMS.certify, CARBON_FORMS.transfer]}
+      />
+      {/* KOC 서식은 모두 부문별 관장기관에 내고 상쇄등록부에 기록된다(지침 제12조③④ · 제39조), 검증만 검증기관(제30조) */}
+      <SiteLinks
+        id="sites-contract"
+        rows={[
+          ['상쇄등록부', LINKS.ors],
+          ['온실가스 검증기관 지정현황', LINKS.verifiers],
+        ]}
+      />
     </div>
   );
 }
 
-/* ══ 3.2.5 외부감축사업 정보 — 참고 문서(방법론) · 사업계획서 · 승인 신청서 서식. 절차는 기업이 직접 ══ */
+/* ══ 3.2.5 외부감축사업 정보 — 사업 등록 · 계정 문서: 방법론(참고) · 사업계획서 · 승인 신청서 · 보유계정 등록신청서, 공식 사이트(관리자 수정).
+   모니터링 보고서 · 인증신청서는 3.2.6 보고서. 검증 · 인증(KOC 발행)은 검증기관 · 관장기관이 한다 — 플랫폼은 문서만 ══ */
 export function CarbonOffsetScreen() {
   return (
     <div className="space-y-6">
       <Header title="외부감축사업 정보" />
-      <FormBoard board="offset" title="문서" forms={[CARBON_FORMS.method, CARBON_FORMS.plan, CARBON_FORMS.approval]} />
+      <FormBoard board="offset" title="문서" forms={[CARBON_FORMS.method, CARBON_FORMS.plan, CARBON_FORMS.approval, CARBON_FORMS.account]} />
+      <SiteLinks
+        id="sites-offset"
+        rows={[
+          ['상쇄등록부', LINKS.ors],
+          ['방법론 · 외부사업 · 감축량 인증 현황', LINKS.orsMethod],
+          ['온실가스 검증기관 지정현황', LINKS.verifiers],
+        ]}
+      />
     </div>
   );
 }

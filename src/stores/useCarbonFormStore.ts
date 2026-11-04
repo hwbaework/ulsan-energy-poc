@@ -24,19 +24,24 @@ export interface FormOverride {
   xls?: UploadedForm;
   /** 시행일 YYYY-MM-DD — 올린 날과 다를 수 있어 관리자가 넣는다 */
   from: string;
+  /** 관리자가 고친 문서 이름 · 구분 — 없으면 원래 값 */
+  title?: string;
+  form?: string;
 }
 
 interface CarbonFormState {
   files: Record<string, FormOverride>;
   /** 화면(문서 목록)마다 관리자가 추가한 서식 */
   added: Record<string, CarbonForm[]>;
-  /** 새 서식 저장 — 넘긴 파일만 바꾸고, 시행일은 서식 전체에 */
-  save: (key: string, from: string, files: Partial<Record<FormFileKind, UploadedForm>>) => void;
+  /** 화면마다 지운 원본 문서 — 그 화면 목록에서만 빠진다(같은 서식을 쓰는 다른 화면은 그대로) */
+  hidden: Record<string, string[]>;
+  /** 새 서식 저장 — 넘긴 파일만 바꾸고, 시행일 · 문서 이름 · 구분은 서식 전체에 */
+  save: (key: string, from: string, files: Partial<Record<FormFileKind, UploadedForm>>, meta?: { title?: string; form?: string }) => void;
   /** 법제처 원본으로 되돌린다 */
   reset: (key: string) => void;
   /** 문서 등록 — 그 화면 목록 맨 아래 */
   add: (board: string, form: CarbonForm) => void;
-  /** 추가한 서식 삭제 — 올린 파일도 함께 */
+  /** 문서 삭제 — 등록한 문서는 올린 파일도 함께, 원본 문서는 그 화면 목록에서만 뺀다 */
   remove: (board: string, key: string) => void;
 }
 
@@ -45,7 +50,8 @@ export const useCarbonFormStore = create<CarbonFormState>()(
     (set) => ({
       files: {},
       added: {},
-      save: (key, from, files) => set((s) => ({ files: { ...s.files, [key]: { ...s.files[key], ...files, from } } })),
+      hidden: {},
+      save: (key, from, files, meta) => set((s) => ({ files: { ...s.files, [key]: { ...s.files[key], ...files, ...meta, from } } })),
       reset: (key) =>
         set((s) => {
           const files = { ...s.files };
@@ -55,6 +61,9 @@ export const useCarbonFormStore = create<CarbonFormState>()(
       add: (board, form) => set((s) => ({ added: { ...s.added, [board]: [...(s.added[board] ?? []), form] } })),
       remove: (board, key) =>
         set((s) => {
+          if (!(s.added[board] ?? []).some((f) => f.key === key)) {
+            return { hidden: { ...s.hidden, [board]: [...new Set([...(s.hidden?.[board] ?? []), key])] } };
+          }
           const files = { ...s.files };
           delete files[key];
           return { added: { ...s.added, [board]: (s.added[board] ?? []).filter((f) => f.key !== key) }, files };

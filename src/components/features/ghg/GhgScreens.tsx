@@ -2,7 +2,7 @@
 
 // E-데이터마켓 › 온실가스 인벤토리 — 태양광으로 줄인 탄소(감축량)만.
 // 입력 없음: 발전 데이터를 가져와 보여 주고 내려받기만. 관리자는 전체 기업(기업별로 나눠), 기업 계정은 자기 회사만.
-// 메뉴 이름은 그대로(배출시설 정보 · 배출원 등록 · 배출계수 관리 · 배출량 산정 · 명세서 · 보고서), 내용만 감축량 기준.
+// 메뉴 이름은 그대로(배출시설 정보 · 배출원 현황 · 배출계수 관리 · 배출량 산정 · 명세서 · 보고서), 내용만 감축량 기준.
 
 import { useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
@@ -112,7 +112,7 @@ export type Role = ReturnType<typeof useGhgRole>;
 export function useRows() {
   const fx = useGhgFactorValues();
   const facilities = useFacilities();
-  const rows = useMemo(() => reductionRows(fx, facilities), [fx.co2, fx.toe, fx.pine, facilities]); // eslint-disable-line react-hooks/exhaustive-deps
+  const rows = useMemo(() => reductionRows(fx, facilities), [fx.co2Key, fx.toe, fx.pine, facilities]); // eslint-disable-line react-hooks/exhaustive-deps
   return { fx, rows };
 }
 
@@ -497,7 +497,7 @@ export function GhgOverviewScreen() {
   );
 }
 
-/* ══ 3.1.2 배출원 등록 — 감축 설비(태양광). 설비는 계약에서 자동으로 들어온다. 줄을 누르면 배출원 상세 ══ */
+/* ══ 3.1.2 배출원 현황 — 감축 설비(태양광). 설비는 계약에서 자동으로 들어온다. 줄을 누르면 배출원 상세 ══ */
 /** 명세서 양식(배출량 보고 및 인증 지침 별지 제11호) — 태양광 */
 const GHG_CODES = {
   facilityCode: '0120',
@@ -555,7 +555,7 @@ export function GhgSourcesScreen() {
 
   return (
     <div className="space-y-6">
-      <GhgHeader title="배출원 등록" />
+      <GhgHeader title="배출원 현황" />
       <StatsGrid columns={3}>
         <StatCard label="배출원" value={`${active.length}개`} />
         <StatCard label="설비 용량" value={`${fmt(kw, 2)} kW`} />
@@ -584,7 +584,7 @@ export function GhgSourcesScreen() {
 }
 
 /* ══ 3.1.3 배출계수 관리 — 계수만(감축량 계산에 쓰는 3개 + 배출원 계수). 발전량 · 계산 결과는 배출량 산정에서.
- *    값은 관리 › 에너지 설정 한 곳에서 고친다(관리자), 바꾸면 전 기간에 바로 반영 ══ */
+ *    값은 관리 › 에너지 설정 한 곳에서 고친다(관리자). 전력배출계수는 적용년도별 — 그 해 감축량에만 반영 ══ */
 export function GhgFactorsScreen() {
   const role = useGhgRole();
   const fx = useGhgFactorValues();
@@ -592,8 +592,12 @@ export function GhgFactorsScreen() {
     {
       key: 'co2',
       name: '전력배출계수',
-      value: `${fx.co2} tCO₂eq/MWh`,
-      use: '감축량 = 발전량 (MWh) × 계수',
+      // 적용년도별 — 최근 연도부터
+      value: `${Object.keys(fx.co2ByYear)
+        .sort((x, y) => y.localeCompare(x))
+        .map((y) => `${y}년 ${fx.co2ByYear[y]}`)
+        .join(', ')} tCO₂eq/MWh`,
+      use: '감축량 = 발전량 (MWh) × 그 해 계수',
     },
     {
       key: 'pine',
@@ -760,8 +764,8 @@ export function GhgCalculationScreen() {
     { key: 'key', header: month ? '일자' : '월', render: (m) => num(m.key) },
     { key: 'kwh', header: '발전량 (kWh)', render: (m) => num(fmt(m.kwh)) },
     { key: 'mwh', header: '발전량 (MWh)', render: (m) => num(fmt(m.mwh, 3)) },
-    { key: 'f', header: '배출계수 (tCO₂eq/MWh)', render: () => num(fx.co2) },
-    { key: 'expr', header: '계산식', render: (m) => num(`${fmt(m.mwh, 3)} MWh × ${fx.co2}`) },
+    { key: 'f', header: '배출계수 (tCO₂eq/MWh)', render: (m) => num(fx.co2For(m.key)) },
+    { key: 'expr', header: '계산식', render: (m) => num(`${fmt(m.mwh, 3)} MWh × ${fx.co2For(m.key)}`) },
     { key: 'tco2', header: '탄소 감축량 (tCO₂eq)', render: (m) => strong(month ? fmt(m.tco2, 3) : fmtT(m.tco2)) },
     { key: 'pine', header: '소나무 식재 (그루)', render: (m) => num(fmt(m.pine)) },
     { key: 'toe', header: '화석에너지 대체 (TOE)', render: (m) => num(fmtT(m.toe)) },
@@ -962,7 +966,7 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
           rows: [
             ['총 감축량', `${fmtT(sum.tco2)} tCO₂eq`],
             ['총 발전량', `${fmt(sum.kwh)} kWh`],
-            ['전력 배출계수', `${fx.co2} tCO₂eq/MWh`],
+            ['전력 배출계수', `${fx.co2For(doc.period)} tCO₂eq/MWh`],
           ],
         },
         {

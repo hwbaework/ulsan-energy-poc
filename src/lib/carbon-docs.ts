@@ -16,13 +16,19 @@ export const LINKS = {
   krxHours: 'https://ets.krx.co.kr/contents/RGL/04/04030203/RGL04030203.jsp',
   krxMember: 'https://ets.krx.co.kr/contents/RGL/08/08020100/RGL08020100.jsp',
   krxBoard: 'https://ets.krx.co.kr/board/ETS01030000/bbs',
-  etrs: 'https://etrs.gir.go.kr',
-  ors: 'https://ors.gir.go.kr',
-  orsMethod: 'https://ors.gir.go.kr/home/orme010/activeList.do',
+  // 루트 주소는 안내 화면을 거쳐 넘어가 열리지 않는 경우가 있어 시스템 첫 화면으로 바로
+  etrs: 'https://etrs.gir.go.kr/etrs/',
+  ors: 'https://ors.gir.go.kr/ors/',
+  orsMethod: 'https://ors.gir.go.kr/home/orme010/activeList.do?menuId=12',
   energyOffset: 'https://offset.energy.or.kr',
   lawAct: 'https://www.law.go.kr/법령/온실가스배출권의할당및거래에관한법률',
   lawOffset: 'https://www.law.go.kr/admRulLsInfoP.do?admRulSeq=2100000267466',
   lawTrade: 'https://www.law.go.kr/admRulLsInfoP.do?admRulSeq=2100000267472',
+  /** 온실가스종합정보센터 명세서 배출량 통계 — 할당대상업체 + 관리업체 목록(연도 골라 검색 · 엑셀) */
+  girStatement: 'https://www.gir.go.kr/home/index.do?menuId=37',
+  /** 국립환경과학원 분석기관지정 › 온실가스 검증기관(원본, 수시 갱신) — 외부사업 검증은 지정 검증기관이 한다.
+   *  공공데이터포털(data.go.kr 15082976)은 이 표를 엑셀로 옮겨 둔 것 */
+  verifiers: 'https://nier.go.kr/front/kor/cmm/nier_law01.do?menuNo=13004',
   allocList: 'https://www.me.go.kr/home/web/public_info/read.do?menuId=10357&publicInfoId=337',
 } as const;
 
@@ -66,6 +72,8 @@ const form = (key: string, title: string, no: string, basis: string, file: strin
 export const CARBON_FORMS = {
   plan: form('plan', '외부사업 사업계획서', '1', LAW.offset, 'offset-plan-form-1'),
   approval: form('approval', '외부사업 승인/사업계획 변경 신청서', '5', LAW.offset, 'offset-approval-form-5'),
+  /** KOC 를 받을 상쇄등록부 보유계정 — 지침 제40조의2 */
+  account: form('account', '외부사업 보유계정 등록신청서', '36', LAW.offset, 'offset-account-form-36'),
   monitoring: {
     ...form('monitoring', '외부사업 모니터링 보고서', '17', LAW.offset, 'offset-monitoring-form-17'),
     site: { href: LINKS.ors, label: '상쇄등록부' },

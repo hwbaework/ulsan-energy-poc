@@ -91,10 +91,11 @@ export function GhgStatementScreen() {
         kwh: sel.kwh,
         tco2: sel.tco2,
       },
-      co2Factor: fx.co2,
+      // 명세서는 한 달 — 그 달 적용년도의 계수
+      co2Factor: fx.co2For(sel.month),
       co2Source: factorSource(es, 'CO2_EMISSION_FACTOR'),
     };
-  }, [sel, f, co, fx.co2, es]);
+  }, [sel, f, co, fx.co2Key, es]); // eslint-disable-line react-hooks/exhaustive-deps
   const html = form ? generateGhgStatementHtml(form) : '';
 
   return (

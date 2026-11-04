@@ -135,7 +135,7 @@ addMenu('문서 관리', 'RE100_DOCUMENTS', '/platform/ppa/documents', M_RE100, 
 const M_EDATA = addMenu('E-데이터마켓', 'EDATA', '/e-data/inventory', null, 0);
 const M_GHG = addMenu('온실가스 인벤토리', 'EDATA_GHG', null, M_EDATA, 1);
 addMenu('배출시설 정보', 'EDATA_GHG_FACILITY', '/e-data/inventory', M_GHG, 2);
-addMenu('배출원 등록', 'EDATA_GHG_SOURCES', '/e-data/inventory/sources', M_GHG, 2);
+addMenu('배출원 현황', 'EDATA_GHG_SOURCES', '/e-data/inventory/sources', M_GHG, 2);
 addMenu('배출계수 관리', 'EDATA_GHG_FACTORS', '/e-data/inventory/factors', M_GHG, 2);
 addMenu('배출량 산정', 'EDATA_GHG_CALC', '/e-data/inventory/calculation', M_GHG, 2);
 addMenu('명세서', 'EDATA_GHG_STATEMENT', '/e-data/inventory/statement', M_GHG, 2);
