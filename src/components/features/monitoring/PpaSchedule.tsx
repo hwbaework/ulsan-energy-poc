@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Save } from 'lucide-react';
 import { SectionCard } from '@/components/features';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { cn } from '@/lib/utils';
@@ -375,29 +376,17 @@ export function PpaScheduleCard({ companyId: fixed, readOnly }: { companyId?: nu
       </div>
 
       {/* 확인 — 요일표 저장 · 공휴일 OFF */}
-      <Modal
+      <ConfirmDialog
         open={pendingChange !== null}
         onClose={() => setPendingChange(null)}
+        onConfirm={() => {
+          pendingChange?.run();
+          setPendingChange(null);
+        }}
         title={pendingChange?.title ?? ''}
-        size="sm"
-        footer={
-          <div className="flex justify-end gap-2">
-            <Button variant="cancel" onClick={() => setPendingChange(null)}>
-              취소
-            </Button>
-            <Button
-              onClick={() => {
-                pendingChange?.run();
-                setPendingChange(null);
-              }}
-            >
-              적용
-            </Button>
-          </div>
-        }
-      >
-        <p className="text-sm text-slate-200">{pendingChange?.text}</p>
-      </Modal>
+        message={pendingChange?.text ?? ''}
+        confirmLabel="저장"
+      />
 
       {/* 날짜 지정 — 요일 설정대로 · OFF · 시간 지정(시각 칸은 처음부터 보이고, 고치면 시간 지정으로). 적용을 눌러야 반영 */}
       <Modal

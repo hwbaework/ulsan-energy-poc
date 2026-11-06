@@ -24,6 +24,7 @@ import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Dropdown, DropdownItem } from '@/components/ui/Dropdown';
 import { cn, exportPdf } from '@/lib/utils';
 import { useToastStore } from '@/stores/useToastStore';
@@ -930,32 +931,23 @@ export default function LeaseContractsPage() {
       </Modal>
 
       {/* 신청 취소 */}
-      <Modal
+      <ConfirmDialog
         open={openModal === 'cancel'}
         onClose={() => setOpenModal(null)}
+        onConfirm={() => {
+          useToastStore.getState().add('warning', `${selected.label} 신청이 취소되었습니다`);
+          setOpenModal(null);
+        }}
         title="신청 취소"
-        size="sm"
-        footer={
+        message={
           <>
-            <Button variant="ghost" onClick={() => setOpenModal(null)}>
-              닫기
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() => {
-                useToastStore.getState().add('warning', `${selected.label} 신청이 취소되었습니다`);
-                setOpenModal(null);
-              }}
-            >
-              취소 확정
-            </Button>
+            <span className="font-medium text-white">{selected.label}</span> 진행 중인 신청을 취소합니다.
           </>
         }
-      >
-        <p className="text-sm text-slate-300">
-          <span className="text-white font-medium">{selected.label}</span> 진행 중인 신청을 취소합니다.
-        </p>
-      </Modal>
+        confirmLabel="취소 확정"
+        cancelLabel="닫기"
+        variant="danger"
+      />
 
       {/* 설비 추가 신청 */}
       <Modal

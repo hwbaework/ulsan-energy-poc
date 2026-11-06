@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Sun, Zap, Percent, ArrowUpRight, ChevronRight, ChevronDown, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Dropdown, DropdownItem } from '@/components/ui/Dropdown';
@@ -797,42 +798,29 @@ export default function ConsumerTradingPage() {
       </Modal>
 
       {/* ───────── 취소 확인 모달 ───────── */}
-      <Modal
+      <ConfirmDialog
         open={!!cancelingRequest}
         onClose={() => setCancelingRequest(null)}
+        onConfirm={async () => {
+          if (!cancelingRequest) return;
+          try {
+            await updateStatusMut.mutateAsync({ id: cancelingRequest.id, status: 'CANCELLED' });
+            showToast('success', '거래 신청이 취소되었습니다');
+          } catch {
+            showToast('error', '취소에 실패했습니다');
+          }
+          setCancelingRequest(null);
+        }}
         title="거래 신청 취소"
-        size="sm"
-        footer={
+        message={
           <>
-            <Button variant="ghost" onClick={() => setCancelingRequest(null)}>
-              닫기
-            </Button>
-            <Button
-              variant="danger"
-              onClick={async () => {
-                if (!cancelingRequest) return;
-                try {
-                  await updateStatusMut.mutateAsync({ id: cancelingRequest.id, status: 'CANCELLED' });
-                  showToast('success', '거래 신청이 취소되었습니다');
-                } catch {
-                  showToast('error', '취소에 실패했습니다');
-                }
-                setCancelingRequest(null);
-              }}
-            >
-              신청 취소
-            </Button>
+            <strong className="text-white">{cancelingRequest?.companyName}</strong>의 거래 신청을 취소합니다. 취소된 신청은 되돌릴 수 없습니다.
           </>
         }
-      >
-        {cancelingRequest && (
-          <p className="text-sm text-accent-hover">
-            <strong className="text-white">{cancelingRequest.companyName}</strong>의 거래 신청을 취소하시겠습니까?
-            <br />
-            <span className="text-xs text-accent/70">취소된 신청은 되돌릴 수 없습니다.</span>
-          </p>
-        )}
-      </Modal>
+        confirmLabel="신청 취소"
+        cancelLabel="닫기"
+        variant="danger"
+      />
     </div>
   );
 }

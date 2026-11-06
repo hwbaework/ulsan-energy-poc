@@ -43,6 +43,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { usePpaSettlements } from '@/hooks/ppa/usePpa';
@@ -836,32 +837,19 @@ export default function PlatformPpaDocumentGenerationPage() {
 
       {/* 삭제 확인 모달 */}
       {confirmDelete && (
-        <Modal
+        <ConfirmDialog
           open={confirmDelete}
           onClose={() => setConfirmDelete(false)}
-          size="sm"
+          onConfirm={() => deleteTemplate(selected.id)}
           title="템플릿 삭제"
-          footer={
+          message={
             <>
-              <Button variant="ghost" onClick={() => setConfirmDelete(false)}>
-                취소
-              </Button>
-              <Button
-                variant="primary"
-                className="!bg-rose-500 hover:!bg-rose-600"
-                onClick={() => deleteTemplate(selected.id)}
-              >
-                <Trash2 size={12} className="mr-1.5" />
-                삭제
-              </Button>
+              <span className="font-semibold text-white">{selected.name}</span> 템플릿을 삭제합니다. 이미 발행된 문서는 영향받지 않습니다.
             </>
           }
-        >
-          <p className="text-sm text-slate-300">
-            <span className="text-white font-semibold">{selected.name}</span> 템플릿을 삭제합니다. 이미 발행된 문서는
-            영향받지 않습니다.
-          </p>
-        </Modal>
+          confirmLabel="삭제"
+          variant="danger"
+        />
       )}
 
       {/* 미리보기 모달 */}

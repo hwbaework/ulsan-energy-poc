@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 import { cn } from '@/lib/utils';
 import { useToastStore } from '@/stores/useToastStore';
@@ -1318,38 +1319,29 @@ export default function GeneratorPpaResourcesPage() {
       </Modal>
 
       {/* 공급 자원 — 취소 확인 모달 */}
-      <Modal
+      <ConfirmDialog
         open={!!supplyCancel}
         onClose={() => setSupplyCancel(null)}
+        onConfirm={async () => {
+          if (!supplyCancel) return;
+          try {
+            await deleteSupplyMut.mutateAsync(supplyCancel.id);
+            useToastStore.getState().add('warning', `${supplyCancel.plantName ?? '자원'} 신청이 취소되었습니다`);
+          } catch {
+            useToastStore.getState().add('error', '신청 취소에 실패했습니다');
+          }
+          setSupplyCancel(null);
+        }}
         title="신청 취소"
-        size="sm"
-        footer={
+        message={
           <>
-            <Button variant="ghost" onClick={() => setSupplyCancel(null)}>
-              돌아가기
-            </Button>
-            <Button
-              variant="danger"
-              onClick={async () => {
-                if (!supplyCancel) return;
-                try {
-                  await deleteSupplyMut.mutateAsync(supplyCancel.id);
-                  useToastStore.getState().add('warning', `${supplyCancel.plantName ?? '자원'} 신청이 취소되었습니다`);
-                } catch {
-                  useToastStore.getState().add('error', '신청 취소에 실패했습니다');
-                }
-                setSupplyCancel(null);
-              }}
-            >
-              취소 확정
-            </Button>
+            <span className="font-medium text-white">{supplyCancel?.plantName}</span> 공급 자원 신청을 취소하시겠습니까?
           </>
         }
-      >
-        <p className="text-sm text-slate-300">
-          <span className="text-white font-medium">{supplyCancel?.plantName}</span> 공급 자원 신청을 취소하시겠습니까?
-        </p>
-      </Modal>
+        confirmLabel="취소 확정"
+        cancelLabel="닫기"
+        variant="danger"
+      />
 
       {/* 공급 자원 — 희망단가 입력 모달 */}
       <Modal
