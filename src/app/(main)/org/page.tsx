@@ -22,10 +22,7 @@ import { FIELD_LABEL, LICENSE_FIELDS, useCompanyChangeStore, useHydrateCompanyCh
 import { localNow } from '@/stores/useBillingStore';
 import { useHydrateTradingPoc, useTradingPocStore } from '@/stores/useTradingPocStore';
 
-function statusLabel(status?: string): string {
-  if (!status) return '-';
-  return status === 'ACTIVE' ? '활성' : status === 'SUSPENDED' ? '정지' : status;
-}
+const REQUIRED_FIELDS: (keyof CompanyFields)[] = ['name', 'representativeName', 'bizType', 'bizCategory', 'address'];
 
 export default function OrgInfoPage() {
   const [editing, setEditing] = useState(false);
@@ -34,6 +31,7 @@ export default function OrgInfoPage() {
     representativeName: '',
     bizType: '',
     bizCategory: '',
+    foundedAt: '',
     phone: '',
     address: '',
   });
@@ -90,6 +88,7 @@ export default function OrgInfoPage() {
         representativeName: company.representativeName ?? '',
         bizType: company.bizType ?? '',
         bizCategory: company.bizCategory ?? '',
+        foundedAt: company.foundedAt ?? '',
         phone: company.phone ?? '',
         address: company.address ?? '',
       });
@@ -104,7 +103,7 @@ export default function OrgInfoPage() {
   const sendChange = useCompanyChangeStore((s) => s.request);
   const lastChange = useCompanyChangeStore((s) => s.requests.find((r) => r.companyId === companyId));
   const changePending = lastChange?.status === 'PENDING';
-  // 등록증에 적힌 칸(상호 · 대표자 · 업태 · 종목 · 주소)은 새 등록증을 올려야 고칠 수 있다
+  // 등록증에 적힌 칸(상호 · 대표자 · 업태 · 종목 · 설립일 · 주소)은 새 등록증을 올려야 고칠 수 있다
   const licenseLocked = persona !== 'admin' && !pendingLicense;
   const fileRef = useRef<HTMLInputElement>(null);
   const handleDownloadLicense = () => {
@@ -130,6 +129,12 @@ export default function OrgInfoPage() {
 
   const handleSave = () => {
     if (!companyId || !company) return;
+    // 등록증 칸은 비울 수 없다(회원가입과 같은 필수값), 설립일 · 연락처만 선택
+    const missing = REQUIRED_FIELDS.filter((k) => !form[k].trim());
+    if (missing.length) {
+      addToast('error', `${missing.map((k) => FIELD_LABEL[k]).join(', ')}을(를) 입력해 주세요`);
+      return;
+    }
     // 기업 회원 — 변경 요청으로(관리자 확인 뒤 반영). 플랫폼 관리자는 바로 저장
     if (persona !== 'admin') {
       const keys = Object.keys(FIELD_LABEL) as (keyof CompanyFields)[];
@@ -140,11 +145,11 @@ export default function OrgInfoPage() {
         setEditing(false);
         return;
       }
-      // 등록증 항목(상호 · 대표자 · 업태 · 종목 · 주소)만 새 등록증 + 관리자 검토, 연락처는 바로 반영
+      // 등록증 항목(상호 · 대표자 · 업태 · 종목 · 설립일 · 주소)만 새 등록증 + 관리자 검토, 연락처는 바로 반영
       const licenseChanges = changes.filter((c) => LICENSE_FIELDS.includes(c.key));
       const directChanges = changes.filter((c) => !LICENSE_FIELDS.includes(c.key));
       if (licenseChanges.length > 0 && !pendingLicense) {
-        addToast('error', '상호 · 대표자 · 업태 · 종목 · 주소가 바뀌면 새 사업자 등록증을 올려 주세요');
+        addToast('error', '상호 · 대표자 · 업태 · 종목 · 설립일 · 주소가 바뀌면 새 사업자 등록증을 올려 주세요');
         return;
       }
       if (directChanges.length > 0) {
@@ -180,6 +185,7 @@ export default function OrgInfoPage() {
         representativeName: company.representativeName ?? '',
         bizType: company.bizType ?? '',
         bizCategory: company.bizCategory ?? '',
+        foundedAt: company.foundedAt ?? '',
         phone: company.phone ?? '',
         address: company.address ?? '',
       });
@@ -231,17 +237,17 @@ export default function OrgInfoPage() {
           )
         }
       >
-        {/* 한 줄 5칸 · 두 줄 — 칸 넓이 같게(합치는 칸 · 아이콘 없음). 사업자등록번호는 등록증으로만 바뀐다 */}
-        <div className="grid grid-cols-2 gap-x-6 gap-y-5 md:grid-cols-5">
-          <InfoField label="기업명">
+        {/* 한 줄 4칸 · 두 줄 — 칸 넓이 같게(합치는 칸 · 아이콘 없음). 사업자등록번호는 등록증으로만 바뀐다 */}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-5 md:grid-cols-4">
+          <InfoField label="기업명" required>
             {editing ? (
               <Input disabled={licenseLocked} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
             ) : (
               <p className="text-sm text-white">{company?.name ?? (isLoading ? '불러오는 중…' : '-')}</p>
             )}
           </InfoField>
-          <InfoField label="사업자등록번호" value={company?.businessNumber ?? '-'} />
-          <InfoField label="대표자">
+          <InfoField label="사업자등록번호" required value={company?.businessNumber ?? '-'} />
+          <InfoField label="대표자" required>
             {editing ? (
               <Input disabled={licenseLocked} value={form.representativeName}
                 onChange={(e) => setForm((f) => ({ ...f, representativeName: e.target.value }))}
@@ -250,14 +256,14 @@ export default function OrgInfoPage() {
               <p className="text-sm text-white">{company?.representativeName ?? '-'}</p>
             )}
           </InfoField>
-          <InfoField label="업태">
+          <InfoField label="업태" required>
             {editing ? (
               <Input disabled={licenseLocked} value={form.bizType} onChange={(e) => setForm((f) => ({ ...f, bizType: e.target.value }))} />
             ) : (
               <p className="text-sm text-white">{company?.bizType || '-'}</p>
             )}
           </InfoField>
-          <InfoField label="종목">
+          <InfoField label="종목" required>
             {editing ? (
               <Input disabled={licenseLocked} value={form.bizCategory}
                 onChange={(e) => setForm((f) => ({ ...f, bizCategory: e.target.value }))}
@@ -273,21 +279,20 @@ export default function OrgInfoPage() {
               <p className="text-sm text-white tabular-nums">{company?.phone ?? '-'}</p>
             )}
           </InfoField>
-          <InfoField label="이메일" value={company?.email ?? '-'} />
-          <InfoField label="주소">
+          <InfoField label="주소" required>
             {editing ? (
               <Input disabled={licenseLocked} value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
             ) : (
               <p className="text-sm text-white">{company?.address ?? '-'}</p>
             )}
           </InfoField>
-          <InfoField label="설립일" value={company?.createdAt?.split('T')[0] ?? '-'} />
-          <InfoField label="상태">
-            <Badge
-              variant={company?.status === 'ACTIVE' ? 'success' : company?.status === 'SUSPENDED' ? 'danger' : 'info'}
-            >
-              {statusLabel(company?.status)}
-            </Badge>
+          {/* 설립일 — 등록증 '개업연월일'(가입일 아님). 등록증 칸이라 새 등록증을 올려야 고친다 */}
+          <InfoField label="설립일">
+            {editing ? (
+              <Input type="date" disabled={licenseLocked} value={form.foundedAt} onChange={(e) => setForm((f) => ({ ...f, foundedAt: e.target.value }))} />
+            ) : (
+              <p className="text-sm text-white tabular-nums">{company?.foundedAt || '-'}</p>
+            )}
           </InfoField>
         </div>
 
@@ -372,19 +377,25 @@ function InfoField({
   label,
   value,
   span,
+  required,
   children,
 }: {
   icon?: React.ReactNode;
   label: string;
   value?: string;
   span?: boolean;
+  /** 필수 칸(사업자등록증 항목) — 이름 뒤 빨간 * */
+  required?: boolean;
   children?: React.ReactNode;
 }) {
   return (
     <div className={span ? 'md:col-span-2' : ''}>
       <div className="mb-1 flex items-center gap-1.5">
         {icon && <span className="text-slate-500">{icon}</span>}
-        <span className="text-xs text-slate-400">{label}</span>
+        <span className="text-xs text-slate-400">
+          {label}
+          {required && <span className="ml-0.5 text-semantic-red">*</span>}
+        </span>
       </div>
       {children ?? <p className="text-sm text-white">{value}</p>}
     </div>

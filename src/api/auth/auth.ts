@@ -35,6 +35,8 @@ export async function signUp(data: {
   enterpriseRole?: string;
   bizType?: string;
   bizCategory?: string;
+  /** 설립일 — 사업자등록증 '개업연월일'(YYYY-MM-DD) */
+  foundedAt?: string;
   /** 사업자등록증 — 파일 이름 · 내용(data URL) */
   licenseFileName?: string;
   licenseFileUrl?: string;

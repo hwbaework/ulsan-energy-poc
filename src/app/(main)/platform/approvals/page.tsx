@@ -221,6 +221,7 @@ export default function ApprovalsPage() {
                       {row('대표자', c.representativeName)}
                       {row('업태', c.bizType)}
                       {row('종목', c.bizCategory)}
+                      {row('설립일', c.foundedAt)}
                       {row('기업 연락처', c.phone)}
                       {row('기업 주소', c.address)}
                       {row('기업 상태', c.status === 'ACTIVE' ? '활성' : c.status === 'PENDING' ? '가입 대기' : c.status)}

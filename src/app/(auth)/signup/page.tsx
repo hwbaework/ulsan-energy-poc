@@ -33,13 +33,15 @@ const STEP_LABELS = ['기업 정보', '계정 생성', '약관 동의', '완료'
 const signupSchema = z
   .object({
     companyType: z.enum(['existing', 'new']),
-    companyName: z.string(),
-    businessNumber: z.string(),
-    representative: z.string(),
-    bizType: z.string(),
-    bizCategory: z.string(),
+    // 신규 기업 — 사업자등록증에 적힌 값은 빠짐없이 받는다(2026-11-06 사용자). 설립일 · 연락처만 선택
+    companyName: z.string().trim().min(1, '기업명을 입력해주세요.'),
+    businessNumber: z.string().trim().min(1, '사업자등록번호를 입력해주세요.'),
+    representative: z.string().trim().min(1, '대표자명을 입력해주세요.'),
+    bizType: z.string().trim().min(1, '업태를 입력해주세요.'),
+    bizCategory: z.string().trim().min(1, '종목을 입력해주세요.'),
+    foundedAt: z.string(),
     companyPhone: z.string(),
-    companyAddress: z.string(),
+    companyAddress: z.string().trim().min(1, '기업 주소를 입력해주세요.'),
 
     consultantName: z.string(),
     consultantEmail: z.string(),
@@ -66,7 +68,7 @@ const signupSchema = z
 
 type SignupFormData = z.infer<typeof signupSchema>;
 
-const STEP2_ENTERPRISE_FIELDS: (keyof SignupFormData)[] = ['companyName', 'businessNumber', 'representative'];
+const STEP2_ENTERPRISE_FIELDS: (keyof SignupFormData)[] = ['companyName', 'businessNumber', 'representative', 'bizType', 'bizCategory', 'companyAddress'];
 const STEP3_FIELDS: (keyof SignupFormData)[] = ['email', 'password', 'passwordConfirm', 'name'];
 const STEP4_FIELDS: (keyof SignupFormData)[] = ['termsService', 'termsPrivacy'];
 
@@ -101,6 +103,7 @@ export default function SignupPage() {
       representative: '',
       bizType: '',
       bizCategory: '',
+      foundedAt: '',
       companyPhone: '',
       companyAddress: '',
       consultantName: '',
@@ -188,6 +191,7 @@ export default function SignupPage() {
                     representative: vals.representative || undefined,
                     bizType: vals.bizType || undefined,
                     bizCategory: vals.bizCategory || undefined,
+                    foundedAt: vals.foundedAt || undefined,
                     companyPhone: vals.companyPhone || undefined,
                     companyAddress: vals.companyAddress || undefined,
                   }
@@ -287,6 +291,7 @@ export default function SignupPage() {
                 <Input
                   label="기업명"
                   placeholder="(주)그린에너지"
+                  required
                   error={errors.companyName?.message}
                   {...register('companyName')}
                 />
@@ -294,25 +299,39 @@ export default function SignupPage() {
                   <Input
                     label="사업자등록번호"
                     placeholder="000-00-00000"
+                    required
                     error={errors.businessNumber?.message}
                     {...register('businessNumber')}
                   />
                   <Input
                     label="대표자명"
                     placeholder="홍길동"
+                    required
                     error={errors.representative?.message}
                     {...register('representative')}
                   />
                 </div>
-                <Input label="기업 연락처" placeholder="02-0000-0000" {...register('companyPhone')} />
-                <Input label="기업 주소" placeholder="서울특별시 강남구" {...register('companyAddress')} />
+                {/* 설립일 — 사업자등록증 '개업연월일' */}
+                <div className="grid grid-cols-2 gap-3">
+                  <Input label="설립일" type="date" {...register('foundedAt')} />
+                  <Input label="기업 연락처" placeholder="02-0000-0000" {...register('companyPhone')} />
+                </div>
+                <Input
+                  label="기업 주소"
+                  placeholder="서울특별시 강남구"
+                  required
+                  error={errors.companyAddress?.message}
+                  {...register('companyAddress')}
+                />
                 {/* 업태·종목 — 사업자등록증 '사업의 종류'. 세금계산서에 들어간다 */}
                 <div className="grid grid-cols-2 gap-3">
-                  <Input label="업태" placeholder="제조업" {...register('bizType')} />
-                  <Input label="종목" placeholder="금속 가공" {...register('bizCategory')} />
+                  <Input label="업태" placeholder="제조업" required error={errors.bizType?.message} {...register('bizType')} />
+                  <Input label="종목" placeholder="금속 가공" required error={errors.bizCategory?.message} {...register('bizCategory')} />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-accent mb-1.5">사업자등록증</p>
+                  <p className="text-sm font-medium text-accent mb-1.5">
+                    사업자등록증<span className="ml-0.5 text-semantic-red">*</span>
+                  </p>
                   <FileUpload
                     accept=".pdf,.jpg,.jpeg,.png"
                     maxSizeMB={3}

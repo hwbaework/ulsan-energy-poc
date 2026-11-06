@@ -42,9 +42,18 @@ interface FormErrors {
   name?: string;
   businessNumber?: string;
   representative?: string;
+  bizType?: string;
+  bizCategory?: string;
+  address?: string;
 }
 
-function validateCompanyForm(name: string, bizNum: string, rep: string): FormErrors {
+/** 사업자등록증에 적힌 칸은 필수(회원가입과 같음), 설립일 · 연락처만 선택 */
+function validateCompanyForm(
+  name: string,
+  bizNum: string,
+  rep: string,
+  more: { bizType: string; bizCategory: string; address: string },
+): FormErrors {
   const errors: FormErrors = {};
   if (!name.trim()) errors.name = '기업명을 입력해주세요';
   if (!bizNum.trim()) {
@@ -53,6 +62,9 @@ function validateCompanyForm(name: string, bizNum: string, rep: string): FormErr
     errors.businessNumber = '형식: 000-00-00000';
   }
   if (!rep.trim()) errors.representative = '대표자명을 입력해주세요';
+  if (!more.bizType.trim()) errors.bizType = '업태를 입력해주세요';
+  if (!more.bizCategory.trim()) errors.bizCategory = '종목을 입력해주세요';
+  if (!more.address.trim()) errors.address = '기업 주소를 입력해주세요';
   return errors;
 }
 
@@ -63,6 +75,7 @@ interface CompanyRow {
   businessNumber: string;
   bizType: string;
   bizCategory: string;
+  foundedAt: string;
   phone: string;
   address: string;
   type: string;
@@ -92,6 +105,7 @@ export default function CompaniesPage() {
   const [formRep, setFormRep] = useState('');
   const [formBizType, setFormBizType] = useState('');
   const [formBizCategory, setFormBizCategory] = useState('');
+  const [formFoundedAt, setFormFoundedAt] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formAddress, setFormAddress] = useState('');
   const [detailRow, setDetailRow] = useState<CompanyRow | null>(null);
@@ -103,6 +117,7 @@ export default function CompaniesPage() {
   const [editRep, setEditRep] = useState('');
   const [editBizType, setEditBizType] = useState('');
   const [editBizCategory, setEditBizCategory] = useState('');
+  const [editFoundedAt, setEditFoundedAt] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
   const [addLicenseName, setAddLicenseName] = useState<string | null>(null);
@@ -123,6 +138,7 @@ export default function CompaniesPage() {
     setEditRep(row.representative);
     setEditBizType(row.bizType);
     setEditBizCategory(row.bizCategory);
+    setEditFoundedAt(row.foundedAt);
     setEditPhone(row.phone);
     setEditAddress(row.address);
     setEditLicenseName(null);
@@ -139,6 +155,7 @@ export default function CompaniesPage() {
           businessNumber: c.businessNumber,
           bizType: c.bizType ?? '',
           bizCategory: c.bizCategory ?? '',
+          foundedAt: c.foundedAt ?? '',
           phone: c.phone ?? '',
           address: c.address ?? '',
           type: companyType(c.businessTypes),
@@ -322,27 +339,41 @@ export default function CompaniesPage() {
             <Input
               label="업태"
               placeholder="제조업"
+              required
               value={formBizType}
               onChange={(e) => setFormBizType(e.target.value)}
+              error={addErrors.bizType}
             />
             <Input
               label="종목"
               placeholder="금속 가공"
+              required
               value={formBizCategory}
               onChange={(e) => setFormBizCategory(e.target.value)}
+              error={addErrors.bizCategory}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="설립일"
+              type="date"
+              value={formFoundedAt}
+              onChange={(e) => setFormFoundedAt(e.target.value)}
+            />
+            <Input
+              label="기업 연락처"
+              placeholder="02-0000-0000"
+              value={formPhone}
+              onChange={(e) => setFormPhone(e.target.value)}
             />
           </div>
           <Input
-            label="기업 연락처"
-            placeholder="02-0000-0000"
-            value={formPhone}
-            onChange={(e) => setFormPhone(e.target.value)}
-          />
-          <Input
             label="기업 주소"
             placeholder="서울특별시 강남구"
+            required
             value={formAddress}
             onChange={(e) => setFormAddress(e.target.value)}
+            error={addErrors.address}
           />
           <div>
             <p className="text-sm font-medium text-accent mb-1.5">사업자등록증 (선택)</p>
@@ -377,7 +408,11 @@ export default function CompaniesPage() {
             <Button
               disabled={createCompany.isPending}
               onClick={() => {
-                const errs = validateCompanyForm(formName, formBizNum, formRep);
+                const errs = validateCompanyForm(formName, formBizNum, formRep, {
+                  bizType: formBizType,
+                  bizCategory: formBizCategory,
+                  address: formAddress,
+                });
                 if (Object.keys(errs).length > 0) {
                   setAddErrors(errs);
                   return;
@@ -389,6 +424,7 @@ export default function CompaniesPage() {
                     representativeName: formRep.trim(),
                     bizType: formBizType.trim() || undefined,
                     bizCategory: formBizCategory.trim() || undefined,
+                    foundedAt: formFoundedAt || undefined,
                     phone: formPhone.trim() || undefined,
                     address: formAddress.trim() || undefined,
                   },
@@ -402,6 +438,7 @@ export default function CompaniesPage() {
                       setFormRep('');
                       setFormBizType('');
                       setFormBizCategory('');
+                      setFormFoundedAt('');
                       setFormPhone('');
                       setFormAddress('');
                     },
@@ -421,28 +458,44 @@ export default function CompaniesPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-xs text-slate-500 mb-1">기업명</p>
+                <p className="text-xs text-slate-500 mb-1">
+                  기업명<span className="ml-0.5 text-semantic-red">*</span>
+                </p>
                 <p className="text-sm text-white font-medium">{detailRow.name}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">사업자등록번호</p>
+                <p className="text-xs text-slate-500 mb-1">
+                  사업자등록번호<span className="ml-0.5 text-semantic-red">*</span>
+                </p>
                 <p className="text-sm text-slate-300 tabular-nums">{detailRow.businessNumber}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">대표자</p>
+                <p className="text-xs text-slate-500 mb-1">
+                  대표자<span className="ml-0.5 text-semantic-red">*</span>
+                </p>
                 <p className="text-sm text-slate-300">{detailRow.representative || '-'}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">업태</p>
+                <p className="text-xs text-slate-500 mb-1">
+                  업태<span className="ml-0.5 text-semantic-red">*</span>
+                </p>
                 <p className="text-sm text-slate-300">{detailRow.bizType || '-'}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">종목</p>
+                <p className="text-xs text-slate-500 mb-1">
+                  종목<span className="ml-0.5 text-semantic-red">*</span>
+                </p>
                 <p className="text-sm text-slate-300">{detailRow.bizCategory || '-'}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-500 mb-1">기업 연락처</p>
                 <p className="text-sm text-slate-300 tabular-nums">{detailRow.phone || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 mb-1">
+                  설립일
+                </p>
+                <p className="text-sm text-slate-300 tabular-nums">{detailRow.foundedAt || '-'}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-500 mb-1">등록일</p>
@@ -546,11 +599,14 @@ export default function CompaniesPage() {
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Input label="업태" value={editBizType} onChange={(e) => setEditBizType(e.target.value)} />
-              <Input label="종목" value={editBizCategory} onChange={(e) => setEditBizCategory(e.target.value)} />
+              <Input label="업태" required value={editBizType} onChange={(e) => setEditBizType(e.target.value)} error={editErrors.bizType} />
+              <Input label="종목" required value={editBizCategory} onChange={(e) => setEditBizCategory(e.target.value)} error={editErrors.bizCategory} />
             </div>
-            <Input label="기업 연락처" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
-            <Input label="기업 주소" value={editAddress} onChange={(e) => setEditAddress(e.target.value)} />
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="설립일" type="date" value={editFoundedAt} onChange={(e) => setEditFoundedAt(e.target.value)} />
+              <Input label="기업 연락처" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+            </div>
+            <Input label="기업 주소" required value={editAddress} onChange={(e) => setEditAddress(e.target.value)} error={editErrors.address} />
             <div>
               <p className="text-sm font-medium text-accent mb-1.5">사업자등록증</p>
               <div className="flex items-center gap-3">
@@ -590,7 +646,11 @@ export default function CompaniesPage() {
               <Button
                 disabled={updateCompany.isPending}
                 onClick={() => {
-                  const errs = validateCompanyForm(editName, editBizNum, editRep);
+                  const errs = validateCompanyForm(editName, editBizNum, editRep, {
+                    bizType: editBizType,
+                    bizCategory: editBizCategory,
+                    address: editAddress,
+                  });
                   if (Object.keys(errs).length > 0) {
                     setEditErrors(errs);
                     return;
@@ -604,6 +664,7 @@ export default function CompaniesPage() {
                         representativeName: editRep.trim(),
                         bizType: editBizType.trim(),
                         bizCategory: editBizCategory.trim(),
+                        foundedAt: editFoundedAt,
                         phone: editPhone.trim() || undefined,
                         address: editAddress.trim() || undefined,
                       },

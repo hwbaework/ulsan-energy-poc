@@ -20,6 +20,8 @@ interface MockCompany {
   representativeName: string;
   bizType?: string;
   bizCategory?: string;
+  /** 설립일 — 사업자등록증 '개업연월일'. 데모 기업은 실제 값을 받기 전이라 비어 있다 */
+  foundedAt?: string;
   address: string;
   phone: string;
   email: string;
@@ -34,12 +36,12 @@ interface MockCompany {
 }
 export const COMPANIES: MockCompany[] = [
   { id: 1, name: '울산 에너지 플랫폼', businessNumber: '610-88-00001', representativeName: '김운영', bizType: '전기업', bizCategory: '태양광 발전', address: '울산 남구 처용로 1', phone: '052-100-1000', email: 'admin@test.com', status: 'ACTIVE', businessTypes: ['SPC', '운영사'], employeeCount: 24, createdAt: daysAgo(400), updatedAt: daysAgo(10) },
-  { id: 3, name: '한길', businessNumber: '610-81-30003', representativeName: '이수용', address: '울산 남구 용연동 490-11', phone: '052-300-3000', email: 'consumer@test.com', status: 'ACTIVE', businessTypes: ['전기사용자'], employeeCount: 58, createdAt: daysAgo(300), updatedAt: daysAgo(4) },
-  { id: 4, name: '한일튜브', businessNumber: '610-81-40004', representativeName: '최한일', address: '울산 남구 부곡동 273-6', phone: '052-400-4000', email: 'kim@hanil.co.kr', status: 'ACTIVE', businessTypes: ['전기사용자', '발전사업자'], employeeCount: 140, createdAt: daysAgo(320), updatedAt: daysAgo(2) },
-  { id: 5, name: '용인금속', businessNumber: '610-81-50005', representativeName: '정용인', address: '울산 남구 여천동 887-18', phone: '052-500-5000', email: 'park@yongin.co.kr', status: 'PENDING', businessTypes: ['전기사용자'], employeeCount: 72, createdAt: daysAgo(1), updatedAt: daysAgo(1) },
+  { id: 3, name: '한길', businessNumber: '610-81-30003', representativeName: '이수용', bizType: '제조업', bizCategory: '플라스틱 제품', address: '울산 남구 용연동 490-11', phone: '052-300-3000', email: 'consumer@test.com', status: 'ACTIVE', businessTypes: ['전기사용자'], employeeCount: 58, createdAt: daysAgo(300), updatedAt: daysAgo(4) },
+  { id: 4, name: '한일튜브', businessNumber: '610-81-40004', representativeName: '최한일', bizType: '제조업, 전기업', bizCategory: '강관, 태양광 발전', address: '울산 남구 부곡동 273-6', phone: '052-400-4000', email: 'kim@hanil.co.kr', status: 'ACTIVE', businessTypes: ['전기사용자', '발전사업자'], employeeCount: 140, createdAt: daysAgo(320), updatedAt: daysAgo(2) },
+  { id: 5, name: '용인금속', businessNumber: '610-81-50005', representativeName: '정용인', bizType: '제조업', bizCategory: '금속 가공', address: '울산 남구 여천동 887-18', phone: '052-500-5000', email: 'park@yongin.co.kr', status: 'PENDING', businessTypes: ['전기사용자'], employeeCount: 72, createdAt: daysAgo(1), updatedAt: daysAgo(1) },
   // 실제 대상 기업 나머지 둘 — 전력거래 데모(CO.TAESUNG · CO.GUNHO)와 같은 번호, 주소는 통합관제 발전소 주소
-  { id: 6, name: '태성산업', businessNumber: '610-81-60006', representativeName: '강태성', address: '울산 남구 여천동 358-8', phone: '052-600-6000', email: 'info@taesung.co.kr', status: 'ACTIVE', businessTypes: ['전기사용자'], employeeCount: 45, createdAt: daysAgo(280), updatedAt: daysAgo(6) },
-  { id: 7, name: '건호이엔씨', businessNumber: '610-81-70007', representativeName: '윤건호', address: '울산 남구 부곡동 22-5', phone: '052-700-7000', email: 'info@gunho.co.kr', status: 'ACTIVE', businessTypes: ['전기사용자'], employeeCount: 36, createdAt: daysAgo(260), updatedAt: daysAgo(5) },
+  { id: 6, name: '태성산업', businessNumber: '610-81-60006', representativeName: '강태성', bizType: '제조업', bizCategory: '산업용 기계 부품', address: '울산 남구 여천동 358-8', phone: '052-600-6000', email: 'info@taesung.co.kr', status: 'ACTIVE', businessTypes: ['전기사용자'], employeeCount: 45, createdAt: daysAgo(280), updatedAt: daysAgo(6) },
+  { id: 7, name: '건호이엔씨', businessNumber: '610-81-70007', representativeName: '윤건호', bizType: '건설업', bizCategory: '전기공사', address: '울산 남구 부곡동 22-5', phone: '052-700-7000', email: 'info@gunho.co.kr', status: 'ACTIVE', businessTypes: ['전기사용자'], employeeCount: 36, createdAt: daysAgo(260), updatedAt: daysAgo(5) },
 ];
 
 /* ── 회원 ─────────────────────────────────────────────── */
@@ -233,6 +235,14 @@ if (typeof window !== 'undefined') {
     if (saved?.companies && saved.users) {
       // 저장본에 없는 시드 기업(나중에 추가한 태성산업 · 건호이엔씨 등)은 붙인다
       const seeds = COMPANIES.filter((c) => !saved.companies!.some((x) => x.id === c.id));
+      // 필수 칸(업태 · 종목 · 주소)이 빈 저장본은 시드 값으로 채운다 — 필수로 바꾸기 전에 저장된 데이터(2026-11-06)
+      for (const c of saved.companies) {
+        const seed = COMPANIES.find((x) => x.id === c.id);
+        if (!seed) continue;
+        if (!c.bizType) c.bizType = seed.bizType;
+        if (!c.bizCategory) c.bizCategory = seed.bizCategory;
+        if (!c.address) c.address = seed.address;
+      }
       COMPANIES.splice(0, COMPANIES.length, ...saved.companies, ...seeds);
       USERS.splice(0, USERS.length, ...saved.users);
     }
@@ -258,6 +268,7 @@ function updateCompanyFixture(id: number, body: unknown) {
     if (typeof d.businessNumber === 'string') c.businessNumber = d.businessNumber;
     if (typeof d.bizType === 'string') c.bizType = d.bizType;
     if (typeof d.bizCategory === 'string') c.bizCategory = d.bizCategory;
+    if (typeof d.foundedAt === 'string') c.foundedAt = d.foundedAt;
     c.updatedAt = new Date().toISOString().slice(0, 19);
   }
   persistAll();
@@ -320,6 +331,7 @@ registerMock(/^\/auth\/signup$/, ({ body }) => {
       representativeName: String(b.representative ?? ''),
       bizType: String(b.bizType ?? ''),
       bizCategory: String(b.bizCategory ?? ''),
+      foundedAt: String(b.foundedAt ?? ''),
       address: String(b.companyAddress ?? ''),
       phone: String(b.companyPhone ?? ''),
       email: String(b.email ?? ''),

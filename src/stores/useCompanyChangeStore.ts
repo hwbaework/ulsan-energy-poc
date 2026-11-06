@@ -13,16 +13,19 @@ export type CompanyFields = {
   representativeName: string;
   bizType: string;
   bizCategory: string;
+  /** 설립일 — 등록증 '개업연월일' */
+  foundedAt: string;
   phone: string;
   address: string;
 };
 /** 사업자등록증에 적힌 항목 — 바뀌면 새 등록증 + 관리자 검토. 그 밖(연락처)은 바로 반영 */
-export const LICENSE_FIELDS: (keyof CompanyFields)[] = ['name', 'representativeName', 'bizType', 'bizCategory', 'address'];
+export const LICENSE_FIELDS: (keyof CompanyFields)[] = ['name', 'representativeName', 'bizType', 'bizCategory', 'foundedAt', 'address'];
 export const FIELD_LABEL: Record<keyof CompanyFields, string> = {
   name: '기업명',
   representativeName: '대표자',
   bizType: '업태',
   bizCategory: '종목',
+  foundedAt: '설립일',
   phone: '연락처',
   address: '주소',
 };
@@ -51,16 +54,15 @@ interface State {
   reject: (id: number, note: string, at: string) => void;
 }
 
-const SEED_VERSION = 4; // 4 — 데모 요청은 등록증 항목(업태 · 종목). 3 — 등록증 파일. 2 — 데모 변경 요청 한 건
-/** 데모 — 한길 기업관리자(이수용)가 업태 · 종목을 새 등록증과 함께 바꾼 요청(검토 대기) */
+const SEED_VERSION = 5; // 5 — 업태 · 종목이 필수가 되어 데모 요청은 종목 변경 하나. 4 — 데모 요청은 등록증 항목(업태 · 종목). 3 — 등록증 파일. 2 — 데모 변경 요청 한 건
+/** 데모 — 한길 기업관리자(이수용)가 종목을 새 등록증과 함께 바꾼 요청(검토 대기) */
 const SEED: CompanyChangeRequest[] = [
   {
     id: 1,
     companyId: 3,
     companyName: '한길',
     changes: [
-      { key: 'bizType', before: '', after: '제조업' },
-      { key: 'bizCategory', before: '', after: '금속 가공' },
+      { key: 'bizCategory', before: '플라스틱 제품', after: '플라스틱 제품, 금속 가공' },
     ],
     fileName: '사업자등록증_한길.webp',
     fileUrl: '/samples/biz-license-sample.webp',
