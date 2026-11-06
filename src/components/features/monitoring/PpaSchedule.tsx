@@ -83,23 +83,9 @@ const dayText = (d: DayStatus) => (d.run ? `${d.run.from}~${d.run.to}` : `OFF ·
 const autoKeyOf = (d: DayStatus): DayOverride => (d.run ? `${d.run.from}~${d.run.to}` : 'OFF');
 
 type DayMode = 'auto' | 'OFF' | 'RUN';
-/** 켜는 · 끄는 시각 — 브라우저 기본 시계(type=time) 대신 공통 셀렉트, 30분 단위(00:00 ~ 23:30) */
-const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
-  const v = `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`;
-  return { value: v, label: v };
-});
-function TimeSelect({ value, onChange, disabled, error }: { value: string; onChange: (v: string) => void; disabled?: boolean; error?: boolean }) {
-  // 30분 단위가 아닌 저장값(예: 09:45)도 그대로 보이게 목록에 끼워 넣는다
-  const options =
-    !value || TIME_OPTIONS.some((o) => o.value === value)
-      ? TIME_OPTIONS
-      : [...TIME_OPTIONS, { value, label: value }].sort((a, b) => a.value.localeCompare(b.value));
-  return (
-    <div className="w-[120px] shrink-0">
-      <Select options={options} value={value} disabled={disabled} error={error} className="tabular-nums" onChange={(e) => onChange(e.target.value)} />
-    </div>
-  );
-}
+/** 켜는 · 끄는 시각 — 분 단위로 고친다(2026-11-06 사용자: 30분 단위 셀렉트 말고 이전 시계 칸) */
+const TIME_INPUT =
+  'h-9 w-[150px] shrink-0 rounded-md bg-white/[0.04] px-2.5 text-sm text-white tabular-nums ring-1 ring-white/[0.08] [color-scheme:dark] focus:outline-none focus:ring-primary/60 disabled:opacity-40';
 
 /** 달마다 운전 — ON(가동일) · OFF 일수만(사유는 달력에서, 2026-10-15). 달을 누르면 그 달 달력 */
 function OpMonthTable({ yr, sel, onPick }: { yr: ReturnType<typeof opYear>; sel: number; onPick: (m: number) => void }) {
@@ -331,10 +317,24 @@ export function PpaScheduleCard({ companyId: fixed, readOnly }: { companyId?: nu
                         </label>
                       </td>
                       <td className={cn(TABLE_TD, 'py-2')}>
-                        <TimeSelect disabled={!r.on || readOnly} value={r.from} onChange={(v) => setDay(wd, { from: v })} error={bad} />
+                        <input
+                          type="time"
+                          aria-label={`${WEEKDAY[wd]}요일 켜는 시각`}
+                          disabled={!r.on || readOnly}
+                          value={r.from}
+                          onChange={(e) => setDay(wd, { from: e.target.value })}
+                          className={cn(TIME_INPUT, bad && 'ring-red-500/70')}
+                        />
                       </td>
                       <td className={cn(TABLE_TD, 'py-2')}>
-                        <TimeSelect disabled={!r.on || readOnly} value={r.to} onChange={(v) => setDay(wd, { to: v })} error={bad} />
+                        <input
+                          type="time"
+                          aria-label={`${WEEKDAY[wd]}요일 끄는 시각`}
+                          disabled={!r.on || readOnly}
+                          value={r.to}
+                          onChange={(e) => setDay(wd, { to: e.target.value })}
+                          className={cn(TIME_INPUT, bad && 'ring-red-500/70')}
+                        />
                       </td>
                     </tr>
                   );
@@ -450,9 +450,21 @@ export function PpaScheduleCard({ companyId: fixed, readOnly }: { companyId?: nu
                 {m === 'OFF' && <span className="text-slate-400">종일 운전 안 함</span>}
                 {m === 'RUN' && (
                   <span className="flex items-center gap-2">
-                    <TimeSelect value={dayEdit.from} onChange={(v) => setDayEdit({ ...dayEdit, mode: 'RUN', from: v })} />
+                    <input
+                      type="time"
+                      aria-label="켜는 시각"
+                      value={dayEdit.from}
+                      onChange={(e) => setDayEdit({ ...dayEdit, mode: 'RUN', from: e.target.value })}
+                      className={TIME_INPUT}
+                    />
                     <span className="text-slate-400">~</span>
-                    <TimeSelect value={dayEdit.to} onChange={(v) => setDayEdit({ ...dayEdit, mode: 'RUN', to: v })} />
+                    <input
+                      type="time"
+                      aria-label="끄는 시각"
+                      value={dayEdit.to}
+                      onChange={(e) => setDayEdit({ ...dayEdit, mode: 'RUN', to: e.target.value })}
+                      className={TIME_INPUT}
+                    />
                   </span>
                 )}
               </label>

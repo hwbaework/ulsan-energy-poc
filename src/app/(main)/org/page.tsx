@@ -103,8 +103,7 @@ export default function OrgInfoPage() {
   const sendChange = useCompanyChangeStore((s) => s.request);
   const lastChange = useCompanyChangeStore((s) => s.requests.find((r) => r.companyId === companyId));
   const changePending = lastChange?.status === 'PENDING';
-  // 등록증에 적힌 칸(상호 · 대표자 · 업태 · 종목 · 설립일 · 주소)은 새 등록증을 올려야 고칠 수 있다
-  const licenseLocked = persona !== 'admin' && !pendingLicense;
+  // 등록증에 적힌 칸(상호 · 대표자 · 업태 · 종목 · 설립일 · 주소)도 바로 입력할 수 있다. 바꾼 채로 저장하면 새 등록증을 올려야 하고(handleSave), 관리자 확인 뒤 반영
   const fileRef = useRef<HTMLInputElement>(null);
   const handleDownloadLicense = () => {
     // POC — 실제 업로드 파일이 없어 데모용 파일을 내려받는다. 실연동 시 저장된 원본 파일로 교체.
@@ -251,7 +250,7 @@ export default function OrgInfoPage() {
         {/* 한 줄 4칸 · 두 줄 — 칸 넓이 같게(합치는 칸 · 아이콘 없음). 사업자등록번호는 등록증으로만 바뀐다 */}
         <div className="grid grid-cols-2 gap-x-6 gap-y-5 md:grid-cols-4">
           <InfoField label="기업명" required>
-            {editing && !licenseLocked ? (
+            {editing ? (
               <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
             ) : (
               <p className="text-sm text-white">{company?.name ?? (isLoading ? '불러오는 중…' : '-')}</p>
@@ -259,7 +258,7 @@ export default function OrgInfoPage() {
           </InfoField>
           <InfoField label="사업자등록번호" required value={company?.businessNumber ?? '-'} />
           <InfoField label="대표자" required>
-            {editing && !licenseLocked ? (
+            {editing ? (
               <Input value={form.representativeName}
                 onChange={(e) => setForm((f) => ({ ...f, representativeName: e.target.value }))}
               />
@@ -268,14 +267,14 @@ export default function OrgInfoPage() {
             )}
           </InfoField>
           <InfoField label="업태" required>
-            {editing && !licenseLocked ? (
+            {editing ? (
               <Input value={form.bizType} onChange={(e) => setForm((f) => ({ ...f, bizType: e.target.value }))} />
             ) : (
               <p className="text-sm text-white">{company?.bizType || '-'}</p>
             )}
           </InfoField>
           <InfoField label="종목" required>
-            {editing && !licenseLocked ? (
+            {editing ? (
               <Input value={form.bizCategory}
                 onChange={(e) => setForm((f) => ({ ...f, bizCategory: e.target.value }))}
               />
@@ -291,7 +290,7 @@ export default function OrgInfoPage() {
             )}
           </InfoField>
           <InfoField label="주소" required>
-            {editing && !licenseLocked ? (
+            {editing ? (
               <Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
             ) : (
               <p className="text-sm text-white">{company?.address ?? '-'}</p>
@@ -299,7 +298,7 @@ export default function OrgInfoPage() {
           </InfoField>
           {/* 설립일 — 등록증 '개업연월일'(가입일 아님). 등록증 칸이라 새 등록증을 올려야 고친다 */}
           <InfoField label="설립일">
-            {editing && !licenseLocked ? (
+            {editing ? (
               <Input type="date" value={form.foundedAt} onChange={(e) => setForm((f) => ({ ...f, foundedAt: e.target.value }))} />
             ) : (
               <p className="text-sm text-white tabular-nums">{company?.foundedAt || '-'}</p>
