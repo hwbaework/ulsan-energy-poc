@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Loader2, Plus, Save, Trash2 } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { BaseFactorCards, GhgFactorSettings } from '@/components/features/settings/FactorSettings';
+import { BaseFactorCards, GhgFactorSettings, inlineError, inlineValuesOf } from '@/components/features/settings/FactorSettings';
 import { SectionCard } from '@/components/features';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -72,6 +72,12 @@ export default function EnergySettingsPage() {
   useEffect(() => {
     if (energy && !opDirty) setOpRule(opRuleOf(energy));
   }, [energy, opDirty]);
+  // 계수 바로 입력(화석에너지 대체 · 소나무 · 한전 요금 가산) — 상단 [저장]으로 저장, [취소]로 되돌림
+  const [factorDraft, setFactorDraft] = useState<Record<string, string>>({});
+  const [factorDirty, setFactorDirty] = useState(false);
+  useEffect(() => {
+    if (energy && !factorDirty) setFactorDraft(inlineValuesOf(energy));
+  }, [energy, factorDirty]);
   // 해 — 금년 · 내년(내년 공휴일은 월력요항이 나오는 6월쯤 API 에 들어온다). 고치는 중이면 저장 전까지 못 바꾼다
   const thisYear = new Date().getFullYear();
   const [opYearNo, setOpYearNo] = useState(thisYear);
@@ -131,6 +137,9 @@ export default function EnergySettingsPage() {
   const cagrBy = (pl: Plan) => cagrOf(avgRows.map((r) => ({ year: r.year, price: r.avg[pl] })));
 
   const onSave = async () => {
+    // 계수 바로 입력 검사
+    const fe = factorDirty ? inlineError(factorDraft) : null;
+    if (fe) return addToast('error', fe);
     // 한전 요금표 검사
     if (book) {
       const years = book.map((d) => Number(d.year));
@@ -150,6 +159,8 @@ export default function EnergySettingsPage() {
       }
     }
     try {
+      if (factorDirty) await saveEnergy.mutateAsync(Object.fromEntries(Object.entries(factorDraft).map(([k, v]) => [k, v.trim()])));
+      setFactorDirty(false);
       if (opDirty && opRule)
         await saveEnergy.mutateAsync({ PPA_WEEKEND_OFF: opRule.weekendOff ? '1' : '0', PPA_HOLIDAY_OFF: opRule.holidayOff ? '1' : '0', PPA_OFF_START: opRule.offStart ?? '', PPA_ON_TIME: opRule.onTime ?? '' });
       if (holDirty) await saveHol.mutateAsync(hol);
@@ -164,7 +175,7 @@ export default function EnergySettingsPage() {
   };
 
   const pending = saveEnergy.isPending || saveKepco.isPending || saveHol.isPending;
-  const anyDirty = tableDirty || opDirty || holDirty;
+  const anyDirty = tableDirty || opDirty || holDirty || factorDirty;
 
   return (
     <div className="space-y-6">
@@ -184,7 +195,7 @@ export default function EnergySettingsPage() {
       {/* 제목 · 오른쪽 저장 — 스크롤해도 상단(헤더 100px 아래)에 따라다닌다 */}
       <div className="sticky top-[100px] z-20 flex flex-wrap items-center justify-between gap-3 py-3 backdrop-blur">
         <h1 className="text-2xl font-bold text-white">에너지 설정</h1>
-        {/* 취소 · 저장 — 바꾼 값(가동일 · 공휴일 · 한전 요금표)이 없으면 둘 다 비활성. 취소는 저장된 값으로 되돌린다 */}
+        {/* 취소 · 저장 — 바꾼 값(계수 바로 입력 · 가동일 · 공휴일 · 한전 요금표)이 없으면 둘 다 비활성. 취소는 저장된 값으로 되돌린다 */}
         <div className="flex items-center gap-2">
           <Button
             variant="cancel"
@@ -192,6 +203,7 @@ export default function EnergySettingsPage() {
               setOpDirty(false);
               setHolDirty(false);
               setTableDirty(false);
+              setFactorDirty(false);
               setNewHol({ date: '', name: '' });
             }}
             disabled={!anyDirty || pending}
@@ -205,8 +217,14 @@ export default function EnergySettingsPage() {
         </div>
       </div>
 
-      {/* 계수 — 값은 보기만, 계수마다 [변경] 팝업에서 새 값 + 출처(필수) → 그 자리에서 저장 · 이력 */}
-      <BaseFactorCards />
+      {/* 계수 — 전력배출계수만 [변경](적용년도별 팝업, 그 자리에서 저장 · 이력), 나머지는 칸에 바로 입력하고 상단 [저장] */}
+      <BaseFactorCards
+        draft={factorDraft}
+        onChange={(k, v) => {
+          setFactorDraft((d) => ({ ...d, [k]: v }));
+          setFactorDirty(true);
+        }}
+      />
       <GhgFactorSettings />
 
       {/* 가동일 — 쉬는 날 인버터 OFF 기준(무료진단 · 운전 일정 기본값). 공휴일은 특일 정보(한국천문연구원) + 사람이 더하고 뺌, 주말은 달력 */}

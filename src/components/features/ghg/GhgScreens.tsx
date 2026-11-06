@@ -4,6 +4,7 @@
 // 입력 없음: 발전 데이터를 가져와 보여 주고 내려받기만. 관리자는 전체 기업(기업별로 나눠), 기업 계정은 자기 회사만.
 // 메뉴 이름은 그대로(배출시설 정보 · 배출원 현황 · 배출계수 관리 · 배출량 산정 · 명세서 · 보고서), 내용만 감축량 기준.
 
+import { GhgFactorSettings } from '@/components/features/settings/FactorSettings';
 import { useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -20,7 +21,6 @@ import { StatCard, StatsGrid } from '@/components/features/StatCard';
 import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { tco2PerUnit, type GhgFactor } from '@/lib/ghg-factors';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -43,7 +43,6 @@ import {
   reductionRows,
   totalsOf,
   useFacilities,
-  useGhgFactorList,
   useGhgFactorValues,
   yearRange,
   type Facility,
@@ -615,20 +614,6 @@ export function GhgFactorsScreen() {
     { key: 'value', header: '값', render: (f) => strong(f.value) },
     { key: 'use', header: '산식', render: (f) => cell(f.use) },
   ];
-  // 배출원 계수(Scope 1 · 2, 연료별) — 관리 › 에너지 설정에서 고치고 여기서는 보기만
-  const factors = useGhgFactorList();
-  const isElec = (f: GhgFactor) => f.category === '외부 전기';
-  const factorCols: Column<GhgFactor>[] = [
-    { key: 'scope', header: 'Scope', render: (f) => cell(`Scope ${f.scope}`, 'font-medium text-white') },
-    { key: 'cat', header: '배출활동', render: (f) => cell(f.category) },
-    { key: 'fuel', header: '연료 · 에너지', render: (f) => cell(f.fuel, 'text-white') },
-    { key: 'unit', header: '단위', render: (f) => cell(f.unit) },
-    { key: 'ncv', header: '순발열량', render: (f) => num(f.category === '외부 열(스팀)' ? '' : `${f.ncv} MJ/${f.unit}`) },
-    { key: 'co2', header: 'CO₂', render: (f) => num(isElec(f) ? `${f.co2} t/MWh` : `${fmt(f.co2, 1)} kg/TJ`) },
-    { key: 'ch4', header: 'CH₄', render: (f) => num(`${f.ch4} ${isElec(f) ? 'kg/MWh' : 'kg/TJ'}`) },
-    { key: 'n2o', header: 'N₂O', render: (f) => num(`${f.n2o} ${isElec(f) ? 'kg/MWh' : 'kg/TJ'}`) },
-    { key: 'unitT', header: '1단위당 (tCO₂eq)', render: (f) => strong(`${tco2PerUnit(f, fx.co2For(GHG_TODAY)).toFixed(6)} /${f.unit}`) },
-  ];
   return (
     <div className="space-y-6">
       <GhgHeader
@@ -643,16 +628,13 @@ export function GhgFactorsScreen() {
           )
         }
       />
-      <SectionCard title="계수" noPadding>
+      <SectionCard title="감축량 계수" noPadding>
         <div className="overflow-x-auto [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
           <DataTable data={list} columns={cols} rowKey={(f) => f.key} />
         </div>
       </SectionCard>
-      <SectionCard title="배출원 계수" noPadding>
-        <div className="overflow-x-auto [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
-          <DataTable data={factors} columns={factorCols} rowKey={(f) => f.id} />
-        </div>
-      </SectionCard>
+      {/* 배출원 계수 — 관리 › 에너지 설정의 표 그대로(보기만) */}
+      <GhgFactorSettings readOnly />
     </div>
   );
 }

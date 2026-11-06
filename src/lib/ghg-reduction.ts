@@ -6,7 +6,7 @@
 import { CO2_BY_YEAR_KEY, ELEC_FACTOR, factorOfYear, parseFactorByYear, yearsOf, type FactorByYear } from '@/lib/constants/emission-factor';
 import { PINE_PER_TCO2, TOE_PER_MWH } from '@/lib/constants/env-benefit';
 import { energyNum, useEnergySettings } from '@/hooks/common/useSettings';
-import { GHG_FACTORS, scopeOf, type GhgFactor } from '@/lib/ghg-factors';
+import { GHG_FACTORS, OLD_BASIS, scopeOf, type GhgFactor } from '@/lib/ghg-factors';
 import { useMemo } from 'react';
 import { DM_TODAY, genHoursOf, generationOf } from '@/stores/useDataMarketStore';
 import { useHydrateTradingPoc, useTradingPocStore } from '@/stores/useTradingPocStore';
@@ -125,18 +125,54 @@ export function useGhgFactorValues(): GhgFactors {
 
 /** 배출원 계수 목록(Scope 1 · 2, 연료별) — 에너지 설정(GHG_FACTORS, JSON)에 저장한 값. 없거나 깨졌으면 지침 기본값 */
 export const GHG_FACTORS_KEY = 'GHG_FACTORS';
-export function parseGhgFactors(raw: string | undefined): GhgFactor[] {
+/** 저장된 옛 값 채우기 — scope 는 배출활동으로. 고정연소인데 배출계수(tC/TJ)가 없으면 같은 id 기본값(계산하지 않음) */
+function withDefaults(f: GhgFactor): GhgFactor {
+  const base = GHG_FACTORS.find((d) => d.id === f.id);
+  const cef = f.cef ?? (f.category === '고정연소' ? base?.cef : undefined);
+  const basis = (!f.basis || OLD_BASIS.includes(f.basis)) && base ? base.basis : f.basis;
+  // 기준은 연도 — 예전 'YYYY-MM' 은 연도만
+  const asOf = (f.asOf ?? base?.asOf)?.slice(0, 4);
+  return { ...f, scope: scopeOf(f), basis, ...(cef != null ? { cef } : {}), ...(asOf ? { asOf } : {}) };
+}
+/** 저장할 때 같이 남기는 '이미 본 기본 줄' — 여기 있는 기본 줄은 삭제해도 다시 넣지 않는다 */
+// 뺀 기본 줄 — 신탄 · 이동연소 넷 · 스팀, 샘플을 줄이면서 뺀 고정연소(POC 는 몇 개만)
+const DROPPED_IDS = ['charcoal', 'gasoline-m', 'diesel-m', 'lpg-m', 'cng-m', 'ba', 'bb', 'bc', 'naphtha', 'solvent', 'jet', 'asphalt', 'petcoke', 'lube', 'byproduct1', 'byproduct2', 'butane', 'lng-kg', 'city-lpg', 'anth-domestic', 'anth-import-fuel', 'anth-import-raw', 'bit-fuel', 'bit-raw', 'subbit', 'steam'];
+export const GHG_SEEN_KEY = 'GHG_FACTORS_SEEN';
+export const ghgSeenValue = () => JSON.stringify(GHG_FACTORS.map((f) => f.id));
+export function parseGhgFactors(raw: string | undefined, seenRaw?: string): GhgFactor[] {
   if (!raw) return GHG_FACTORS;
   try {
     const list = JSON.parse(raw) as unknown;
-    return Array.isArray(list) ? (list as GhgFactor[]).map((f) => ({ ...f, scope: scopeOf(f) })) : GHG_FACTORS;
+    if (!Array.isArray(list)) return GHG_FACTORS;
+    // 뺀 기본 줄은 거른다(DROPPED_IDS)
+    const out = (list as GhgFactor[]).filter((f) => !DROPPED_IDS.includes(f.id)).map(withDefaults);
+    // 전기 이름은 TIPS 대로
+    const elec = out.find((f) => f.id === 'elec');
+    if (elec && elec.fuel === '전기(한전 수전)') elec.fuel = '전기(소비기준)';
+    // 새로 생긴 기본 줄(전기 발전기준 등) — 한 번도 본 적 없으면 앞 기본 줄 바로 다음에 넣는다
+    let seen: string[] = out.map((f) => f.id);
+    try {
+      const v = JSON.parse(seenRaw ?? 'null') as unknown;
+      if (Array.isArray(v)) seen = v as string[];
+    } catch {
+      /* 저장값 기준 */
+    }
+    GHG_FACTORS.forEach((base, bi) => {
+      if (out.some((f) => f.id === base.id) || seen.includes(base.id)) return;
+      const prev = GHG_FACTORS.slice(0, bi)
+        .reverse()
+        .map((p) => out.findIndex((f) => f.id === p.id))
+        .find((i) => i >= 0);
+      out.splice(prev != null ? prev + 1 : out.length, 0, base);
+    });
+    return out;
   } catch {
     return GHG_FACTORS;
   }
 }
 export function useGhgFactorList(): GhgFactor[] {
   const { data: es } = useEnergySettings();
-  return useMemo(() => parseGhgFactors(es?.[GHG_FACTORS_KEY]), [es]);
+  return useMemo(() => parseGhgFactors(es?.[GHG_FACTORS_KEY], es?.[GHG_SEEN_KEY]), [es]);
 }
 
 /** 한 줄 — 설비 × 달 */

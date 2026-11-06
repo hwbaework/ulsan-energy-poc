@@ -44,62 +44,67 @@ export interface GhgFactor {
   unit: string;
   /** 순발열량 MJ/단위 (전기는 9.6 MJ/kWh 소비기준) */
   ncv: number;
+  /** 배출계수 tC/TJ — 고정연소만(TIPS 연료연소 부문 공표값). CO₂ 는 따로 직접 입력 */
+  cef?: number;
   /** 연료: kg/TJ · 전기: CO₂ tCO₂/MWh, CH₄·N₂O kg/MWh · 스팀: kg/TJ */
   co2: number;
   ch4: number;
   n2o: number;
+  /** 출처 — 배출계수 출처 · 공표 시점(필수, 표에는 숨김) */
   basis: string;
+  /** 기준 — 언제 공표된 값인지(연도 YYYY). 위 값 · 출처는 가장 최근 기준 것 */
+  asOf?: string;
+  /** 기준별 기록 — 연도마다가 아니라 값이 바뀐 기준만(최근 기준이 위 값) */
+  versions?: GhgVersion[];
+}
+/** 기준 하나의 값 — 기준 연도 · 출처 · 값 */
+export type GhgVersion = GhgValues & { asOf: string; basis: string; category?: string; fuel?: string; unit?: string };
+export interface GhgValues {
+  ncv: number;
+  cef?: number;
+  co2: number;
+  ch4: number;
+  n2o: number;
+}
+/** 출처 — 그 줄 배출계수의 출처와 공표 시점(값이 바뀌면 출처도 같이 고친다) */
+const FUEL_BASIS = 'TIPS 연료연소 부문 배출계수';
+export const OLD_BASIS = ['TIPS 연료연소 부문 배출계수 (2022.1)', 'TIPS 전력 배출계수 (2025.12)', '지침 별표 12 연료별 국가 고유 발열량 · 별표 10 IPCC 기본 배출계수', '국가 전력 배출계수 2023년 소비단(2025-12 공표) · 에너지열량 환산기준 9.6 MJ/kWh', '국가 전력 배출계수 2023년 발전단(2025-12 공표) · 에너지열량 환산기준 8.9 MJ/kWh', '지침 별표 6 외부에서 공급된 열(스팀)'];
+
+/** 기준별 기록 — 없으면 지금 값 하나. 최근 기준이 앞 */
+export function versionsOf(f: GhgFactor): GhgVersion[] {
+  const list: GhgVersion[] = f.versions?.length
+    ? f.versions
+    : [{ asOf: f.asOf ?? '', basis: f.basis, category: f.category, fuel: f.fuel, unit: f.unit, ncv: f.ncv, ...(f.cef != null ? { cef: f.cef } : {}), co2: f.co2, ch4: f.ch4, n2o: f.n2o }];
+  return [...list].sort((a, b) => b.asOf.localeCompare(a.asOf));
+}
+/** 기준별 기록을 넣고, 위 값 · 출처 · 기준은 가장 최근 기준 것으로 */
+export function withVersions(f: GhgFactor, versions: GhgVersion[]): GhgFactor {
+  const sorted = [...versions].sort((a, b) => b.asOf.localeCompare(a.asOf));
+  const latest = sorted[0];
+  if (!latest) return f;
+  const { asOf, basis, category, fuel, unit, ...values } = latest;
+  // 최근 기록에 배출계수(tC/TJ)가 없으면(이동연소 등) 예전 값을 남기지 않는다
+  const base: GhgFactor = { ...f };
+  if (values.cef == null) delete base.cef;
+  return { ...base, ...values, asOf, basis, ...(category ? { category } : {}), ...(fuel ? { fuel } : {}), ...(unit ? { unit } : {}), versions: sorted };
 }
 
-const FUEL_BASIS = '지침 별표 12 연료별 국가 고유 발열량 · 별표 10 IPCC 기본 배출계수';
-const MOBILE_BASIS = '지침 별표 6 이동연소(도로) 기본 배출계수 · 별표 12 발열량';
 
-/** 지침 기본값 13종 — Scope 는 배출활동에서 채운다 */
+/** 기본값 — POC 샘플: 고정연소 5종 · 이동연소 2종 · 전기 소비기준 · 발전기준(스팀은 관리하지 않음) — Scope 는 배출활동에서 채운다 */
 const BASE_FACTORS: (Omit<GhgFactor, 'scope' | 'category'> & { category: GhgCategory })[] = [
-  // Scope 1 — 고정연소
+  // Scope 1 — 고정연소. POC 샘플 5종(TIPS 연료연소 부문 중 휘발유 · 등유 · 경유 · 프로판 · 도시가스(LNG)), 나머지는 [계수 추가]로. 순서는 TIPS — 순발열량 에너지열량 환산기준(2022.11), 배출계수 tC/TJ(2022.1), CH₄ · N₂O 지침 별표 10(제조업 · 건설업)
   {
-    id: 'lng',
+    id: 'gasoline-s',
     category: '고정연소',
-    fuel: '도시가스(LNG)',
-    unit: 'N㎥',
-    ncv: 38.5,
-    co2: 55865.3,
-    ch4: 1,
-    n2o: 0.1,
-    basis: FUEL_BASIS,
-  },
-  {
-    id: 'propane',
-    category: '고정연소',
-    fuel: '프로판(LPG 1호)',
-    unit: 'kg',
-    ncv: 46.2,
-    co2: 64643.3,
-    ch4: 1,
-    n2o: 0.1,
-    basis: FUEL_BASIS,
-  },
-  {
-    id: 'butane',
-    category: '고정연소',
-    fuel: '부탄(LPG 3호)',
-    unit: 'kg',
-    ncv: 45.5,
-    co2: 66344.7,
-    ch4: 1,
-    n2o: 0.1,
-    basis: FUEL_BASIS,
-  },
-  {
-    id: 'diesel-s',
-    category: '고정연소',
-    fuel: '경유',
+    fuel: '휘발유',
     unit: 'L',
-    ncv: 35.3,
-    co2: 73663.3,
+    ncv: 30.1,
+    cef: 19.731,
+    co2: 72347,
     ch4: 3,
     n2o: 0.6,
     basis: FUEL_BASIS,
+    asOf: '2022',
   },
   {
     id: 'kerosene',
@@ -107,47 +112,55 @@ const BASE_FACTORS: (Omit<GhgFactor, 'scope' | 'category'> & { category: GhgCate
     fuel: '등유',
     unit: 'L',
     ncv: 34.1,
+    cef: 19.926,
     co2: 73062,
     ch4: 3,
     n2o: 0.6,
     basis: FUEL_BASIS,
+    asOf: '2022',
   },
   {
-    id: 'ba',
+    id: 'diesel-s',
     category: '고정연소',
-    fuel: 'B-A유',
+    fuel: '경유',
     unit: 'L',
-    ncv: 36.5,
-    co2: 74946.7,
+    ncv: 35.3,
+    cef: 20.09,
+    co2: 73663.3,
     ch4: 3,
     n2o: 0.6,
     basis: FUEL_BASIS,
+    asOf: '2022',
   },
   {
-    id: 'bc',
+    id: 'propane',
     category: '고정연소',
-    fuel: 'B-C유',
-    unit: 'L',
-    ncv: 39.3,
-    co2: 77913,
-    ch4: 3,
-    n2o: 0.6,
+    fuel: '프로판(LPG 1호)',
+    unit: 'kg',
+    ncv: 46.2,
+    cef: 17.63,
+    co2: 64643.3,
+    ch4: 1,
+    n2o: 0.1,
     basis: FUEL_BASIS,
-  },
-  // Scope 1 — 이동연소
-  {
-    id: 'gasoline-m',
-    category: '이동연소',
-    fuel: '휘발유',
-    unit: 'L',
-    ncv: 30.1,
-    co2: 69300,
-    ch4: 25,
-    n2o: 8,
-    basis: MOBILE_BASIS,
+    asOf: '2022',
   },
   {
-    id: 'diesel-m',
+    id: 'lng',
+    category: '고정연소',
+    fuel: '도시가스(LNG)',
+    unit: 'N㎥',
+    ncv: 38.5,
+    cef: 15.236,
+    co2: 55865.3,
+    ch4: 1,
+    n2o: 0.1,
+    basis: FUEL_BASIS,
+    asOf: '2022',
+  },
+  // Scope 1 — 이동연소(도로). 지침 별표 6 〈표-4〉 IPCC 도로 기본값 — 배출계수(tC/TJ) 없음
+  {
+    id: 'diesel-mobile',
     category: '이동연소',
     fuel: '경유',
     unit: 'L',
@@ -155,52 +168,46 @@ const BASE_FACTORS: (Omit<GhgFactor, 'scope' | 'category'> & { category: GhgCate
     co2: 74100,
     ch4: 3.9,
     n2o: 3.9,
-    basis: MOBILE_BASIS,
+    basis: '지침 별표 6 이동연소(도로)',
+    asOf: '2025',
   },
   {
-    id: 'lpg-m',
+    id: 'gasoline-mobile',
     category: '이동연소',
-    fuel: 'LPG',
-    unit: 'kg',
-    ncv: 45.5,
-    co2: 63100,
-    ch4: 62,
-    n2o: 0.2,
-    basis: MOBILE_BASIS,
-  },
-  {
-    id: 'cng-m',
-    category: '이동연소',
-    fuel: 'CNG',
-    unit: 'N㎥',
-    ncv: 38.9,
-    co2: 56100,
-    ch4: 92,
-    n2o: 3,
-    basis: MOBILE_BASIS,
+    fuel: '휘발유',
+    unit: 'L',
+    ncv: 30.1,
+    co2: 69300,
+    ch4: 25,
+    n2o: 8,
+    basis: '지침 별표 6 이동연소(도로)',
+    asOf: '2025',
   },
   // Scope 2 — 외부 전기 · 열
   {
     id: 'elec',
     category: '외부 전기',
-    fuel: '전기(한전 수전)',
+    fuel: '전기(소비기준)',
     unit: 'kWh',
     ncv: 9.6,
     co2: 0.4149,
     ch4: 0.0075,
     n2o: 0.0081,
-    basis: '국가 전력 배출계수 2023년 소비단(2025-12 공표) · 에너지열량 환산기준 9.6 MJ/kWh',
+    basis: 'TIPS 전력 배출계수',
+    asOf: '2025',
   },
+  // TIPS 처럼 발전기준도 — 발전단 계수(송배전 손실 전). 감축량 계산은 소비단(전력배출계수 카드)을 쓴다
   {
-    id: 'steam',
-    category: '외부 열(스팀)',
-    fuel: '스팀(일반)',
-    unit: 'GJ',
-    ncv: 1000,
-    co2: 73882,
-    ch4: 0.9452,
-    n2o: 0.1214,
-    basis: '지침 별표 6 외부에서 공급된 열(스팀)',
+    id: 'elec-gen',
+    category: '외부 전기',
+    fuel: '전기(발전기준)',
+    unit: 'kWh',
+    ncv: 8.9,
+    co2: 0.3822,
+    ch4: 0.0069,
+    n2o: 0.0075,
+    basis: 'TIPS 전력 배출계수',
+    asOf: '2025',
   },
 ];
 export const GHG_FACTORS: GhgFactor[] = BASE_FACTORS.map((f) => ({ ...f, scope: CATEGORY_SCOPE[f.category] }));
@@ -215,7 +222,8 @@ export const scopeOfFactor = (f: GhgFactor) => f.scope;
  * 전기는 국가 전력 배출계수(가스별 합산값, 에너지 설정 값)를 그대로 쓴다 — elecFactor 를 넘긴다.
  */
 export function tco2PerUnit(f: GhgFactor, elecFactor?: number): number {
-  if (f.category === '외부 전기') {
+  // 소비기준 전기만 에너지 설정의 전력배출계수(적용년도별)를 쓰고, 발전기준 등은 가스별 값 합산
+  if (f.category === '외부 전기' && f.id === 'elec') {
     const perMwh = elecFactor ?? f.co2 + (f.ch4 * GWP.ch4 + f.n2o * GWP.n2o) / 1000;
     return perMwh / 1000; // kWh
   }

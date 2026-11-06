@@ -7,7 +7,7 @@ interface ModalProps {
   open: boolean;
   onClose: () => void;
   title?: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   children: ReactNode;
   footer?: ReactNode;
 }
@@ -17,6 +17,8 @@ const sizeStyles = {
   md: 'max-w-xl',
   lg: 'max-w-3xl',
   xl: 'max-w-5xl',
+  /** 칸이 많은 표가 들어가는 팝업(배출원 계수 [변경] 등) */
+  '2xl': 'max-w-7xl',
 };
 
 const FOCUSABLE =
