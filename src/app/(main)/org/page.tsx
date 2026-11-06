@@ -218,10 +218,21 @@ export default function OrgInfoPage() {
 
       <SectionCard
         title="기업 상세"
+        stickyHeader={editing}
         actions={
           editing ? (
             <div className="flex gap-2">
-              <Button size="sm" variant="secondary" onClick={() => setEditing(false)}>
+              {/* 취소 — 되돌리기 버튼이라 아이콘 없이(가이드 규칙), 에너지 설정과 같은 cancel */}
+              <Button
+                size="sm"
+                variant="cancel"
+                onClick={() => {
+                  // 고른 새 등록증도 버린다 — 남으면 다음 수정 때 등록증 칸이 처음부터 열려 있다
+                  setPendingLicense(null);
+                  setPendingLicenseUrl(undefined);
+                  setEditing(false);
+                }}
+              >
                 취소
               </Button>
               <Button size="sm" onClick={handleSave} disabled={updateCompany.isPending}>
@@ -240,16 +251,16 @@ export default function OrgInfoPage() {
         {/* 한 줄 4칸 · 두 줄 — 칸 넓이 같게(합치는 칸 · 아이콘 없음). 사업자등록번호는 등록증으로만 바뀐다 */}
         <div className="grid grid-cols-2 gap-x-6 gap-y-5 md:grid-cols-4">
           <InfoField label="기업명" required>
-            {editing ? (
-              <Input disabled={licenseLocked} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+            {editing && !licenseLocked ? (
+              <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
             ) : (
               <p className="text-sm text-white">{company?.name ?? (isLoading ? '불러오는 중…' : '-')}</p>
             )}
           </InfoField>
           <InfoField label="사업자등록번호" required value={company?.businessNumber ?? '-'} />
           <InfoField label="대표자" required>
-            {editing ? (
-              <Input disabled={licenseLocked} value={form.representativeName}
+            {editing && !licenseLocked ? (
+              <Input value={form.representativeName}
                 onChange={(e) => setForm((f) => ({ ...f, representativeName: e.target.value }))}
               />
             ) : (
@@ -257,15 +268,15 @@ export default function OrgInfoPage() {
             )}
           </InfoField>
           <InfoField label="업태" required>
-            {editing ? (
-              <Input disabled={licenseLocked} value={form.bizType} onChange={(e) => setForm((f) => ({ ...f, bizType: e.target.value }))} />
+            {editing && !licenseLocked ? (
+              <Input value={form.bizType} onChange={(e) => setForm((f) => ({ ...f, bizType: e.target.value }))} />
             ) : (
               <p className="text-sm text-white">{company?.bizType || '-'}</p>
             )}
           </InfoField>
           <InfoField label="종목" required>
-            {editing ? (
-              <Input disabled={licenseLocked} value={form.bizCategory}
+            {editing && !licenseLocked ? (
+              <Input value={form.bizCategory}
                 onChange={(e) => setForm((f) => ({ ...f, bizCategory: e.target.value }))}
               />
             ) : (
@@ -280,16 +291,16 @@ export default function OrgInfoPage() {
             )}
           </InfoField>
           <InfoField label="주소" required>
-            {editing ? (
-              <Input disabled={licenseLocked} value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
+            {editing && !licenseLocked ? (
+              <Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
             ) : (
               <p className="text-sm text-white">{company?.address ?? '-'}</p>
             )}
           </InfoField>
           {/* 설립일 — 등록증 '개업연월일'(가입일 아님). 등록증 칸이라 새 등록증을 올려야 고친다 */}
           <InfoField label="설립일">
-            {editing ? (
-              <Input type="date" disabled={licenseLocked} value={form.foundedAt} onChange={(e) => setForm((f) => ({ ...f, foundedAt: e.target.value }))} />
+            {editing && !licenseLocked ? (
+              <Input type="date" value={form.foundedAt} onChange={(e) => setForm((f) => ({ ...f, foundedAt: e.target.value }))} />
             ) : (
               <p className="text-sm text-white tabular-nums">{company?.foundedAt || '-'}</p>
             )}

@@ -8,6 +8,8 @@ interface SectionCardProps {
   children: ReactNode;
   className?: string;
   noPadding?: boolean;
+  /** 수정 중 — 제목 줄(취소 · 저장)이 스크롤해도 상단(헤더 100px 아래)에 따라다닌다(가이드 규칙) */
+  stickyHeader?: boolean;
 }
 
 export function SectionCard({
@@ -17,10 +19,16 @@ export function SectionCard({
   children,
   className,
   noPadding,
+  stickyHeader,
 }: SectionCardProps) {
   return (
     <div className={cn('h-full rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] animate-fadeIn', className)}>
-      <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-3">
+      <div
+        className={cn(
+          'flex items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-3',
+          stickyHeader && 'sticky top-[100px] z-20 rounded-t-xl bg-[#0d1520]',
+        )}
+      >
         <div>
           <h3 className="text-md font-semibold text-white">
             {title}
