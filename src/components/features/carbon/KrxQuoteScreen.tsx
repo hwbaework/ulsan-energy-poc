@@ -14,7 +14,6 @@ import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { Badge, type BadgeVariant } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { cn } from '@/lib/utils';
 import { LINKS } from '@/lib/carbon-docs';
@@ -53,15 +52,16 @@ const pad = (n: number) => String(n).padStart(2, '0');
 const clock = (d: Date) =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 
-/* ── 조회기간 빠른 선택 — 하루 한 값이라 1일은 없음(캔들 하나뿐), 1개월부터(2026-11-09) ── */
+/* ── 조회기간 — 날짜 직접 선택 없이 1개월 · 3개월 · 6개월 · 1년만(2026-11-09 사용자). 하루 한 값이라 1일은 없음 ── */
 const QUICK = [
-  { key: '1m', label: '1개월' },
-  { key: '6m', label: '6개월' },
-  { key: '1y', label: '1년' },
+  { key: '1m', label: '1개월', months: 1 },
+  { key: '3m', label: '3개월', months: 3 },
+  { key: '6m', label: '6개월', months: 6 },
+  { key: '1y', label: '1년', months: 12 },
 ] as const;
 type QuickKey = (typeof QUICK)[number]['key'];
 function quickFrom(key: QuickKey, to: string) {
-  const f = addMonths(to, key === '1m' ? -1 : key === '6m' ? -6 : -12);
+  const f = addMonths(to, -(QUICK.find((q) => q.key === key)?.months ?? 1));
   return f < SERIES_START ? SERIES_START : f;
 }
 
@@ -74,13 +74,13 @@ export function KrxQuoteScreen() {
   const m = useMemo(() => marketNow(now), [now]);
   const rows = useMemo(() => KRX_ITEMS.map((it) => boardRow(it, m.date)), [m.date]);
 
-  // 조회 조건 — 입력 중인 값과 [조회]로 적용한 값을 따로. 종목 '' = 전체. 처음은 KAU26 · 1개월(그래프가 바로 보이게)
-  const first = { code: KRX_ITEMS[0]!.code, from: quickFrom('1m', m.date), to: m.date };
-  const [code, setCode] = useState(first.code);
-  const [from, setFrom] = useState(first.from);
-  const [to, setTo] = useState(first.to);
-  const [applied, setApplied] = useState(first);
-  const apply = (c = code, f = from, t = to) => setApplied({ code: c, from: f, to: t });
+  // 조회 조건 — 고르는 중인 값과 [조회]로 적용한 값을 따로. 종목 '' = 전체. 처음은 KAU26 · 1개월(그래프가 바로 보이게)
+  const [code, setCode] = useState(KRX_ITEMS[0]!.code);
+  const [period, setPeriod] = useState<QuickKey>('1m');
+  const [applied, setApplied] = useState<{ code: string; period: QuickKey }>({ code: KRX_ITEMS[0]!.code, period: '1m' });
+  const apply = (c = code, p = period) => setApplied({ code: c, period: p });
+  const from = quickFrom(applied.period, m.date);
+  const to = m.date;
 
   const shown = applied.code ? rows.filter((r) => r.code === applied.code) : rows;
 
@@ -105,23 +105,16 @@ export function KrxQuoteScreen() {
           <Select options={ITEM_OPTIONS} value={code} onChange={(e) => setCode(e.target.value)} />
         </div>
         <span className="ml-2 text-sm text-slate-400">조회기간</span>
-        <div className="w-40">
-          <Input type="date" value={from} min={SERIES_START} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} />
-        </div>
-        <span className="text-slate-500">~</span>
-        <div className="w-40">
-          <Input type="date" value={to} min={from} max={m.date} onChange={(e) => e.target.value && setTo(e.target.value)} />
-        </div>
         <div className="flex rounded-md bg-white/[0.04] p-0.5 ring-1 ring-white/[0.06]">
           {QUICK.map((q) => (
             <button
               key={q.key}
               type="button"
-              onClick={() => {
-                setTo(m.date);
-                setFrom(quickFrom(q.key, m.date));
-              }}
-              className="px-3 py-1 text-xs rounded text-slate-300 hover:bg-white/[0.08] hover:text-white transition-colors"
+              onClick={() => setPeriod(q.key)}
+              className={cn(
+                'px-3 py-1 text-xs rounded transition-colors',
+                period === q.key ? 'bg-primary text-white' : 'text-slate-300 hover:bg-white/[0.08] hover:text-white',
+              )}
             >
               {q.label}
             </button>
@@ -138,14 +131,14 @@ export function KrxQuoteScreen() {
           rows={shown}
           onSelect={(c) => {
             setCode(c);
-            apply(c, applied.from, applied.to);
+            apply(c, applied.period);
           }}
         />
       </SectionCard>
 
-      <AuctionCard code={applied.code} from={applied.from} to={applied.to} />
+      <AuctionCard code={applied.code} from={from} to={to} />
 
-      <DailyCard code={applied.code} from={applied.from} to={applied.to} tradeDate={m.date} />
+      <DailyCard code={applied.code} from={from} to={to} tradeDate={m.date} />
 
       <SiteLinks
         id="sites-krx"
@@ -273,24 +266,39 @@ function RangeBar({ x = 0, y = 0, width = 0, height = 0, payload }: RangeProps) 
   );
 }
 
-function RangeTip({ active, payload }: { active?: boolean; payload?: { payload?: DailyQuote }[] }) {
+type TipProps = { active?: boolean; payload?: { payload?: DailyQuote }[] };
+const TIP = 'rounded-lg bg-[#0d1520] ring-1 ring-white/10 px-3 py-2 shadow-xl text-xs';
+
+/** 위 그래프 후버 — 시가 · 고가 · 저가 · 종가(대비) */
+function PriceTip({ active, payload }: TipProps) {
   const p = payload?.[0]?.payload;
   if (!active || !p) return null;
   const d = p.close - p.prev;
   return (
-    <div className="rounded-lg bg-[#0d1520] ring-1 ring-white/10 px-3 py-2 shadow-xl text-xs">
+    <div className={TIP}>
       <p className="mb-1 font-medium text-slate-300">
         {p.date} · {p.code}
       </p>
+      <p className="text-white">시가 {fmtWon(p.open)}</p>
+      <p className="text-white">고가 {fmtWon(p.high)}</p>
+      <p className="text-white">저가 {fmtWon(p.low)}</p>
       <p className={cn('font-semibold', tone(d))}>
         종가 {fmtWon(p.close)} ({signed(d)}, {fmtRate(p.prev ? (d / p.prev) * 100 : 0)})
       </p>
-      <p className="text-white">
-        고가 {fmtWon(p.high)} · 저가 {fmtWon(p.low)}
+    </div>
+  );
+}
+
+/** 아래 그래프 후버 — 거래량만 */
+function VolumeTip({ active, payload }: TipProps) {
+  const p = payload?.[0]?.payload;
+  if (!active || !p) return null;
+  return (
+    <div className={TIP}>
+      <p className="mb-1 font-medium text-slate-300">
+        {p.date} · {p.code}
       </p>
-      <p className="text-white">
-        거래량 {fmtWon(p.vol)} 톤 · 가중평균 {fmtWon(p.vwap)}
-      </p>
+      <p className="font-semibold text-white">거래량 {fmtWon(p.vol)} 톤</p>
     </div>
   );
 }
@@ -309,21 +317,23 @@ function RangeChart({ data }: { data: DailyQuote[] }) {
   const range = (d: DailyQuote): [number, number] => [d.low, d.high];
   return (
     <div className="mb-6">
+      <p className="mb-1 text-sm font-semibold text-white">시세(원)</p>
       <ResponsiveContainer width="100%" height={300}>
         <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="25%">
           <CartesianGrid strokeDasharray="3 3" {...grid} />
           <XAxis dataKey="date" tick={false} axisLine={false} tickLine={false} height={4} />
           <YAxis domain={[lo - padY, hi + padY]} tick={axis} axisLine={false} tickLine={false} width={64} tickFormatter={(v: number) => fmtWon(v)} />
-          <Tooltip content={<RangeTip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+          <Tooltip content={<PriceTip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
           <Bar dataKey={range} shape={(p: unknown) => <RangeBar {...(p as RangeProps)} />} isAnimationActive={false} />
         </ComposedChart>
       </ResponsiveContainer>
+      <p className="mt-3 mb-1 text-sm font-semibold text-white">거래량(톤)</p>
       <ResponsiveContainer width="100%" height={110}>
         <ComposedChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barCategoryGap="25%">
           <CartesianGrid strokeDasharray="3 3" {...grid} />
           <XAxis dataKey="date" tickFormatter={tickDate} tick={axis} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={28} />
           <YAxis domain={[0, maxVol * 1.1]} tick={axis} axisLine={false} tickLine={false} width={64} tickFormatter={(v: number) => (v >= 10000 ? `${Math.round(v / 10000)}만` : fmtWon(v))} />
-          <Tooltip content={<RangeTip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+          <Tooltip content={<VolumeTip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
           <Bar dataKey="vol" fill={RANGE} fillOpacity={0.6} isAnimationActive={false} />
         </ComposedChart>
       </ResponsiveContainer>
