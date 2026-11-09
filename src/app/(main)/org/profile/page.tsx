@@ -13,6 +13,7 @@ import { getApiClient } from '@/api/client';
 import { ENDPOINTS } from '@/api/endpoints';
 import { useMe } from '@/hooks/auth/useAuth';
 
+import { LIMIT } from '@/lib/field-limits';
 const ROLE_LABEL: Record<string, string> = {
   SYSTEM_ADMIN: '관리자',
   POWER_OPERATOR: '발전사업자',
@@ -136,14 +137,14 @@ export default function OrgProfilePage() {
               </p>
             </div>
           </div>
-          <Input label="이름" value={name} onChange={(e) => setName(e.target.value)} placeholder="이름을 입력하세요" />
-          <Input
+          <Input maxLength={LIMIT.personName} label="이름" value={name} onChange={(e) => setName(e.target.value)} placeholder="이름을 입력하세요" />
+          <Input maxLength={LIMIT.department}
             label="부서"
             value={department}
             onChange={(e) => setDepartment(e.target.value)}
             placeholder="예: 운영팀"
           />
-          <Input label="연락처" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="010-0000-0000" />
+          <Input maxLength={LIMIT.phone} label="연락처" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="010-0000-0000" />
         </div>
       </SectionCard>
 
@@ -157,7 +158,7 @@ export default function OrgProfilePage() {
       >
         <div className="space-y-4 px-6 py-5">
           <div className="relative">
-            <Input
+            <Input maxLength={LIMIT.password}
               label="현재 비밀번호"
               type={showCurrent ? 'text' : 'password'}
               value={currentPw}
@@ -173,7 +174,7 @@ export default function OrgProfilePage() {
             </button>
           </div>
           <div className="relative">
-            <Input
+            <Input maxLength={LIMIT.password}
               label="새 비밀번호"
               type={showNew ? 'text' : 'password'}
               value={newPw}
@@ -189,7 +190,7 @@ export default function OrgProfilePage() {
             </button>
           </div>
           <div className="relative">
-            <Input
+            <Input maxLength={LIMIT.password}
               label="새 비밀번호 확인"
               type={showConfirm ? 'text' : 'password'}
               value={confirmPw}

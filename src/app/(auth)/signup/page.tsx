@@ -18,6 +18,7 @@ import { Radio } from '@/components/ui/Radio';
 import { FileUpload } from '@/components/ui/FileUpload';
 import { useCompanies } from '@/hooks/platform/useCompanies';
 
+import { LIMIT } from '@/lib/field-limits';
 type SignupType = 'enterprise' | 'consultant';
 type EnterpriseRole = 'POWER_OPERATOR' | 'CONSUMER_MANAGER' | 'AGENCY_ADMIN' | 'SPC_OPERATOR';
 type Step = 1 | 2 | 3 | 4 | 5;
@@ -288,7 +289,7 @@ export default function SignupPage() {
               />
             ) : (
               <>
-                <Input
+                <Input maxLength={LIMIT.companyName}
                   label="기업명"
                   placeholder="(주)그린에너지"
                   required
@@ -296,14 +297,14 @@ export default function SignupPage() {
                   {...register('companyName')}
                 />
                 <div className="grid grid-cols-2 gap-3">
-                  <Input
+                  <Input maxLength={LIMIT.bizNumber}
                     label="사업자등록번호"
                     placeholder="000-00-00000"
                     required
                     error={errors.businessNumber?.message}
                     {...register('businessNumber')}
                   />
-                  <Input
+                  <Input maxLength={LIMIT.personName}
                     label="대표자명"
                     placeholder="홍길동"
                     required
@@ -314,9 +315,9 @@ export default function SignupPage() {
                 {/* 설립일 — 사업자등록증 '개업연월일' */}
                 <div className="grid grid-cols-2 gap-3">
                   <Input label="설립일" type="date" {...register('foundedAt')} />
-                  <Input label="기업 연락처" placeholder="02-0000-0000" {...register('companyPhone')} />
+                  <Input maxLength={LIMIT.phone} label="기업 연락처" placeholder="02-0000-0000" {...register('companyPhone')} />
                 </div>
-                <Input
+                <Input maxLength={LIMIT.address}
                   label="기업 주소"
                   placeholder="서울특별시 강남구"
                   required
@@ -325,8 +326,8 @@ export default function SignupPage() {
                 />
                 {/* 업태·종목 — 사업자등록증 '사업의 종류'. 세금계산서에 들어간다 */}
                 <div className="grid grid-cols-2 gap-3">
-                  <Input label="업태" placeholder="제조업" required error={errors.bizType?.message} {...register('bizType')} />
-                  <Input label="종목" placeholder="금속 가공" required error={errors.bizCategory?.message} {...register('bizCategory')} />
+                  <Input maxLength={LIMIT.bizType} label="업태" placeholder="제조업" required error={errors.bizType?.message} {...register('bizType')} />
+                  <Input maxLength={LIMIT.bizCategory} label="종목" placeholder="금속 가공" required error={errors.bizCategory?.message} {...register('bizCategory')} />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-accent mb-1.5">
@@ -366,7 +367,7 @@ export default function SignupPage() {
         {step === 3 && (
           <div className="space-y-4 animate-[fadeIn_300ms_ease-out]">
             <h3 className="text-md font-semibold text-white mb-4">계정 생성</h3>
-            <Input
+            <Input maxLength={LIMIT.email}
               label="아이디 (이메일)"
               type="email"
               placeholder="name@company.com"
@@ -394,10 +395,10 @@ export default function SignupPage() {
             </div>
             {signupType !== 'consultant' && (
               <>
-                <Input label="이름" placeholder="홍길동" error={errors.name?.message} {...register('name')} />
+                <Input maxLength={LIMIT.personName} label="이름" placeholder="홍길동" error={errors.name?.message} {...register('name')} />
                 <div className="grid grid-cols-2 gap-3">
-                  <Input label="부서" placeholder="발전운영팀" {...register('department')} />
-                  <Input label="연락처" placeholder="010-0000-0000" {...register('phone')} />
+                  <Input maxLength={LIMIT.department} label="부서" placeholder="발전운영팀" {...register('department')} />
+                  <Input maxLength={LIMIT.phone} label="연락처" placeholder="010-0000-0000" {...register('phone')} />
                 </div>
               </>
             )}

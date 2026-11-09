@@ -15,6 +15,7 @@ import { useUsers } from '@/hooks/platform/useUsers';
 import { useToastStore } from '@/stores/useToastStore';
 import { useCompanyChangeStore, useHydrateCompanyChange, type CompanyChangeRequest } from '@/stores/useCompanyChangeStore';
 import { CompanyChangeReviewModal } from '@/components/features/org/CompanyChangeApprovals';
+import { LIMIT } from '@/lib/field-limits';
 const BIZ_NUM_RE = /^\d{3}-\d{2}-\d{5}$/;
 
 function licenseFileName(companyName: string) {
@@ -313,7 +314,7 @@ export default function CompaniesPage() {
         size="md"
       >
         <div className="space-y-4">
-          <Input
+          <Input maxLength={LIMIT.companyName}
             label="기업명"
             placeholder="(주)그린에너지"
             required
@@ -325,7 +326,7 @@ export default function CompaniesPage() {
             error={addErrors.name}
           />
           <div className="grid grid-cols-2 gap-3">
-            <Input
+            <Input maxLength={LIMIT.bizNumber}
               label="사업자등록번호"
               placeholder="000-00-00000"
               required
@@ -336,7 +337,7 @@ export default function CompaniesPage() {
               }}
               error={addErrors.businessNumber}
             />
-            <Input
+            <Input maxLength={LIMIT.personName}
               label="대표자명"
               placeholder="홍길동"
               required
@@ -349,7 +350,7 @@ export default function CompaniesPage() {
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input
+            <Input maxLength={LIMIT.bizType}
               label="업태"
               placeholder="제조업"
               required
@@ -357,7 +358,7 @@ export default function CompaniesPage() {
               onChange={(e) => setFormBizType(e.target.value)}
               error={addErrors.bizType}
             />
-            <Input
+            <Input maxLength={LIMIT.bizCategory}
               label="종목"
               placeholder="금속 가공"
               required
@@ -373,14 +374,14 @@ export default function CompaniesPage() {
               value={formFoundedAt}
               onChange={(e) => setFormFoundedAt(e.target.value)}
             />
-            <Input
+            <Input maxLength={LIMIT.phone}
               label="기업 연락처"
               placeholder="02-0000-0000"
               value={formPhone}
               onChange={(e) => setFormPhone(e.target.value)}
             />
           </div>
-          <Input
+          <Input maxLength={LIMIT.address}
             label="기업 주소"
             placeholder="서울특별시 강남구"
             required
@@ -578,7 +579,7 @@ export default function CompaniesPage() {
       >
         {editRow && (
           <div className="space-y-4">
-            <Input
+            <Input maxLength={LIMIT.companyName}
               label="기업명"
               required
               value={editName}
@@ -589,7 +590,7 @@ export default function CompaniesPage() {
               error={editErrors.name}
             />
             <div className="grid grid-cols-2 gap-3">
-              <Input
+              <Input maxLength={LIMIT.bizNumber}
                 label="사업자등록번호"
                 required
                 value={editBizNum}
@@ -599,7 +600,7 @@ export default function CompaniesPage() {
                 }}
                 error={editErrors.businessNumber}
               />
-              <Input
+              <Input maxLength={LIMIT.personName}
                 label="대표자명"
                 required
                 value={editRep}
@@ -611,16 +612,19 @@ export default function CompaniesPage() {
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Input label="업태" required value={editBizType} onChange={(e) => setEditBizType(e.target.value)} error={editErrors.bizType} />
-              <Input label="종목" required value={editBizCategory} onChange={(e) => setEditBizCategory(e.target.value)} error={editErrors.bizCategory} />
+              <Input maxLength={LIMIT.bizType} label="업태" required value={editBizType} onChange={(e) => setEditBizType(e.target.value)} error={editErrors.bizType} />
+              <Input maxLength={LIMIT.bizCategory} label="종목" required value={editBizCategory} onChange={(e) => setEditBizCategory(e.target.value)} error={editErrors.bizCategory} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Input label="설립일" type="date" value={editFoundedAt} onChange={(e) => setEditFoundedAt(e.target.value)} />
-              <Input label="기업 연락처" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+              <Input maxLength={LIMIT.phone} label="기업 연락처" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
             </div>
-            <Input label="기업 주소" required value={editAddress} onChange={(e) => setEditAddress(e.target.value)} error={editErrors.address} />
+            <Input maxLength={LIMIT.address} label="기업 주소" required value={editAddress} onChange={(e) => setEditAddress(e.target.value)} error={editErrors.address} />
             <div>
-              <p className="text-sm font-medium text-accent mb-1.5">사업자등록증</p>
+              {/* 필수 항목 — 이미 올라온 등록증이 들어 있고, 등록증 업데이트로 바꾼다(2026-11-09) */}
+              <p className="text-sm font-medium text-accent mb-1.5">
+                사업자등록증<span className="ml-0.5 text-semantic-red">*</span>
+              </p>
               <div className="flex items-center gap-3">
                 <span className="text-sm text-slate-300">{editLicenseName ?? licenseFileName(editName)}</span>
                 <Button variant="secondary" size="sm" onClick={() => downloadLicense(editName, editBizNum, editRep)}>

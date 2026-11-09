@@ -22,6 +22,7 @@ import { FIELD_LABEL, LICENSE_FIELDS, useCompanyChangeStore, useHydrateCompanyCh
 import { localNow } from '@/stores/useBillingStore';
 import { useHydrateTradingPoc, useTradingPocStore } from '@/stores/useTradingPocStore';
 
+import { LIMIT } from '@/lib/field-limits';
 const REQUIRED_FIELDS: (keyof CompanyFields)[] = ['name', 'representativeName', 'bizType', 'bizCategory', 'address'];
 
 export default function OrgInfoPage() {
@@ -251,7 +252,7 @@ export default function OrgInfoPage() {
         <div className="grid grid-cols-2 gap-x-6 gap-y-5 md:grid-cols-4">
           <InfoField label="기업명" required>
             {editing ? (
-              <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+              <Input maxLength={LIMIT.companyName} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
             ) : (
               <p className="text-sm text-white">{company?.name ?? (isLoading ? '불러오는 중…' : '-')}</p>
             )}
@@ -259,7 +260,7 @@ export default function OrgInfoPage() {
           <InfoField label="사업자등록번호" required value={company?.businessNumber ?? '-'} />
           <InfoField label="대표자" required>
             {editing ? (
-              <Input value={form.representativeName}
+              <Input maxLength={LIMIT.personName} value={form.representativeName}
                 onChange={(e) => setForm((f) => ({ ...f, representativeName: e.target.value }))}
               />
             ) : (
@@ -268,14 +269,14 @@ export default function OrgInfoPage() {
           </InfoField>
           <InfoField label="업태" required>
             {editing ? (
-              <Input value={form.bizType} onChange={(e) => setForm((f) => ({ ...f, bizType: e.target.value }))} />
+              <Input maxLength={LIMIT.bizType} value={form.bizType} onChange={(e) => setForm((f) => ({ ...f, bizType: e.target.value }))} />
             ) : (
               <p className="text-sm text-white">{company?.bizType || '-'}</p>
             )}
           </InfoField>
           <InfoField label="종목" required>
             {editing ? (
-              <Input value={form.bizCategory}
+              <Input maxLength={LIMIT.bizCategory} value={form.bizCategory}
                 onChange={(e) => setForm((f) => ({ ...f, bizCategory: e.target.value }))}
               />
             ) : (
@@ -284,14 +285,14 @@ export default function OrgInfoPage() {
           </InfoField>
           <InfoField label="연락처">
             {editing ? (
-              <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+              <Input maxLength={LIMIT.phone} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
             ) : (
               <p className="text-sm text-white tabular-nums">{company?.phone ?? '-'}</p>
             )}
           </InfoField>
           <InfoField label="주소" required>
             {editing ? (
-              <Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
+              <Input maxLength={LIMIT.address} value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
             ) : (
               <p className="text-sm text-white">{company?.address ?? '-'}</p>
             )}

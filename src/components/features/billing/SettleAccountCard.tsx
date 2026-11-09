@@ -12,6 +12,7 @@ import { localNow } from '@/stores/useBillingStore';
 import { BANKS, useHydrateSettleAccount, useSettleAccountStore } from '@/stores/useSettleAccountStore';
 import { lookupAccountHolder, sameHolder } from '@/lib/account-verify';
 
+import { LIMIT } from '@/lib/field-limits';
 /**
  * 기업 정보 › 정산 계좌 — E-데이터마켓에서 내 데이터를 쓴 금액이 매달 15일에 들어오는 계좌. 관리자(SPC)가 이 계좌로 송금한다.
  * 기업관리자만 등록 · 수정, 소속 멤버는 보기만.
@@ -100,7 +101,7 @@ export function SettleAccountCard({ companyId, companyName, canEdit }: { company
             value={form.bank}
             onChange={(e) => setForm({ ...form, bank: e.target.value })}
           />
-          <Input
+          <Input maxLength={LIMIT.account}
             label="계좌번호"
             value={form.number}
             onChange={(e) => setForm({ ...form, number: e.target.value.replace(/[^0-9-]/g, '') })}

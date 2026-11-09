@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Shield, Eye, Pencil, Trash2, KeyRound, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Select } from '@/components/ui/Select';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features/SectionCard';
@@ -16,6 +16,7 @@ import { useCompanies } from '@/hooks/platform/useCompanies';
 import type { CreateUserRequest } from '@/types';
 import { useToastStore } from '@/stores/useToastStore';
 
+import { LIMIT } from '@/lib/field-limits';
 type AccountType = 'COMPANY_ADMIN' | 'COMPANY_MEMBER';
 const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = { COMPANY_ADMIN: '기업 관리자', COMPANY_MEMBER: '기업 회원' };
 const ACCOUNT_TYPE_OPTIONS = [
@@ -53,7 +54,6 @@ function roleLabel(code: string): string {
 }
 
 export default function UsersPage() {
-  const router = useRouter();
   const showToast = useToastStore((s) => s.add);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
@@ -129,21 +129,18 @@ export default function UsersPage() {
   }
 
   const columns: Column<UserRow>[] = [
+    // 칸 하나에 값 하나 — 사용자 이름 · 아이디는 따로(2026-11-09)
     {
       key: 'name',
-      header: '사용자',
-      width: '200px',
-      render: (row) => (
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06] text-xs font-medium text-slate-300">
-            {row.name[0]}
-          </div>
-          <div>
-            <p className="text-sm font-medium text-white">{row.name}</p>
-            <p className="text-xs text-slate-500">{row.email}</p>
-          </div>
-        </div>
-      ),
+      header: '사용자 이름',
+      width: '140px',
+      render: (row) => <span className="text-sm font-medium text-white">{row.name}</span>,
+    },
+    {
+      key: 'email',
+      header: '아이디 (이메일)',
+      width: '240px',
+      render: (row) => <span className="text-sm text-slate-300">{row.email}</span>,
     },
     {
       key: 'company',
@@ -184,7 +181,7 @@ export default function UsersPage() {
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              router.push(`/platform/users/${row.id}`);
+              setDetailRow(row); // 보기 팝업 — 상세 페이지로 가지 않는다(기업 관리와 같음, 2026-11-09)
             }}
             className="rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-white transition-colors"
             title="상세"
@@ -271,19 +268,19 @@ export default function UsersPage() {
       </SectionCard>
 
       {/* 상세 모달 */}
+      {/* 사용자 상세 — 보기만(기업 상세와 같은 꼴). 수정은 목록의 연필 아이콘으로만 */}
       <Modal open={!!detailRow} onClose={() => setDetailRow(null)} title="사용자 상세" size="md">
         {detailRow && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.06] text-lg font-medium text-slate-300">
-                {detailRow.name[0]}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-slate-500 mb-1">사용자 이름</p>
+                <p className="text-sm text-white font-medium">{detailRow.name}</p>
               </div>
               <div>
-                <p className="text-base font-medium text-white">{detailRow.name}</p>
-                <p className="text-sm text-slate-500">{detailRow.email}</p>
+                <p className="text-xs text-slate-500 mb-1">아이디 (이메일)</p>
+                <p className="text-sm text-white">{detailRow.email}</p>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-slate-500 mb-1">소속</p>
                 <p className="text-sm text-white">{detailRow.company || '-'}</p>
@@ -297,29 +294,19 @@ export default function UsersPage() {
                 <p className="text-sm text-white">{roleLabel(detailRow.role)}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">최근 로그인</p>
-                <p className="text-sm text-slate-300 tabular-nums">{detailRow.lastLogin}</p>
-              </div>
-              <div>
                 <p className="text-xs text-slate-500 mb-1">연락처</p>
-                <p className="text-sm text-slate-300">{detailRow.phone || '-'}</p>
+                <p className="text-sm text-white tabular-nums">{detailRow.phone || '-'}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-500 mb-1">부서</p>
-                <p className="text-sm text-slate-300">{detailRow.department || '-'}</p>
+                <p className="text-sm text-white">{detailRow.department || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 mb-1">최근 로그인</p>
+                <p className="text-sm text-white tabular-nums">{detailRow.lastLogin}</p>
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  setDetailRow(null);
-                  openEdit(detailRow);
-                }}
-              >
-                <Pencil size={14} className="mr-1" /> 수정
-              </Button>
               <Button variant="secondary" size="sm" onClick={() => setDetailRow(null)}>
                 닫기
               </Button>
@@ -348,10 +335,10 @@ export default function UsersPage() {
                 <KeyRound size={14} className="mr-1" /> 비밀번호 초기화
               </Button>
             </div>
-            <Input label="이름" value={editName} onChange={(e) => setEditName(e.target.value)} />
+            <Input maxLength={LIMIT.personName} label="이름" value={editName} onChange={(e) => setEditName(e.target.value)} />
             <div className="grid grid-cols-2 gap-3">
-              <Input label="연락처" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
-              <Input label="부서" value={editDept} onChange={(e) => setEditDept(e.target.value)} />
+              <Input maxLength={LIMIT.phone} label="연락처" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+              <Input maxLength={LIMIT.department} label="부서" value={editDept} onChange={(e) => setEditDept(e.target.value)} />
             </div>
             <Select
               label="역할"
@@ -405,14 +392,14 @@ export default function UsersPage() {
       {/* 회원 등록 */}
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="회원 등록" size="md">
         <div className="space-y-4">
-          <Input label="아이디 (이메일)" type="email" value={cEmail} onChange={(e) => setCEmail(e.target.value)} placeholder="user@company.co.kr" />
+          <Input maxLength={LIMIT.email} label="아이디 (이메일)" type="email" value={cEmail} onChange={(e) => setCEmail(e.target.value)} placeholder="user@company.co.kr" />
           <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] px-3 py-2.5">
             <p className="text-xs text-slate-400 mb-0.5">초기 비밀번호</p>
             <p className="text-sm text-slate-300">
               <span className="font-semibold text-white tabular-nums">{RESET_PASSWORD}</span> 로 등록됩니다. 사용자는 로그인 후 직접 변경합니다.
             </p>
           </div>
-          <Input label="이름" value={cName} onChange={(e) => setCName(e.target.value)} />
+          <Input maxLength={LIMIT.personName} label="이름" value={cName} onChange={(e) => setCName(e.target.value)} />
           <Select
             label="소속"
             value={cCompanyId}
@@ -429,8 +416,8 @@ export default function UsersPage() {
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input label="연락처" value={cPhone} onChange={(e) => setCPhone(e.target.value)} placeholder="010-0000-0000" />
-            <Input label="부서" value={cDept} onChange={(e) => setCDept(e.target.value)} />
+            <Input maxLength={LIMIT.phone} label="연락처" value={cPhone} onChange={(e) => setCPhone(e.target.value)} placeholder="010-0000-0000" />
+            <Input maxLength={LIMIT.department} label="부서" value={cDept} onChange={(e) => setCDept(e.target.value)} />
           </div>
           <div className="flex justify-end items-center gap-2 pt-2 border-t border-white/[0.06]">
             <Button variant="secondary" onClick={() => setCreateOpen(false)}>
@@ -464,73 +451,46 @@ export default function UsersPage() {
         </div>
       </Modal>
 
-      {/* 비밀번호 초기화 확인 */}
-      <Modal open={!!resetRow} onClose={() => setResetRow(null)} title="비밀번호 초기화" size="sm">
-        {resetRow && (
-          <div className="space-y-4">
-            <p className="text-sm text-slate-300">
-              <span className="font-medium text-white">{resetRow.name}</span> ({resetRow.email})의 비밀번호를 초기화합니다.
-            </p>
-            <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] px-3 py-2.5">
-              <p className="text-xs text-slate-400 mb-0.5">초기화 후 비밀번호</p>
-              <p className="text-base font-bold text-white tabular-nums">{RESET_PASSWORD}</p>
-            </div>
-            <p className="text-xs text-slate-500">사용자는 로그인 후 비밀번호를 직접 변경해야 합니다.</p>
-            <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
-              <Button variant="secondary" onClick={() => setResetRow(null)}>
-                취소
-              </Button>
-              <Button
-                disabled={resetPasswordMut.isPending}
-                onClick={async () => {
-                  try {
-                    await resetPasswordMut.mutateAsync({ id: resetRow.id, newPassword: RESET_PASSWORD });
-                    showToast('success', `${resetRow.name}님 비밀번호가 ${RESET_PASSWORD} 로 초기화되었습니다`);
-                    setResetRow(null);
-                  } catch {
-                    showToast('error', '비밀번호 초기화에 실패했습니다');
-                  }
-                }}
-              >
-                {resetPasswordMut.isPending ? '초기화 중...' : '초기화'}
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
+      {/* 비밀번호 초기화 — 공통 확인창(2026-11-09) */}
+      <ConfirmDialog
+        open={!!resetRow}
+        onClose={() => setResetRow(null)}
+        onConfirm={async () => {
+          if (!resetRow) return;
+          try {
+            await resetPasswordMut.mutateAsync({ id: resetRow.id, newPassword: RESET_PASSWORD });
+            showToast('success', `${resetRow.name}님 비밀번호가 ${RESET_PASSWORD} 로 초기화되었습니다`);
+            setResetRow(null);
+          } catch {
+            showToast('error', '비밀번호 초기화에 실패했습니다');
+          }
+        }}
+        title="비밀번호 초기화"
+        message={`${resetRow?.name ?? ''} (${resetRow?.email ?? ''})의 비밀번호를 ${RESET_PASSWORD} 로 초기화합니다. 사용자는 로그인 후 비밀번호를 직접 바꿔야 합니다.`}
+        confirmLabel="초기화"
+        loading={resetPasswordMut.isPending}
+      />
 
-      {/* 삭제 확인 */}
-      <Modal open={!!deleteRow} onClose={() => setDeleteRow(null)} title="사용자 삭제" size="sm">
-        {deleteRow && (
-          <div className="space-y-4">
-            <p className="text-sm text-slate-300">
-              <span className="font-medium text-white">{deleteRow.name}</span> ({deleteRow.email})을(를) 정말
-              삭제하시겠습니까?
-            </p>
-            <p className="text-xs text-slate-500">이 작업은 되돌릴 수 없습니다.</p>
-            <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
-              <Button variant="secondary" onClick={() => setDeleteRow(null)}>
-                취소
-              </Button>
-              <Button
-                variant="danger"
-                disabled={deleteUserMut.isPending}
-                onClick={async () => {
-                  try {
-                    await deleteUserMut.mutateAsync(deleteRow.id);
-                    showToast('success', `${deleteRow.name}님이 삭제되었습니다`);
-                    setDeleteRow(null);
-                  } catch {
-                    showToast('error', '삭제에 실패했습니다');
-                  }
-                }}
-              >
-                {deleteUserMut.isPending ? '삭제 중...' : '삭제'}
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
+      {/* 사용자 삭제 — 공통 확인창(2026-11-09) */}
+      <ConfirmDialog
+        open={!!deleteRow}
+        onClose={() => setDeleteRow(null)}
+        onConfirm={async () => {
+          if (!deleteRow) return;
+          try {
+            await deleteUserMut.mutateAsync(deleteRow.id);
+            showToast('success', `${deleteRow.name}님이 삭제되었습니다`);
+            setDeleteRow(null);
+          } catch {
+            showToast('error', '삭제에 실패했습니다');
+          }
+        }}
+        title="사용자 삭제"
+        message={`${deleteRow?.name ?? ''} (${deleteRow?.email ?? ''})을 삭제합니다.`}
+        confirmLabel="삭제"
+        variant="danger"
+        loading={deleteUserMut.isPending}
+      />
     </div>
   );
 }
