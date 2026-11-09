@@ -11,7 +11,7 @@ import { Select } from '@/components/ui/Select';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features/SectionCard';
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser, useResetPassword } from '@/hooks/platform/useUsers';
-import { useAssignRoleByCode } from '@/hooks/platform/useRoles';
+import { useAssignRoleByCode, useRoles } from '@/hooks/platform/useRoles';
 import { useCompanies } from '@/hooks/platform/useCompanies';
 import type { CreateUserRequest } from '@/types';
 import { useToastStore } from '@/stores/useToastStore';
@@ -37,7 +37,7 @@ interface UserRow {
   department: string;
 }
 
-// 회원가입 유형과 동일한 3개 (실제 목업 사용자 역할과도 일치)
+// 기본 3개(회원가입 유형과 동일) — 실제 선택지는 역할 · 권한 관리 목록(useRoles)에서 읽고, 목록이 비었을 때만 이 값(2026-11-09)
 const ROLE_OPTIONS = [
   { value: 'CONSUMER_MANAGER', label: '전기사용자' },
   { value: 'POWER_OPERATOR', label: '발전사업자' },
@@ -48,10 +48,6 @@ const ROLE_LABEL_MAP: Record<string, string> = Object.fromEntries(ROLE_OPTIONS.m
 
 /** 관리자가 비밀번호를 초기화하면 이 값으로 바뀐다. 사용자는 로그인 후 직접 변경 */
 const RESET_PASSWORD = 'a123456789';
-
-function roleLabel(code: string): string {
-  return ROLE_LABEL_MAP[code] ?? code;
-}
 
 export default function UsersPage() {
   const showToast = useToastStore((s) => s.add);
@@ -96,7 +92,11 @@ export default function UsersPage() {
   const deleteUserMut = useDeleteUser();
   const resetPasswordMut = useResetPassword();
 
-  const roleOptions = ROLE_OPTIONS.map((r) => ({ value: r.value, label: r.label }));
+  // 역할 선택지 — 역할 · 권한 관리에서 추가한 역할도 그대로 나온다(코드 있는 역할만)
+  const { data: rolesData } = useRoles();
+  const liveRoles = (rolesData ?? []).filter((r) => !!r.code).map((r) => ({ value: r.code as string, label: r.name }));
+  const roleOptions = liveRoles.length > 0 ? liveRoles : ROLE_OPTIONS.map((r) => ({ value: r.value, label: r.label }));
+  const roleLabel = (code: string) => roleOptions.find((r) => r.value === code)?.label ?? ROLE_LABEL_MAP[code] ?? code;
 
   const users: UserRow[] =
     !isError && apiData?.content
@@ -392,24 +392,26 @@ export default function UsersPage() {
       {/* 회원 등록 */}
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="회원 등록" size="md">
         <div className="space-y-4">
-          <Input maxLength={LIMIT.email} label="아이디 (이메일)" type="email" value={cEmail} onChange={(e) => setCEmail(e.target.value)} placeholder="user@company.co.kr" />
+          <Input maxLength={LIMIT.email} label="아이디 (이메일)" required type="email" value={cEmail} onChange={(e) => setCEmail(e.target.value)} placeholder="user@company.co.kr" />
           <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] px-3 py-2.5">
             <p className="text-xs text-slate-400 mb-0.5">초기 비밀번호</p>
             <p className="text-sm text-slate-300">
               <span className="font-semibold text-white tabular-nums">{RESET_PASSWORD}</span> 로 등록됩니다. 사용자는 로그인 후 직접 변경합니다.
             </p>
           </div>
-          <Input maxLength={LIMIT.personName} label="이름" value={cName} onChange={(e) => setCName(e.target.value)} />
+          <Input maxLength={LIMIT.personName} label="이름" required value={cName} onChange={(e) => setCName(e.target.value)} />
           <Select
             label="소속"
+            required
             value={cCompanyId}
             onChange={(e) => setCCompanyId(e.target.value)}
             options={[{ value: '', label: '선택' }, ...companies.map((c) => ({ value: String(c.id), label: c.name }))]}
           />
           <div className="grid grid-cols-2 gap-3">
-            <Select label="구분" value={cAccountType} onChange={(e) => setCAccountType(e.target.value as AccountType)} options={ACCOUNT_TYPE_OPTIONS} />
+            <Select label="구분" required value={cAccountType} onChange={(e) => setCAccountType(e.target.value as AccountType)} options={ACCOUNT_TYPE_OPTIONS} />
             <Select
               label="역할"
+              required
               value={cRole}
               onChange={(e) => setCRole(e.target.value)}
               options={[{ value: '', label: '선택' }, ...roleOptions]}
@@ -424,14 +426,30 @@ export default function UsersPage() {
               취소
             </Button>
             <Button
-              disabled={!cEmail.trim() || !cName.trim() || !cRole || createUserMut.isPending || assignRoleByCodeMut.isPending}
+              disabled={createUserMut.isPending || assignRoleByCodeMut.isPending}
               onClick={async () => {
+                // 필수 — 아이디 · 이름 · 소속 · 구분 · 역할(2026-11-09). 연락처 · 부서만 선택
+                const missing = [
+                  !cEmail.trim() && '아이디 (이메일)',
+                  !cName.trim() && '이름',
+                  !cCompanyId && '소속',
+                  !cAccountType && '구분',
+                  !cRole && '역할',
+                ].filter(Boolean) as string[];
+                if (missing.length) {
+                  showToast('error', `${missing.join(', ')}을(를) 입력해 주세요`);
+                  return;
+                }
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cEmail.trim())) {
+                  showToast('error', '아이디는 이메일 형식으로 입력해 주세요');
+                  return;
+                }
                 try {
                   const created = await createUserMut.mutateAsync({
                     email: cEmail.trim(),
                     password: RESET_PASSWORD,
                     name: cName.trim(),
-                    companyId: cCompanyId ? Number(cCompanyId) : undefined,
+                    companyId: Number(cCompanyId),
                     phone: cPhone || undefined,
                     department: cDept || undefined,
                     accountType: cAccountType,
