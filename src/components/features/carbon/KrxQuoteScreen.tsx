@@ -93,7 +93,7 @@ export function KrxQuoteScreen() {
         </div>
       </div>
 
-      <SectionCard title="현재가" actions={<span className="text-sm text-white tabular-nums">거래일 {tradeDate}</span>}>
+      <SectionCard title="현재가">
         <BoardTable rows={shown} onSelect={setCode} />
       </SectionCard>
 
