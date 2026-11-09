@@ -388,7 +388,7 @@ export function PpaScheduleCard({ companyId: fixed, readOnly }: { companyId?: nu
         confirmLabel="저장"
       />
 
-      {/* 날짜 지정 — 요일 설정대로 · OFF · 시간 지정(시각 칸은 처음부터 보이고, 고치면 시간 지정으로). 적용을 눌러야 반영 */}
+      {/* 날짜 지정 — 요일 설정대로 · OFF · 시간 지정(시각 칸은 처음부터 보이고, 고치면 시간 지정으로). 저장을 눌러야 반영(버튼 이름은 앱 공통 '저장', 2026-11-09) */}
       <Modal
         open={dayEdit !== null}
         onClose={() => setDayEdit(null)}
@@ -408,7 +408,7 @@ export function PpaScheduleCard({ companyId: fixed, readOnly }: { companyId?: nu
                 setDayEdit(null);
               }}
             >
-              적용
+              저장
             </Button>
           </div>
         }

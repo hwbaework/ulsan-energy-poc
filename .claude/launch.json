@@ -28,6 +28,17 @@
         "3031"
       ],
       "port": 3031
+    },
+    {
+      "name": "terrawatt",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "../terrawatt",
+        "run",
+        "dev"
+      ],
+      "port": 5173
     }
   ]
 }

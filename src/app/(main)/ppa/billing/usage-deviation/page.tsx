@@ -183,12 +183,12 @@ function DeviationResolveModal({
       size="lg"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="cancel" onClick={onClose}>
             취소
           </Button>
           <Button variant="primary" onClick={() => onApply(method, memo)}>
             <CheckCircle2 size={14} className="mr-1.5" />
-            처리 적용
+            저장
           </Button>
         </>
       }

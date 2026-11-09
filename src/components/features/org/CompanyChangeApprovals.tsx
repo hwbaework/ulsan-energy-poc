@@ -7,10 +7,11 @@ import { Textarea } from '@/components/ui/Textarea';
 import { DataTable, type Column, TABLE, TABLE_HEAD_ROW, TABLE_ROW, TABLE_TD, TABLE_TH } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features/SectionCard';
 import { LicenseBox } from './BizLicenseSheet';
-import { useUpdateCompany } from '@/hooks/platform/useCompanies';
+import { TEXT_MAX } from '@/components/features/trading-poc/Bits'; // 사유 글자 수 — 거래 반려 사유와 같은 500자
+import { useCompany, useUpdateCompany } from '@/hooks/platform/useCompanies';
 import { useToastStore } from '@/stores/useToastStore';
 import { localNow } from '@/stores/useBillingStore';
-import { FIELD_LABEL, useCompanyChangeStore, useHydrateCompanyChange, type CompanyChangeRequest } from '@/stores/useCompanyChangeStore';
+import { FIELD_LABEL, LICENSE_FIELDS, useCompanyChangeStore, useHydrateCompanyChange, type CompanyChangeRequest } from '@/stores/useCompanyChangeStore';
 
 /**
  * 승인 관리 › 기업 정보 변경 — 줄에서 바로 확인하지 않는다. [검토]로 올라온 사업자 등록증과 바뀌는 내용을 같이 보고
@@ -60,6 +61,16 @@ export function CompanyChangeReviewModal({ r, onClose }: { r: CompanyChangeReque
   const updateCompany = useUpdateCompany();
   const [rejecting, setRejecting] = useState(false);
   const [note, setNote] = useState('');
+  // 등록증 항목 전부를 놓고 바뀌는 칸만 표시(2026-11-09) — 안 바뀌는 칸은 지금 값 그대로, 사업자등록번호는 등록증으로만 바뀌니 지금 값만
+  const { data: company } = useCompany(r.companyId);
+  const rows = [
+    { key: 'businessNumber', label: '사업자등록번호', before: company?.businessNumber ?? '', after: company?.businessNumber ?? '', changed: false },
+    ...LICENSE_FIELDS.map((k) => {
+      const c = r.changes.find((x) => x.key === k);
+      const before = c ? c.before : String(company?.[k] ?? '');
+      return { key: k, label: FIELD_LABEL[k], before, after: c ? c.after : before, changed: !!c };
+    }),
+  ];
 
   const confirm = () => {
     const data = Object.fromEntries(r.changes.map((c) => [c.key, c.after]));
@@ -130,18 +141,18 @@ export function CompanyChangeReviewModal({ r, onClose }: { r: CompanyChangeReque
                 </tr>
               </thead>
               <tbody>
-                {r.changes.map((c) => (
+                {rows.map((c) => (
                   <tr key={c.key} className={TABLE_ROW}>
-                    <td className={`${TABLE_TD} text-slate-300`}>{FIELD_LABEL[c.key]}</td>
+                    <td className={`${TABLE_TD} text-slate-300`}>{c.label}</td>
                     <td className={`${TABLE_TD} text-slate-300`}>{c.before || '-'}</td>
-                    <td className={`${TABLE_TD} font-semibold text-amber-200`}>{c.after || '-'}</td>
+                    <td className={`${TABLE_TD} ${c.changed ? 'font-semibold text-amber-200' : 'text-slate-300'}`}>{c.after || '-'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <p className="text-sm tabular-nums text-slate-400">{`요청 ${r.requestedAt.replace('T', ' ').slice(0, 16)} · ${r.requestedBy}`}</p>
-          {rejecting && <Textarea label="반려 사유" value={note} onChange={(e) => setNote(e.target.value)} rows={3} />}
+          {rejecting && <Textarea label="반려 사유" maxLength={TEXT_MAX} value={note} onChange={(e) => setNote(e.target.value)} rows={3} />}
         </div>
       </div>
     </Modal>

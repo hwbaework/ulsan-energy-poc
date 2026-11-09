@@ -23,12 +23,7 @@ export function BackButton({ href, onClick, label = '뒤로' }: { href?: string;
   );
 }
 
-/** 상세·하위 화면 제목 — 왼쪽에 BackButton. 오른쪽에 '목록으로' 텍스트 버튼을 두지 않는다. */
+/** 메뉴 첫 화면 제목(기업 정보 · 설정 · 내 계정) — 메뉴에서 바로 여는 화면이라 뒤로 가기 없음. 상세 · 하위 화면은 제목 왼쪽에 BackButton 을 따로 둔다 */
 export function PageTitle({ title }: { title: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <BackButton />
-      <h1 className="text-xl font-bold text-white">{title}</h1>
-    </div>
-  );
+  return <h1 className="text-2xl font-bold text-white">{title}</h1>;
 }

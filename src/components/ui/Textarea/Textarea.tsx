@@ -9,24 +9,35 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 }
 
 const base =
-  'w-full rounded border bg-surface-dark px-3 py-2.5 text-sm text-white placeholder:text-accent/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 resize-y min-h-[100px]';
+  'w-full rounded border bg-surface-dark px-3 py-2.5 text-sm text-white placeholder:text-accent/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 resize-none min-h-[100px]'; // 드래그로 크기 안 바뀜(2026-11-09)
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ error, label, errorMessage, required, className, id, ...props }, ref) => {
+  ({ error, label, errorMessage, required, className, id, maxLength, value, ...props }, ref) => {
     const textareaId = id ?? label?.toLowerCase().replace(/\s+/g, '-');
+    // 글자 수 — maxLength 가 있으면 오른쪽에 "지금 / 최대"(2026-11-09)
+    const count = maxLength !== undefined ? `${String(value ?? '').length} / ${maxLength}` : null;
 
     return (
       <div className="space-y-1.5">
-        {label && (
-          <label htmlFor={textareaId} className="block text-sm font-medium text-accent">
-            {label}
-            {required && <span className="ml-0.5 text-semantic-red">*</span>}
-          </label>
+        {(label || count) && (
+          <div className="flex items-end justify-between gap-2">
+            {label ? (
+              <label htmlFor={textareaId} className="block text-sm font-medium text-accent">
+                {label}
+                {required && <span className="ml-0.5 text-semantic-red">*</span>}
+              </label>
+            ) : (
+              <span />
+            )}
+            {count && <span className="text-xs tabular-nums text-slate-400">{count}</span>}
+          </div>
         )}
         <textarea
           ref={ref}
           id={textareaId}
           className={cn(base, error ? 'border-semantic-red' : 'border-accent/30 hover:border-accent/50', className)}
+          maxLength={maxLength}
+          value={value}
           {...props}
         />
         {errorMessage && <p className="text-xs text-semantic-red">{errorMessage}</p>}

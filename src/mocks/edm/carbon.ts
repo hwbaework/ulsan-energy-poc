@@ -32,9 +32,9 @@ export interface VoluntaryMarket {
 }
 
 export const KRX_QUOTES: KrxQuote[] = [
-  { name: 'KAU24', last: 9120, change: -1.3, bid: 9100, ask: 9150 },
-  { name: 'KAU25', last: 8850, change: 0.8, bid: 8830, ask: 8880 },
-  { name: 'KCU24', last: 8400, change: -0.5, bid: 8380, ask: 8420 },
+  { name: 'KAU26', last: 30050, change: 0.17, bid: 30000, ask: 30050 },
+  { name: 'KAU27', last: 30400, change: 0.33, bid: 30350, ask: 30450 },
+  { name: 'KCU26', last: 29850, change: -0.17, bid: 29800, ask: 29900 },
 ];
 
 export const KAU_TREND = [

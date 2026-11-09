@@ -14,6 +14,7 @@ import { HOLIDAYS_SEED, type Holiday } from '@/lib/op-calendar';
 import { TARIFF_YEAR_SEED, cleanBook, type TariffYear, type TariffYearTable } from '@/lib/solar-sim';
 import './adminFixtures'; // 관리(ADMIN) 축 목업
 import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
+import { FC_CAPACITY_KW, ORC_CAPACITY_KW, fuelCellAt, fuelCellTodayKwh, orcAt, orcTodayKwh } from '@/lib/heat-plants';
 
 const NOW = '2026-09-15T10:00:00';
 
@@ -27,8 +28,8 @@ const PLANT_SPECS: Record<
   17513: { type: 'SOLAR', capacity: 33.92, status: 'ANOMALY', contract: 'SELF_CONSUMPTION' }, // 건호이엔씨 · 자가소비 (미조치 이상감지 1건)
   17514: { type: 'SOLAR', capacity: 429.44, status: 'NORMAL', contract: 'ONSITE', contracts: ['SELF_CONSUMPTION', 'ONSITE'], split: [{ kind: 'SELF_CONSUMPTION', capacityKw: 99.84 }, { kind: 'ONSITE', capacityKw: 329.6 }] }, // 한일튜브 · 자가소비(99.84)+PPA(329.6)
   17515: { type: 'SOLAR', capacity: 90.88, status: 'NORMAL', contract: 'SELF_CONSUMPTION' }, // 한길 · 자가소비
-  17601: { type: 'FUEL_CELL', capacity: 2000, status: 'NORMAL' }, // 연료전지 — 계약 유형 없음 (용량 미확인, 임시 2MW)
-  17602: { type: 'ORC', capacity: 500, status: 'NORMAL' }, // ORC — 계약 유형 없음 (용량 미확인, 임시)
+  17601: { type: 'FUEL_CELL', capacity: FC_CAPACITY_KW, status: 'NORMAL' }, // 연료전지 — 계약 유형 없음 · 39.6MW(사업계획서)
+  17602: { type: 'ORC', capacity: ORC_CAPACITY_KW, status: 'NORMAL' }, // ORC — 계약 유형 없음 · 180kW × 12대(사업계획서 p.45, 수령 태그 ORC#1~#12)
 };
 
 function inverter(n: number, capacity: number, ratio: number): LaseeMonitoringPlant['inverters'][number] {
@@ -58,7 +59,7 @@ const PLANT_ADDRESS: Record<number, string> = {
   17602: '울산 남구 사평로 119',
 };
 
-export const PLANTS: LaseeMonitoringPlant[] = LASEE_PLANTS.map((p, idx) => {
+export const PLANTS: LaseeMonitoringPlant[] = LASEE_PLANTS.map((p, idx): LaseeMonitoringPlant => {
   const spec = PLANT_SPECS[p.laseeId] ?? { type: 'SOLAR', capacity: 300, status: 'NORMAL', contract: 'SELF_CONSUMPTION' };
   const ratio = spec.status === 'MAINTENANCE' ? 0 : spec.status === 'WARNING' ? 0.42 : 0.68 + (idx % 3) * 0.06;
   const half = Math.round(spec.capacity / 2);
@@ -86,6 +87,13 @@ export const PLANTS: LaseeMonitoringPlant[] = LASEE_PLANTS.map((p, idx) => {
     },
     inverters: [inverter(1, half, ratio), inverter(2, spec.capacity - half, ratio)],
   };
+}).map((p) => {
+  // 연료전지 · ORC — 목록 · 지도의 현재 출력 · 금일 발전량을 상세 화면(heat-plants)과 같은 값으로
+  const now = new Date();
+  if (p.type === 'FUEL_CELL')
+    return { ...p, currentOutput: Math.round(fuelCellAt(now).reduce((s, u) => s + u.powerKw, 0)), dailyEnergy: fuelCellTodayKwh(now) };
+  if (p.type === 'ORC') return { ...p, currentOutput: Math.round(orcAt(now).grossKw), dailyEnergy: orcTodayKwh(now).gross };
+  return p;
 });
 
 registerMock(/^\/monitoring\/map\/plants$/, () => PLANTS);

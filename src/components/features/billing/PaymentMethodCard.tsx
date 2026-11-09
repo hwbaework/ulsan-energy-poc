@@ -29,7 +29,7 @@ const nextPayDate = () => {
 
 /**
  * 기업 정보 › 결제 수단 — 기업 카드 여러 장, 기본 카드가 매달 자동결제. 기업관리자만 등록 · 기본 지정 · 삭제, 소속 멤버는 보기만.
- * 카드 등록 = 토스페이먼츠 결제창(우리 화면엔 카드 입력 칸이 없다). 아래는 '결제하는 것' — 이용 중인 서비스 · 월 금액 · 다음 결제일
+ * 카드 등록 = 토스페이먼츠 결제창(우리 화면엔 카드 입력 칸이 없다). 아래는 '결제 항목' — 이용 중인 서비스 · 월 금액 · 다음 결제일
  */
 export function PaymentMethodCard({ companyId, canEdit }: { companyId: number; canEdit: boolean }) {
   useHydrateBilling();
@@ -67,7 +67,7 @@ export function PaymentMethodCard({ companyId, canEdit }: { companyId: number; c
     }
   };
 
-  // 결제하는 것 — 이 기업이 이용 중인 데이터. 매달 1일 기본 카드로 자동결제
+  // 결제 항목 — 이 기업이 이용 중인 데이터. 매달 1일 기본 카드로 자동결제
   const uses = useMemo(
     () =>
       trades
@@ -172,10 +172,10 @@ export function PaymentMethodCard({ companyId, canEdit }: { companyId: number; c
           emptyMessage={canEdit ? '등록된 카드 없음' : '등록된 카드 없음 · 기업관리자가 등록합니다'}
         />
 
-        {/* 결제하는 것 — 서비스마다 다음 결제일 */}
+        {/* 결제 항목 — 서비스마다 다음 결제일 */}
         <div>
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2 px-1">
-            <h4 className="text-base font-semibold text-white">{`결제하는 것 (${uses.length})`}</h4>
+            <h4 className="text-base font-semibold text-white">{`결제 항목 (${uses.length})`}</h4>
             <p className="text-sm text-slate-300 tabular-nums">
               매달 <b className="text-white">{won(monthly)}</b>
             </p>

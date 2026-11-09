@@ -23,6 +23,7 @@ import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/u
 import { contractDisplayName, expandByContract } from '@/lib/contract-plants';
 import { ConnectionBanner, InverterDetailSection } from '@/components/features/monitoring/InverterPanels';
 import { PpaOpInfo } from '@/components/features/monitoring/PpaSchedule';
+import { FuelCellDetail, OrcDetail } from '@/components/features/monitoring/HeatPlantPanels';
 import { useHydrateTradingPoc, useTradingPocStore } from '@/stores/useTradingPocStore';
 
 
@@ -307,11 +308,16 @@ export default function PlantDetailPage() {
         </div>
       </div>
 
+      {/* 연료전지 · ORC — 인버터가 없어 계측 구조가 다르다(호기 · 모듈 · 열 계통) */}
+      {plant.type === 'FUEL_CELL' && <FuelCellDetail />}
+      {plant.type === 'ORC' && <OrcDetail />}
+
       {/* Connection Status Banner (LASEE plants only) */}
-      {hasLasee && plant.connectionStatus && (
+      {plant.type === 'SOLAR' && hasLasee && plant.connectionStatus && (
         <ConnectionBanner status={plant.connectionStatus} plantId={numId} />
       )}
 
+      {plant.type === 'SOLAR' && (<>
       {/* KPI Row */}
       {hasLasee ? (
         /* 계약별로 행을 나눈다 — 자가소비 / onsite 각각 KPI 한 줄. 출력·발전량은 계약 용량 비율로 배분(계약별 계측 없음) */
@@ -657,6 +663,7 @@ export default function PlantDetailPage() {
           </SectionCard>
         </div>
       )}
+      </>)}
 
     </div>
   );

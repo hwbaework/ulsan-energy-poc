@@ -497,6 +497,11 @@ export function GhgFactorSettings({ readOnly = false }: { readOnly?: boolean } =
   const factors = useGhgFactorList();
   const { commit, pending } = useFactorSave();
   const [editId, setEditId] = useState<string | null>(null);
+  // 보기만(배출계수 관리) — 줄을 누르면 상세(출처 확인)
+  const [viewId, setViewId] = useState<string | null>(null);
+  const viewing = factors.find((f) => f.id === viewId);
+  const rowProps = (f: GhgFactor) =>
+    readOnly ? { className: cn(TABLE_ROW, 'cursor-pointer hover:bg-white/[0.03]'), onClick: () => setViewId(f.id) } : { className: TABLE_ROW };
   // 등록 · 등록 취소 뒤 팝업 칸을 저장된 최근 값으로 다시 채우려고 저장할 때마다 올린다(팝업 key)
   const [saveNo, setSaveNo] = useState(0);
   // 계수 추가 — 연료 · 열 표면 고정연소 / 이동연소, 전기 표면 외부 전기
@@ -553,7 +558,7 @@ export function GhgFactorSettings({ readOnly = false }: { readOnly?: boolean } =
               {factors
                 .filter((f) => !isElec(f.category))
                 .map((f) => (
-                  <tr key={f.id} className={TABLE_ROW}>
+                  <tr key={f.id} {...rowProps(f)}>
                     <td className={cn(TABLE_TD, 'px-3')}>{labelOf(f.category)}</td>
                     <td className={cn(TABLE_TD, 'px-3 text-white')}>{f.fuel}</td>
                     <td className={cn(TABLE_TD, 'px-3')}>{f.unit}</td>
@@ -598,7 +603,7 @@ export function GhgFactorSettings({ readOnly = false }: { readOnly?: boolean } =
               {factors
                 .filter((f) => isElec(f.category))
                 .map((f) => (
-                  <tr key={f.id} className={TABLE_ROW}>
+                  <tr key={f.id} {...rowProps(f)}>
                     <td className={cn(TABLE_TD, 'px-3')}>{labelOf(f.category)}</td>
                     <td className={cn(TABLE_TD, 'px-3 text-white')}>{f.fuel}</td>
                     <td className={cn(TABLE_TD, 'px-3')}>{f.unit}</td>
@@ -610,6 +615,8 @@ export function GhgFactorSettings({ readOnly = false }: { readOnly?: boolean } =
           </table>
         </div>
       </SectionCard>
+
+      {viewing && <GhgFactorView key={viewing.id} factor={viewing} onClose={() => setViewId(null)} />}
 
       {editing && (
         <GhgFactorModal
@@ -807,6 +814,155 @@ function GhgFactorModal({
         confirmLabel="삭제"
         variant="danger"
       />
+    </Modal>
+  );
+}
+
+/** 보기 칸 — 이름 + 값(입력 칸과 같은 모양, 고칠 수 없음) */
+function ViewBox({ label, value, className }: { label: string; value: string; className?: string }) {
+  return (
+    <div className={cn('block min-w-0', className)}>
+      <span className="mb-1.5 block whitespace-nowrap text-sm text-slate-300">{label}</span>
+      <div className={cn(FIELD, 'flex items-center truncate font-semibold')} title={value}>
+        {value || '-'}
+      </div>
+    </div>
+  );
+}
+
+/** 상세 — 배출계수 관리(보기만)에서 줄을 누르면. 지금 값 · 적용년도 · 출처 + 연도별 계수(출처 포함), [닫기]만 */
+function GhgFactorView({ factor, onClose }: { factor: GhgFactor; onClose: () => void }) {
+  const versions = versionsOf(factor);
+  const [page, setPage] = useState(0);
+  const pages = Math.max(1, Math.ceil(versions.length / LIST_PAGE));
+  const pageNow = Math.min(page, pages - 1);
+  const fields = numsFor(factor.category);
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={isElec(factor.category) ? '전기 배출계수 상세' : '배출원 계수 상세'}
+      size="2xl"
+      footer={
+        <Button variant="cancel" size="sm" onClick={onClose}>
+          닫기
+        </Button>
+      }
+    >
+      <div className="space-y-4">
+        {/* 위 4칸 · 아래 4칸 · 적용년도 · 출처 — 변경 팝업과 같은 자리 */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <ViewBox label="배출활동" value={labelOf(factor.category)} />
+          <ViewBox label="연료 · 에너지" value={factor.fuel} />
+          <ViewBox label="단위" value={factor.unit} />
+          {GHG_NUMS.map((k) => (
+            <ViewBox key={k} label={headOf(factor.category, k)} value={fields.includes(k) ? shown(factor[k]) : '-'} />
+          ))}
+          <ViewBox label="적용년도 (년)" value={factor.asOf ?? ''} />
+          <ViewBox label="출처" value={factor.basis} className="col-span-1 sm:col-span-3" />
+        </div>
+
+        <p className="pt-2 text-sm font-medium text-white">연도별 계수</p>
+        <div className="overflow-x-auto">
+          <table className={cn(TABLE, 'min-w-[1000px] tabular-nums [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap')}>
+            <thead>
+              <tr className={TABLE_HEAD_ROW}>
+                <th className={cn(TABLE_TH, 'px-3')}>적용년도 (년)</th>
+                <th className={cn(TABLE_TH, 'px-3')}>배출활동</th>
+                <th className={cn(TABLE_TH, 'px-3')}>연료 · 에너지</th>
+                <th className={cn(TABLE_TH, 'px-3')}>단위</th>
+                {GHG_NUMS.map((k) => (
+                  <th key={k} className={cn(TABLE_TH, 'px-3')}>
+                    {headOf(factor.category, k)}
+                  </th>
+                ))}
+                <th className={cn(TABLE_TH, 'px-3')}>출처</th>
+              </tr>
+            </thead>
+            <tbody>
+              {versions.slice(pageNow * LIST_PAGE, pageNow * LIST_PAGE + LIST_PAGE).map((v) => (
+                <tr key={v.asOf} className={TABLE_ROW}>
+                  <td className={cn(TABLE_TD, 'px-3 font-semibold text-white')}>{v.asOf || '-'}</td>
+                  <td className={cn(TABLE_TD, 'px-3')}>{labelOf(v.category ?? factor.category)}</td>
+                  <td className={cn(TABLE_TD, 'px-3 text-white')}>{v.fuel ?? factor.fuel}</td>
+                  <td className={cn(TABLE_TD, 'px-3')}>{v.unit ?? factor.unit}</td>
+                  {GHG_NUMS.map((k) => (
+                    <td key={k} className={cn(TABLE_TD, 'px-3 text-white')}>
+                      {numsFor(v.category ?? factor.category).includes(k) ? shown(v[k]) : '-'}
+                    </td>
+                  ))}
+                  <td className={cn(TABLE_TD, 'max-w-[320px] truncate px-3')} title={v.basis}>
+                    {v.basis || '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {versions.length > LIST_PAGE && (
+          <Pagination page={pageNow} totalPages={pages} totalElements={versions.length} onPageChange={setPage} className="mt-3" />
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+/** 전력배출계수 상세 — 배출계수 관리(보기만)에서 감축량 계수 › 전력배출계수 줄을 누르면. 지금 값 · 적용년도 · 출처 + 연도별 계수, [닫기]만 */
+export function Co2FactorView({ onClose }: { onClose: () => void }) {
+  const { data: energy } = useEnergySettings();
+  const byYear = parseFactorByYear(energy?.[CO2_BY_YEAR_KEY], YEARS, energy?.CO2_EMISSION_FACTOR ? Number(energy.CO2_EMISSION_FACTOR) : undefined);
+  const years = yearsOf(byYear);
+  const sources = parseSources(energy?.[CO2_SOURCE_BY_YEAR_KEY], years);
+  const field = BASE_FIELDS.find((f) => f.byYear)!;
+  const latest = years[0] ?? '';
+  const [page, setPage] = useState(0);
+  const pages = Math.max(1, Math.ceil(years.length / LIST_PAGE));
+  const pageNow = Math.min(page, pages - 1);
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="전력배출계수 상세"
+      size="lg"
+      footer={
+        <Button variant="cancel" size="sm" onClick={onClose}>
+          닫기
+        </Button>
+      }
+    >
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <ViewBox label="적용년도 (년)" value={latest} />
+          <ViewBox label={`값 (${field.unit})`} value={latest ? String(byYear[latest]) : ''} />
+          <ViewBox label="출처" value={(latest && sources[latest]) || ''} className="col-span-2" />
+        </div>
+
+        <p className="pt-2 text-sm font-medium text-white">연도별 계수</p>
+        <table className={cn(TABLE, 'tabular-nums')}>
+          <thead>
+            <tr className={TABLE_HEAD_ROW}>
+              <th className={TABLE_TH}>적용년도 (년)</th>
+              <th className={TABLE_TH}>{`값 (${field.unit})`}</th>
+              <th className={TABLE_TH}>출처</th>
+            </tr>
+          </thead>
+          <tbody>
+            {years.slice(pageNow * LIST_PAGE, pageNow * LIST_PAGE + LIST_PAGE).map((y) => (
+              <tr key={y} className={TABLE_ROW}>
+                <td className={cn(TABLE_TD, 'font-semibold text-white')}>{y}</td>
+                <td className={cn(TABLE_TD, 'text-white')}>{byYear[y]}</td>
+                <td className={cn(TABLE_TD, 'max-w-[320px] truncate')} title={sources[y]}>
+                  {sources[y] || '-'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {years.length > LIST_PAGE && (
+          <Pagination page={pageNow} totalPages={pages} totalElements={years.length} onPageChange={setPage} className="mt-3" />
+        )}
+      </div>
     </Modal>
   );
 }

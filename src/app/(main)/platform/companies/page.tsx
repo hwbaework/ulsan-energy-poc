@@ -6,13 +6,13 @@ import { Button } from '@/components/ui/Button';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { DataTable, type Column, TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features/SectionCard';
 import { useCompanies, useCreateCompany, useUpdateCompany, useDeleteCompany } from '@/hooks/platform/useCompanies';
 import { useUsers } from '@/hooks/platform/useUsers';
 import { useToastStore } from '@/stores/useToastStore';
-import { Badge } from '@/components/ui/Badge';
 import { useCompanyChangeStore, useHydrateCompanyChange, type CompanyChangeRequest } from '@/stores/useCompanyChangeStore';
 import { CompanyChangeReviewModal } from '@/components/features/org/CompanyChangeApprovals';
 const BIZ_NUM_RE = /^\d{3}-\d{2}-\d{5}$/;
@@ -45,6 +45,8 @@ interface FormErrors {
   bizType?: string;
   bizCategory?: string;
   address?: string;
+  /** 사업자등록증 — 기업 등록 때 필수(등록증으로 기업을 확인한다, 2026-11-09) */
+  license?: string;
 }
 
 /** 사업자등록증에 적힌 칸은 필수(회원가입과 같음), 설립일 · 연락처만 선택 */
@@ -168,35 +170,25 @@ export default function CompaniesPage() {
   const filtered = companies.filter((c) => c.name.includes(search) || c.representative.includes(search));
 
   const columns: Column<CompanyRow>[] = [
+    // 칸 하나에 값 하나 — 기업명 · 사업자등록번호는 따로, 변경 요청은 뒤쪽 버튼(2026-11-09)
     {
       key: 'name',
       header: '기업',
-      width: '240px',
+      width: '200px',
       render: (row) => (
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
             <Building2 size={14} className="text-blue-400" />
           </div>
-          <div className="min-w-0">
-            <p className="flex items-center gap-2 text-sm font-medium text-white">
-              <span className="truncate">{row.name}</span>
-              {pendingChange(row.id) && (
-                <button
-                  type="button"
-                  title="검토"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setReviewChange(changeReqs.find((r) => r.companyId === row.id && r.status === 'PENDING') ?? null);
-                  }}
-                >
-                  <Badge variant="warning">변경 확인 중</Badge>
-                </button>
-              )}
-            </p>
-            <p className="text-xs text-slate-500 tabular-nums">{row.businessNumber}</p>
-          </div>
+          <span className="truncate text-sm font-medium text-white">{row.name}</span>
         </div>
       ),
+    },
+    {
+      key: 'businessNumber',
+      header: '사업자등록번호',
+      width: '140px',
+      render: (row) => <span className="text-sm text-slate-300 tabular-nums">{row.businessNumber}</span>,
     },
     {
       key: 'representative',
@@ -221,6 +213,27 @@ export default function CompaniesPage() {
       header: '등록일',
       width: '120px',
       render: (row) => <span className="text-sm text-slate-500 tabular-nums">{row.createdAt}</span>,
+    },
+    {
+      // 기업 정보 변경 요청 — 확인 안 한 요청이 있으면 검토 버튼(승인 관리와 같은 창), 없으면 빈 값
+      key: 'change' as keyof CompanyRow,
+      header: '변경 요청',
+      width: '100px',
+      align: 'center',
+      render: (row) =>
+        pendingChange(row.id) ? (
+          <Button
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setReviewChange(changeReqs.find((r) => r.companyId === row.id && r.status === 'PENDING') ?? null);
+            }}
+          >
+            검토
+          </Button>
+        ) : (
+          <span className="text-slate-500">-</span>
+        ),
     },
     {
       key: 'id' as keyof CompanyRow,
@@ -376,7 +389,9 @@ export default function CompaniesPage() {
             error={addErrors.address}
           />
           <div>
-            <p className="text-sm font-medium text-accent mb-1.5">사업자등록증 (선택)</p>
+            <p className="text-sm font-medium text-accent mb-1.5">
+              사업자등록증<span className="ml-0.5 text-semantic-red">*</span>
+            </p>
             <input
               ref={addFileRef}
               type="file"
@@ -384,7 +399,10 @@ export default function CompaniesPage() {
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) setAddLicenseName(f.name);
+                if (f) {
+                  setAddLicenseName(f.name);
+                  setAddErrors((prev) => ({ ...prev, license: undefined }));
+                }
                 e.target.value = '';
               }}
             />
@@ -394,6 +412,7 @@ export default function CompaniesPage() {
               </Button>
               {addLicenseName && <span className="text-sm text-slate-300">{addLicenseName}</span>}
             </div>
+            {addErrors.license && <p className="mt-1.5 text-xs text-semantic-red">{addErrors.license}</p>}
           </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
             <Button
@@ -413,6 +432,7 @@ export default function CompaniesPage() {
                   bizCategory: formBizCategory,
                   address: formAddress,
                 });
+                if (!addLicenseName) errs.license = '사업자등록증을 올려 주세요';
                 if (Object.keys(errs).length > 0) {
                   setAddErrors(errs);
                   return;
@@ -441,6 +461,7 @@ export default function CompaniesPage() {
                       setFormFoundedAt('');
                       setFormPhone('');
                       setFormAddress('');
+                      setAddLicenseName(null);
                     },
                     onError: (err) => addToast('error', `등록 실패: ${(err as Error).message}`),
                   },
@@ -535,17 +556,8 @@ export default function CompaniesPage() {
                 </div>
               );
             })()}
+            {/* 수정은 목록의 연필 아이콘으로만 — 상세는 보기만(2026-11-09) */}
             <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  setDetailRow(null);
-                  openEdit(detailRow);
-                }}
-              >
-                <Pencil size={14} className="mr-1.5" /> 수정
-              </Button>
               <Button variant="secondary" size="sm" onClick={() => setDetailRow(null)}>
                 닫기
               </Button>
@@ -687,37 +699,26 @@ export default function CompaniesPage() {
         )}
       </Modal>
 
-      {/* 삭제 확인 모달 */}
-      <Modal open={!!deleteRow} onClose={() => setDeleteRow(null)} title="기업 삭제" size="sm">
-        {deleteRow && (
-          <div className="space-y-4">
-            <p className="text-sm text-slate-300">
-              <span className="font-medium text-white">{deleteRow.name}</span>을(를) 정말 삭제하시겠습니까?
-            </p>
-            <p className="text-xs text-slate-500">이 작업은 되돌릴 수 없으며, 관련 멤버의 소속 정보도 해제됩니다.</p>
-            <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
-              <Button variant="secondary" onClick={() => setDeleteRow(null)}>
-                취소
-              </Button>
-              <Button
-                variant="danger"
-                disabled={deleteCompany.isPending}
-                onClick={() => {
-                  deleteCompany.mutate(deleteRow.id, {
-                    onSuccess: () => {
-                      addToast('success', `${deleteRow.name} 기업이 삭제되었습니다`);
-                      setDeleteRow(null);
-                    },
-                    onError: (err) => addToast('error', `삭제 실패: ${(err as Error).message}`),
-                  });
-                }}
-              >
-                {deleteCompany.isPending ? '삭제 중...' : '삭제'}
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
+      {/* 삭제 확인 — 공통 확인창(ConfirmDialog), 확인 버튼 '삭제'(2026-11-09) */}
+      <ConfirmDialog
+        open={!!deleteRow}
+        onClose={() => setDeleteRow(null)}
+        onConfirm={() => {
+          if (!deleteRow) return;
+          deleteCompany.mutate(deleteRow.id, {
+            onSuccess: () => {
+              addToast('success', `${deleteRow.name} 기업이 삭제되었습니다`);
+              setDeleteRow(null);
+            },
+            onError: (err) => addToast('error', `삭제 실패: ${(err as Error).message}`),
+          });
+        }}
+        title="기업 삭제"
+        message={`${deleteRow?.name ?? ''} 기업을 삭제합니다.`}
+        confirmLabel="삭제"
+        variant="danger"
+        loading={deleteCompany.isPending}
+      />
     </div>
   );
 }

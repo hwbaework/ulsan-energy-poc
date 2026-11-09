@@ -29,7 +29,7 @@ import { fitPdf } from '@/lib/utils/fitPdf';
 /* ── 공통 ── */
 const cell = (v: ReactNode, cls = 'text-slate-300') => <span className={`text-sm ${cls}`}>{v}</span>;
 
-function Header({ title, actions }: { title: string; actions?: ReactNode }) {
+export function CarbonHeader({ title, actions }: { title: string; actions?: ReactNode }) {
   return (
     <div className="space-y-6">
       <Breadcrumb
@@ -55,7 +55,7 @@ function OutLink({ href, label }: { href: string; label: string }) {
 }
 
 /** 공식 사이트 — 관리자가 [수정]으로 이름 · 주소를 고치고 더하고 지운다(기본은 코드의 줄). 누르면 새 탭 */
-function SiteLinks({ id, rows }: { id: string; rows: string[][] }) {
+export function SiteLinks({ id, rows }: { id: string; rows: string[][] }) {
   return (
     <EditTable
       id={id}
@@ -853,7 +853,7 @@ export function CarbonInfoScreen() {
   const widths = ['22%', undefined, '28%'];
   return (
     <div className="space-y-6">
-      <Header title="탄소배출권 정보" />
+      <CarbonHeader title="탄소배출권 정보" />
       <EditTable
         screen="info"
         id="items"
@@ -894,55 +894,14 @@ export function CarbonInfoScreen() {
   );
 }
 
-/* ══ 3.2.2 탄소배출권 KRX 거래 — 시세는 KRX 화면으로(재게시 금지) ══ */
-export function CarbonKrxScreen() {
-  return (
-    <div className="space-y-6">
-      <Header title="탄소배출권 KRX 거래" />
-      <EditTable
-        screen="krx"
-        id="hours"
-        title="매매시간"
-        head={['구분', '시간']}
-        rows={[
-          ['호가접수', '09:00 ~ 12:00'],
-          ['시가 단일가', '10:00'],
-          ['복수가격 매매', '10:00 ~ 11:30'],
-          ['종가 단일가', '12:00'],
-          ['휴장', '토 · 일 · 공휴일 · 근로자의 날 · 12-31'],
-        ]}
-      />
-      <EditTable
-        screen="krx"
-        id="krxMembers"
-        title="KRX 회원 구분"
-        head={['회원 구분', '자격 대상', '거래 범위']}
-        rows={[
-          ['일반회원', '할당대상업체 · 시장조성자 등', 'KAU · KCU · KOC'],
-          ['외부사업 감축량 전문회원', '법인인 외부사업 사업자', 'KOC 자기매매'],
-          ['거래중개회원', '배출권거래중개회사(증권사)', '위탁 중개'],
-        ]}
-      />
-      <AddedSections screen="krx" />
-      <SiteLinks
-        id="sites-krx"
-        rows={[
-          ['KRX 시세조회', LINKS.krxPrice],
-          ['KRX 공지사항', LINKS.krxBoard],
-          ['KRX 매매거래시간', LINKS.krxHours],
-          ['KRX 회원자격요건', LINKS.krxMember],
-        ]}
-      />
-    </div>
-  );
-}
+/* ══ 3.2.2 탄소배출권 KRX 거래 — 시세판 · 시세 그래프는 KrxQuoteScreen.tsx (시세 값은 데모, src/lib/krx-quotes.ts) ══ */
 
 /* ══ 3.2.3 탄소배출권 장외거래 — 거래할 수 있는 업체 명단(엑셀) + 배출권(KAU) 장외 거래 신고서 서식.
    배출권 거래는 시장 참여자만(법 제19조 · 시행령 제31조: 할당대상업체 · 시장조성자 · 중개회사 · 금융기관 등) — 전기사용자 기업은 해당 없음 ══ */
 export function CarbonOtcScreen() {
   return (
     <div className="space-y-6">
-      <Header title="탄소배출권 장외거래" />
+      <CarbonHeader title="탄소배출권 장외거래" />
       <FormBoard board="otc" title="문서" forms={[CARBON_FORMS.targetList, CARBON_FORMS.otcReport]} />
       {/* 업체 명단(엑셀)의 원본 — 할당대상업체 + 관리업체 목록 */}
       <SiteLinks id="sites-otc" rows={[['명세서 배출량 통계', LINKS.girStatement]]} />
@@ -955,7 +914,7 @@ export function CarbonOtcScreen() {
 export function CarbonContractScreen() {
   return (
     <div className="space-y-6">
-      <Header title="탄소배출권 계약관리" />
+      <CarbonHeader title="탄소배출권 계약관리" />
       <FormBoard
         board="contract"
         title="문서"
@@ -980,7 +939,7 @@ export function CarbonOffsetScreen() {
   const widths2 = ['22%', undefined];
   return (
     <div className="space-y-6">
-      <Header title="외부감축사업 정보" />
+      <CarbonHeader title="외부감축사업 정보" />
       <EditTable
         screen="offset"
         id="offset-s-terms"
@@ -1164,7 +1123,7 @@ export function CarbonOffsetScreen() {
 export function CarbonOffsetReportScreen() {
   return (
     <div className="space-y-6">
-      <Header title="외부감축사업 보고서" />
+      <CarbonHeader title="외부감축사업 보고서" />
       <FormBoard board="offsetReport" title="문서" forms={[CARBON_FORMS.method, ...OFFSET_FORMS]} />
     </div>
   );

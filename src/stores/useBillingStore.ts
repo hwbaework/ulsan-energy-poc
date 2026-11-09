@@ -40,7 +40,7 @@ export interface Charge {
   by: string;
 }
 
-const SEED_VERSION = 3; // 3 — 토스가 주는 값(가린 번호 · 신용/체크 · 개인/법인). 2 — 기업 카드 여러 장 · 기본 카드
+const SEED_VERSION = 4; // 4 — 브라우저에 남은 삭제 상태를 버리고 한일튜브 두 장(기본으로 · 서비스별 결제 카드가 보이게) 복구. 3 — 토스가 주는 값(가린 번호 · 신용/체크 · 개인/법인). 2 — 기업 카드 여러 장 · 기본 카드
 const at = (d: string) => `${d}T09:00:00`;
 const BIN: Record<string, string> = { 신한: '45181500', KB국민: '94110300', 하나: '46179400', 삼성: '53653900', 현대: '43301200' };
 const seedCard = (companyId: number, n: number, cardCompany: string, last4: string, isDefault: boolean, date: string, by: string): CompanyCard => ({

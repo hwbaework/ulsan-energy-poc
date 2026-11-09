@@ -4,7 +4,7 @@
 // 입력 없음: 발전 데이터를 가져와 보여 주고 내려받기만. 관리자는 전체 기업(기업별로 나눠), 기업 계정은 자기 회사만.
 // 메뉴 이름은 그대로(배출시설 정보 · 배출원 현황 · 배출계수 관리 · 배출량 산정 · 명세서 · 보고서), 내용만 감축량 기준.
 
-import { GhgFactorSettings } from '@/components/features/settings/FactorSettings';
+import { Co2FactorView, GhgFactorSettings } from '@/components/features/settings/FactorSettings';
 import { useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -587,6 +587,8 @@ export function GhgSourcesScreen() {
 export function GhgFactorsScreen() {
   const role = useGhgRole();
   const fx = useGhgFactorValues();
+  // 전력배출계수 상세(출처) 팝업
+  const [co2View, setCo2View] = useState(false);
   const list = [
     {
       key: 'co2',
@@ -630,9 +632,17 @@ export function GhgFactorsScreen() {
       />
       <SectionCard title="감축량 계수" noPadding>
         <div className="overflow-x-auto [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
-          <DataTable data={list} columns={cols} rowKey={(f) => f.key} />
+          {/* 전력배출계수 줄만 누르면 상세(출처 확인) */}
+          <DataTable
+            data={list}
+            columns={cols}
+            rowKey={(f) => f.key}
+            onRowClick={(f) => f.key === 'co2' && setCo2View(true)}
+            rowClassName={(f) => (f.key === 'co2' ? '' : 'cursor-default hover:bg-transparent')}
+          />
         </div>
       </SectionCard>
+      {co2View && <Co2FactorView onClose={() => setCo2View(false)} />}
       {/* 배출원 계수 — 관리 › 에너지 설정의 표 그대로(보기만) */}
       <GhgFactorSettings readOnly />
     </div>

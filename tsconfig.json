@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "skipLibCheck": true,
     "moduleResolution": "bundler",
@@ -16,7 +20,9 @@
     "noUncheckedIndexedAccess": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ]
     },
     "plugins": [
       {
@@ -28,6 +34,18 @@
     "esModuleInterop": true,
     "resolveJsonModule": true
   },
-  "include": ["next-env.d.ts", "src", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "vitest.config.ts", "playwright.config.ts"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".next-3031/types/**/*.ts",
+    ".next/types/**/*.ts",
+    "next-env.d.ts",
+    "src",
+    ".next-build/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "vitest.config.ts",
+    "playwright.config.ts"
+  ]
 }
