@@ -282,6 +282,7 @@ const GNB_ITEMS: GnbItem[] = [
       { to: '/org', icon: Building2, label: '기업 정보', section: '설정', end: true },
       { to: '/org/settings', icon: Settings, label: '설정', section: '설정' },
       { to: '/org/profile', icon: User, label: '내 계정', section: '설정' },
+      { to: '/platform/notification-settings', icon: Bell, label: '알림 설정', section: '시스템' }, // 계정마다 받을 알림(2026-11-09)
     ],
   },
   /* ══ ⑤ 관리 ADMIN — WBS 4.x (설정은 공통, 회원·운영·시스템은 관리자) ══ */
@@ -298,8 +299,6 @@ const GNB_ITEMS: GnbItem[] = [
         { to: '/platform/companies', icon: Building2, label: '기업 관리', section: '회원' }, // 4.2.1
         { to: '/platform/users', icon: Users, label: '회원 관리', section: '회원' }, // 4.2.2
         { to: '/platform/roles', icon: ShieldCheck, label: '역할·권한', section: '회원' }, // 4.2.3
-        { to: '/platform/approvals', icon: ClipboardCheck, label: '승인 관리', section: '운영' }, // 4.3.1
-        { to: '/platform/trading-approvals', icon: ShieldCheck, label: '거래 승인', section: '운영' }, // 4.3.2
         { to: '/platform/notification-settings', icon: Bell, label: '알림 설정', section: '시스템' }, // 4.4.1
         { to: '/platform/energy-settings', icon: Calculator, label: '에너지 설정', section: '시스템' }, // 한전 요금표 · 배출계수 → 무료진단
     ],
@@ -967,9 +966,21 @@ function getNotifLink(n: { type: string; link?: string }, persona: Persona): str
   }
   // link 필드가 없는 알림 — 타입 prefix 폴백 (거래/계약은 페르소나 인지)
   const t = n.type;
+  // 알림 항목표(2026-11-09, src/lib/notification-catalog.ts) — link 가 없을 때 종류 키로
+  if (t === 'RTU_POWER_OFF' || t === 'TYPHOON_WARNING') return '/monitoring/anomalies'; // 이상 감지 목록으로 들어오는 사건
+  if (t.startsWith('SAFETY_')) return '/control/safety';
+  if (t === 'SIGNUP_MEMBER') return isSpcLike ? '/platform/users' : null;
+  if (t === 'SIGNUP_COMPANY' || t === 'COMPANY_CHANGE') return isSpcLike ? '/platform/companies' : null;
+  if (t === 'DOCUMENT') return '/platform/ppa/documents';
+  if (t === 'EDATA_CONSENT') return '/e-data/catalog';
+  if (t === 'EDATA_PAYMENT_FAILED') return '/org';
+  if (t === 'EDATA_SETTLEMENT' || t === 'EDATA_PAYOUT') return '/e-data/trading/settlement';
+  if (t.startsWith('EDATA_API')) return '/e-data/api-hub';
+  if (t.startsWith('EDATA')) return '/e-data/trading';
+  if (t === 'INVOICE' || t === 'TAX_INVOICE') return settlement;
   if (t.startsWith('ANOMALY') || t.startsWith('DETECTION') || t.startsWith('OPERATOR') || t === 'SUPPLY_DEMAND_ALERT')
     return '/monitoring/anomalies';
-  if (t.startsWith('PPA_CONTRACT_CHANGE') || t.startsWith('PPA_GENERATOR_APPROVAL')) return changes;
+  if (t.startsWith('PPA_CONTRACT_CHANGE') || t.startsWith('PPA_CONTRACT_TERMINATION') || t.startsWith('PPA_GENERATOR_APPROVAL')) return changes;
   if (t === 'CONTRACT_SIGNED' || t.startsWith('PPA_CONTRACT'))
     return myContracts;
   if (t.startsWith('SETTLEMENT') || t === 'INVOICE_ISSUED' || t === 'INVOICE_PAID') return settlement;

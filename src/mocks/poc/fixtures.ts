@@ -3,6 +3,7 @@
  * 나머지 엔드포인트는 라우터의 기본 빈 응답으로 처리된다.
  */
 import { registerMock, pageOf } from './registry';
+import { NOTIFICATION_CATALOG } from '@/lib/notification-catalog';
 import { LASEE_PLANTS } from '@/constants/plant-mapping';
 import { useAuthStore } from '@/stores/useAuthStore';
 import type { LaseeMonitoringPlant } from '@/api/monitoring/monitoring';
@@ -241,37 +242,33 @@ registerMock(/^\/consumer\/sites\/(\d+)$/, ({ match }) => SITES.find((s) => s.id
 /* ── 공통 ─────────────────────────────────────────────── */
 registerMock(/^\/me$/, () => useAuthStore.getState().user);
 registerMock(/^\/me\/menus$/, () => []);
-/* ── 알림 항목(알림 설정 카탈로그) — 이름은 메뉴명 그대로. 그 메뉴에 새로 확인할 일이 생기면 알린다.
- *    통신오류는 이상감지에 포함(이상 = 등급 정상 아님 또는 통신오류). 웹 알림/이메일 설정은 메모리에 반영 ── */
-const NOTIFICATION_EVENTS = [
-  // 통합관제
-  { eventKey: 'ANOMALY', label: '이상감지 관리', domain: '통합관제' },
-  // RE100 — 신청·계약·정산·청구·세금계산서가 생기는 메뉴 (하위 메뉴는 상위 › 하위)
-  { eventKey: 'TRADING_REQUEST', label: '거래 신청', domain: 'RE100' },
-  { eventKey: 'CONTRACT', label: '내 계약', domain: 'RE100' },
-  { eventKey: 'SETTLEMENT', label: '수익·정산 › 정산', domain: 'RE100' },
-  { eventKey: 'PAYMENT', label: '수익·정산 › 수금·지급', domain: 'RE100' },
-  { eventKey: 'INVOICE', label: '수익·정산 › 청구서', domain: 'RE100' },
-  { eventKey: 'TAX_INVOICE', label: '수익·정산 › 세금계산서', domain: 'RE100' },
-  // E-데이터마켓 — 등록/신청·거래·정산·계약이 생기는 메뉴
-  { eventKey: 'EDATA_CATALOG', label: '데이터 마켓플레이스 › 데이터 등록/신청', domain: 'E-데이터마켓' },
-  { eventKey: 'EDATA_TRADING', label: '데이터 마켓플레이스 › 거래 현황', domain: 'E-데이터마켓' },
-  { eventKey: 'EDATA_SETTLEMENT', label: '데이터 마켓플레이스 › 정산', domain: 'E-데이터마켓' },
-  { eventKey: 'CARBON_OTC', label: '카본 마켓플레이스 › 탄소배출권 장외거래', domain: 'E-데이터마켓' },
-  { eventKey: 'CARBON_ETRS', label: '카본 마켓플레이스 › 탄소배출권 계약관리', domain: 'E-데이터마켓' },
-  // 관리
-  { eventKey: 'APPROVAL', label: '승인 관리', domain: '관리' },
-  { eventKey: 'TRADING_APPROVAL', label: '거래 승인', domain: '관리' },
-];
-// 기본값: 웹 알림 전부 켬 · 이메일은 즉시 대응이 필요한 것만
-const EMAIL_DEFAULT_ON = new Set(['ANOMALY', 'APPROVAL', 'TRADING_APPROVAL', 'EDATA_CATALOG']);
-const NOTIFICATION_SETTINGS = NOTIFICATION_EVENTS.map((e) => ({ eventKey: e.eventKey, inAppEnabled: true, emailEnabled: EMAIL_DEFAULT_ON.has(e.eventKey) }));
+/* ── 알림 항목표 — src/lib/notification-catalog.ts 한 곳(개발팀 알림 기획 답변 2026-11-09). 웹 알림/이메일 설정은 메모리에 반영 ── */
+const NOTIFICATION_EVENTS = NOTIFICATION_CATALOG.map((e) => ({
+  eventKey: e.key,
+  label: e.label,
+  domain: e.domain,
+  condition: e.condition,
+  receivers: e.receivers,
+  go: e.go,
+  resolve: e.resolve,
+  adminOnly: !!e.adminOnly,
+}));
+// 기본값: 웹 알림 전부 켬 · 이메일은 바로 처리해야 하는 것(설비 알림 · 거래 신청 · 가입 신청 · 자동결제 실패)만
+// 저장값은 계정마다(이 아이디의 설정) — 사용자 id 로 나눠 메모리에
+const defaultNotificationSettings = () => NOTIFICATION_CATALOG.map((e) => ({ eventKey: e.key, inAppEnabled: true, emailEnabled: !!e.emailDefault }));
+const NOTIFICATION_SETTINGS_BY_USER: Record<number, { eventKey: string; inAppEnabled: boolean; emailEnabled: boolean }[]> = {};
+const settingsOfMe = () => {
+  const uid = useAuthStore.getState().user?.id ?? 0;
+  if (!NOTIFICATION_SETTINGS_BY_USER[uid]) NOTIFICATION_SETTINGS_BY_USER[uid] = defaultNotificationSettings();
+  return NOTIFICATION_SETTINGS_BY_USER[uid];
+};
 registerMock(/^\/notifications\/event-catalog$/, () => NOTIFICATION_EVENTS);
-registerMock(/^\/notifications\/settings$/, () => NOTIFICATION_SETTINGS, 'GET');
+registerMock(/^\/notifications\/settings$/, () => settingsOfMe(), 'GET');
 registerMock(/^\/notifications\/settings$/, ({ body }) => {
   const list = (Array.isArray(body) ? body : []) as { eventKey: string; inAppEnabled: boolean; emailEnabled: boolean }[];
+  const mine = settingsOfMe();
   for (const s of list) {
-    const cur = NOTIFICATION_SETTINGS.find((x) => x.eventKey === s.eventKey);
+    const cur = mine.find((x) => x.eventKey === s.eventKey);
     if (cur) {
       cur.inAppEnabled = !!s.inAppEnabled;
       cur.emailEnabled = !!s.emailEnabled;
@@ -280,16 +277,21 @@ registerMock(/^\/notifications\/settings$/, ({ body }) => {
   return {};
 }, 'PUT');
 
-// 알림 목업(종 아이콘) — 제목은 알림 항목(메뉴명)과 동일. 8개(안 읽음 3 + 읽음 5)
+// 종 알림 목업 — 제목은 알림 항목표의 이름 그대로(메뉴 › 구역 › 항목), 같은 대상 · 같은 알림은 해소 전까지 한 번(해소되면 '해소' 알림 한 건). 안 읽음 5 + 읽음 7
+// link 는 클릭 시 이동(발전소는 그 발전소 상세, 전기안전은 안전, 태풍은 관제 홈, 가입 · 변경 요청은 기업 관리)
 const NOTIFICATIONS = [
-  { id: 1, type: 'ANOMALY', title: '이상감지 관리', message: '태성산업 RTU 통신오류 — 3분간 응답 없음', isRead: false, createdAt: '2026-09-18T17:40:00' },
-  { id: 2, type: 'ANOMALY', title: '이상감지 관리', message: '건호이엔씨 인버터 #2 통신 끊김', isRead: false, createdAt: '2026-09-18T16:20:00' },
-  { id: 3, type: 'APPROVAL', title: '승인 관리', message: '용인금속 박용인 가입 신청 (기업 관리자)', isRead: false, createdAt: '2026-09-18T14:05:00' },
-  { id: 4, type: 'TRADING_APPROVAL', title: '거래 승인', message: '한일튜브 자가소비 99.84 kW 거래 신청', isRead: true, createdAt: '2026-09-18T09:00:00' },
-  { id: 5, type: 'SETTLEMENT', title: '수익·정산 › 정산', message: '8월분 정산이 확정되었습니다.', isRead: true, createdAt: '2026-09-17T18:30:00' },
-  { id: 6, type: 'EDATA_CATALOG', title: '데이터 마켓플레이스 › 데이터 등록/신청', message: '새 데이터 이용 신청이 접수되었습니다.', isRead: true, createdAt: '2026-09-17T11:10:00' },
-  { id: 7, type: 'TRADING_REQUEST', title: '거래 신청', message: '신규 전력 거래 신청이 등록되었습니다.', isRead: true, createdAt: '2026-09-16T15:45:00' },
-  { id: 8, type: 'CONTRACT', title: '내 계약', message: 'PPA-2026-ON-001 계약이 생성되었습니다.', isRead: true, createdAt: '2026-09-16T10:00:00' },
+  { id: 1, type: 'SAFETY_DANGER', title: '안전 › 발전소별 안전 현황 › 전기안전지수 › 위험', message: '용인금속 인버터 #1 — 전기안전지수 48', link: '/control/safety', isRead: false, createdAt: '2026-11-09T10:40:00' },
+  { id: 2, type: 'ANOMALY_RTU_COMM', title: '이상감지 관리 › 이상 감지 목록 › RTU 통신 끊김', message: '태성산업 — 전체 인버터 측정시각 20분 멈춤', link: '/monitoring/anomalies', isRead: false, createdAt: '2026-11-09T10:25:00' },
+  { id: 3, type: 'RTU_POWER_OFF', title: '이상감지 관리 › 이상 감지 목록 › RTU 전원 꺼짐', message: '용인금속 — RTU 전원 신호 꺼짐, 전체 인버터 계측 중단', link: '/monitoring/anomalies', isRead: false, createdAt: '2026-11-09T09:50:00' },
+  { id: 4, type: 'SIGNUP_MEMBER', title: '회원 관리 › 회원 목록 › 가입 신청', message: '한일튜브 이설비 — 기업 회원', link: '/platform/users', isRead: false, createdAt: '2026-11-09T08:30:00' },
+  { id: 5, type: 'SIGNUP_COMPANY', title: '기업 관리 › 기업 목록 › 가입 신청', message: '용인금속 박용인 — 기업 관리자', link: '/platform/companies', isRead: false, createdAt: '2026-11-08T14:05:00' },
+  { id: 6, type: 'ANOMALY_INVERTER_COMM', title: '이상감지 관리 › 이상 감지 목록 › 인버터 통신 끊김 해소', message: '한길 인버터 #3 — 측정 재개', link: '/monitoring/anomalies', isRead: true, createdAt: '2026-11-07T11:10:00' },
+  { id: 7, type: 'COMPANY_CHANGE', title: '기업 관리 › 기업 목록 › 기업 정보 변경 요청', message: '한길 — 종목 변경, 새 사업자등록증 첨부', link: '/platform/companies', isRead: true, createdAt: '2026-11-06T16:20:00' },
+  { id: 8, type: 'EDATA_REQUEST', title: '거래 현황 › 이용 신청', message: '한일튜브 — 태성산업 태양광 발전량', link: '/e-data/trading', isRead: true, createdAt: '2026-11-03T15:45:00' },
+  { id: 10, type: 'EDATA_CONSENT', title: '데이터 등록/신청 › 판매 동의', message: '건호이엔씨 — 태양광 발전량', link: '/e-data/catalog', isRead: true, createdAt: '2026-10-30T13:20:00' },
+  { id: 11, type: 'TRADING_SELF_RECEIVED', title: '거래 신청 › 자가소비 › 신청 접수', message: '한일튜브 99.84 kW', isRead: true, createdAt: '2026-10-28T09:00:00' },
+  { id: 12, type: 'SETTLEMENT', title: '수익 · 정산 › 정산 › 확정', message: '2026-10 한일튜브 PPA', isRead: true, createdAt: '2026-10-25T18:30:00' },
+  { id: 13, type: 'TRADING_PPA_APPROVED', title: '거래 신청 › PPA › 승인', message: 'PPA-2026-ON-001 한일튜브 329.6 kW', isRead: true, createdAt: '2026-10-20T10:00:00' },
 ];
 registerMock(/^\/notifications\/unread-count$/, () => NOTIFICATIONS.filter((n) => !n.isRead).length);
 registerMock(/^\/notifications\/read-all$/, () => {
@@ -477,9 +479,6 @@ interface MockAnomaly {
   createdAt: string;
   updatedAt: string;
 }
-function act(id: number, type: string, content: string, assignee: string, status: string, at: string, expected?: string): MockAction {
-  return { id, type, content, assignee, status, expectedResolution: expected, createdAt: at, updatedAt: at };
-}
 function anomaly(
   id: number, plantId: number, title: string, description: string, severity: string, status: string,
   detectedAt: string, actions: MockAction[], resolvedAt: string | null = null, contractKind?: PlantContractKind,
@@ -496,35 +495,15 @@ function anomaly(
  * 이상 목록 — 근거: ITS_울산_에자자_수집데이터_API_명세서_v1.2
  * severity = DX riskLevel(normal/caution/warning) · status = S-Energy 통신 상태(NORMAL=0 정상 / COMM_ERROR=1 통신오류)
  * actions·resolvedAt 은 원본 프론트의 처리 워크플로 잔재 — 스펙에 없으며 목록 화면에서는 쓰지 않는다.
+ * 수집 항목에 없는 이상(스택 온도 · 일사량 편차 · 통신 지연 · 출력 저하)은 넣지 않는다. 남은 건 통신 상태(COMM_ERROR) · RTU 전원뿐 — 2026-11-09 사용자가 지운 뒤 금지.
  */
 export const ANOMALY_ROWS: MockAnomaly[] = [
   // 경고 · 통신오류 진행 중 — 건호이엔씨
   anomaly(4, 17513, '인버터 #2 통신 끊김 (8분)', '인버터 #2 RTU 응답 없음. 8분간 계측값 미수신.', 'warning', 'COMM_ERROR', daysAgo(0, 8, 40), []),
   // 등급은 정상인데 통신만 오류 — 태성산업 (등급·통신은 별개 소스라 이런 건도 이상 목록에 뜬다)
+  anomaly(8, 17511, 'RTU 전원 꺼짐', 'RTU 전원 신호 꺼짐. 전체 인버터 계측 중단. 현장 전원 확인.', 'warning', 'COMM_ERROR', daysAgo(0, 7, 20), []),
   anomaly(6, 17512, 'RTU 통신 끊김 (3분)', 'RTU 폴링 응답 없음. 3분간 계측값 미수신. 전기안전지수는 정상.', 'normal', 'COMM_ERROR', daysAgo(0, 9, 55), []),
   // 주의 — 용인금속
-  anomaly(3, 17511, '일사량 대비 발전량 편차', '동일 일사 조건 대비 발전량이 낮음. 모듈 오염 또는 그늘 의심.', 'caution', 'NORMAL', daysAgo(1, 11, 10), [
-    act(31, '확인', '이상 인지. 현장 육안 점검 예정.', '김운영', 'ACKNOWLEDGED', daysAgo(1, 11, 30)),
-  ]),
-  // 주의 — 한일튜브
-  anomaly(1, 17514, '인버터 #2 출력 저하', '인버터 #2 AC 출력이 정격보다 낮음. DC 입력은 정상.', 'caution', 'NORMAL', daysAgo(2, 13, 5), [
-    act(11, '확인', '출력 저하 확인. 인버터 로그 요청.', '김운영', 'ACKNOWLEDGED', daysAgo(2, 13, 20)),
-    act(12, '현장 점검', '인버터 #2 냉각 팬 이상 확인. 부품 교체 예정.', '박기사', 'IN_PROGRESS', daysAgo(1, 15, 0), daysAgo(-2, 18, 0).slice(0, 10)),
-  ], null, 'ONSITE'),
-  // 경고였다가 통신 복구 — 한일튜브 (RTU 통신 지연)
-  anomaly(2, 17514, 'RTU 통신 지연 (응답 > 60초)', 'RTU 폴링 응답 지연 60초 초과. 네트워크 점검.', 'warning', 'NORMAL', daysAgo(5, 8, 15), [
-    act(21, '확인', '통신 지연 확인.', '김운영', 'ACKNOWLEDGED', daysAgo(5, 8, 30)),
-    act(22, '원격 조치', '통신 모듈 원격 재기동 후 정상 응답 확인.', '김운영', 'RESOLVED', daysAgo(5, 9, 10)),
-  ], daysAgo(5, 9, 10), 'SELF_CONSUMPTION'),
-  // 주의 — 한길 (자가소비) · 전기사용자 화면에 이상이 하나는 보이도록
-  anomaly(7, 17515, '인버터 #1 출력 저하', '인버터 #1 AC 출력이 정격보다 낮음. 모듈 그늘 또는 오염 의심.', 'caution', 'NORMAL', daysAgo(1, 9, 20), [
-    act(71, '확인', '출력 저하 확인. 현장 육안 점검 예정.', '이수용', 'ACKNOWLEDGED', daysAgo(1, 10, 0)),
-  ]),
-  // 경고 — 연료전지
-  anomaly(5, 17601, '스택 온도 상한 근접 (경고)', '스택 온도가 상한 경고치에 근접. 냉각 계통 점검.', 'warning', 'NORMAL', daysAgo(1, 16, 0), [
-    act(51, '확인', '온도 경고 확인. 출력 80% 제한.', '이관제', 'ACKNOWLEDGED', daysAgo(1, 16, 10)),
-    act(52, '현장 점검', '냉각 팬 1대 정지 확인, 교체 완료. 정격 복귀.', '박기사', 'RESOLVED', daysAgo(1, 18, 40)),
-  ], daysAgo(1, 18, 40)),
 ];
 
 // 발전소 상세 — 이상감지 요약 포함

@@ -26,4 +26,8 @@ export const LIMIT = {
   password: 64,
   /** 계좌번호(숫자 · -) */
   account: 20,
+  /** 역할 이름 */
+  roleName: 20,
+  /** 설명(역할 등 한 줄 설명) */
+  description: 100,
 } as const;

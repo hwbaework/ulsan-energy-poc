@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Pencil, Trash2, Save, Loader2, Check, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, Save, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
+import { LIMIT } from '@/lib/field-limits';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SectionCard } from '@/components/features/SectionCard';
 import { StatusPill } from '@/components/ui/Design';
 import { cn } from '@/lib/utils';
@@ -67,8 +69,8 @@ export default function PlatformRolesPage() {
   };
 
   const isOwnRole = !!active?.code && myRoleCodes.includes(active.code);
-  // 기본 역할(관리자·발전사업자·전기사용자)은 접근 권한도 고정 — 추가한 역할만 편집
-  const locked = !!active?.system;
+  // 접근 권한 잠금은 관리자 역할만(2026-11-09 사용자: "권한 바꿀 수 있게 해야지 관리자 빼고는") — 발전사업자 · 전기사용자 · 추가한 역할은 편집
+  const locked = active?.code === 'SYSTEM_ADMIN';
 
   /* ── 메뉴 트리 ── */
   const childrenOf = useMemo(() => {
@@ -116,15 +118,21 @@ export default function PlatformRolesPage() {
   }, [roleMenus]);
 
   const [draft, setDraft] = useState<Map<number, boolean>>(new Map()); // menuId → 접근 가능
+  // 역할마다 저장 안 한 변경 — 다른 역할을 눌러도 묻지 않고 바로 그 역할을 보여 주고, 돌아오면 고치던 값 그대로(2026-11-09)
+  const [pending, setPending] = useState<Map<number, Map<number, boolean>>>(new Map());
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const next = new Map<number, boolean>();
-    allMenus.forEach((menu) => next.set(menu.id, original.get(menu.id)?.canRead ?? false));
-    setDraft(next);
-    setSaved(false);
-  }, [allMenus, original]);
+    const kept = activeId ? pending.get(activeId) : undefined;
+    if (kept) {
+      setDraft(new Map(kept));
+    } else {
+      const next = new Map<number, boolean>();
+      allMenus.forEach((menu) => next.set(menu.id, original.get(menu.id)?.canRead ?? false));
+      setDraft(next);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allMenus, original, activeId]);
 
   // 상위 메뉴를 켜고 끄면 하위 메뉴도 같이 바뀐다
   const toggle = (menuId: number) => {
@@ -134,7 +142,6 @@ export default function PlatformRolesPage() {
       for (const id of [menuId, ...descendantIds(menuId)]) next.set(id, value);
       return next;
     });
-    setSaved(false);
   };
 
   const changes = useMemo(() => {
@@ -160,7 +167,11 @@ export default function PlatformRolesPage() {
     try {
       for (const a of changes.assigns) await assignMenu.mutateAsync({ roleId: activeId, data: a });
       for (const menuId of changes.revokes) await revokeMenu.mutateAsync({ roleId: activeId, menuId });
-      setSaved(true);
+      setPending((prev) => {
+        const next = new Map(prev);
+        if (activeId) next.delete(activeId);
+        return next;
+      });
       addToast('success', `${active?.name ?? '역할'} 접근 권한을 저장했습니다`);
     } catch {
       addToast('error', '권한 저장에 실패했습니다');
@@ -169,8 +180,28 @@ export default function PlatformRolesPage() {
     }
   };
 
+  const resetDraft = () => {
+    const next = new Map<number, boolean>();
+    allMenus.forEach((menu) => next.set(menu.id, original.get(menu.id)?.canRead ?? false));
+    setDraft(next);
+    setPending((prev) => {
+      const n = new Map(prev);
+      if (activeId) n.delete(activeId);
+      return n;
+    });
+  };
+
   const selectRole = (id: number) => {
-    if (dirty && !confirm('저장하지 않은 변경사항이 있습니다. 다른 역할로 이동할까요?')) return;
+    if (id === activeId) return;
+    // 고치던 값은 그 역할에 남겨 두고 바로 전환
+    setPending((prev) => {
+      const next = new Map(prev);
+      if (activeId) {
+        if (dirty) next.set(activeId, new Map(draft));
+        else next.delete(activeId);
+      }
+      return next;
+    });
     setSelectedId(id);
   };
 
@@ -255,12 +286,17 @@ export default function PlatformRolesPage() {
             noPadding
             actions={
               locked ? (
-                <span className="text-sm text-slate-400">기본 역할 · 접근 고정</span>
+                <span className="text-sm text-slate-400">관리자 · 접근 고정</span>
               ) : (
-                <Button size="sm" onClick={handleSave} disabled={!dirty || saving || selfReduction}>
-                  {saving ? <Loader2 size={14} className="mr-1 animate-spin" /> : saved && !dirty ? <Check size={14} className="mr-1" /> : <Save size={14} className="mr-1" />}
-                  {saving ? '저장 중…' : saved && !dirty ? '저장됨' : dirty ? `저장 ${changes.assigns.length + changes.revokes.length}` : '저장'}
-                </Button>
+                /* 취소 · 저장 — 항상 보이고 바꾼 값 없으면 둘 다 비활성(에너지 설정과 같은 규칙). 취소는 저장된 값으로 */
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="cancel" disabled={!dirty || saving} onClick={resetDraft}>
+                    취소
+                  </Button>
+                  <Button size="sm" onClick={handleSave} disabled={!dirty || saving || selfReduction}>
+                    <Save size={14} className="mr-1" /> 저장
+                  </Button>
+                </div>
               )
             }
           >
@@ -330,8 +366,8 @@ export default function PlatformRolesPage() {
       {/* 역할 추가 */}
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="역할 추가" size="md">
         <div className="space-y-4">
-          <Input label="역할 이름" value={fName} onChange={(e) => setFName(e.target.value)} placeholder="예: 운영 담당" />
-          <Input label="설명" value={fDesc} onChange={(e) => setFDesc(e.target.value)} />
+          <Input maxLength={LIMIT.roleName} label="역할 이름" value={fName} onChange={(e) => setFName(e.target.value)} placeholder="예: 운영 담당" />
+          <Input maxLength={LIMIT.description} label="설명" value={fDesc} onChange={(e) => setFDesc(e.target.value)} />
           <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
             <Button variant="secondary" onClick={() => setCreateOpen(false)}>
               취소
@@ -360,8 +396,8 @@ export default function PlatformRolesPage() {
       <Modal open={!!editRole} onClose={() => setEditRole(null)} title="역할 수정" size="md">
         {editRole && (
           <div className="space-y-4">
-            <Input label="역할 이름" value={fName} onChange={(e) => setFName(e.target.value)} />
-            <Input label="설명" value={fDesc} onChange={(e) => setFDesc(e.target.value)} />
+            <Input maxLength={LIMIT.roleName} label="역할 이름" value={fName} onChange={(e) => setFName(e.target.value)} />
+            <Input maxLength={LIMIT.description} label="설명" value={fDesc} onChange={(e) => setFDesc(e.target.value)} />
             <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
               <Button variant="secondary" onClick={() => setEditRole(null)}>
                 취소
@@ -386,36 +422,27 @@ export default function PlatformRolesPage() {
       </Modal>
 
       {/* 역할 삭제 */}
-      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="역할 삭제" size="sm">
-        {deleteTarget && (
-          <div className="space-y-4">
-            <p className="text-sm text-slate-300">
-              <span className="font-medium text-white">{deleteTarget.name}</span> 역할을 삭제하시겠습니까?
-            </p>
-            <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
-              <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
-                취소
-              </Button>
-              <Button
-                variant="danger"
-                disabled={deleteRole.isPending}
-                onClick={async () => {
-                  try {
-                    await deleteRole.mutateAsync(deleteTarget.id);
-                    addToast('success', `${deleteTarget.name} 역할이 삭제되었습니다`);
-                    if (selectedId === deleteTarget.id) setSelectedId(null);
-                    setDeleteTarget(null);
-                  } catch {
-                    addToast('error', '역할 삭제에 실패했습니다');
-                  }
-                }}
-              >
-                {deleteRole.isPending ? '삭제 중...' : '삭제'}
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
+      {/* 역할 삭제 — 공통 확인창(2026-11-09) */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          try {
+            await deleteRole.mutateAsync(deleteTarget.id);
+            addToast('success', `${deleteTarget.name} 역할이 삭제되었습니다`);
+            if (selectedId === deleteTarget.id) setSelectedId(null);
+            setDeleteTarget(null);
+          } catch {
+            addToast('error', '역할 삭제에 실패했습니다');
+          }
+        }}
+        title="역할 삭제"
+        message={`${deleteTarget?.name ?? ''} 역할을 삭제합니다.`}
+        confirmLabel="삭제"
+        variant="danger"
+        loading={deleteRole.isPending}
+      />
     </div>
   );
 }

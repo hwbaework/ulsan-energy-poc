@@ -12,6 +12,16 @@ export interface NotificationEventCatalogItem {
   eventKey: string;
   label: string;
   domain: string;
+  /** 발생 조건 */
+  condition?: string;
+  /** 받는 사람 */
+  receivers?: string;
+  /** 클릭 시 이동 */
+  go?: string;
+  /** 해소 알림 */
+  resolve?: string;
+  /** 관리자만 받는 알림 */
+  adminOnly?: boolean;
 }
 
 // 이벤트 카탈로그 경로 — 공유 endpoints.ts 미수정 정책. list 경로에서 V1 base 파생(sibling 경로).

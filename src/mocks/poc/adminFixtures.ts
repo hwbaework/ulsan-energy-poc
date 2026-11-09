@@ -162,8 +162,7 @@ addMenu('내 계정', 'ADMIN_PROFILE', '/org/profile', M_ADMIN, 1);
 addMenu('기업 관리', 'ADMIN_COMPANIES', '/platform/companies', M_ADMIN, 1);
 addMenu('회원 관리', 'ADMIN_USERS', '/platform/users', M_ADMIN, 1);
 addMenu('역할·권한', 'ADMIN_ROLES', '/platform/roles', M_ADMIN, 1);
-addMenu('승인 관리', 'ADMIN_APPROVALS', '/platform/approvals', M_ADMIN, 1);
-addMenu('거래 승인', 'ADMIN_TRADING_APPROVALS', '/platform/trading-approvals', M_ADMIN, 1);
+// 승인 관리 · 거래 승인(운영)은 2026-11-09 제거 — 거래 승인은 RE100 › 거래 승인 하나, 가입 · 기업 정보 변경 검토는 기업 관리 · 회원 관리에서
 addMenu('알림 설정', 'ADMIN_NOTIFICATIONS', '/platform/notification-settings', M_ADMIN, 1);
 addMenu('에너지 설정', 'ADMIN_ENERGY_SETTINGS', '/platform/energy-settings', M_ADMIN, 1);
 

@@ -7,6 +7,8 @@ import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Badge } from '@/components/ui/Badge';
+import { SignupReviewModal, useSignupApplicants, type Applicant } from '@/components/features/org/SignupReview';
 import { cn } from '@/lib/utils';
 import { DataTable, type Column, TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features/SectionCard';
@@ -101,6 +103,9 @@ export default function CompaniesPage() {
   useHydrateCompanyChange();
   const changeReqs = useCompanyChangeStore((st) => st.requests);
   const pendingChange = (id: number) => changeReqs.some((r) => r.companyId === id && r.status === 'PENDING');
+  // 가입 대기 기업 — 첫 계정(기업 관리자) 신청을 줄에서 바로 가입 검토(승인 관리 메뉴를 없애고 옮김, 2026-11-09)
+  const signup = useSignupApplicants();
+  const [reviewSignup, setReviewSignup] = useState<Applicant | null>(null);
   const [search, setSearch] = useState('');
   const [addOpen, setAddOpen] = useState(false);
   const [formName, setFormName] = useState('');
@@ -216,13 +221,27 @@ export default function CompaniesPage() {
       render: (row) => <span className="text-sm text-slate-500 tabular-nums">{row.createdAt}</span>,
     },
     {
-      // 기업 정보 변경 요청 — 확인 안 한 요청이 있으면 검토 버튼(승인 관리와 같은 창), 없으면 빈 값
+      key: 'status',
+      header: '상태',
+      width: '90px',
+      render: (row) => (
+        <Badge variant={row.status === 'ACTIVE' ? 'success' : row.status === 'SUSPENDED' ? 'danger' : 'warning'}>
+          {row.status === 'ACTIVE' ? '활성' : row.status === 'SUSPENDED' ? '정지' : '대기'}
+        </Badge>
+      ),
+    },
+    {
+      // 요청 — 가입 대기 기업은 가입 검토(등록증 · 첫 계정 확인), 기업 정보 변경 요청이 있으면 변경 검토, 없으면 빈 값
       key: 'change' as keyof CompanyRow,
-      header: '변경 요청',
-      width: '100px',
+      header: '요청',
+      width: '110px',
       align: 'center',
       render: (row) =>
-        pendingChange(row.id) ? (
+        row.status === 'PENDING' ? (
+          <Button size="sm" onClick={() => setReviewSignup(signup.byCompany(row.id) ?? null)} disabled={!signup.byCompany(row.id)}>
+            가입 검토
+          </Button>
+        ) : pendingChange(row.id) ? (
           <Button
             size="sm"
             onClick={(e) => {
@@ -230,7 +249,7 @@ export default function CompaniesPage() {
               setReviewChange(changeReqs.find((r) => r.companyId === row.id && r.status === 'PENDING') ?? null);
             }}
           >
-            검토
+            변경 검토
           </Button>
         ) : (
           <span className="text-slate-500">-</span>
@@ -287,6 +306,7 @@ export default function CompaniesPage() {
 
       <h1 className="text-2xl font-bold text-white">기업 관리</h1>
       {reviewChange && <CompanyChangeReviewModal r={reviewChange} onClose={() => setReviewChange(null)} />}
+      {reviewSignup && <SignupReviewModal applicant={reviewSignup} companies={signup.companies} onClose={() => setReviewSignup(null)} />}
 
       <SectionCard
         title="기업 목록"

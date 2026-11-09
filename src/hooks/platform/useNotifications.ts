@@ -7,6 +7,7 @@ export const useNotifications = (params?: object) => {
     queryKey: notificationKeys.list(params ?? {}),
     queryFn: () => notificationApi.getNotifications(params),
     staleTime: 15_000,
+    refetchInterval: (query) => (query.state.status === 'error' ? false : 30_000),
   });
 };
 

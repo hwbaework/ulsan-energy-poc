@@ -7,6 +7,8 @@ import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Badge } from '@/components/ui/Badge';
+import { SignupReviewModal, useSignupApplicants, type Applicant } from '@/components/features/org/SignupReview';
 import { Select } from '@/components/ui/Select';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features/SectionCard';
@@ -97,6 +99,9 @@ export default function UsersPage() {
   const liveRoles = (rolesData ?? []).filter((r) => !!r.code).map((r) => ({ value: r.code as string, label: r.name }));
   const roleOptions = liveRoles.length > 0 ? liveRoles : ROLE_OPTIONS.map((r) => ({ value: r.value, label: r.label }));
   const roleLabel = (code: string) => roleOptions.find((r) => r.value === code)?.label ?? ROLE_LABEL_MAP[code] ?? code;
+  // 가입 대기 회원 — 줄에서 바로 가입 검토(승인 관리 메뉴를 없애고 옮김, 2026-11-09)
+  const signup = useSignupApplicants();
+  const [reviewSignup, setReviewSignup] = useState<Applicant | null>(null);
 
   const users: UserRow[] =
     !isError && apiData?.content
@@ -171,11 +176,39 @@ export default function UsersPage() {
       render: (row) => <span className="text-sm text-slate-500 tabular-nums">{row.lastLogin}</span>,
     },
     {
+      key: 'status',
+      header: '상태',
+      width: '90px',
+      render: (row) => (
+        <Badge variant={row.status === 'ACTIVE' ? 'success' : row.status === 'SUSPENDED' ? 'danger' : 'warning'}>
+          {row.status === 'ACTIVE' ? '활성' : row.status === 'SUSPENDED' ? '정지' : '대기'}
+        </Badge>
+      ),
+    },
+    {
       key: 'actions' as keyof UserRow,
       header: '',
       // 아이콘 4개(26px) + 사이 + 셀 여백 32px — 130px 이면 삭제 아이콘이 잘린다
       width: '170px',
-      render: (row) => (
+      render: (row) =>
+        row.status === 'PENDING' ? (
+          <div className="flex items-center justify-end gap-1">
+            <Button size="sm" onClick={() => setReviewSignup(signup.byUser(row.id) ?? null)} disabled={!signup.byUser(row.id)}>
+              가입 검토
+            </Button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteRow(row);
+              }}
+              className="rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-red-400 transition-colors"
+              title="삭제"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ) : (
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -225,7 +258,7 @@ export default function UsersPage() {
             </button>
           )}
         </div>
-      ),
+        ),
     },
   ];
 
@@ -488,6 +521,9 @@ export default function UsersPage() {
         confirmLabel="초기화"
         loading={resetPasswordMut.isPending}
       />
+
+      {/* 가입 검토 — 대기 회원(승인 관리에서 옮김) */}
+      {reviewSignup && <SignupReviewModal applicant={reviewSignup} companies={signup.companies} onClose={() => setReviewSignup(null)} />}
 
       {/* 사용자 삭제 — 공통 확인창(2026-11-09) */}
       <ConfirmDialog

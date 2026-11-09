@@ -1,8 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-// 설정 › 운영 › 거래 승인 (WBS 4.3.2) — RE100 › 거래 승인과 같은 화면
-import { TradeApprovalsScreen } from '@/components/features/trading-poc/TradeApprovalsScreen';
-
+/** 관리 › 거래 승인은 RE100 › 거래 승인과 같은 화면이라 2026-11-09 없앰 */
 export default function Page() {
-  return <TradeApprovalsScreen />;
+  redirect('/platform/trading/approvals');
 }

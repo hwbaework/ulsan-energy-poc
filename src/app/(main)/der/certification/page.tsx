@@ -81,14 +81,14 @@ export default function DerCertificationPage() {
           <div>
             <h3 className="text-sm font-semibold text-white">분산법 등록 심사</h3>
             <p className="mt-0.5 text-[11px] text-slate-500">
-              심사·승인은 기업/발전사업자 승인 파이프라인을 재사용합니다. 승인 처리는 승인 관리에서 수행하세요.
+              심사·승인은 기업/발전사업자 승인 파이프라인을 재사용합니다. 가입 검토는 기업 관리에서 합니다.
             </p>
           </div>
           <Link
-            href="/platform/approvals"
+            href="/platform/companies"
             className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs text-primary hover:bg-primary/20"
           >
-            승인 관리로 이동 <ExternalLink size={12} />
+            기업 관리로 이동 <ExternalLink size={12} />
           </Link>
         </div>
         <div className="flex items-center gap-2">

@@ -145,7 +145,7 @@ export default function PlatformPage() {
         ctaIcon={ShieldCheck}
         onCtaClick={() => {
           completeOnboarding();
-          router.push('/platform/approvals');
+          router.push('/platform/companies');
         }}
       />
       <Breadcrumb items={[{ label: '플랫폼 관리' }]} />
@@ -185,7 +185,7 @@ export default function PlatformPage() {
         title="승인 대기"
         description={`${pendingList.length}건의 가입 승인 요청`}
         actions={
-          <Button size="sm" variant="ghost" onClick={() => router.push('/platform/approvals')}>
+          <Button size="sm" variant="ghost" onClick={() => router.push('/platform/companies')}>
             전체 <ChevronRight size={14} />
           </Button>
         }
