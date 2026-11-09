@@ -2,18 +2,15 @@
 
 // E-데이터마켓 › 카본 마켓플레이스 › 탄소배출권 KRX 거래 (3.2.2)
 // KRX 배출권시장 정보플랫폼 › 시세조회 화면과 같은 구성(확인 2026-11-09):
-//   조회 줄: 종목선택(전체 / 종목) · 조회기간 시작~종료 · 1일 · 1개월 · 6개월 · 1년 · 조회
+//   조회 줄: 종목선택(전체 / 종목) · 조회기간 1개월 · 3개월 · 6개월 · 1년 — 고르면 바로 반영(조회 버튼 없음, 2026-11-09 사용자)
 //   현재가 표(조회 시각) → 경매 정보 → 일자별 정보
 //   일자별 정보는 KRX 는 표만, 여기는 종목을 골랐을 때 하루 거래 범위(저가~고가) I 자 선 + 종가 표시 + 거래량 막대를 표 위에 둔다(거래 있는 날만)
 // 값은 데모(연동 없음) — src/lib/krx-quotes.ts. 현재가는 그날 일자별 값 한 줄(KRX 가 체결 시각을 공개하지 않아 장중에도 움직이지 않음).
 
 import { useMemo, useState, type ReactNode } from 'react';
-import { Search } from 'lucide-react';
 import { Bar, CartesianGrid, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
-import { Badge, type BadgeVariant } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { cn } from '@/lib/utils';
 import { LINKS } from '@/lib/carbon-docs';
@@ -21,36 +18,23 @@ import { CarbonHeader, SiteLinks } from '@/components/features/carbon/CarbonScre
 import {
   AUCTIONS,
   KRX_ITEMS,
-  MARKET,
   SERIES_START,
   addMonths,
   boardRow,
   dailySeries,
   fmtRate,
   fmtWon,
-  marketNow,
+  lastTradingDay,
+  ymdOf,
   type Auction,
   type BoardRow,
   type DailyQuote,
-  type MarketPhase,
 } from '@/lib/krx-quotes';
 
 /* ── 등락 색 — 오름 빨강 · 내림 파랑 · 보합 흰색(주식 시세판과 같음) ── */
 const tone = (v: number) => (v > 0 ? 'text-semantic-red' : v < 0 ? 'text-semantic-blue' : 'text-white');
 const num = (v: ReactNode, cls = 'text-white') => <span className={cn('text-sm tabular-nums', cls)}>{v}</span>;
 const signed = (v: number) => (v > 0 ? `+${fmtWon(v)}` : fmtWon(v));
-
-const PHASE_BADGE: Record<MarketPhase, BadgeVariant> = {
-  장전: 'default',
-  장중: 'success',
-  '종가 단일가': 'warning',
-  장마감: 'default',
-  휴장: 'danger',
-};
-
-const pad = (n: number) => String(n).padStart(2, '0');
-const clock = (d: Date) =>
-  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 
 /* ── 조회기간 — 날짜 직접 선택 없이 1개월 · 3개월 · 6개월 · 1년만(2026-11-09 사용자). 하루 한 값이라 1일은 없음 ── */
 const QUICK = [
@@ -69,34 +53,21 @@ const ITEM_OPTIONS = [{ value: '', label: '전체' }, ...KRX_ITEMS.map((it) => (
 
 /* ══ 화면 ══ */
 export function KrxQuoteScreen() {
-  // 조회 시각 — 화면 연 때 한 번. 값은 시각 따라 움직이지 않는다(KRX 는 하루 값만 공개)
-  const [now] = useState(() => new Date());
-  const m = useMemo(() => marketNow(now), [now]);
-  const rows = useMemo(() => KRX_ITEMS.map((it) => boardRow(it, m.date)), [m.date]);
+  // 거래일 — 오늘(휴장이면 마지막 거래일). 하루 한 값뿐이라 시각 · 장 상태는 두지 않는다(2026-11-09 사용자)
+  const [tradeDate] = useState(() => lastTradingDay(ymdOf(new Date())));
+  const rows = useMemo(() => KRX_ITEMS.map((it) => boardRow(it, tradeDate)), [tradeDate]);
 
-  // 조회 조건 — 고르는 중인 값과 [조회]로 적용한 값을 따로. 종목 '' = 전체. 처음은 KAU26 · 1개월(그래프가 바로 보이게)
+  // 조회 조건 — 고르면 바로 반영. 종목 '' = 전체. 처음은 KAU26 · 1개월(그래프가 바로 보이게)
   const [code, setCode] = useState(KRX_ITEMS[0]!.code);
   const [period, setPeriod] = useState<QuickKey>('1m');
-  const [applied, setApplied] = useState<{ code: string; period: QuickKey }>({ code: KRX_ITEMS[0]!.code, period: '1m' });
-  const apply = (c = code, p = period) => setApplied({ code: c, period: p });
-  const from = quickFrom(applied.period, m.date);
-  const to = m.date;
+  const from = quickFrom(period, tradeDate);
+  const to = tradeDate;
 
-  const shown = applied.code ? rows.filter((r) => r.code === applied.code) : rows;
+  const shown = code ? rows.filter((r) => r.code === code) : rows;
 
   return (
     <div className="space-y-6">
-      <CarbonHeader
-        title="탄소배출권 KRX 거래"
-        actions={
-          <>
-            <Badge variant={PHASE_BADGE[m.phase]}>{m.phase}</Badge>
-            <span className="text-sm text-white">
-              거래일 {m.date} · 매매 {MARKET.open}~{MARKET.close}
-            </span>
-          </>
-        }
-      />
+      <CarbonHeader title="탄소배출권 KRX 거래" />
 
       {/* 조회 줄 — KRX 시세조회와 같은 순서 */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl bg-[#0d1520] px-4 py-3 ring-1 ring-white/[0.06]">
@@ -120,25 +91,15 @@ export function KrxQuoteScreen() {
             </button>
           ))}
         </div>
-        <Button size="md" onClick={() => apply()}>
-          <Search size={16} />
-          조회
-        </Button>
       </div>
 
-      <SectionCard title="현재가" actions={<span className="text-sm text-white tabular-nums">{clock(now)}</span>}>
-        <BoardTable
-          rows={shown}
-          onSelect={(c) => {
-            setCode(c);
-            apply(c, applied.period);
-          }}
-        />
+      <SectionCard title="현재가" actions={<span className="text-sm text-white tabular-nums">거래일 {tradeDate}</span>}>
+        <BoardTable rows={shown} onSelect={setCode} />
       </SectionCard>
 
-      <AuctionCard code={applied.code} from={from} to={to} />
+      <AuctionCard code={code} from={from} to={to} />
 
-      <DailyCard code={applied.code} from={from} to={to} tradeDate={m.date} />
+      <DailyCard code={code} from={from} to={to} tradeDate={tradeDate} />
 
       <SiteLinks
         id="sites-krx"
