@@ -81,11 +81,12 @@ export const NOTIFICATION_CATALOG: NotifEvent[] = [
   { key: 'INVOICE', name: '청구서 발행', label: '수익 · 정산 › 청구서 › 발행', domain: 'RE100', condition: '달마다 청구서가 발행됨', receivers: '전기사용자', go: '수익 · 정산 › 청구서', resolve: '해당 없음' },
   { key: 'TAX_INVOICE', name: '세금계산서 발행', label: '수익 · 정산 › 세금계산서 › 발행', domain: 'RE100', condition: '세금계산서 원본이 올라옴', receivers: '상대 기업', go: '수익 · 정산 › 세금계산서', resolve: '해당 없음' },
   { key: 'SETTLEMENT', name: '정산 확정', label: '수익 · 정산 › 정산 › 확정', domain: 'RE100', condition: '달 정산이 확정됨', receivers: '당사자 기업', go: '수익 · 정산 › 정산', resolve: '해당 없음' },
-  // ── E-데이터마켓 ──
-  { key: 'EDATA_CONSENT', name: '판매 동의', label: '데이터 등록/신청 › 판매 동의', domain: 'E-데이터마켓', condition: '기업이 판매 동의(데이터 등록)를 누름, 판매 중지 예약 포함', receivers: '관리자', go: '데이터 등록/신청', resolve: '해당 없음', adminOnly: true },
+  // ── E-데이터마켓 — 순서: 판매 동의 · 판매 종료(파는 쪽이 한 일) → 이용 신청 · 이용 취소(사는 쪽이 한 일) → 대금 지급.
+  //    판매 종료는 이용 기업과 관리자가 받는다 — 판매 동의 하나로 묶으면 중지했을 때도 '판매 동의'로 온다(2026-11-16 사용자) ──
+  { key: 'EDATA_CONSENT', name: '판매 동의', label: '데이터 등록/신청 › 판매 동의', domain: 'E-데이터마켓', condition: '기업이 판매 동의(데이터 등록)를 누름', receivers: '관리자', go: '데이터 등록/신청', resolve: '해당 없음', adminOnly: true },
+  { key: 'EDATA_SALE_END', name: '판매 종료', label: '거래 현황 › 판매 종료', domain: 'E-데이터마켓', condition: '기업이 판매 중지를 예약함, 이용 중인 기업은 금월 말일까지 이용', receivers: '이용 기업 활성 사용자, 관리자', go: '거래 현황', resolve: '해당 없음' },
   { key: 'EDATA_REQUEST', name: '이용 신청', label: '거래 현황 › 이용 신청', domain: 'E-데이터마켓', condition: '내 데이터에 이용 신청이 들어옴', receivers: '판매 기업 활성 사용자, 관리자', go: '거래 현황', resolve: '해당 없음' },
   { key: 'EDATA_CANCEL', name: '이용 취소', label: '거래 현황 › 이용 취소', domain: 'E-데이터마켓', condition: '이용 기업이 이용을 취소함, 금월 말일까지 이용', receivers: '판매 기업 활성 사용자, 관리자', go: '거래 현황', resolve: '해당 없음' },
-  { key: 'EDATA_SALE_END', name: '판매 종료', label: '거래 현황 › 판매 종료', domain: 'E-데이터마켓', condition: '이용 중인 데이터의 판매가 중지됨, 금월 말일까지 이용', receivers: '이용 기업 활성 사용자', go: '거래 현황', resolve: '해당 없음' },
   { key: 'EDATA_PAYOUT', name: '대금 지급', label: '정산 › 대금 지급', domain: 'E-데이터마켓', condition: '매달 15일 정산 계좌로 지급됨', receivers: '판매 기업 활성 사용자', go: '정산', resolve: '해당 없음' },
   // ── 관리 ──
   { key: 'SIGNUP_COMPANY', name: '기업 가입 신청', label: '기업 관리 › 기업 목록 › 가입 신청', domain: '관리', condition: '새 기업이 기업 관리자 계정으로 가입을 신청함, 상태 대기', receivers: '관리자', go: '기업 관리', resolve: '해당 없음', emailDefault: true, adminOnly: true },

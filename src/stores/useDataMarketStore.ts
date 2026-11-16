@@ -12,7 +12,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { ssrSafeStorage } from '@/lib/ssr-storage';
 import { HOLIDAYS_SEED, OP_RULE_DEFAULT, dayStatus, offAt, weekdayOf, WEEKDAY, type DayStatus } from '@/lib/op-calendar';
 
-export const DM_SEED_VERSION = 16; // 16 — 판매 중지 · 이용 취소는 금월 말일까지(태성산업 판매 중지 예약, 한길 이용 취소 예약). 15 — 한일튜브 자가소비 · PPA 데이터 따로(설비 · 인버터가 따로), PPA 는 운전 칸
+export const DM_SEED_VERSION = 17; // 17 — 판매 중지 예약 기업을 태성산업에서 용인금속으로(2026-11-16 사용자). 16 — 판매 중지 · 이용 취소는 금월 말일까지(태성산업 판매 중지 예약, 한길 이용 취소 예약). 15 — 한일튜브 자가소비 · PPA 데이터 따로(설비 · 인버터가 따로), PPA 는 운전 칸
 
 export const DATA_KINDS = ['태양광 발전량'] as const;
 export type DataKind = (typeof DATA_KINDS)[number];
@@ -444,8 +444,8 @@ export function csvOf(t: DataSheet): string {
 function seed(): { consents: Consent[]; trades: DataTrade[] } {
   const consents: Consent[] = [
     { sellerId: 7, kind: '태양광 발전량', consentedAt: '2026-06-02T10:00:00' },
-    { sellerId: 5, kind: '태양광 발전량', consentedAt: '2026-06-18T11:00:00' },
-    { sellerId: 6, kind: '태양광 발전량', consentedAt: '2026-06-25T10:00:00', endsAt: '2026-10-31' }, // 판매 중지 예약
+    { sellerId: 5, kind: '태양광 발전량', consentedAt: '2026-06-18T11:00:00', endsAt: '2026-10-31' }, // 용인금속 — 판매 중지 예약
+    { sellerId: 6, kind: '태양광 발전량', consentedAt: '2026-06-25T10:00:00' },
     { sellerId: 4, kind: '태양광 발전량', consentedAt: '2026-08-28T09:00:00' },
     { sellerId: 8, kind: '태양광 발전량', consentedAt: '2026-08-28T09:00:00' },
   ];
@@ -477,14 +477,14 @@ function seed(): { consents: Consent[]; trades: DataTrade[] } {
   const trades: DataTrade[] = [
     t(1, by(71), [5, '용인금속'], '2026-06-15T09:00:00'),
     t(3, by(71), [2, '한길'], '2026-08-01T11:00:00'),
-    t(4, by(61), [5, '용인금속'], '2026-09-20T15:00:00', undefined, { endsAt: '2026-10-31', endBy: 'seller' }),
+    t(4, by(61), [5, '용인금속'], '2026-09-20T15:00:00'),
     t(5, by(41), [2, '한길'], '2026-09-02T09:00:00', '2026-10-01T14:00:00', { endsAt: '2026-10-31', endBy: 'buyer' }),
-    t(8, by(61), [4, '한일튜브'], '2026-09-01T09:00:00', undefined, { endsAt: '2026-10-31', endBy: 'seller' }),
+    t(8, by(61), [4, '한일튜브'], '2026-09-01T09:00:00'),
     t(9, by(71), [6, '태성산업'], '2026-07-20T11:00:00', '2026-08-28T16:00:00'),
-    t(10, by(51), [4, '한일튜브'], '2026-06-20T10:00:00'),
+    t(10, by(51), [4, '한일튜브'], '2026-06-20T10:00:00', undefined, { endsAt: '2026-10-31', endBy: 'seller' }), // 용인금속 판매 중지 — 말일까지 이용
     t(11, by(61), [2, '한길'], '2026-07-05T09:00:00', '2026-08-20T17:00:00'),
     t(12, by(41), [7, '건호이엔씨'], '2026-09-10T10:00:00'),
-    t(13, by(51), [6, '태성산업'], '2026-08-05T13:00:00'),
+    t(13, by(51), [6, '태성산업'], '2026-08-05T13:00:00', undefined, { endsAt: '2026-10-31', endBy: 'seller' }),
     t(14, by(81), [5, '용인금속'], '2026-09-05T10:00:00'), // 한일튜브 PPA 데이터
   ];
   return { consents, trades };

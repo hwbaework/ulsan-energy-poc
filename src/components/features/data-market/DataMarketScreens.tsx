@@ -331,6 +331,7 @@ function DatasetCard({
   users,
   mine,
   using,
+  showConsent,
   onClick,
 }: {
   d: Dataset;
@@ -339,6 +340,8 @@ function DatasetCard({
   mine: boolean;
   /** 내가 신청해서 쓰고 있는 데이터 */
   using: boolean;
+  /** 관리자 — 판매 동의 여부를 카드에 표시(판매 중 / 동의 안 함, 거래 현황과 같은 말) */
+  showConsent?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -356,6 +359,8 @@ function DatasetCard({
             <Badge variant="primary">내 데이터</Badge>
           ) : using ? (
             <StatusPill tone="normal" label="이용 중" />
+          ) : showConsent && !d.endsAt ? (
+            <StatusPill tone={d.onSale ? 'normal' : 'muted'} label={d.onSale ? '판매 중' : '동의 안 함'} />
           ) : null}
         </span>
       </div>
@@ -377,14 +382,16 @@ export function DataCatalogScreen() {
   const role = useDataRole();
   const [q, setQ] = useState('');
 
-  const onSale = useMemo(() => role.products.filter((d) => d.onSale), [role.products]);
+  // 관리자는 전부(판매 동의한 것 · 안 한 것) — 어느 기업이 동의했는지 한눈에 본다. 기업 계정은 판매 동의한 것만(2026-11-16 사용자)
+  const shown = useMemo(() => role.products.filter((d) => role.isAdmin || d.onSale), [role.products, role.isAdmin]);
   const usersOf = (id: number) => role.tradesAll.filter((t) => t.datasetId === id && isActive(t)).length;
   const list = useMemo(() => {
     const s = q.trim().toLowerCase();
-    return onSale
+    return shown
       .filter((d) => !s || [d.name, d.description, d.ownerCompanyName].some((v) => v.toLowerCase().includes(s)))
-      .sort((a, b) => (b.consentedAt ?? '').localeCompare(a.consentedAt ?? ''));
-  }, [onSale, q]);
+      // 판매 동의한 것 먼저(최근 동의 순), 동의 안 한 것은 뒤로
+      .sort((a, b) => Number(b.onSale) - Number(a.onSale) || (b.consentedAt ?? '').localeCompare(a.consentedAt ?? ''));
+  }, [shown, q]);
 
   return (
     <div className="space-y-6">
@@ -421,6 +428,7 @@ export function DataCatalogScreen() {
                 users={usersOf(d.id)}
                 mine={d.ownerCompanyId === role.companyId}
                 using={!role.isAdmin && role.bought.some((t) => t.datasetId === d.id && isActive(t))}
+                showConsent={role.isAdmin}
                 onClick={() => router.push(`${CATALOG}/view?id=${d.id}`)}
               />
             ))}
