@@ -10,6 +10,8 @@ export interface NotificationSettingDto {
 
 export interface NotificationEventCatalogItem {
   eventKey: string;
+  /** 화면에 보이는 짧은 이름 */
+  name?: string;
   label: string;
   domain: string;
   /** 발생 조건 */

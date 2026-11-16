@@ -13,51 +13,21 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { getPersona, usePersonaOverride } from '@/lib/persona';
 
 // 알림 설정 — 지금 로그인한 계정의 설정. 알림 항목표(src/lib/notification-catalog.ts)의 항목마다 종(웹 알림)과 이메일을 켜고 끈다.
+// 묶음(통합관제 · RE100 · E-데이터마켓 · 관리)만 접고 펼치는 2단계. 항목은 짧은 이름이고 전체 위치 · 발생 조건은 툴팁(2026-11-11 사용자).
 // 긴급 같은 구분 없이 전부 끌 수 있다. 받는 사람은 항목표의 기획 정보라 화면에 안 보인다(2026-11-09 사용자).
 // 항목 목록과 저장값은 목업(/notifications/event-catalog · /notifications/settings)
 
 interface EventRow {
   key: string;
+  /** 화면에 보이는 짧은 이름 */
+  name: string;
+  /** 전체 위치 — 툴팁 */
   label: string;
+  /** 발생 조건 — 툴팁 */
+  condition: string;
   domain: string;
   inApp: boolean;
   email: boolean;
-}
-
-/** 트리 마디 — 항목 이름(메뉴 › 구역 › 항목)을 › 로 쪼개 만든다. 잎이 알림 항목 */
-interface TreeNode {
-  id: string;
-  name: string;
-  depth: number;
-  children: TreeNode[];
-  /** 이 마디 아래 알림 항목 키 전부 */
-  keys: string[];
-}
-function buildTree(rows: EventRow[]): TreeNode[] {
-  const roots: TreeNode[] = [];
-  for (const r of rows) {
-    const parts = [r.domain, ...r.label.split(' › ')];
-    let level = roots;
-    let path = '';
-    parts.forEach((name, i) => {
-      path = path ? `${path} › ${name}` : name;
-      let node = level.find((n) => n.name === name);
-      if (!node) {
-        node = { id: path, name, depth: i, children: [], keys: [] };
-        level.push(node);
-      }
-      node.keys.push(r.key);
-      level = node.children;
-    });
-  }
-  return roots;
-}
-function flatten(nodes: TreeNode[], collapsed: Set<string>, out: TreeNode[] = []): TreeNode[] {
-  for (const n of nodes) {
-    out.push(n);
-    if (!collapsed.has(n.id)) flatten(n.children, collapsed, out);
-  }
-  return out;
 }
 
 function Toggle({ on, onChange, label }: { on: boolean; onChange: () => void; label: string }) {
@@ -87,8 +57,8 @@ export default function NotificationSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const tree = useMemo(() => buildTree(rows), [rows]);
-  const visible = useMemo(() => flatten(tree, collapsed), [tree, collapsed]);
+  // 묶음 순서는 항목표 순서 그대로
+  const domains = useMemo(() => [...new Set(rows.map((r) => r.domain))], [rows]);
 
   useEffect(() => {
     (async () => {
@@ -97,7 +67,9 @@ export default function NotificationSettingsPage() {
         const map = new Map(settings.map((s) => [s.eventKey, s]));
         const loaded = catalog.filter((e) => isAdmin || !e.adminOnly).map((e) => ({
             key: e.eventKey,
+            name: e.name ?? e.label,
             label: e.label,
+            condition: e.condition ?? '',
             domain: e.domain,
             inApp: map.get(e.eventKey)?.inAppEnabled ?? true,
             email: map.get(e.eventKey)?.emailEnabled ?? false,
@@ -111,11 +83,14 @@ export default function NotificationSettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
 
-  // 상위 마디의 토글은 그 아래 항목 전부를 켜고 끈다(역할 · 권한 메뉴 접근과 같은 방식)
-  const toggleNode = (node: TreeNode, ch: 'inApp' | 'email') => {
-    const set = new Set(node.keys);
-    const allOn = rows.filter((r) => set.has(r.key)).every((r) => r[ch]);
-    setRows((prev) => prev.map((r) => (set.has(r.key) ? { ...r, [ch]: !allOn } : r)));
+  // 묶음 줄의 토글은 그 묶음 항목 전부를 켜고 끈다
+  const toggleDomain = (domain: string, ch: 'inApp' | 'email') => {
+    const allOn = rows.filter((r) => r.domain === domain).every((r) => r[ch]);
+    setRows((prev) => prev.map((r) => (r.domain === domain ? { ...r, [ch]: !allOn } : r)));
+    setDirty(true);
+  };
+  const toggleItem = (key: string, ch: 'inApp' | 'email') => {
+    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, [ch]: !r[ch] } : r)));
     setDirty(true);
   };
   const toggleCollapse = (id: string) =>
@@ -182,35 +157,44 @@ export default function NotificationSettingsPage() {
               </tr>
             </thead>
             <tbody>
-              {visible.map((node) => {
-                const set = new Set(node.keys);
-                const mine = rows.filter((r) => set.has(r.key));
-                const inApp = mine.every((r) => r.inApp);
-                const email = mine.every((r) => r.email);
-                const hasChildren = node.children.length > 0;
-                return (
-                  <tr key={node.id} className={cn(TABLE_ROW, node.depth === 0 && 'bg-white/[0.02]')}>
+              {domains.map((domain) => {
+                const items = rows.filter((r) => r.domain === domain);
+                const allInApp = items.every((r) => r.inApp);
+                const allEmail = items.every((r) => r.email);
+                const open = !collapsed.has(domain);
+                return [
+                  <tr key={domain} className={cn(TABLE_ROW, 'bg-white/[0.02]')}>
                     <td className={TABLE_TD}>
-                      <div className="flex items-center gap-1.5" style={{ paddingLeft: node.depth * 20 }}>
-                        {hasChildren ? (
-                          <button
-                            type="button"
-                            onClick={() => toggleCollapse(node.id)}
-                            className="rounded p-0.5 text-slate-500 hover:bg-white/[0.06] hover:text-white"
-                            aria-label={collapsed.has(node.id) ? '펼치기' : '접기'}
-                          >
-                            {collapsed.has(node.id) ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-                          </button>
-                        ) : (
-                          <span className="w-[22px]" />
-                        )}
-                        <span className={cn('text-sm', node.depth === 0 ? 'font-semibold text-white' : node.depth === 1 ? 'text-white' : 'text-slate-300')}>{node.name}</span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => toggleCollapse(domain)}
+                          className="rounded p-0.5 text-slate-500 hover:bg-white/[0.06] hover:text-white"
+                          aria-label={open ? '접기' : '펼치기'}
+                        >
+                          {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                        </button>
+                        <span className="text-sm font-semibold text-white">{domain}</span>
                       </div>
                     </td>
-                    <td className={TABLE_TD}><Toggle on={inApp} onChange={() => toggleNode(node, 'inApp')} label={`${node.id} 웹 알림`} /></td>
-                    <td className={TABLE_TD}><Toggle on={email} onChange={() => toggleNode(node, 'email')} label={`${node.id} 이메일`} /></td>
-                  </tr>
-                );
+                    <td className={TABLE_TD}><Toggle on={allInApp} onChange={() => toggleDomain(domain, 'inApp')} label={`${domain} 웹 알림 전체`} /></td>
+                    <td className={TABLE_TD}><Toggle on={allEmail} onChange={() => toggleDomain(domain, 'email')} label={`${domain} 이메일 전체`} /></td>
+                  </tr>,
+                  ...(open
+                    ? items.map((r) => (
+                        <tr key={r.key} className={TABLE_ROW}>
+                          <td className={TABLE_TD}>
+                            {/* 짧은 이름 — 전체 위치 · 발생 조건은 툴팁 */}
+                            <span className="pl-[26px] text-sm text-white" title={`${r.label}\n${r.condition}`}>
+                              {r.name}
+                            </span>
+                          </td>
+                          <td className={TABLE_TD}><Toggle on={r.inApp} onChange={() => toggleItem(r.key, 'inApp')} label={`${r.name} 웹 알림`} /></td>
+                          <td className={TABLE_TD}><Toggle on={r.email} onChange={() => toggleItem(r.key, 'email')} label={`${r.name} 이메일`} /></td>
+                        </tr>
+                      ))
+                    : []),
+                ];
               })}
             </tbody>
           </table>

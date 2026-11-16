@@ -245,6 +245,7 @@ registerMock(/^\/me\/menus$/, () => []);
 /* ── 알림 항목표 — src/lib/notification-catalog.ts 한 곳(개발팀 알림 기획 답변 2026-11-09). 웹 알림/이메일 설정은 메모리에 반영 ── */
 const NOTIFICATION_EVENTS = NOTIFICATION_CATALOG.map((e) => ({
   eventKey: e.key,
+  name: e.name,
   label: e.label,
   domain: e.domain,
   condition: e.condition,
@@ -277,21 +278,21 @@ registerMock(/^\/notifications\/settings$/, ({ body }) => {
   return {};
 }, 'PUT');
 
-// 종 알림 목업 — 제목은 알림 항목표의 이름 그대로(메뉴 › 구역 › 항목), 같은 대상 · 같은 알림은 해소 전까지 한 번(해소되면 '해소' 알림 한 건). 안 읽음 5 + 읽음 7
+// 종 알림 목업 — 제목은 알림 항목표의 짧은 이름(name), 같은 대상 · 같은 알림은 해소 전까지 한 번(해소되면 '해소' 알림 한 건). 안 읽음 5 + 읽음 7
 // link 는 클릭 시 이동(발전소는 그 발전소 상세, 전기안전은 안전, 태풍은 관제 홈, 가입 · 변경 요청은 기업 관리)
 const NOTIFICATIONS = [
-  { id: 1, type: 'SAFETY_DANGER', title: '안전 › 발전소별 안전 현황 › 전기안전지수 › 위험', message: '용인금속 인버터 #1 — 전기안전지수 48', link: '/control/safety', isRead: false, createdAt: '2026-11-09T10:40:00' },
-  { id: 2, type: 'ANOMALY_RTU_COMM', title: '이상감지 관리 › 이상 감지 목록 › RTU 통신 끊김', message: '태성산업 — 전체 인버터 측정시각 20분 멈춤', link: '/monitoring/anomalies', isRead: false, createdAt: '2026-11-09T10:25:00' },
-  { id: 3, type: 'RTU_POWER_OFF', title: '이상감지 관리 › 이상 감지 목록 › RTU 전원 꺼짐', message: '용인금속 — RTU 전원 신호 꺼짐, 전체 인버터 계측 중단', link: '/monitoring/anomalies', isRead: false, createdAt: '2026-11-09T09:50:00' },
-  { id: 4, type: 'SIGNUP_MEMBER', title: '회원 관리 › 회원 목록 › 가입 신청', message: '한일튜브 이설비 — 기업 회원', link: '/platform/users', isRead: false, createdAt: '2026-11-09T08:30:00' },
-  { id: 5, type: 'SIGNUP_COMPANY', title: '기업 관리 › 기업 목록 › 가입 신청', message: '용인금속 박용인 — 기업 관리자', link: '/platform/companies', isRead: false, createdAt: '2026-11-08T14:05:00' },
-  { id: 6, type: 'ANOMALY_INVERTER_COMM', title: '이상감지 관리 › 이상 감지 목록 › 인버터 통신 끊김 해소', message: '한길 인버터 #3 — 측정 재개', link: '/monitoring/anomalies', isRead: true, createdAt: '2026-11-07T11:10:00' },
-  { id: 7, type: 'COMPANY_CHANGE', title: '기업 관리 › 기업 목록 › 기업 정보 변경 요청', message: '한길 — 종목 변경, 새 사업자등록증 첨부', link: '/platform/companies', isRead: true, createdAt: '2026-11-06T16:20:00' },
-  { id: 8, type: 'EDATA_REQUEST', title: '거래 현황 › 이용 신청', message: '한일튜브 — 태성산업 태양광 발전량', link: '/e-data/trading', isRead: true, createdAt: '2026-11-03T15:45:00' },
-  { id: 10, type: 'EDATA_CONSENT', title: '데이터 등록/신청 › 판매 동의', message: '건호이엔씨 — 태양광 발전량', link: '/e-data/catalog', isRead: true, createdAt: '2026-10-30T13:20:00' },
-  { id: 11, type: 'TRADING_SELF_RECEIVED', title: '거래 신청 › 자가소비 › 신청 접수', message: '한일튜브 99.84 kW', isRead: true, createdAt: '2026-10-28T09:00:00' },
-  { id: 12, type: 'SETTLEMENT', title: '수익 · 정산 › 정산 › 확정', message: '2026-10 한일튜브 PPA', isRead: true, createdAt: '2026-10-25T18:30:00' },
-  { id: 13, type: 'TRADING_PPA_APPROVED', title: '거래 신청 › PPA › 승인', message: 'PPA-2026-ON-001 한일튜브 329.6 kW', isRead: true, createdAt: '2026-10-20T10:00:00' },
+  { id: 1, type: 'SAFETY_DANGER', title: '전기안전지수 위험', message: '용인금속 인버터 #1 — 전기안전지수 48', link: '/control/safety', isRead: false, createdAt: '2026-11-09T10:40:00' },
+  { id: 2, type: 'ANOMALY_RTU_COMM', title: 'RTU 통신 끊김', message: '태성산업 — 전체 인버터 측정시각 20분 멈춤', link: '/monitoring/anomalies', isRead: false, createdAt: '2026-11-09T10:25:00' },
+  { id: 3, type: 'RTU_POWER_OFF', title: 'RTU 전원 꺼짐', message: '용인금속 — RTU 전원 신호 꺼짐, 전체 인버터 계측 중단', link: '/monitoring/anomalies', isRead: false, createdAt: '2026-11-09T09:50:00' },
+  { id: 4, type: 'SIGNUP_MEMBER', title: '회원 가입 신청', message: '한일튜브 이설비 — 기업 회원', link: '/platform/users', isRead: false, createdAt: '2026-11-09T08:30:00' },
+  { id: 5, type: 'SIGNUP_COMPANY', title: '기업 가입 신청', message: '용인금속 박용인 — 기업 관리자', link: '/platform/companies', isRead: false, createdAt: '2026-11-08T14:05:00' },
+  { id: 6, type: 'ANOMALY_INVERTER_COMM', title: '인버터 통신 끊김 해소', message: '한길 인버터 #3 — 측정 재개', link: '/monitoring/anomalies', isRead: true, createdAt: '2026-11-07T11:10:00' },
+  { id: 7, type: 'COMPANY_CHANGE', title: '기업 정보 변경 요청', message: '한길 — 종목 변경, 새 사업자등록증 첨부', link: '/platform/companies', isRead: true, createdAt: '2026-11-06T16:20:00' },
+  { id: 8, type: 'EDATA_REQUEST', title: '이용 신청', message: '한일튜브 — 태성산업 태양광 발전량', link: '/e-data/trading', isRead: true, createdAt: '2026-11-03T15:45:00' },
+  { id: 10, type: 'EDATA_CONSENT', title: '판매 동의', message: '건호이엔씨 — 태양광 발전량', link: '/e-data/catalog', isRead: true, createdAt: '2026-10-30T13:20:00' },
+  { id: 11, type: 'TRADING_SELF_RECEIVED', title: '자가소비 신청 접수', message: '한일튜브 99.84 kW', isRead: true, createdAt: '2026-10-28T09:00:00' },
+  { id: 12, type: 'SETTLEMENT', title: '정산 확정', message: '2026-10 한일튜브 PPA', isRead: true, createdAt: '2026-10-25T18:30:00' },
+  { id: 13, type: 'TRADING_PPA_APPROVED', title: 'PPA 승인', message: 'PPA-2026-ON-001 한일튜브 329.6 kW', isRead: true, createdAt: '2026-10-20T10:00:00' },
 ];
 registerMock(/^\/notifications\/unread-count$/, () => NOTIFICATIONS.filter((n) => !n.isRead).length);
 registerMock(/^\/notifications\/read-all$/, () => {

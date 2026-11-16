@@ -16,7 +16,7 @@ import { useEnergySettings, useHolidays, useKepcoTariff, useSaveEnergySettings, 
 import { holidayMap, opRuleOf, opYear, weekdayOf, type Holiday, type OpRule } from '@/lib/op-calendar';
 
 const WEEK_KO = ['일', '월', '화', '수', '목', '금', '토'];
-import { F1, PLAN_LABEL, TARIFF_LIM, TARIFF_YEAR_LIM, cagrOf, shareOfHours, tableAvg, type Plan, type TariffYearTable } from '@/lib/solar-sim';
+import { PLAN_LABEL, TARIFF_LIM, TARIFF_YEAR_LIM, cagrOf, shareOfHours, tableAvg, type Plan, type TariffYearTable } from '@/lib/solar-sim';
 
 // 에너지 설정 — 정부 공표·고시·사업 배정에 따라 바뀌는 값을 한 곳에서 관리한다.
 // · 전력배출계수 → 무료진단 기본값 · 대시보드 · RE100 · PPA 보고서
@@ -162,7 +162,7 @@ export default function EnergySettingsPage() {
       if (factorDirty) await saveEnergy.mutateAsync(Object.fromEntries(Object.entries(factorDraft).map(([k, v]) => [k, v.trim()])));
       setFactorDirty(false);
       if (opDirty && opRule)
-        await saveEnergy.mutateAsync({ PPA_WEEKEND_OFF: opRule.weekendOff ? '1' : '0', PPA_HOLIDAY_OFF: opRule.holidayOff ? '1' : '0', PPA_OFF_START: opRule.offStart ?? '', PPA_ON_TIME: opRule.onTime ?? '' });
+        await saveEnergy.mutateAsync({ PPA_WEEKEND_OFF: opRule.weekendOff ? '1' : '0', PPA_HOLIDAY_OFF: opRule.holidayOff ? '1' : '0' });
       if (holDirty) await saveHol.mutateAsync(hol);
       setOpDirty(false);
       setHolDirty(false);
@@ -271,28 +271,7 @@ export default function EnergySettingsPage() {
               {opYearNo}년 가동일 <b className="text-lg text-white">{opYr.op}</b>일 / {opYr.days}일 · OFF 주말 {opYr.weekend} · 공휴일 {opYr.holiday}
             </p>
           </div>
-          {/* 매일 고정 OFF · ON 시각 — 날짜가 아니라 시간으로 끈다 */}
-          <div className="mt-4 flex flex-wrap items-center gap-6 text-sm text-slate-200">
-            {(
-              [
-                ['onTime', '매일 ON 시각'],
-                ['offStart', '매일 OFF 시각'],
-              ] as const
-            ).map(([k, label]) => (
-              <label key={k} className="flex items-center gap-2">
-                <span className="shrink-0 whitespace-nowrap">{label}</span>
-                <input
-                  type="time"
-                  value={opRule[k] ?? ''}
-                  onChange={(e) => {
-                    setOpRule({ ...opRule, [k]: e.target.value });
-                    setOpDirty(true);
-                  }}
-                  className={`${FIELD} w-[150px] text-left [color-scheme:dark]`}
-                />
-              </label>
-            ))}
-          </div>
+          {/* 매일 ON · OFF 시각 칸은 뺐다(2026-11-11) — 가동일 수에 쓰이지 않고, 켜고 끄는 시각은 기업 정보 › 운전 일정의 요일별 운전에서 정한다 */}
           <div className="mt-4 overflow-x-auto">
             <table className={cn(TABLE, 'min-w-[640px] tabular-nums')}>
               <thead>
@@ -394,18 +373,11 @@ export default function EnergySettingsPage() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {PLANS.map((pl) => {
                 const c = cagrBy(pl);
-                const last = avgRows[avgRows.length - 1];
-                const prev = avgRows[avgRows.length - 2];
-                const chg = last && prev && last.year - prev.year === 1 ? (last.avg[pl] / prev.avg[pl] - 1) * 100 : null;
                 return (
                   <div key={pl} className="rounded-lg bg-white/[0.03] px-4 py-3 ring-1 ring-white/[0.06]">
                     <p className="text-xs text-slate-400">{PLAN_LABEL[pl]} · 연평균 상승률 (CAGR)</p>
                     <p className="mt-1 text-2xl font-bold text-white tabular-nums">
                       {c ? `${(c.rate * 100).toFixed(2)}%/yr` : ''}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-300 tabular-nums">
-                      {last ? `${last.year} 평균 ${F1(last.avg[pl])}원/kWh` : ''}
-                      {chg === null ? '' : ` · 전년 대비 ${chg >= 0 ? '+' : ''}${chg.toFixed(1)}%`}
                     </p>
                   </div>
                 );
