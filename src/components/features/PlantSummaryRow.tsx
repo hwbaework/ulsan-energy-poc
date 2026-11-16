@@ -129,7 +129,7 @@ export function PlantSummaryRow({
             </span>
           )}
         </div>
-        <p className="text-[11px] text-slate-500 truncate mt-0.5">
+        <p className="text-[11px] text-slate-300 truncate mt-0.5">
           <span>{plant.source}</span>
           <span className="mx-1 text-slate-700">·</span>
           <span className="tabular-nums">{plant.capacityKw.toLocaleString()} kW</span>

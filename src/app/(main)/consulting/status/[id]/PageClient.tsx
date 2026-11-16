@@ -90,7 +90,7 @@ const DOC_TYPE_LABELS: Record<string, string> = {
 const DOC_STATUS_META: Record<string, { label: string; color: string }> = {
   DRAFT: { label: '초안', color: 'bg-slate-500/10 text-slate-400 ring-slate-500/20' },
   REVIEW: { label: '검토중', color: 'bg-amber-500/10 text-amber-400 ring-amber-500/20' },
-  SPC_REVIEW: { label: 'SPC 검수', color: 'bg-violet-500/10 text-violet-400 ring-violet-500/20' },
+  SPC_REVIEW: { label: '관리자 검수', color: 'bg-violet-500/10 text-violet-400 ring-violet-500/20' },
   APPROVED: { label: '승인', color: 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/20' },
   REJECTED: { label: '반려', color: 'bg-red-500/10 text-red-400 ring-red-500/20' },
 };
@@ -860,11 +860,11 @@ export default function ConsultingDetailPage() {
           <p className="text-xs font-semibold text-slate-300 mb-3">컨설팅 정보</p>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
             <div>
-              <p className="text-xs text-slate-500">도메인</p>
+              <p className="text-xs text-slate-300">도메인</p>
               <p className="text-white mt-0.5">{c.domain}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-500">상태</p>
+              <p className="text-xs text-slate-300">상태</p>
               <p className="text-amber-300 mt-0.5">{STATUS_LABEL[c.status] || c.status}</p>
             </div>
           </div>
@@ -930,7 +930,7 @@ export default function ConsultingDetailPage() {
           <div className="px-6 py-3 border-b border-white/[0.06] flex items-center justify-between">
             <div>
               <h3 className="text-md font-semibold text-white">진행 단계</h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-300 mt-0.5">
                 {!c.hasMilestones
                   ? '컨설턴트가 프로세스를 시작하면 단계가 표시됩니다'
                   : doneCount === c.steps.length
@@ -977,7 +977,7 @@ export default function ConsultingDetailPage() {
                           ) : isActive ? (
                             <span className="text-xs font-bold text-primary tabular-nums">{i + 1}</span>
                           ) : (
-                            <span className="text-xs text-slate-600 tabular-nums">{i + 1}</span>
+                            <span className="text-xs text-slate-300 tabular-nums">{i + 1}</span>
                           )}
                         </span>
                         <span
@@ -990,7 +990,7 @@ export default function ConsultingDetailPage() {
                         >
                           {s.title}
                         </span>
-                        {s.date && <span className="text-[9px] text-slate-600 tabular-nums">{s.date}</span>}
+                        {s.date && <span className="text-[9px] text-slate-300 tabular-nums">{s.date}</span>}
                       </button>
                       {!isLast && (
                         <div className="flex-1 mx-2 mt-[-20px]">
@@ -1307,7 +1307,7 @@ export default function ConsultingDetailPage() {
                                 <p className="text-xs font-medium text-white">
                                   {diag.companyName} — {consultationDomain} 진단
                                 </p>
-                                <p className="text-xs text-slate-500">
+                                <p className="text-xs text-slate-300">
                                   에너지 {diag.annualEnergyUsage?.toLocaleString() ?? '-'} MWh · 배출{' '}
                                   {diag.annualGhgEmission?.toLocaleString() ?? '-'} tCO₂eq
                                 </p>
@@ -1359,7 +1359,7 @@ export default function ConsultingDetailPage() {
                             <p className="text-xs font-medium text-white">
                               {diag.companyName} — {consultationDomain} 진단
                             </p>
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-slate-300">
                               에너지 {diag.annualEnergyUsage?.toLocaleString() ?? '-'} MWh
                             </p>
                           </div>
@@ -1400,7 +1400,7 @@ export default function ConsultingDetailPage() {
                                 <MapPin size={12} className={isLinked ? 'text-emerald-400' : 'text-slate-400'} />
                                 <div>
                                   <span className="text-xs text-white">{cs.name}</span>
-                                  <p className="text-xs text-slate-500">{cs.address || '주소 미등록'}</p>
+                                  <p className="text-xs text-slate-300">{cs.address || '주소 미등록'}</p>
                                 </div>
                               </div>
                               {isLinked ? (
@@ -1454,7 +1454,7 @@ export default function ConsultingDetailPage() {
                       </div>
                     )}
                     {linkedSites.length === 0 && consumerSites.length === 0 && (
-                      <p className="text-xs text-slate-500">등록된 사업장이 없습니다</p>
+                      <p className="text-xs text-slate-300">등록된 사업장이 없습니다</p>
                     )}
                     <Button size="sm" variant="ghost" onClick={() => router.push('/consumer/sites')}>
                       <Plus size={12} className="mr-1" /> 새 사업장 등록
@@ -1630,7 +1630,7 @@ export default function ConsultingDetailPage() {
             )}
           </div>
           {c.action.branchNote && (
-            <p className="mt-3 text-xs text-slate-500 flex items-center gap-1.5">
+            <p className="mt-3 text-xs text-slate-300 flex items-center gap-1.5">
               <AlertCircle size={11} className="text-amber-300" />
               {c.action.branchNote}
             </p>
@@ -1653,24 +1653,24 @@ export default function ConsultingDetailPage() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3 text-sm">
             <div>
-              <p className="text-xs text-slate-500">도메인</p>
+              <p className="text-xs text-slate-300">도메인</p>
               <p className="text-white mt-0.5">{c.domain}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-500">계약 금액</p>
+              <p className="text-xs text-slate-300">계약 금액</p>
               <p className="text-white tabular-nums mt-0.5">₩{c.contractAmount.toLocaleString()}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-500">계약 체결일</p>
+              <p className="text-xs text-slate-300">계약 체결일</p>
               <p className="text-white tabular-nums mt-0.5">{c.startedAt}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-500">예상 완료</p>
+              <p className="text-xs text-slate-300">예상 완료</p>
               <p className="text-white tabular-nums mt-0.5">{c.expectedEnd}</p>
             </div>
           </div>
           {c.firstProposal && (
-            <p className="mt-3 pt-3 border-t border-white/[0.06] text-xs text-slate-500">
+            <p className="mt-3 pt-3 border-t border-white/[0.06] text-xs text-slate-300">
               1차 제안 · {c.firstProposal.source} · {c.firstProposal.receivedAt} 수신 → {c.firstProposal.acceptedAt}{' '}
               수락
             </p>
@@ -1706,7 +1706,7 @@ export default function ConsultingDetailPage() {
                 >
                   {m.text}
                 </div>
-                <p className="mt-1 text-xs text-slate-600 tabular-nums">{m.time}</p>
+                <p className="mt-1 text-xs text-slate-300 tabular-nums">{m.time}</p>
               </div>
             </div>
           ))}
@@ -1782,14 +1782,14 @@ export default function ConsultingDetailPage() {
               >
                 {stepView.actor}
               </span>
-              <span className="text-xs text-slate-500 tabular-nums">{stepView.date}</span>
+              <span className="text-xs text-slate-300 tabular-nums">{stepView.date}</span>
             </div>
             <p className="text-sm text-slate-300">{stepView.desc}</p>
 
             {/* 단계별 상세 정보 */}
             {stepView.actionType === 'DOCUMENTS' ? (
               <div className="space-y-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">보고서 현황</p>
+                <p className="text-xs uppercase tracking-wide text-slate-300">보고서 현황</p>
                 {reports.length === 0 ? (
                   <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.06] px-4 py-6 text-center">
                     <FileText size={20} className="mx-auto text-slate-600 mb-2" />
@@ -1828,7 +1828,7 @@ export default function ConsultingDetailPage() {
                                 {st.label}
                               </span>
                             ) : (
-                              <span className="text-[9px] text-slate-600 mt-1 block">미등록</span>
+                              <span className="text-[9px] text-slate-300 mt-1 block">미등록</span>
                             )}
                           </div>
                         );
@@ -1858,7 +1858,7 @@ export default function ConsultingDetailPage() {
                             <div className="min-w-0">
                               <p className="text-sm text-white truncate">{doc.name}</p>
                               <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-xs text-slate-500">
+                                <span className="text-xs text-slate-300">
                                   {DOC_TYPE_LABELS[doc.type] || doc.type}
                                 </span>
                                 {st && (
@@ -1867,7 +1867,7 @@ export default function ConsultingDetailPage() {
                                   </span>
                                 )}
                                 {doc.uploadedAt && (
-                                  <span className="text-xs text-slate-600">
+                                  <span className="text-xs text-slate-300">
                                     {new Date(doc.uploadedAt).toLocaleDateString('ko-KR')}
                                   </span>
                                 )}
@@ -1925,7 +1925,7 @@ export default function ConsultingDetailPage() {
               </div>
             ) : stepView.actionType === 'SURVEY' ? (
               <div className="space-y-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">무료진단 설문 결과</p>
+                <p className="text-xs uppercase tracking-wide text-slate-300">무료진단 설문 결과</p>
                 {(() => {
                   // 제출된 설문 원본(apiSurvey/surveys 테이블)을 우선 반영, 없으면 consultation 요약값 유지
                   const sv = {
@@ -1981,7 +1981,7 @@ export default function ConsultingDetailPage() {
                         <div className="rounded-lg ring-1 ring-white/[0.06] bg-white/[0.02] divide-y divide-white/[0.04]">
                           {rows.map(([k, v]) => (
                             <div key={k} className="flex justify-between px-4 py-2.5">
-                              <span className="text-xs text-slate-500">{k}</span>
+                              <span className="text-xs text-slate-300">{k}</span>
                               <span className="text-sm text-slate-200">{v}</span>
                             </div>
                           ))}
@@ -1989,7 +1989,7 @@ export default function ConsultingDetailPage() {
                       )}
                       {drivers.length > 0 && (
                         <div>
-                          <p className="text-xs text-slate-500 mb-1.5">컨설팅 요청 배경</p>
+                          <p className="text-xs text-slate-300 mb-1.5">컨설팅 요청 배경</p>
                           <div className="flex flex-wrap gap-1.5">
                             {drivers.map((d: string, i: number) => (
                               <span
@@ -2004,7 +2004,7 @@ export default function ConsultingDetailPage() {
                       )}
                       {reMethods.length > 0 && (
                         <div>
-                          <p className="text-xs text-slate-500 mb-1.5">현재 RE 조달 방식</p>
+                          <p className="text-xs text-slate-300 mb-1.5">현재 RE 조달 방식</p>
                           <div className="flex flex-wrap gap-1.5">
                             {reMethods.map((m: string, i: number) => (
                               <span
@@ -2017,14 +2017,14 @@ export default function ConsultingDetailPage() {
                           </div>
                         </div>
                       )}
-                      {sv.diagnosisId && <p className="text-xs text-slate-600">무료진단 #{sv.diagnosisId} 기반</p>}
+                      {sv.diagnosisId && <p className="text-xs text-slate-300">무료진단 #{sv.diagnosisId} 기반</p>}
                     </div>
                   );
                 })()}
               </div>
             ) : stepView.actionType === 'PROSPECT' ? (
               <div className="space-y-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">
+                <p className="text-xs uppercase tracking-wide text-slate-300">
                   등록된 사업장 ({(apiSites as any[])?.length || 0})
                 </p>
                 {!apiSites || (apiSites as any[]).length === 0 ? (
@@ -2077,7 +2077,7 @@ export default function ConsultingDetailPage() {
               </div>
             ) : stepView.actionType === 'SCHEDULE' ? (
               <div className="space-y-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">일정 조율 이력</p>
+                <p className="text-xs uppercase tracking-wide text-slate-300">일정 조율 이력</p>
                 {(() => {
                   const schedules = Array.isArray(apiSchedules) ? (apiSchedules as any[]) : [];
                   if (schedules.length === 0)
@@ -2112,7 +2112,7 @@ export default function ConsultingDetailPage() {
                         </div>
                         {sch.memo && <p className="text-xs text-slate-400 mt-1">{sch.memo}</p>}
                         {(sch.proposedDate || sch.proposed_date) && (
-                          <p className="text-xs text-slate-500 mt-1">
+                          <p className="text-xs text-slate-300 mt-1">
                             대안 제안: {sch.proposedDate || sch.proposed_date}{' '}
                             {sch.proposedTime || sch.proposed_time || ''}
                           </p>
@@ -2134,7 +2134,7 @@ export default function ConsultingDetailPage() {
               </div>
             ) : stepView.actionType === 'NAVIGATE' ? (
               <div className="space-y-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">방문 일정</p>
+                <p className="text-xs uppercase tracking-wide text-slate-300">방문 일정</p>
                 {(() => {
                   const schedules = Array.isArray(apiSchedules) ? (apiSchedules as any[]) : [];
                   const sites = Array.isArray(apiSites) ? (apiSites as any[]) : [];
@@ -2186,7 +2186,7 @@ export default function ConsultingDetailPage() {
                         if (visitDocs.length === 0) return null;
                         return (
                           <div>
-                            <p className="text-xs uppercase tracking-wide text-slate-500 mt-2 mb-2">실사 자료</p>
+                            <p className="text-xs uppercase tracking-wide text-slate-300 mt-2 mb-2">실사 자료</p>
                             {visitDocs.map((doc: any) => (
                               <button
                                 key={doc.id}
@@ -2206,7 +2206,7 @@ export default function ConsultingDetailPage() {
                       })()}
                       {sites.length > 0 && (
                         <div>
-                          <p className="text-xs uppercase tracking-wide text-slate-500 mt-2 mb-2">
+                          <p className="text-xs uppercase tracking-wide text-slate-300 mt-2 mb-2">
                             방문 대상 사업장
                           </p>
                           {sites.map((site: any) => (
@@ -2217,7 +2217,7 @@ export default function ConsultingDetailPage() {
                               <div className="flex items-center gap-2">
                                 <Building2 size={12} className="text-blue-400" />
                                 <span className="text-xs text-white">{site.name || site.siteName}</span>
-                                {site.address && <span className="text-xs text-slate-500">{site.address}</span>}
+                                {site.address && <span className="text-xs text-slate-300">{site.address}</span>}
                               </div>
                             </div>
                           ))}
@@ -2232,7 +2232,7 @@ export default function ConsultingDetailPage() {
               </div>
             ) : stepView.actionType === 'CONTRACT' ? (
               <div className="space-y-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">계약 정보</p>
+                <p className="text-xs uppercase tracking-wide text-slate-300">계약 정보</p>
                 {(() => {
                   const proposals = Array.isArray(apiProposals) ? (apiProposals as any[]) : [];
                   const accepted = proposals.find((p: any) => p.status === 'ACCEPTED');
@@ -2249,7 +2249,7 @@ export default function ConsultingDetailPage() {
                     <div className="space-y-3">
                       <div className="rounded-lg ring-1 ring-white/[0.06] bg-white/[0.02] divide-y divide-white/[0.04]">
                         <div className="flex justify-between px-4 py-2.5">
-                          <span className="text-xs text-slate-500">컨설팅 비용</span>
+                          <span className="text-xs text-slate-300">컨설팅 비용</span>
                           <span className="text-sm text-white font-medium">
                             {(prop?.estimatedCost ?? prop?.estimated_cost)
                               ? `₩${Number(prop.estimatedCost ?? prop.estimated_cost).toLocaleString()}`
@@ -2257,26 +2257,26 @@ export default function ConsultingDetailPage() {
                           </span>
                         </div>
                         <div className="flex justify-between px-4 py-2.5">
-                          <span className="text-xs text-slate-500">예상 기간</span>
+                          <span className="text-xs text-slate-300">예상 기간</span>
                           <span className="text-sm text-slate-200">
                             {prop?.estimatedDuration ?? prop?.estimated_duration ?? c.duration ?? '-'}
                           </span>
                         </div>
                         {prop?.domain && (
                           <div className="flex justify-between px-4 py-2.5">
-                            <span className="text-xs text-slate-500">컨설팅 분야</span>
+                            <span className="text-xs text-slate-300">컨설팅 분야</span>
                             <span className="text-sm text-slate-200">{prop.domain}</span>
                           </div>
                         )}
                         <div className="flex justify-between px-4 py-2.5">
-                          <span className="text-xs text-slate-500">상태</span>
+                          <span className="text-xs text-slate-300">상태</span>
                           <span className="text-sm text-emerald-300">
                             {prop?.status === 'ACCEPTED' ? '수락됨' : prop?.status || '-'}
                           </span>
                         </div>
                         {(prop?.acceptedAt ?? prop?.updatedAt ?? prop?.updated_at) && (
                           <div className="flex justify-between px-4 py-2.5">
-                            <span className="text-xs text-slate-500">수락일</span>
+                            <span className="text-xs text-slate-300">수락일</span>
                             <span className="text-sm text-slate-200">
                               {c.firstProposal?.acceptedAt ||
                                 new Date(prop.acceptedAt ?? prop.updatedAt ?? prop.updated_at).toLocaleDateString(
@@ -2288,7 +2288,7 @@ export default function ConsultingDetailPage() {
                       </div>
                       {Array.isArray(scope) && scope.length > 0 && (
                         <div>
-                          <p className="text-xs text-slate-500 mb-1.5">제안 범위</p>
+                          <p className="text-xs text-slate-300 mb-1.5">제안 범위</p>
                           <div className="flex flex-wrap gap-1.5">
                             {scope.map((s: string, i: number) => (
                               <span
@@ -2303,7 +2303,7 @@ export default function ConsultingDetailPage() {
                       )}
                       {(prop?.coverLetter ?? prop?.cover_letter) && (
                         <div>
-                          <p className="text-xs text-slate-500 mb-1.5">커버레터</p>
+                          <p className="text-xs text-slate-300 mb-1.5">커버레터</p>
                           <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] px-4 py-3">
                             <p className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">
                               {prop.coverLetter ?? prop.cover_letter}
@@ -2316,7 +2316,7 @@ export default function ConsultingDetailPage() {
                 })()}
                 {contractDocs.length > 0 && (
                   <>
-                    <p className="text-xs uppercase tracking-wide text-slate-500 mt-4">계약서 문서</p>
+                    <p className="text-xs uppercase tracking-wide text-slate-300 mt-4">계약서 문서</p>
                     <div className="space-y-2">
                       {contractDocs.map((doc) => {
                         const st = doc.status ? DOC_STATUS_META[doc.status] : null;
@@ -2347,7 +2347,7 @@ export default function ConsultingDetailPage() {
                                     </span>
                                   )}
                                   {doc.uploadedAt && (
-                                    <span className="text-xs text-slate-600">
+                                    <span className="text-xs text-slate-300">
                                       {new Date(doc.uploadedAt).toLocaleDateString('ko-KR')}
                                     </span>
                                   )}
@@ -2411,7 +2411,7 @@ export default function ConsultingDetailPage() {
               </div>
             ) : stepView.actionType === 'REVIEW' ? (
               <div className="space-y-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">최종 검수</p>
+                <p className="text-xs uppercase tracking-wide text-slate-300">최종 검수</p>
                 {(() => {
                   const allApproved = reports.length > 0 && reports.every((r) => r.status === 'APPROVED');
                   const revisions = Array.isArray(apiRevisions) ? (apiRevisions as any[]) : [];
@@ -2419,7 +2419,7 @@ export default function ConsultingDetailPage() {
                   return (
                     <div className="space-y-3">
                       <div className="space-y-1.5">
-                        <p className="text-xs text-slate-500">보고서 승인 현황</p>
+                        <p className="text-xs text-slate-300">보고서 승인 현황</p>
                         {REPORT_STAGES.map((stage) => {
                           const r = reports.find((rr) => rr.type === stage.value);
                           const st = r?.status ? DOC_STATUS_META[r.status] : null;
@@ -2448,7 +2448,7 @@ export default function ConsultingDetailPage() {
                                   )}
                                 </div>
                               ) : (
-                                <span className="text-xs text-slate-600">미등록</span>
+                                <span className="text-xs text-slate-300">미등록</span>
                               )}
                             </div>
                           );
@@ -2472,11 +2472,11 @@ export default function ConsultingDetailPage() {
                       )}
                       {latestRev && (
                         <div>
-                          <p className="text-xs text-slate-500 mb-1.5">최종 보고서 요약</p>
+                          <p className="text-xs text-slate-300 mb-1.5">최종 보고서 요약</p>
                           <div className="rounded-lg ring-1 ring-white/[0.06] bg-white/[0.02] divide-y divide-white/[0.04]">
                             {(latestRev.recommendationSummary ?? latestRev.recommendation_summary) && (
                               <div className="px-4 py-2.5">
-                                <p className="text-xs text-slate-500 mb-1">권고사항</p>
+                                <p className="text-xs text-slate-300 mb-1">권고사항</p>
                                 <p className="text-xs text-slate-300">
                                   {latestRev.recommendationSummary ?? latestRev.recommendation_summary}
                                 </p>
@@ -2484,7 +2484,7 @@ export default function ConsultingDetailPage() {
                             )}
                             {(latestRev.actionPlan ?? latestRev.action_plan) && (
                               <div className="px-4 py-2.5">
-                                <p className="text-xs text-slate-500 mb-1">실행 계획</p>
+                                <p className="text-xs text-slate-300 mb-1">실행 계획</p>
                                 <p className="text-xs text-slate-300">
                                   {latestRev.actionPlan ?? latestRev.action_plan}
                                 </p>
@@ -2492,7 +2492,7 @@ export default function ConsultingDetailPage() {
                             )}
                             {(latestRev.estimatedCost ?? latestRev.estimated_cost) && (
                               <div className="flex justify-between px-4 py-2.5">
-                                <span className="text-xs text-slate-500">예상 비용</span>
+                                <span className="text-xs text-slate-300">예상 비용</span>
                                 <span className="text-sm text-slate-200">
                                   ₩{Number(latestRev.estimatedCost ?? latestRev.estimated_cost).toLocaleString()}
                                 </span>
@@ -2500,7 +2500,7 @@ export default function ConsultingDetailPage() {
                             )}
                             {(latestRev.estimatedSaving ?? latestRev.estimated_saving) && (
                               <div className="flex justify-between px-4 py-2.5">
-                                <span className="text-xs text-slate-500">예상 절감</span>
+                                <span className="text-xs text-slate-300">예상 절감</span>
                                 <span className="text-sm text-emerald-300">
                                   ₩{Number(latestRev.estimatedSaving ?? latestRev.estimated_saving).toLocaleString()}
                                 </span>
@@ -2508,7 +2508,7 @@ export default function ConsultingDetailPage() {
                             )}
                             {(latestRev.paybackYears ?? latestRev.payback_years) && (
                               <div className="flex justify-between px-4 py-2.5">
-                                <span className="text-xs text-slate-500">투자 회수 기간</span>
+                                <span className="text-xs text-slate-300">투자 회수 기간</span>
                                 <span className="text-sm text-slate-200">
                                   {latestRev.paybackYears ?? latestRev.payback_years}년
                                 </span>
@@ -2552,17 +2552,17 @@ export default function ConsultingDetailPage() {
           <div className="space-y-4">
             <div className="rounded-lg ring-1 ring-white/[0.06] bg-white/[0.02] divide-y divide-white/[0.04]">
               <div className="flex items-center justify-between px-4 py-2.5">
-                <span className="text-xs text-slate-500">출처</span>
+                <span className="text-xs text-slate-300">출처</span>
                 <span className="text-sm text-white">{c.firstProposal.source}</span>
               </div>
               <div className="flex items-center justify-between px-4 py-2.5">
-                <span className="text-xs text-slate-500">수신 → 수락</span>
+                <span className="text-xs text-slate-300">수신 → 수락</span>
                 <span className="text-sm text-slate-300 tabular-nums">
                   {c.firstProposal.receivedAt} → {c.firstProposal.acceptedAt}
                 </span>
               </div>
               <div className="flex items-center justify-between px-4 py-2.5">
-                <span className="text-xs text-slate-500">제안 조건</span>
+                <span className="text-xs text-slate-300">제안 조건</span>
                 <span className="text-sm text-white tabular-nums">
                   ₩{c.firstProposal.cost?.toLocaleString()} / {c.firstProposal.duration}
                 </span>
@@ -2796,7 +2796,7 @@ export default function ConsultingDetailPage() {
               >
                 <Upload size={22} className="mx-auto text-slate-500" />
                 <p className="text-xs text-slate-400 mt-2">한전 고지서 · 도면 등을 끌어다 놓거나 클릭해 업로드</p>
-                <p className="text-xs text-slate-600 mt-1">PDF · XLSX · 이미지</p>
+                <p className="text-xs text-slate-300 mt-1">PDF · XLSX · 이미지</p>
               </div>
               {surveyFiles.length > 0 && (
                 <div className="mt-2 space-y-1">
@@ -2809,7 +2809,7 @@ export default function ConsultingDetailPage() {
                       <button
                         type="button"
                         onClick={() => setSurveyFiles((prev) => prev.filter((_, j) => j !== i))}
-                        className="text-xs text-slate-500 hover:text-red-400 ml-2 shrink-0"
+                        className="text-xs text-slate-300 hover:text-red-400 ml-2 shrink-0"
                       >
                         삭제
                       </button>
@@ -2980,7 +2980,7 @@ export default function ConsultingDetailPage() {
             </p>
 
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500 mb-2">제출 문서 {reports.length}건</p>
+              <p className="text-xs uppercase tracking-wide text-slate-300 mb-2">제출 문서 {reports.length}건</p>
               {reports.length === 0 ? (
                 <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.06] px-4 py-3">
                   <p className="text-xs text-slate-400">
@@ -2998,7 +2998,7 @@ export default function ConsultingDetailPage() {
                         <FileText size={16} className="text-blue-400 shrink-0" />
                         <div className="min-w-0">
                           <p className="text-sm text-white truncate">{doc.name}</p>
-                          <p className="text-xs text-slate-500 truncate">
+                          <p className="text-xs text-slate-300 truncate">
                             {DOC_TYPE_LABELS[doc.type] || doc.type}
                             {doc.authorName ? ` · ${doc.authorName}` : ''}
                           </p>
@@ -3027,7 +3027,7 @@ export default function ConsultingDetailPage() {
 
             {/* 검수 항목 체크리스트 */}
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500 mb-2">검수 항목</p>
+              <p className="text-xs uppercase tracking-wide text-slate-300 mb-2">검수 항목</p>
               <div className="rounded-lg ring-1 ring-white/[0.06] bg-white/[0.02] divide-y divide-white/[0.04]">
                 {REVIEW_ITEMS.map((item, i) => (
                   <button
@@ -3049,7 +3049,7 @@ export default function ConsultingDetailPage() {
                 ))}
               </div>
             </div>
-            <p className="text-xs text-slate-500">※ 검수는 성공보수 지급의 기준입니다.</p>
+            <p className="text-xs text-slate-300">※ 검수는 성공보수 지급의 기준입니다.</p>
           </div>
         </Modal>
       )}
@@ -3093,7 +3093,7 @@ export default function ConsultingDetailPage() {
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
             />
-            <p className="text-xs text-slate-500 flex items-center gap-1.5">
+            <p className="text-xs text-slate-300 flex items-center gap-1.5">
               <AlertCircle size={11} className="text-amber-300" />
               반려 시 중간보수 지급은 보류되고, 재작성 후 다시 동의 요청이 도착합니다.
             </p>
@@ -3131,7 +3131,7 @@ export default function ConsultingDetailPage() {
                 <FileText size={16} className="text-blue-400" />
                 <div>
                   <p className="text-sm font-bold text-white">{docPreview.title}</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-300">
                     {docPreview.file} · 작성: {docPreview.author}
                   </p>
                 </div>
@@ -3145,7 +3145,7 @@ export default function ConsultingDetailPage() {
                   </div>
                 ))}
               </div>
-              <p className="mt-4 text-xs text-slate-600">— 미리보기 (요약) · 전체 내용은 다운로드 —</p>
+              <p className="mt-4 text-xs text-slate-300">— 미리보기 (요약) · 전체 내용은 다운로드 —</p>
             </div>
           </div>
         </Modal>
@@ -3186,7 +3186,7 @@ export default function ConsultingDetailPage() {
               >
                 {c.contractAmount > 0 ? '발행 완료' : '미발행'}
               </span>
-              <span className="text-xs text-slate-500">정산(보수 지급)과 별개로 발행되는 세금계산서입니다</span>
+              <span className="text-xs text-slate-300">정산(보수 지급)과 별개로 발행되는 세금계산서입니다</span>
             </div>
             {c.contractAmount === 0 && (
               <div className="rounded-lg bg-amber-500/10 ring-1 ring-amber-500/20 px-3 py-2">
@@ -3197,25 +3197,25 @@ export default function ConsultingDetailPage() {
             )}
             <div className="rounded-lg bg-white/[0.04] ring-1 ring-white/[0.1] divide-y divide-white/[0.06] text-sm">
               <div className="flex justify-between px-4 py-2.5">
-                <span className="text-slate-500 text-xs">공급자</span>
+                <span className="text-slate-300 text-xs">공급자</span>
                 <span className="text-slate-200">{c.consultant} 컨설턴트</span>
               </div>
               <div className="flex justify-between px-4 py-2.5">
-                <span className="text-slate-500 text-xs">공급받는자</span>
+                <span className="text-slate-300 text-xs">공급받는자</span>
                 <span className="text-slate-200">{c.client}</span>
               </div>
               <div className="flex justify-between px-4 py-2.5">
-                <span className="text-slate-500 text-xs">품목</span>
+                <span className="text-slate-300 text-xs">품목</span>
                 <span className="text-slate-200">{c.domain} 컨설팅 보수</span>
               </div>
               <div className="flex justify-between px-4 py-2.5">
-                <span className="text-slate-500 text-xs">공급가액</span>
+                <span className="text-slate-300 text-xs">공급가액</span>
                 <span className="text-white tabular-nums">
                   {c.contractAmount > 0 ? `₩${c.contractAmount.toLocaleString()}` : '미확정'}
                 </span>
               </div>
               <div className="flex justify-between px-4 py-2.5">
-                <span className="text-slate-500 text-xs">세액 (10%)</span>
+                <span className="text-slate-300 text-xs">세액 (10%)</span>
                 <span className="text-white tabular-nums">
                   {c.contractAmount > 0 ? `₩${(c.contractAmount * 0.1).toLocaleString()}` : '미확정'}
                 </span>
@@ -3227,11 +3227,11 @@ export default function ConsultingDetailPage() {
                 </span>
               </div>
               <div className="flex justify-between px-4 py-2.5">
-                <span className="text-slate-500 text-xs">작성일자</span>
+                <span className="text-slate-300 text-xs">작성일자</span>
                 <span className="text-slate-300 tabular-nums">{c.expectedEnd || '미정'}</span>
               </div>
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-300">
               ※ 전자세금계산서는 홈택스로 발행·전송됩니다. 정산(보수 지급 일정)은 정산 메뉴에서 별도 확인하세요.
             </p>
           </div>
@@ -3349,17 +3349,17 @@ export default function ConsultingDetailPage() {
                 <div className="flex flex-col lg:flex-row gap-4" style={{ minHeight: '400px' }}>
                   {/* 문서 목록 */}
                   <div className="lg:w-64 shrink-0 space-y-1.5">
-                    <p className="text-xs text-slate-500 font-medium px-1 mb-2">
+                    <p className="text-xs text-slate-300 font-medium px-1 mb-2">
                       {docsMode === 'contracts' ? '계약서' : '문서'} 목록 ({docList.length})
                     </p>
                     <div className="max-h-[50vh] overflow-y-auto space-y-1.5 pr-1">
                       {docList.length === 0 ? (
                         <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-6 text-center">
                           <FileText size={24} className="mx-auto text-slate-600 mb-2" />
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-slate-300">
                             {docsMode === 'contracts' ? '계약서가 없습니다' : '문서가 없습니다'}
                           </p>
-                          <p className="text-xs text-slate-600 mt-1">컨설턴트가 업로드하면 표시됩니다</p>
+                          <p className="text-xs text-slate-300 mt-1">컨설턴트가 업로드하면 표시됩니다</p>
                         </div>
                       ) : (
                         docList.map((doc) => (
@@ -3396,7 +3396,7 @@ export default function ConsultingDetailPage() {
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs text-white truncate">{doc.name}</p>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-xs text-slate-500">
+                                  <span className="text-xs text-slate-300">
                                     {DOC_TYPE_LABELS[doc.type] || doc.type}
                                   </span>
                                   {(() => {
@@ -3410,15 +3410,15 @@ export default function ConsultingDetailPage() {
                                 </div>
                                 <div className="flex items-center gap-2 mt-0.5">
                                   {doc.authorName && (
-                                    <span className="text-xs text-slate-600">{doc.authorName}</span>
+                                    <span className="text-xs text-slate-300">{doc.authorName}</span>
                                   )}
                                   {doc.uploadedAt && (
-                                    <span className="text-xs text-slate-600">
+                                    <span className="text-xs text-slate-300">
                                       {new Date(doc.uploadedAt).toLocaleDateString('ko-KR')}
                                     </span>
                                   )}
                                   {doc.version > 1 && (
-                                    <span className="text-xs text-slate-600">v{doc.version}</span>
+                                    <span className="text-xs text-slate-300">v{doc.version}</span>
                                   )}
                                 </div>
                                 {!(docsMode === 'contracts' ? isContractStepDone : isDocsStepDone) &&
@@ -3642,7 +3642,7 @@ export default function ConsultingDetailPage() {
                     .filter((f) => f.value)
                     .map((f) => (
                       <div key={f.label} className="flex justify-between px-4 py-2.5">
-                        <span className="text-xs text-slate-500">{f.label}</span>
+                        <span className="text-xs text-slate-300">{f.label}</span>
                         <span className="text-sm text-slate-200 text-right max-w-[60%]">{f.value}</span>
                       </div>
                     ))}

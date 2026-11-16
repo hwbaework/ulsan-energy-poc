@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Shield, Eye, Pencil, Trash2, KeyRound, Plus } from 'lucide-react';
+import { User, Eye, Pencil, Trash2, KeyRound, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Input } from '@/components/ui/Input';
@@ -43,12 +43,12 @@ interface UserRow {
 const ROLE_OPTIONS = [
   { value: 'CONSUMER_MANAGER', label: '전기사용자' },
   { value: 'POWER_OPERATOR', label: '발전사업자' },
-  { value: 'SYSTEM_ADMIN', label: '관리자 (SPC)' },
+  { value: 'SYSTEM_ADMIN', label: '관리자' },
 ];
 
 const ROLE_LABEL_MAP: Record<string, string> = Object.fromEntries(ROLE_OPTIONS.map((r) => [r.value, r.label]));
 
-/** 관리자가 비밀번호를 초기화하면 이 값으로 바뀐다. 사용자는 로그인 후 직접 변경 */
+/** 관리자가 비밀번호를 초기화하면 이 값으로 바뀐다. 회원은 로그인 후 직접 변경 */
 const RESET_PASSWORD = 'a123456789';
 
 export default function UsersPage() {
@@ -134,12 +134,20 @@ export default function UsersPage() {
   }
 
   const columns: Column<UserRow>[] = [
-    // 칸 하나에 값 하나 — 사용자 이름 · 아이디는 따로(2026-11-09)
+    // 칸 하나에 값 하나 — 회원 이름 · 아이디는 따로(2026-11-09)
     {
       key: 'name',
-      header: '사용자 이름',
-      width: '140px',
-      render: (row) => <span className="text-sm font-medium text-white">{row.name}</span>,
+      header: '회원 이름',
+      width: '170px',
+      // 이름 앞 네모 아이콘 — 기업 관리의 기업 칸과 같은 모양(2026-11-16)
+      render: (row) => (
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
+            <User size={14} className="text-blue-400" />
+          </div>
+          <span className="truncate text-sm font-medium text-white">{row.name}</span>
+        </div>
+      ),
     },
     {
       key: 'email',
@@ -162,18 +170,14 @@ export default function UsersPage() {
       key: 'role',
       header: '역할',
       width: '160px',
-      render: (row) => (
-        <div className="flex items-center gap-1.5">
-          <Shield size={12} className="text-violet-400" />
-          <span className="text-sm text-slate-300">{roleLabel(row.role)}</span>
-        </div>
-      ),
+      // 역할은 글자만 — 아이콘 없이(2026-11-16)
+      render: (row) => <span className="text-sm text-slate-300">{roleLabel(row.role)}</span>,
     },
     {
       key: 'lastLogin',
       header: '최근 로그인',
       width: '120px',
-      render: (row) => <span className="text-sm text-slate-500 tabular-nums">{row.lastLogin}</span>,
+      render: (row) => <span className="text-sm text-slate-300 tabular-nums">{row.lastLogin}</span>,
     },
     {
       key: 'status',
@@ -297,45 +301,45 @@ export default function UsersPage() {
           </div>
         }
       >
-        <DataTable columns={columns} data={filtered} rowKey={(row) => row.id} emptyMessage="사용자가 없습니다" />
+        <DataTable columns={columns} data={filtered} rowKey={(row) => row.id} emptyMessage="회원이 없습니다" />
       </SectionCard>
 
       {/* 상세 모달 */}
-      {/* 사용자 상세 — 보기만(기업 상세와 같은 꼴). 수정은 목록의 연필 아이콘으로만 */}
-      <Modal open={!!detailRow} onClose={() => setDetailRow(null)} title="사용자 상세" size="md">
+      {/* 회원 상세 — 보기만(기업 상세와 같은 꼴). 수정은 목록의 연필 아이콘으로만 */}
+      <Modal open={!!detailRow} onClose={() => setDetailRow(null)} title="회원 상세" size="md">
         {detailRow && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-xs text-slate-500 mb-1">사용자 이름</p>
+                <p className="mb-1 text-sm font-medium text-accent">회원 이름</p>
                 <p className="text-sm text-white font-medium">{detailRow.name}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">아이디 (이메일)</p>
+                <p className="mb-1 text-sm font-medium text-accent">아이디 (이메일)</p>
                 <p className="text-sm text-white">{detailRow.email}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">소속</p>
+                <p className="mb-1 text-sm font-medium text-accent">소속</p>
                 <p className="text-sm text-white">{detailRow.company || '-'}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">구분</p>
+                <p className="mb-1 text-sm font-medium text-accent">구분</p>
                 <p className="text-sm text-white">{ACCOUNT_TYPE_LABEL[detailRow.accountType]}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">역할</p>
+                <p className="mb-1 text-sm font-medium text-accent">역할</p>
                 <p className="text-sm text-white">{roleLabel(detailRow.role)}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">연락처</p>
+                <p className="mb-1 text-sm font-medium text-accent">연락처</p>
                 <p className="text-sm text-white tabular-nums">{detailRow.phone || '-'}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">부서</p>
+                <p className="mb-1 text-sm font-medium text-accent">부서</p>
                 <p className="text-sm text-white">{detailRow.department || '-'}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">최근 로그인</p>
+                <p className="mb-1 text-sm font-medium text-accent">최근 로그인</p>
                 <p className="text-sm text-white tabular-nums">{detailRow.lastLogin}</p>
               </div>
             </div>
@@ -349,7 +353,7 @@ export default function UsersPage() {
       </Modal>
 
       {/* 수정 모달 */}
-      <Modal open={!!editRow} onClose={() => setEditRow(null)} title="사용자 수정" size="md">
+      <Modal open={!!editRow} onClose={() => setEditRow(null)} title="회원 수정" size="md">
         {editRow && (
           <div className="space-y-4">
             {/* 아이디는 변경 불가 — 라벨 + 텍스트로만 노출 */}
@@ -429,7 +433,7 @@ export default function UsersPage() {
           <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] px-3 py-2.5">
             <p className="text-xs text-slate-400 mb-0.5">초기 비밀번호</p>
             <p className="text-sm text-slate-300">
-              <span className="font-semibold text-white tabular-nums">{RESET_PASSWORD}</span> 로 등록됩니다. 사용자는 로그인 후 직접 변경합니다.
+              <span className="font-semibold text-white tabular-nums">{RESET_PASSWORD}</span> 로 등록됩니다. 회원은 로그인 후 직접 변경합니다.
             </p>
           </div>
           <Input maxLength={LIMIT.personName} label="이름" required value={cName} onChange={(e) => setCName(e.target.value)} />
@@ -517,7 +521,7 @@ export default function UsersPage() {
           }
         }}
         title="비밀번호 초기화"
-        message={`${resetRow?.name ?? ''} (${resetRow?.email ?? ''})의 비밀번호를 ${RESET_PASSWORD} 로 초기화합니다. 사용자는 로그인 후 비밀번호를 직접 바꿔야 합니다.`}
+        message={`${resetRow?.name ?? ''} (${resetRow?.email ?? ''})의 비밀번호를 ${RESET_PASSWORD} 로 초기화합니다. 회원은 로그인 후 비밀번호를 직접 바꿔야 합니다.`}
         confirmLabel="초기화"
         loading={resetPasswordMut.isPending}
       />
@@ -525,7 +529,7 @@ export default function UsersPage() {
       {/* 가입 검토 — 대기 회원(승인 관리에서 옮김) */}
       {reviewSignup && <SignupReviewModal applicant={reviewSignup} companies={signup.companies} onClose={() => setReviewSignup(null)} />}
 
-      {/* 사용자 삭제 — 공통 확인창(2026-11-09) */}
+      {/* 회원 삭제 — 공통 확인창(2026-11-09) */}
       <ConfirmDialog
         open={!!deleteRow}
         onClose={() => setDeleteRow(null)}
@@ -539,7 +543,7 @@ export default function UsersPage() {
             showToast('error', '삭제에 실패했습니다');
           }
         }}
-        title="사용자 삭제"
+        title="회원 삭제"
         message={`${deleteRow?.name ?? ''} (${deleteRow?.email ?? ''})을 삭제합니다.`}
         confirmLabel="삭제"
         variant="danger"

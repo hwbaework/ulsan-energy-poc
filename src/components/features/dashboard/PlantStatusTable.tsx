@@ -96,7 +96,7 @@ export function PlantStatusTable({ plants }: { plants: PlantRow[] }) {
                         {inv.normal}/{inv.total} 정상
                       </span>
                     ) : (
-                      <span className="text-[11px] text-slate-600">—</span>
+                      <span className="text-[11px] text-slate-300">—</span>
                     )}
                   </td>
                   <td className={TABLE_TD}>
@@ -118,11 +118,11 @@ export function PlantStatusTable({ plants }: { plants: PlantRow[] }) {
                           >
                             {p.alarm.title}
                           </p>
-                          {p.alarm.detail && <p className="text-[10px] text-slate-500">{p.alarm.detail}</p>}
+                          {p.alarm.detail && <p className="text-[10px] text-slate-300">{p.alarm.detail}</p>}
                         </div>
                       </div>
                     ) : (
-                      <span className="text-[11px] text-slate-600">—</span>
+                      <span className="text-[11px] text-slate-300">—</span>
                     )}
                   </td>
                   <td className={TABLE_TD}>

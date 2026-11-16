@@ -145,7 +145,7 @@ export function ScrollableChart({
           {title && <h3 className="text-md font-semibold text-white">{title}</h3>}
           {description && <p className="mt-0.5 text-xs text-slate-400">{description}</p>}
         </div>
-        <div className="flex items-center gap-3 text-[11px] text-slate-500">
+        <div className="flex items-center gap-3 text-[11px] text-slate-300">
           <span className="tabular-nums">
             {offset + 1}–{Math.min(offset + windowSize, total)} / {total}
           </span>
@@ -231,7 +231,7 @@ export function ScrollableChart({
                 return next;
               });
             }}
-            className="flex h-6 w-6 items-center justify-center rounded text-slate-500 hover:text-white hover:bg-white/[0.06] transition-colors text-xs font-bold"
+            className="flex h-6 w-6 items-center justify-center rounded text-slate-300 hover:text-white hover:bg-white/[0.06] transition-colors text-xs font-bold"
             aria-label="확대"
           >
             +
@@ -244,7 +244,7 @@ export function ScrollableChart({
                 return next;
               });
             }}
-            className="flex h-6 w-6 items-center justify-center rounded text-slate-500 hover:text-white hover:bg-white/[0.06] transition-colors text-xs font-bold"
+            className="flex h-6 w-6 items-center justify-center rounded text-slate-300 hover:text-white hover:bg-white/[0.06] transition-colors text-xs font-bold"
             aria-label="축소"
           >
             −
@@ -253,7 +253,7 @@ export function ScrollableChart({
       </div>
 
       {/* Help text */}
-      <div className="px-5 pb-3 text-[10px] text-slate-600 text-center">
+      <div className="px-5 pb-3 text-[10px] text-slate-300 text-center">
         스크롤: 탐색 &nbsp;·&nbsp; ⌘+스크롤: 확대/축소 &nbsp;·&nbsp; 또는 +/− 버튼
       </div>
     </div>

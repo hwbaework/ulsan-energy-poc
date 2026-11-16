@@ -22,7 +22,7 @@ export type AccountType = 'COMPANY_ADMIN' | 'COMPANY_MEMBER';
 const TYPE_LABEL: Record<AccountType, string> = { COMPANY_ADMIN: '기업 관리자', COMPANY_MEMBER: '기업 회원' };
 
 function roleOfCompany(businessTypes: string[] = []): { code: string; label: string } {
-  if (businessTypes.some((t) => t.includes('SPC') || t.includes('운영사'))) return { code: 'SYSTEM_ADMIN', label: '관리자 (SPC)' };
+  if (businessTypes.some((t) => t.includes('SPC') || t.includes('운영사'))) return { code: 'SYSTEM_ADMIN', label: '관리자' };
   if (businessTypes.some((t) => t.includes('발전'))) return { code: 'POWER_OPERATOR', label: '발전사업자' };
   return { code: 'CONSUMER_MANAGER', label: '전기사용자' };
 }

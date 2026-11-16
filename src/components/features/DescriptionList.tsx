@@ -23,7 +23,7 @@ export function DescriptionList({ items, columns = 2, className }: DescriptionLi
     <dl className={cn('grid gap-4', gridCols[columns], className)}>
       {items.map((item) => (
         <div key={item.label} className="space-y-1">
-          <dt className="text-xs font-medium text-accent">{item.label}</dt>
+          <dt className="text-sm font-medium text-accent">{item.label}</dt>
           <dd className="text-sm text-white">{item.value ?? '-'}</dd>
         </div>
       ))}

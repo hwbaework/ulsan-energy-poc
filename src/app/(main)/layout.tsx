@@ -502,7 +502,7 @@ function GnbBar({
             {user?.name?.charAt(0) ?? <User size={14} />}
           </div>
           {/* 이름만 — 아래 작은 회사 이름은 안 보여서 뺐다(회사는 기업 정보에서, 2026-10-15) */}
-          <span className="hidden text-sm font-medium text-white lg:inline">{user?.name ?? '사용자'}</span>
+          <span className="hidden text-sm font-medium text-white lg:inline">{user?.name ?? '회원'}</span>
         </button>
 
         <button
@@ -687,7 +687,7 @@ function SubSidebar({ children: items }: { children: GnbChild[] }) {
               {showSection && (
                 <div
                   className={cn(
-                    'px-3 pb-1 text-[10px] font-medium tracking-wider text-slate-500 uppercase select-none',
+                    'px-3 pb-1 text-[10px] font-medium tracking-wider text-slate-300 uppercase select-none',
                     idx > 0 && 'pt-4',
                   )}
                 >

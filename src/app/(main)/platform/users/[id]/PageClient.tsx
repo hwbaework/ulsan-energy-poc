@@ -16,7 +16,7 @@ const ROLE_LABEL_MAP: Record<string, string> = {
   POWER_OPERATOR: '발전사업자',
   CONSUMER_MANAGER: '전기사용자 담당자',
   CONSULTANT: '컨설턴트',
-  SPC_OPERATOR: 'SPC 운영자',
+  SPC_OPERATOR: '관리자',
   FIELD_OPERATOR: '현장 운영자',
   AGENCY_ADMIN: '용역사 관리자',
 };
@@ -138,7 +138,7 @@ function InfoField({ icon, label, value }: { icon: React.ReactNode; label: strin
     <div>
       <div className="flex items-center gap-1.5 mb-1">
         <span className="text-slate-500">{icon}</span>
-        <span className="text-xs text-slate-500">{label}</span>
+        <span className="text-xs text-slate-300">{label}</span>
       </div>
       <p className="text-sm text-white">{value}</p>
     </div>

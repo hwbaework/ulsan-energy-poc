@@ -135,7 +135,7 @@ function EducationInner() {
                     onClick={() => router.push(`/re100/education/report?id=${report.id}`)}
                     className="group flex cursor-pointer items-center gap-4 px-5 py-4 transition-colors hover:bg-white/[0.04]"
                   >
-                    <div className="w-[76px] shrink-0 text-xs text-slate-500 tabular-nums">
+                    <div className="w-[76px] shrink-0 text-xs text-slate-300 tabular-nums">
                       {report.basic ? '' : report.publishedAt}
                     </div>
                     <div className="flex-1 min-w-0 flex items-center gap-2">

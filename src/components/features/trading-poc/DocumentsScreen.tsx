@@ -78,7 +78,7 @@ function FolderRow({
         {expanded === undefined ? null : expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
       </span>
       <span className="flex-1 truncate">{label}</span>
-      {count !== undefined && <span className="text-xs tabular-nums text-slate-500">{count}</span>}
+      {count !== undefined && <span className="text-xs tabular-nums text-slate-300">{count}</span>}
     </button>
   );
 }
@@ -204,7 +204,7 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
       render: (d) => (
         <div className="min-w-0">
           <p className="whitespace-nowrap text-sm text-white">{d.name}</p>
-          {d.contract && <p className="truncate text-xs text-slate-500">{kindLabel(d.contract.kind)}</p>}
+          {d.contract && <p className="truncate text-xs text-slate-300">{kindLabel(d.contract.kind)}</p>}
         </div>
       ),
     },

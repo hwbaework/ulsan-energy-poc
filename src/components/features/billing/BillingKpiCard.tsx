@@ -17,7 +17,7 @@ export function BillingKpiCard({
     <div className="rounded-lg border border-white/[0.06] bg-surface-card p-4">
       <p className="text-xs text-slate-400">{label}</p>
       <p className={cn('mt-1.5 text-2xl font-bold tabular-nums', valueColor)}>{value}</p>
-      {sub && <p className="mt-1 text-xs text-slate-500">{sub}</p>}
+      {sub && <p className="mt-1 text-xs text-slate-300">{sub}</p>}
       {badge && (
         <span
           className={cn(

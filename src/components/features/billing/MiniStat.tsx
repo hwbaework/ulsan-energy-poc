@@ -20,7 +20,7 @@ export function MiniStat({
         <Icon size={16} className={iconColor} />
       </span>
       <div>
-        <p className="text-[11px] text-slate-500">{label}</p>
+        <p className="text-[11px] text-slate-300">{label}</p>
         <p className="text-sm font-bold text-white tabular-nums">{value}</p>
       </div>
     </div>

@@ -131,7 +131,7 @@ export function DataSourcePanel() {
                 }}
                 className="h-8 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 text-xs text-white [color-scheme:dark] focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
               />
-              <span className="text-xs text-slate-500">~</span>
+              <span className="text-xs text-slate-300">~</span>
               <input
                 type="month"
                 aria-label="끝 월"
@@ -191,7 +191,7 @@ export function DataSourcePanel() {
         <div className="divide-y divide-white/[0.05]">
           {visibleItems.map((item, i) => (
             <div key={item.id ?? `${item.link}-${i}`} className="flex items-center gap-4 px-5 py-3">
-              <div className="w-[76px] shrink-0 text-xs text-slate-500 tabular-nums">{item.pubDate || '—'}</div>
+              <div className="w-[76px] shrink-0 text-xs text-slate-300 tabular-nums">{item.pubDate || '—'}</div>
               {/* 금일 올라온 글만 '새 글' — 제목 왼쪽에 표시 */}
               {isNew(item) && (
                 <Badge variant="primary" className="shrink-0">
@@ -208,7 +208,7 @@ export function DataSourcePanel() {
                   {item.title}
                   <ExternalLink size={11} className="ml-1 inline-block shrink-0 align-middle text-slate-500" />
                 </a>
-                {item.summary && <p className="mt-0.5 text-xs text-slate-500">{item.summary}</p>}
+                {item.summary && <p className="mt-0.5 text-xs text-slate-300">{item.summary}</p>}
               </div>
               <Badge variant="default" className="shrink-0">
                 {item.dept ? `${item.org} : ${item.dept}` : item.org}
@@ -286,7 +286,7 @@ function SourceModal({ open, onClose }: { open: boolean; onClose: () => void }) 
             return (
               <div key={source.id}>
                 <div className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="w-12 shrink-0 text-xs text-slate-500">{source.method}</span>
+                  <span className="w-12 shrink-0 text-xs text-slate-300">{source.method}</span>
                   <div className="flex-1 min-w-0 flex items-center gap-2 text-sm">
                     <span className="text-slate-500 shrink-0">{source.org}</span>
                     <a
@@ -304,7 +304,7 @@ function SourceModal({ open, onClose }: { open: boolean; onClose: () => void }) 
                       {source.name} <ExternalLink size={10} className="shrink-0 text-slate-600" />
                     </a>
                     {source.method === '원전' && (
-                      <span className="shrink-0 text-xs text-slate-500">(챗봇 활용 예정)</span>
+                      <span className="shrink-0 text-xs text-slate-300">(챗봇 활용 예정)</span>
                     )}
                   </div>
                   {source.requiresKey && !source.apiKey && (

@@ -105,7 +105,7 @@ function LoginForm() {
 
         <div className="mt-6 flex items-center gap-3">
           <div className="flex-1 border-t border-white/[0.06]" />
-          <span className="text-xs text-slate-500">또는</span>
+          <span className="text-xs text-slate-300">또는</span>
           <div className="flex-1 border-t border-white/[0.06]" />
         </div>
 
@@ -122,7 +122,7 @@ function LoginForm() {
             >
               <Icon size={22} />
               <span className="text-sm font-semibold text-white">{label}</span>
-              <span className="text-[10px] text-slate-500 group-hover:text-slate-400">{desc}</span>
+              <span className="text-[10px] text-slate-300 group-hover:text-slate-400">{desc}</span>
             </button>
           ))}
         </div>
@@ -134,7 +134,7 @@ function LoginForm() {
         </p>
       </div>
 
-      <p className="mt-6 text-center text-[11px] text-slate-600">&copy; 2025 에너지 플랫폼. All rights reserved.</p>
+      <p className="mt-6 text-center text-[11px] text-slate-300">&copy; 2025 에너지 플랫폼. All rights reserved.</p>
     </div>
   );
 }

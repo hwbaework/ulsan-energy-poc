@@ -204,7 +204,7 @@ export function EventTimeline({ events }: { events: TradeEvent[] }) {
               {e.label} <span className="text-slate-500">· {PARTY_LABEL[e.by]}</span>
             </p>
             {e.note && <p className="text-sm text-slate-400 mt-0.5">{e.note}</p>}
-            <p className="text-xs text-slate-500 tabular-nums mt-0.5">{fmtDateTime(e.at)}</p>
+            <p className="text-xs text-slate-300 tabular-nums mt-0.5">{fmtDateTime(e.at)}</p>
           </div>
         </li>
       ))}

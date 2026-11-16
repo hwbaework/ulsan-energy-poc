@@ -173,13 +173,13 @@ export function ContractSignature({
                 />
                 {!signed && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <span className="text-xs text-slate-600">마우스 또는 터치로 서명하세요</span>
+                    <span className="text-xs text-slate-300">마우스 또는 터치로 서명하세요</span>
                   </div>
                 )}
               </div>
               <button
                 onClick={clearCanvas}
-                className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300"
+                className="flex items-center gap-1 text-xs text-slate-300 hover:text-slate-300"
               >
                 <RotateCcw size={12} /> 다시 그리기
               </button>

@@ -240,7 +240,7 @@ export default function PlatformRolesPage() {
                         <span className={cn('text-sm', isActive ? 'font-semibold text-white' : 'text-slate-300')}>{r.name}</span>
                         {mine && <StatusPill tone="normal" label="내 역할" />}
                       </div>
-                      {r.description && <p className="mt-0.5 text-xs text-slate-500 truncate">{r.description}</p>}
+                      {r.description && <p className="mt-0.5 text-xs text-slate-300 truncate">{r.description}</p>}
                     </div>
                     {/* 기본 역할(관리자·발전사업자·전기사용자)은 수정·삭제 없음 — 추가한 역할만 */}
                     {!r.system && (

@@ -91,7 +91,7 @@ export function ContractBadges({
   className?: string;
 }) {
   const kinds = contractKindsOf(plant);
-  if (kinds.length === 0) return <span className={cn('text-xs text-slate-500', className)}>-</span>;
+  if (kinds.length === 0) return <span className={cn('text-xs text-slate-300', className)}>-</span>;
   return (
     <span className={cn('inline-flex items-center gap-1', className)}>
       {kinds.map((k) => (

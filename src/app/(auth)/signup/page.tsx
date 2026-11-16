@@ -26,7 +26,7 @@ type Step = 1 | 2 | 3 | 4 | 5;
 const ENTERPRISE_ROLE_OPTIONS: { value: EnterpriseRole; label: string }[] = [
   { value: 'CONSUMER_MANAGER', label: '전기사용자' },
   { value: 'POWER_OPERATOR', label: '발전사업자' },
-  { value: 'SPC_OPERATOR', label: '관리자 (SPC)' },
+  { value: 'SPC_OPERATOR', label: '관리자' },
 ];
 
 const STEP_LABELS = ['기업 정보', '계정 생성', '약관 동의', '완료'];
@@ -444,7 +444,7 @@ export default function SignupPage() {
 
             <button
               type="button"
-              className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+              className="text-xs text-slate-300 hover:text-slate-300 transition-colors"
               onClick={() => {
                 const allChecked = !!termsService && !!termsPrivacy && termsMarketing;
                 setValue('termsService', !allChecked as unknown as true);
@@ -499,7 +499,7 @@ export default function SignupPage() {
         )}
       </div>
 
-      <p className="mt-6 text-center text-[11px] text-slate-600">&copy; 2025 에너지 플랫폼. All rights reserved.</p>
+      <p className="mt-6 text-center text-[11px] text-slate-300">&copy; 2025 에너지 플랫폼. All rights reserved.</p>
     </div>
   );
 }

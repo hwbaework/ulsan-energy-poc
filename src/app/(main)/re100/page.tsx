@@ -67,7 +67,7 @@ const TRACK_META = [
 
 // 갭 처방 top1 매핑 — portfolio measureMix 최저 unitCost 수단의 measures highlight 코드.
 const MEASURE_LABEL: Record<Measure, string> = {
-  PPA_DIRECT: '직접 PPA (온사이트)',
+  PPA_DIRECT: '직접 PPA',
   PPA_THIRD: '제3자 PPA',
   SELF_CONSUME: '자가발전(자가소비)',
   REC: '인증서(REC) 구매',
@@ -178,7 +178,7 @@ export default function Re100DashboardPage() {
                 <div className="flex items-center gap-2 text-xs text-slate-400">
                   <Leaf size={15} /> 현재 RE100 이행률
                 </div>
-                <span className="text-[11px] text-slate-500">목표 {targetPct}%</span>
+                <span className="text-[11px] text-slate-300">목표 {targetPct}%</span>
               </div>
               <div className="mt-2 flex items-end gap-2">
                 {roadmapLoading ? (
@@ -196,7 +196,7 @@ export default function Re100DashboardPage() {
                   style={{ width: `${targetPct > 0 ? Math.min(100, (actualPct / targetPct) * 100) : 0}%` }}
                 />
               </div>
-              <div className="mt-1 text-[11px] text-slate-500">
+              <div className="mt-1 text-[11px] text-slate-300">
                 달성률 {targetPct > 0 ? ((actualPct / targetPct) * 100).toFixed(0) : 0}% (목표 대비) · 잔여{' '}
                 {remainPct.toFixed(1)}%p
               </div>
@@ -231,7 +231,7 @@ export default function Re100DashboardPage() {
                   {remainMwh != null ? `${remainMwh.toLocaleString()} MWh` : '—'}
                 </div>
                 {remainMwh == null && (
-                  <div className="mt-0.5 text-[11px] text-slate-500">
+                  <div className="mt-0.5 text-[11px] text-slate-300">
                     연간 수요·목표배분 확정 후 표시(portfolio 미구축)
                   </div>
                 )}
@@ -242,7 +242,7 @@ export default function Re100DashboardPage() {
                   {cheapest ? `${MEASURE_LABEL[cheapest.measure]} (₩${cheapest.unitCost}/kWh)` : '—'}
                 </div>
                 {!cheapest && (
-                  <div className="mt-0.5 text-[11px] text-slate-500">
+                  <div className="mt-0.5 text-[11px] text-slate-300">
                     전략(measureMix) 수립 후 추천(portfolio 미구축)
                   </div>
                 )}
@@ -262,7 +262,7 @@ export default function Re100DashboardPage() {
           <div>
             <div className="mb-2 text-sm font-semibold text-white">
               이행수단 3트랙 요약{' '}
-              <span className="text-[11px] font-normal text-slate-500">(19-01 IA · achievements 집계)</span>
+              <span className="text-[11px] font-normal text-slate-300">(19-01 IA · achievements 집계)</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {TRACK_META.map((t, i) => (
@@ -278,7 +278,7 @@ export default function Re100DashboardPage() {
                     {achQ.isLoading ? '···' : t.key === 'C' ? '—' : `${contribPct(trackValues[i] ?? 0)}`}
                     {t.key !== 'C' && <span className="text-sm text-slate-400">%</span>}
                   </div>
-                  <div className="mt-0.5 text-[11px] text-slate-500">{t.desc}</div>
+                  <div className="mt-0.5 text-[11px] text-slate-300">{t.desc}</div>
                   <div className="mt-2 flex items-center gap-1 text-[11px] text-slate-400 group-hover:text-slate-200">
                     바로가기 <ArrowRight size={12} />
                   </div>
@@ -286,7 +286,7 @@ export default function Re100DashboardPage() {
               ))}
             </div>
             {tracks.total === 0 && !achQ.isLoading && (
-              <p className="mt-2 text-[11px] text-slate-500">
+              <p className="mt-2 text-[11px] text-slate-300">
                 아직 확정 이행 실적이 없습니다 — 정산 확정 시 트랙 비중이 채워집니다.
               </p>
             )}
@@ -295,7 +295,7 @@ export default function Re100DashboardPage() {
           {/* 최근 정산 실적 (06 §13.1.1-6) */}
           <div>
             <div className="mb-2 text-sm font-semibold text-white">
-              최근 정산 실적 <span className="text-[11px] font-normal text-slate-500">(achievements latest=3)</span>
+              최근 정산 실적 <span className="text-[11px] font-normal text-slate-300">(achievements latest=3)</span>
             </div>
             <div className="rounded-xl border border-white/[0.06] overflow-hidden">
               <table className={TABLE}>
@@ -396,7 +396,7 @@ export default function Re100DashboardPage() {
                 >
                   <div>
                     <div className="text-sm font-medium text-white">{a.label}</div>
-                    <div className="mt-0.5 text-[11px] text-slate-500">{a.hint}</div>
+                    <div className="mt-0.5 text-[11px] text-slate-300">{a.hint}</div>
                   </div>
                   <ArrowRight size={16} className="text-slate-500 group-hover:text-slate-200" />
                 </Link>

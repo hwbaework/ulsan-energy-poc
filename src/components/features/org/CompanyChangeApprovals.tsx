@@ -10,6 +10,7 @@ import { LicenseBox } from './BizLicenseSheet';
 import { TEXT_MAX } from '@/components/features/trading-poc/Bits'; // 사유 글자 수 — 거래 반려 사유와 같은 500자
 import { useCompany, useUpdateCompany } from '@/hooks/platform/useCompanies';
 import { useToastStore } from '@/stores/useToastStore';
+import { cn } from '@/lib/utils';
 import { localNow } from '@/stores/useBillingStore';
 import { FIELD_LABEL, LICENSE_FIELDS, useCompanyChangeStore, useHydrateCompanyChange, type CompanyChangeRequest } from '@/stores/useCompanyChangeStore';
 
@@ -143,9 +144,10 @@ export function CompanyChangeReviewModal({ r, onClose }: { r: CompanyChangeReque
               <tbody>
                 {rows.map((c) => (
                   <tr key={c.key} className={TABLE_ROW}>
-                    <td className={`${TABLE_TD} text-slate-300`}>{c.label}</td>
-                    <td className={`${TABLE_TD} text-slate-300`}>{c.before || '-'}</td>
-                    <td className={`${TABLE_TD} ${c.changed ? 'font-semibold text-amber-200' : 'text-slate-300'}`}>{c.after || '-'}</td>
+                    {/* 바뀌는 칸만 노란 굵은 글자 — 칸 기본색(TABLE_TD 의 흰색)과 겹치면 흰색이 이겨 강조가 안 보여서 cn 으로 색을 하나만 남긴다. 나머지 칸은 흰색 그대로 */}
+                    <td className={TABLE_TD}>{c.label}</td>
+                    <td className={TABLE_TD}>{c.before || '-'}</td>
+                    <td className={cn(TABLE_TD, c.changed && 'font-bold text-amber-300')}>{c.after || '-'}</td>
                   </tr>
                 ))}
               </tbody>

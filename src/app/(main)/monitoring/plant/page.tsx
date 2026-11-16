@@ -67,7 +67,7 @@ export default function MonitoringPlantListPage() {
       width: '120px',
       render: (row) => <span className="text-sm text-slate-300">{row.contractKind ? CONTRACT_KIND[row.contractKind].label : '-'}</span>,
     },
-    { key: 'address', header: '위치', render: (row) => <span className="text-sm text-slate-400">{row.address}</span> },
+    { key: 'address', header: '위치', render: (row) => <span className="text-sm text-slate-300">{row.address}</span> },
     {
       key: 'capacity',
       header: '설비 용량',

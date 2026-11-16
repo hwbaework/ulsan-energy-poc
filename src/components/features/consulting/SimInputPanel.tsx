@@ -46,7 +46,7 @@ function Num({ value, onChange, dec = 0, unit, blankZero, lim }: { value: number
         }}
         className={cn(FIELD, 'text-right', unit && 'pr-16')}
       />
-      {unit && <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-xs text-slate-500">{unit}</span>}
+      {unit && <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-xs text-slate-300">{unit}</span>}
     </div>
   );
 }
@@ -56,7 +56,7 @@ function Field({ label, sub, hl, span, children }: { label: string; sub?: string
     <label className={cn('block', span === 2 && 'sm:col-span-2', span === 3 && 'sm:col-span-3')}>
       <span className={cn('mb-1.5 block text-sm', hl ? 'font-medium text-sky-300' : 'text-slate-300')}>
         {label}
-        {sub && <span className="ml-1.5 text-xs text-slate-500">{sub}</span>}
+        {sub && <span className="ml-1.5 text-xs text-slate-300">{sub}</span>}
       </span>
       {children}
     </label>
@@ -207,7 +207,7 @@ export function SimInputPanel({
             </div>
             <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-slate-300">
               <input type="checkbox" checked={f.ets} onChange={(e) => set({ ets: e.target.checked })} className="h-4 w-4 accent-[#3b82f6]" />
-              배출권 할당대상업체 <span className="text-xs text-slate-500">체크 시 배출권 매각가치를 절감액에 합산</span>
+              배출권 할당대상업체 <span className="text-xs text-slate-300">체크 시 배출권 매각가치를 절감액에 합산</span>
             </label>
           </Sec>
         </Line>
@@ -260,7 +260,7 @@ export function SimInputPanel({
               aria-expanded={showDefaults}
             >
               <ChevronDown size={16} className={cn('transition-transform', showDefaults && 'rotate-180')} />
-              기본값 보기 <span className="text-xs text-slate-500">입력 칸 없이 계산에 쓰는 값</span>
+              기본값 보기 <span className="text-xs text-slate-300">입력 칸 없이 계산에 쓰는 값</span>
             </button>
             {showDefaults && (
               <table className={cn(TABLE, 'mt-3')}>

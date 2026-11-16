@@ -43,7 +43,7 @@ export function StatCard({ icon, label, value, change, sub, loading, onClick, cl
           {change.unit ?? '%'} {change.label}
         </p>
       )}
-      {!change && sub && !loading && <p className="mt-2 text-xs text-slate-500">{sub}</p>}
+      {!change && sub && !loading && <p className="mt-2 text-xs text-slate-300">{sub}</p>}
       {loading && <Skeleton className="h-3 w-20 mt-2" />}
     </div>
   );

@@ -403,7 +403,7 @@ function InfoField({
     <div className={span ? 'md:col-span-2' : ''}>
       <div className="mb-1 flex items-center gap-1.5">
         {icon && <span className="text-slate-500">{icon}</span>}
-        <span className="text-xs text-slate-400">
+        <span className="text-sm font-medium text-accent">
           {label}
           {required && <span className="ml-0.5 text-semantic-red">*</span>}
         </span>

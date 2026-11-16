@@ -73,7 +73,7 @@ export function usePpaCompanies(scope: 'control' | 'view' = 'control') {
   }, [contracts, persona, companyId, scope]);
 }
 
-const by = () => useAuthStore.getState().user?.name ?? '사용자';
+const by = () => useAuthStore.getState().user?.name ?? '회원';
 
 /** OFF 사유 — '수동' · '주말' · '공휴일' · '수요일'(운전 안 하는 평일) */
 const offReason = (d: DayStatus) =>
@@ -182,7 +182,7 @@ function OpCalendar({
                 {isManual(d) && <span className="rounded bg-amber-500/20 px-1 text-[10px] text-amber-200">수동</span>}
               </span>
               <span className={cn('block text-[11px] tabular-nums', d.on ? 'text-emerald-200' : 'text-slate-500')}>{dayText(d)}</span>
-              {d.holiday && <span className="block truncate text-[10px] text-slate-500">{d.holiday}</span>}
+              {d.holiday && <span className="block truncate text-[10px] text-slate-300">{d.holiday}</span>}
             </>
           );
           return onDay ? (

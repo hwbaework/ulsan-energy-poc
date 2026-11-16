@@ -100,7 +100,7 @@ export function Header({
             <User size={16} className="text-accent" />
           </div>
           {/* 이름만 — 아래 작은 회사 이름은 안 보여서 뺐다(회사는 기업 정보에서, 2026-10-15) */}
-          <span className="hidden text-sm font-medium text-white lg:inline">{user?.name ?? '사용자'}</span>
+          <span className="hidden text-sm font-medium text-white lg:inline">{user?.name ?? '회원'}</span>
         </div>
 
         <button

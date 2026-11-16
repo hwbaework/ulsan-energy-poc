@@ -9,7 +9,7 @@ export function ScopeTrigger({ label, value, disabled }: { label: string; value:
         disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer text-white hover:bg-white/[0.08]',
       )}
     >
-      <span className="text-xs text-slate-500 shrink-0">{label}</span>
+      <span className="text-xs text-slate-300 shrink-0">{label}</span>
       <span className="font-medium truncate flex-1">{value}</span>
       <ChevronDown size={14} className="text-slate-500 shrink-0" />
     </div>

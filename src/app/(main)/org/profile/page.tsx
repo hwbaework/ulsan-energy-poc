@@ -18,7 +18,7 @@ const ROLE_LABEL: Record<string, string> = {
   SYSTEM_ADMIN: '관리자',
   POWER_OPERATOR: '발전사업자',
   CONSUMER_MANAGER: '전기사용자',
-  SPC_OPERATOR: '관리자 (SPC)',
+  SPC_OPERATOR: '관리자',
 };
 
 export default function OrgProfilePage() {

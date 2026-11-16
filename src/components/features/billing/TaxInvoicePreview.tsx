@@ -117,7 +117,7 @@ export function TaxInvoicePreview(props: TaxInvoicePreviewProps) {
       {/* Title */}
       <div className="text-center mb-1">
         <h3 className="text-base font-bold text-white tracking-[0.3em]">{title}</h3>
-        {invoiceNumber && <p className="text-[10px] text-slate-500 mt-0.5">No. {invoiceNumber}</p>}
+        {invoiceNumber && <p className="text-[10px] text-slate-300 mt-0.5">No. {invoiceNumber}</p>}
       </div>
 
       <table className="w-full border-collapse text-white min-w-[600px]">
@@ -203,7 +203,7 @@ export function TaxInvoicePreview(props: TaxInvoicePreviewProps) {
             <Cell colSpan={3} className="text-right tabular-nums text-slate-300">
               ₩{fmt(vatTotal)}
             </Cell>
-            <Cell className="text-slate-500 text-[10px]"></Cell>
+            <Cell className="text-slate-300 text-[10px]"></Cell>
           </tr>
 
           {/* ── 품목 테이블 헤더 ── */}

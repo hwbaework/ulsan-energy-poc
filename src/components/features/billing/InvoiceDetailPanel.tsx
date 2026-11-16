@@ -15,7 +15,7 @@ function DetailRow({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <span className="text-xs text-slate-500 shrink-0">{label}</span>
+      <span className="text-xs text-slate-300 shrink-0">{label}</span>
       <span className={cn('text-sm tabular-nums text-right', valueClass)}>{value}</span>
     </div>
   );

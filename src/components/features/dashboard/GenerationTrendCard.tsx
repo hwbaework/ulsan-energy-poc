@@ -53,7 +53,7 @@ export function GenerationTrendCard({
           <p className="mt-0.5 text-xs text-slate-400">{description}</p>
         </div>
         <div className="flex items-center gap-3">
-          {yoyLabel && <span className="text-[11px] text-slate-500">{yoyLabel}</span>}
+          {yoyLabel && <span className="text-[11px] text-slate-300">{yoyLabel}</span>}
           <div className="flex rounded-md bg-white/[0.04] p-0.5 ring-1 ring-white/[0.06]">
             {timeUnits.map((opt) => (
               <button
@@ -83,7 +83,7 @@ export function GenerationTrendCard({
           {lines && onToggleLine ? (
             <div className="flex flex-wrap gap-1.5">
               {lines.length === 0 ? (
-                <span className="text-xs text-slate-600">사업장을 선택해 주세요</span>
+                <span className="text-xs text-slate-300">사업장을 선택해 주세요</span>
               ) : (
                 lines.map((line) => {
                   const hidden = hiddenLines?.has(line.key) ?? false;

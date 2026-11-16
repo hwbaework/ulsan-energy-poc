@@ -93,7 +93,7 @@ interface CompanyRow {
 function companyType(businessTypes: string[] = []): string {
   if (businessTypes.includes('발전사업자')) return '발전사업자';
   if (businessTypes.includes('전기사용자')) return '전기사용자';
-  if (businessTypes.includes('SPC') || businessTypes.includes('운영사')) return '관리자 (SPC)';
+  if (businessTypes.includes('SPC') || businessTypes.includes('운영사')) return '관리자';
   return '-';
 }
 
@@ -212,13 +212,13 @@ export default function CompaniesPage() {
       key: 'phone',
       header: '기업 연락처',
       width: '160px',
-      render: (row) => <span className="text-sm text-slate-400 tabular-nums">{row.phone}</span>,
+      render: (row) => <span className="text-sm text-slate-300 tabular-nums">{row.phone}</span>,
     },
     {
       key: 'createdAt',
       header: '등록일',
       width: '120px',
-      render: (row) => <span className="text-sm text-slate-500 tabular-nums">{row.createdAt}</span>,
+      render: (row) => <span className="text-sm text-slate-300 tabular-nums">{row.createdAt}</span>,
     },
     {
       key: 'status',
@@ -500,47 +500,47 @@ export default function CompaniesPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-xs text-slate-500 mb-1">
+                <p className="mb-1 text-sm font-medium text-accent">
                   기업명<span className="ml-0.5 text-semantic-red">*</span>
                 </p>
                 <p className="text-sm text-white font-medium">{detailRow.name}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">
+                <p className="mb-1 text-sm font-medium text-accent">
                   사업자등록번호<span className="ml-0.5 text-semantic-red">*</span>
                 </p>
                 <p className="text-sm text-slate-300 tabular-nums">{detailRow.businessNumber}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">
+                <p className="mb-1 text-sm font-medium text-accent">
                   대표자<span className="ml-0.5 text-semantic-red">*</span>
                 </p>
                 <p className="text-sm text-slate-300">{detailRow.representative || '-'}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">
+                <p className="mb-1 text-sm font-medium text-accent">
                   업태<span className="ml-0.5 text-semantic-red">*</span>
                 </p>
                 <p className="text-sm text-slate-300">{detailRow.bizType || '-'}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">
+                <p className="mb-1 text-sm font-medium text-accent">
                   종목<span className="ml-0.5 text-semantic-red">*</span>
                 </p>
                 <p className="text-sm text-slate-300">{detailRow.bizCategory || '-'}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">기업 연락처</p>
+                <p className="mb-1 text-sm font-medium text-accent">기업 연락처</p>
                 <p className="text-sm text-slate-300 tabular-nums">{detailRow.phone || '-'}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">
+                <p className="mb-1 text-sm font-medium text-accent">
                   설립일
                 </p>
                 <p className="text-sm text-slate-300 tabular-nums">{detailRow.foundedAt || '-'}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">등록일</p>
+                <p className="mb-1 text-sm font-medium text-accent">등록일</p>
                 <p className="text-sm text-slate-300 tabular-nums">{detailRow.createdAt}</p>
               </div>
             </div>
@@ -549,7 +549,7 @@ export default function CompaniesPage() {
               const members = (usersData?.content ?? []).filter((u) => (u.companyName ?? '') === detailRow.name);
               return (
                 <div>
-                  <p className="mb-2 text-xs text-slate-500">소속 멤버 ({members.length})</p>
+                  <p className="mb-2 text-sm font-medium text-accent">소속 멤버 ({members.length})</p>
                   {members.length > 0 ? (
                     <div className="overflow-hidden rounded-lg border border-white/[0.06]">
                       <table className={TABLE}>

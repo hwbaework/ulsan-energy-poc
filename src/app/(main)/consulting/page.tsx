@@ -243,7 +243,7 @@ function ConsultantWorkView({ router }: { router: ReturnType<typeof useRouter> }
             <div className="flex items-center gap-2 px-5 py-3 border-t border-white/[0.06] bg-white/[0.01]">
               <Clock size={12} className="text-amber-400 shrink-0" />
               <span className="text-xs text-slate-300 truncate">{project.nextAction}</span>
-              <span className="text-xs text-slate-500 shrink-0 ml-auto tabular-nums">{project.nextDate}</span>
+              <span className="text-xs text-slate-300 shrink-0 ml-auto tabular-nums">{project.nextDate}</span>
               {project.pendingDocuments > 0 && (
                 <Badge variant="warning" className="text-xs shrink-0">
                   문서 {project.pendingDocuments}

@@ -733,7 +733,7 @@ function FormHead({ f }: { f: CarbonForm }) {
     <div className="min-w-0">
       <p className="text-xs text-slate-400">미리보기</p>
       <p className="truncate text-sm font-semibold text-white">{nameOf(f)}</p>
-      {uploaded && <p className="mt-0.5 text-xs text-slate-500">{uploaded}</p>}
+      {uploaded && <p className="mt-0.5 text-xs text-slate-300">{uploaded}</p>}
     </div>
   );
 }

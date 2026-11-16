@@ -136,7 +136,7 @@ export function SafetyCompanyCard({ plant }: { plant: MonitoringPlant }) {
                       return (
                         <td
                           key={it.key}
-                          className={`${TD_C} whitespace-nowrap tabular-nums ${typeof v !== 'number' ? 'text-slate-500' : isTop ? 'font-semibold text-amber-400' : late ? 'text-slate-500' : 'text-slate-200'}`}
+                          className={`${TD_C} whitespace-nowrap tabular-nums ${typeof v !== 'number' ? 'text-slate-500' : isTop ? 'font-semibold !text-amber-400' : late ? 'text-slate-500' : 'text-slate-200'}`}
                         >
                           {typeof v === 'number' ? fx(v) : sf ? NONE : '-'}
                         </td>

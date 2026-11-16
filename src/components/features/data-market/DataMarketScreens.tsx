@@ -666,7 +666,7 @@ export function DataConsentScreen() {
                 ['기업 이용 종료', stopUsers.length ? stopEnd : '-'],
               ]}
             />
-            <span className="mt-2 block text-xs text-slate-500">{stopEnd} 전에 다시 켜면 예약 취소</span>
+            <span className="mt-2 block text-xs text-slate-300">{stopEnd} 전에 다시 켜면 예약 취소</span>
           </>
         }
         confirmLabel="판매 중지 예약"
@@ -1487,7 +1487,7 @@ export function DataApiHubScreen() {
   const apiName = (name: string, sellerId: number, key: string) => (
     <span className="flex flex-col">
       <span className={`text-sm font-medium ${key === which ? 'text-primary' : 'text-white'}`}>{name}</span>
-      <span className="font-mono text-xs text-slate-500">{endpointOf({ sellerId })}</span>
+      <span className="font-mono text-xs text-slate-300">{endpointOf({ sellerId })}</span>
     </span>
   );
 
@@ -1546,7 +1546,7 @@ export function DataApiHubScreen() {
       ),
     },
     // 허용 URL — 이 주소에서 부를 때만 받는 제한(Mapbox URLs). 아직 정한 곳이 없어 제한 없음
-    { key: 'urls', header: '허용 URL', width: '110px', render: () => cell('제한 없음', 'text-slate-500') },
+    { key: 'urls', header: '허용 URL', width: '110px', render: () => cell('제한 없음', 'text-slate-300') },
     {
       key: 'calls',
       header: '호출',
