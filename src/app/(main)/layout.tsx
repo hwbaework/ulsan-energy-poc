@@ -46,6 +46,7 @@ import { cn } from '@/lib/utils';
 import { useMe, useMyMenus, useSignOut } from '@/hooks/auth/useAuth';
 import { useUnreadCount, useNotifications, useMarkRead, useMarkAllRead } from '@/hooks/platform/useNotifications';
 import { useWebSocketNotifications } from '@/hooks/platform/useWebSocketNotifications';
+import { NOTIFICATION_CATALOG, notifLabelOf, notifPathOf } from '@/lib/notification-catalog';
 import { useConsultations } from '@/hooks/consulting/useConsultations';
 import { usePpaContracts, useAllContractChanges } from '@/hooks/ppa/usePpa';
 import { useVolumeContracts } from '@/hooks/lease/useLease';
@@ -929,6 +930,11 @@ function getNotifLink(n: { type: string; link?: string }, persona: Persona): str
   const changes = isSpcLike ? '/platform/trading/changes' : isGen ? '/generator/trading/changes' : myContracts;
   const settlement = isSpcLike ? '/platform/ppa/billing/tax-invoice' : isGen ? '/generator/ppa/direct/revenue/tax-invoice' : '/ppa/billing/settlement';
 
+  // 알림 항목표에 있는 알림은 항목표의 '클릭 시 이동'대로(계정별 메뉴 주소) — src/lib/notification-catalog.ts notifPathOf
+  if (NOTIFICATION_CATALOG.some((e) => e.key === n.type)) {
+    return notifPathOf(n.type, isSpcLike ? 'admin' : isGen ? 'generator' : 'consumer');
+  }
+
   if (n.link) {
     const m = n.link.match(/^\/([a-z-]+)\/(\d+)$/);
     const type = m?.[1];
@@ -1015,7 +1021,7 @@ function NotificationBell() {
   const ref = useRef<HTMLDivElement>(null);
   const unreadQuery = useUnreadCount();
   const unread = (unreadQuery.data as number) ?? 0;
-  const listQuery = useNotifications({ size: 20 });
+  const listQuery = useNotifications({ size: 100 });
   // 읽음·안 읽음 모두 노출(안 읽음은 강조 표시). 최대 5개 높이까지 보이고 이후 스크롤.
   const items: any[] = (listQuery.data as any)?.content ?? [];
   const markRead = useMarkRead();
@@ -1080,6 +1086,7 @@ function NotificationBell() {
                       link && 'cursor-pointer',
                     )}
                     onClick={() => handleClick(n)}
+                    title={notifLabelOf(n.type)}
                   >
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium text-white truncate flex-1">{n.title}</p>

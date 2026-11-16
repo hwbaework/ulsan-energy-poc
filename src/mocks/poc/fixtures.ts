@@ -3,7 +3,8 @@
  * 나머지 엔드포인트는 라우터의 기본 빈 응답으로 처리된다.
  */
 import { registerMock, pageOf } from './registry';
-import { NOTIFICATION_CATALOG } from '@/lib/notification-catalog';
+import { NOTIFICATION_CATALOG, notifPathOf, type NotifAccount } from '@/lib/notification-catalog';
+import { getPersona } from '@/lib/persona';
 import { LASEE_PLANTS } from '@/constants/plant-mapping';
 import { useAuthStore } from '@/stores/useAuthStore';
 import type { LaseeMonitoringPlant } from '@/api/monitoring/monitoring';
@@ -278,25 +279,62 @@ registerMock(/^\/notifications\/settings$/, ({ body }) => {
   return {};
 }, 'PUT');
 
-// 종 알림 목업 — 제목은 알림 항목표의 짧은 이름(name), 같은 대상 · 같은 알림은 해소 전까지 한 번(해소되면 '해소' 알림 한 건). 안 읽음 5 + 읽음 7
-// link 는 클릭 시 이동(발전소는 그 발전소 상세, 전기안전은 안전, 태풍은 관제 홈, 가입 · 변경 요청은 기업 관리)
-const NOTIFICATIONS = [
-  { id: 1, type: 'SAFETY_DANGER', title: '전기안전지수 위험', message: '용인금속 인버터 #1 — 전기안전지수 48', link: '/control/safety', isRead: false, createdAt: '2026-11-09T10:40:00' },
-  { id: 2, type: 'ANOMALY_RTU_COMM', title: 'RTU 통신 끊김', message: '태성산업 — 전체 인버터 측정시각 20분 멈춤', link: '/monitoring/anomalies', isRead: false, createdAt: '2026-11-09T10:25:00' },
-  { id: 3, type: 'RTU_POWER_OFF', title: 'RTU 전원 꺼짐', message: '용인금속 — RTU 전원 신호 꺼짐, 전체 인버터 계측 중단', link: '/monitoring/anomalies', isRead: false, createdAt: '2026-11-09T09:50:00' },
-  { id: 4, type: 'SIGNUP_MEMBER', title: '회원 가입 신청', message: '한일튜브 이설비 — 기업 회원', link: '/platform/users', isRead: false, createdAt: '2026-11-09T08:30:00' },
-  { id: 5, type: 'SIGNUP_COMPANY', title: '기업 가입 신청', message: '용인금속 박용인 — 기업 관리자', link: '/platform/companies', isRead: false, createdAt: '2026-11-08T14:05:00' },
-  { id: 6, type: 'ANOMALY_INVERTER_COMM', title: '인버터 통신 끊김 해소', message: '한길 인버터 #3 — 측정 재개', link: '/monitoring/anomalies', isRead: true, createdAt: '2026-11-07T11:10:00' },
-  { id: 7, type: 'COMPANY_CHANGE', title: '기업 정보 변경 요청', message: '한길 — 종목 변경, 새 사업자등록증 첨부', link: '/platform/companies', isRead: true, createdAt: '2026-11-06T16:20:00' },
-  { id: 8, type: 'EDATA_REQUEST', title: '이용 신청', message: '한일튜브 — 태성산업 태양광 발전량', link: '/e-data/trading', isRead: true, createdAt: '2026-11-03T15:45:00' },
-  { id: 10, type: 'EDATA_CONSENT', title: '판매 동의', message: '건호이엔씨 — 태양광 발전량', link: '/e-data/catalog', isRead: true, createdAt: '2026-10-30T13:20:00' },
-  { id: 11, type: 'TRADING_SELF_RECEIVED', title: '자가소비 신청 접수', message: '한일튜브 99.84 kW', isRead: true, createdAt: '2026-10-28T09:00:00' },
-  { id: 12, type: 'SETTLEMENT', title: '정산 확정', message: '2026-10 한일튜브 PPA', isRead: true, createdAt: '2026-10-25T18:30:00' },
-  { id: 13, type: 'TRADING_PPA_APPROVED', title: 'PPA 승인', message: 'PPA-2026-ON-001 한일튜브 329.6 kW', isRead: true, createdAt: '2026-10-20T10:00:00' },
-];
-registerMock(/^\/notifications\/unread-count$/, () => NOTIFICATIONS.filter((n) => !n.isRead).length);
+// 종 알림 목업 — 알림 항목표의 모든 항목을 하나씩(항목표 순서), 제목은 짧은 이름(name). 누르면 그 항목의 화면으로 간다(notifPathOf).
+// 계정마다 받는 것만: 관리자는 전부, 기업 계정은 관리자 전용 항목과 그 계정에 화면이 없는 항목을 뺀다. 안 읽음은 앞 5건
+const NOTIFICATION_MESSAGE: Record<string, string> = {
+  RTU_POWER_OFF: '용인금속 — RTU 전원 신호 꺼짐, 전체 인버터 계측 중단',
+  ANOMALY_RTU_COMM: '태성산업 — 전체 인버터 측정시각 20분 멈춤',
+  ANOMALY_INVERTER_COMM: '한길 인버터 #3 — 응답 없음',
+  TYPHOON_WARNING: '울산동부, 울산서부 — 태풍경보 발효',
+  WIND_WARNING: '울산동부, 울산서부 — 강풍경보 발효',
+  HEAVY_RAIN_WARNING: '울산동부, 울산서부 — 호우경보 발효',
+  HEAVY_SNOW_WARNING: '울산동부, 울산서부 — 대설경보 발효',
+  SAFETY_DANGER: '용인금속 인버터 #1 — 전기안전지수 48',
+  SAFETY_WARNING: '한일튜브 인버터 #1 — 전기안전지수 경고',
+  SAFETY_FIRE: '용인금속 인버터 #1 — 화재 징후',
+  SAFETY_CAUTION: '태성산업 인버터 #1 — 전기안전지수 주의',
+  TRADING_SELF_RECEIVED: '한일튜브 99.84 kW',
+  TRADING_SELF_TERMS: '한길 90.88 kW — 조건 확정',
+  TRADING_SELF_SIGN: '태성산업 46.08 kW — 전자서명 요청',
+  TRADING_SELF_APPROVED: '건호이엔씨 33.92 kW',
+  TRADING_PPA_RECEIVED: '한일튜브 329.6 kW',
+  TRADING_PPA_TERMS: '한일튜브 329.6 kW — 조건 확정',
+  TRADING_PPA_SIGN: '한일튜브 329.6 kW — 전자서명 요청',
+  TRADING_PPA_APPROVED: 'PPA-2026-ON-001 한일튜브 329.6 kW',
+  PPA_CONTRACT_CHANGE_REQUEST: '한길 — 계약 변경 요청',
+  PPA_CONTRACT_CHANGE_AGREED: '한길 — 변경 동의',
+  PPA_CONTRACT_CHANGE_SIGN: '한길 — 변경 합의서 전자서명 요청',
+  PPA_CONTRACT_CHANGE_APPROVED: '한길 — 변경 승인',
+  PPA_CONTRACT_TERMINATION_REQUEST: '용인금속 — 계약 해지 요청',
+  PPA_CONTRACT_TERMINATION_AGREED: '용인금속 — 해지 동의',
+  PPA_CONTRACT_TERMINATION_SIGN: '용인금속 — 해지 합의서 전자서명 요청',
+  PPA_CONTRACT_TERMINATION_APPROVED: '용인금속 — 해지 승인',
+  INVOICE: '2026-10 한일튜브 PPA 청구서',
+  TAX_INVOICE: '2026-10 한일튜브 PPA 세금계산서',
+  SETTLEMENT: '2026-10 한일튜브 PPA',
+  EDATA_CONSENT: '건호이엔씨 — 태양광 발전량',
+  EDATA_REQUEST: '한일튜브 — 태성산업 태양광 발전량',
+  EDATA_CANCEL: '한일튜브 — 용인금속 태양광 발전량',
+  EDATA_SALE_END: '태성산업 태양광 발전량 — 금월 말일까지 이용',
+  EDATA_PAYOUT: '2026-10 이용 대금 — 정산 계좌로 지급',
+  SIGNUP_COMPANY: '용인금속 박용인 — 기업 관리자',
+  SIGNUP_MEMBER: '한일튜브 이설비 — 기업 회원',
+  COMPANY_CHANGE: '한길 — 종목 변경, 새 사업자등록증 첨부',
+};
+const NOTIFICATIONS = NOTIFICATION_CATALOG.map((e, i) => {
+  // 항목표 순서대로 최근 것부터 — 2026-11-16 10:00 에서 3시간씩 앞으로
+  const at = new Date(Date.UTC(2026, 10, 16, 10, 0, 0) - i * 3 * 3_600_000).toISOString().slice(0, 19);
+  return { id: i + 1, type: e.key, title: e.name, message: NOTIFICATION_MESSAGE[e.key] ?? '', isRead: i >= 5, createdAt: at };
+});
+/** 지금 계정이 받는 알림 — 그 계정에 갈 화면이 있는 것만 */
+const myNotifications = () => {
+  const persona = getPersona(useAuthStore.getState().user);
+  const account: NotifAccount = persona === 'admin' || persona === 'spc' ? 'admin' : persona === 'generator' ? 'generator' : 'consumer';
+  return NOTIFICATIONS.filter((n) => notifPathOf(n.type, account) !== null);
+};
+registerMock(/^\/notifications\/unread-count$/, () => myNotifications().filter((n) => !n.isRead).length);
 registerMock(/^\/notifications\/read-all$/, () => {
-  NOTIFICATIONS.forEach((n) => (n.isRead = true));
+  myNotifications().forEach((n) => (n.isRead = true));
   return {};
 });
 registerMock(/^\/notifications\/(\d+)\/read$/, ({ match }) => {
@@ -304,7 +342,7 @@ registerMock(/^\/notifications\/(\d+)\/read$/, ({ match }) => {
   if (n) n.isRead = true;
   return {};
 });
-registerMock(/^\/notifications$/, () => pageOf(NOTIFICATIONS));
+registerMock(/^\/notifications$/, () => pageOf(myNotifications(), 100));
 
 // 에너지 설정 — 관리 › 시스템 › 에너지 설정에서 관리. 대시보드·RE100·PPA 보고서·무료진단이 같은 값을 읽는다.
 // 새로고침해도 남게 브라우저에 저장 (POC)

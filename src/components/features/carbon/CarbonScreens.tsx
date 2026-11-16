@@ -477,7 +477,7 @@ function FormModal({ board, f, open, onClose }: { board: string; f?: CarbonForm;
         {textRow('문서 이름', title, setTitle)}
         {textRow('구분', no, setNo, '별지 제00호서식')}
         <div className="flex items-center gap-3">
-          {label('시행일')}
+          {label('기준일')}
           <input
             type="date"
             value={from}

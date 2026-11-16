@@ -23,26 +23,26 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
-/** POC 역할 진입 버튼 — 실제 인증 없이 역할만 선택해서 들어간다 */
-const ROLE_BUTTONS: { role: PocRole; label: string; desc: string; icon: typeof Building2; tone: string }[] = [
+/** POC 계정 버튼 — 누르면 그 계정의 이메일이 이메일 칸에 들어간다. 들어가는 것은 [로그인]을 눌러야(2026-11-16 사용자). 이메일 글자는 버튼에 보이지 않는다 */
+const ROLE_BUTTONS: { role: PocRole; label: string; email: string; icon: typeof Building2; tone: string }[] = [
   {
     role: 'consumer',
     label: '전기사용자',
-    desc: 'consumer@test.com',
+    email: 'consumer@test.com',
     icon: Building2,
     tone: 'hover:border-emerald-400/60 hover:bg-emerald-500/10 text-emerald-300',
   },
   {
     role: 'generator',
     label: '발전사업자',
-    desc: 'operator@test.com',
+    email: 'operator@test.com',
     icon: Factory,
     tone: 'hover:border-amber-400/60 hover:bg-amber-500/10 text-amber-300',
   },
   {
     role: 'admin',
     label: '관리자',
-    desc: 'admin@test.com',
+    email: 'admin@test.com',
     icon: ShieldCheck,
     tone: 'hover:border-sky-400/60 hover:bg-sky-500/10 text-sky-300',
   },
@@ -62,7 +62,7 @@ function LoginForm() {
   const loginAs = useAuthStore((s) => s.loginAs);
   const [remember, setRemember] = useState(true);
 
-  const { register, handleSubmit } = useForm<LoginFormData>({
+  const { register, handleSubmit, setValue, setFocus } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
 
@@ -110,11 +110,14 @@ function LoginForm() {
         </div>
 
         <div className="mt-5 grid grid-cols-3 gap-3">
-          {ROLE_BUTTONS.map(({ role, label, desc, icon: Icon, tone }) => (
+          {ROLE_BUTTONS.map(({ role, label, email, icon: Icon, tone }) => (
             <button
               key={role}
               type="button"
-              onClick={() => enter(role)}
+              onClick={() => {
+                setValue('email', email, { shouldDirty: true });
+                setFocus('password');
+              }}
               className={cn(
                 'group flex flex-col items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-2 py-4 transition-all duration-150 active:scale-95',
                 tone,
@@ -122,7 +125,6 @@ function LoginForm() {
             >
               <Icon size={22} />
               <span className="text-sm font-semibold text-white">{label}</span>
-              <span className="text-xs text-slate-300 group-hover:text-slate-400">{desc}</span>
             </button>
           ))}
         </div>

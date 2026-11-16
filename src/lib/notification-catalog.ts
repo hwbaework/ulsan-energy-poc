@@ -95,5 +95,43 @@ export const NOTIFICATION_CATALOG: NotifEvent[] = [
 
 export const NOTIFICATION_DOMAINS: NotifDomain[] = ['통합관제', 'RE100', 'E-데이터마켓', '관리'];
 
+/** 알림을 받는 계정 종류 — 메뉴가 계정마다 달라 이동 주소도 다르다 */
+export type NotifAccount = 'admin' | 'generator' | 'consumer';
+
+/** 전력거래 메뉴 — 관리자 /platform, 발전사업자 /generator, 전기사용자는 전력거래 메뉴가 없다(컨설팅만) */
+const tradeMenu = (a: NotifAccount) =>
+  a === 'admin'
+    ? { request: '/platform/trading', history: '/platform/trading/history', approvals: '/platform/trading/approvals', contracts: '/platform/ppa/contracts', changes: '/platform/trading/changes', invoices: '/platform/ppa/billing/invoices', tax: '/platform/ppa/billing/tax-invoice' }
+    : a === 'generator'
+      ? { request: '/generator/trading', history: '/generator/trading/history', approvals: '/generator/trading/approvals', contracts: '/generator/ppa/contracts', changes: '/generator/trading/changes', invoices: '/generator/ppa/direct/revenue/invoices', tax: '/generator/ppa/direct/revenue/tax-invoice' }
+      : null;
+
+/**
+ * 알림을 누르면 가는 화면 주소 — 항목표의 '클릭 시 이동'(go)을 계정별 메뉴 주소로 옮긴 것. 그 계정에 화면이 없으면 null(종에도 안 보인다).
+ *  - 조건 확정은 조건을 보는 거래 이력, 서명 요청은 서명하는 거래 승인으로 간다
+ *  - 정산 확정은 수익 · 정산의 첫 화면(세금계산서)
+ */
+export function notifPathOf(key: string, account: NotifAccount): string | null {
+  const e = NOTIFICATION_CATALOG.find((x) => x.key === key);
+  if (!e) return null;
+  if (e.adminOnly && account !== 'admin') return null;
+  if (e.domain === '통합관제') return key.startsWith('SAFETY_') ? '/control/safety' : '/monitoring/anomalies';
+  if (e.domain === 'E-데이터마켓') {
+    if (key === 'EDATA_CONSENT') return '/e-data/catalog';
+    if (key === 'EDATA_PAYOUT') return '/e-data/trading/settlement';
+    return '/e-data/trading';
+  }
+  if (e.domain === '관리') return key === 'SIGNUP_MEMBER' ? '/platform/users' : '/platform/companies';
+  const t = tradeMenu(account);
+  if (!t) return null;
+  if (key.endsWith('_RECEIVED')) return t.request;
+  if (key.endsWith('_TERMS')) return t.history;
+  if (key === 'TRADING_SELF_SIGN' || key === 'TRADING_PPA_SIGN') return t.approvals;
+  if (key.endsWith('_APPROVED')) return t.contracts;
+  if (key.startsWith('PPA_CONTRACT_')) return t.changes;
+  if (key === 'INVOICE') return t.invoices;
+  return t.tax; // TAX_INVOICE · SETTLEMENT
+}
+
 export const notifLabelOf = (type: string) => NOTIFICATION_CATALOG.find((e) => e.key === type)?.label ?? type;
 export const notifNameOf = (type: string) => NOTIFICATION_CATALOG.find((e) => e.key === type)?.name ?? type;

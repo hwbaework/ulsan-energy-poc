@@ -6,6 +6,7 @@ import { Breadcrumb } from '@/components/layout';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
+import { Select } from '@/components/ui/Select';
 import { LIMIT } from '@/lib/field-limits';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SectionCard } from '@/components/features/SectionCard';
@@ -21,7 +22,9 @@ import {
   useMenus,
   useAssignMenu,
   useRevokeMenu,
+  useAssignRoleByCode,
 } from '@/hooks/platform/useRoles';
+import { useUsers } from '@/hooks/platform/useUsers';
 import { useMe } from '@/hooks/auth';
 import { useToastStore } from '@/stores/useToastStore';
 
@@ -50,11 +53,46 @@ export default function PlatformRolesPage() {
   const createRole = useCreateRole();
   const updateRole = useUpdateRole();
   const deleteRole = useDeleteRole();
+  const assignRole = useAssignRoleByCode();
+  // 역할을 가진 회원 — 삭제할 때 다른 역할로 옮긴다
+  const usersQ = useUsers();
+  const membersOf = (code?: string | null) => (code ? (usersQ.data?.content ?? []).filter((u) => u.roles?.includes(code)) : []);
 
   /* ── 역할 추가·수정·삭제 ── */
   const [createOpen, setCreateOpen] = useState(false);
   const [editRole, setEditRole] = useState<{ id: number } | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string; code: string } | null>(null);
+  // 삭제할 역할에 회원이 있을 때 — 그 회원들을 옮길 역할(코드)
+  const [moveTo, setMoveTo] = useState('');
+  const [moving, setMoving] = useState(false);
+  const deleteMembers = membersOf(deleteTarget?.code);
+  const moveOptions = roles.filter((r) => r.id !== deleteTarget?.id && !!r.code).map((r) => ({ value: r.code as string, label: r.name }));
+  const closeDelete = () => {
+    setDeleteTarget(null);
+    setMoveTo('');
+  };
+  // 회원을 옮기고 역할 삭제 — 옮길 역할을 안 골랐으면 알림(버튼을 막지 않는다)
+  const deleteWithMove = async () => {
+    if (!deleteTarget || moving) return;
+    if (!moveTo) {
+      addToast('error', '옮길 역할을 선택해 주세요');
+      return;
+    }
+    const toName = moveOptions.find((o) => o.value === moveTo)?.label ?? '';
+    const count = deleteMembers.length;
+    setMoving(true);
+    try {
+      for (const u of deleteMembers) await assignRole.mutateAsync({ userId: u.id, roleCode: moveTo });
+      await deleteRole.mutateAsync(deleteTarget.id);
+      addToast('success', `${deleteTarget.name} 역할이 삭제되었습니다. 회원 ${count}명은 ${toName} 역할로 변경되었습니다`);
+      if (selectedId === deleteTarget.id) setSelectedId(null);
+      closeDelete();
+    } catch {
+      addToast('error', '역할 삭제에 실패했습니다');
+    } finally {
+      setMoving(false);
+    }
+  };
   const [fName, setFName] = useState('');
   const [fDesc, setFDesc] = useState('');
   const openCreate = () => {
@@ -118,20 +156,16 @@ export default function PlatformRolesPage() {
   }, [roleMenus]);
 
   const [draft, setDraft] = useState<Map<number, boolean>>(new Map()); // menuId → 접근 가능
-  // 역할마다 저장 안 한 변경 — 다른 역할을 눌러도 묻지 않고 바로 그 역할을 보여 주고, 돌아오면 고치던 값 그대로(2026-11-09)
-  const [pending, setPending] = useState<Map<number, Map<number, boolean>>>(new Map());
+  // 저장 안 한 변경이 있는데 다른 역할을 누르면 확인창 — 이동하면 고치던 값은 버린다(저장한 값만 남는다).
+  // 고치던 값을 역할마다 붙들어 두면 저장을 안 눌렀는데 저장된 것처럼 보인다(2026-11-16 사용자)
+  const [switchTo, setSwitchTo] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // 역할을 바꾸면 그 역할의 저장된 값으로 다시 채운다
   useEffect(() => {
-    const kept = activeId ? pending.get(activeId) : undefined;
-    if (kept) {
-      setDraft(new Map(kept));
-    } else {
-      const next = new Map<number, boolean>();
-      allMenus.forEach((menu) => next.set(menu.id, original.get(menu.id)?.canRead ?? false));
-      setDraft(next);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const next = new Map<number, boolean>();
+    allMenus.forEach((menu) => next.set(menu.id, original.get(menu.id)?.canRead ?? false));
+    setDraft(next);
   }, [allMenus, original, activeId]);
 
   // 상위 메뉴를 켜고 끄면 하위 메뉴도 같이 바뀐다
@@ -167,11 +201,6 @@ export default function PlatformRolesPage() {
     try {
       for (const a of changes.assigns) await assignMenu.mutateAsync({ roleId: activeId, data: a });
       for (const menuId of changes.revokes) await revokeMenu.mutateAsync({ roleId: activeId, menuId });
-      setPending((prev) => {
-        const next = new Map(prev);
-        if (activeId) next.delete(activeId);
-        return next;
-      });
       addToast('success', `${active?.name ?? '역할'} 접근 권한을 저장했습니다`);
     } catch {
       addToast('error', '권한 저장에 실패했습니다');
@@ -184,25 +213,13 @@ export default function PlatformRolesPage() {
     const next = new Map<number, boolean>();
     allMenus.forEach((menu) => next.set(menu.id, original.get(menu.id)?.canRead ?? false));
     setDraft(next);
-    setPending((prev) => {
-      const n = new Map(prev);
-      if (activeId) n.delete(activeId);
-      return n;
-    });
   };
 
   const selectRole = (id: number) => {
     if (id === activeId) return;
-    // 고치던 값은 그 역할에 남겨 두고 바로 전환
-    setPending((prev) => {
-      const next = new Map(prev);
-      if (activeId) {
-        if (dirty) next.set(activeId, new Map(draft));
-        else next.delete(activeId);
-      }
-      return next;
-    });
-    setSelectedId(id);
+    // 저장 안 한 변경이 있으면 먼저 묻는다
+    if (dirty) setSwitchTo(id);
+    else setSelectedId(id);
   };
 
   return (
@@ -260,7 +277,8 @@ export default function PlatformRolesPage() {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setDeleteTarget({ id: r.id, name: r.name });
+                            setMoveTo('');
+                            setDeleteTarget({ id: r.id, name: r.name, code: r.code ?? '' });
                           }}
                           className="rounded-md p-1.5 text-slate-500 hover:bg-white/[0.06] hover:text-red-400 transition-colors"
                           title="삭제"
@@ -421,18 +439,30 @@ export default function PlatformRolesPage() {
         )}
       </Modal>
 
-      {/* 역할 삭제 */}
-      {/* 역할 삭제 — 공통 확인창(2026-11-09) */}
+      {/* 역할 이동 — 저장 안 한 변경이 있을 때. 이동하면 고치던 값은 버린다 */}
       <ConfirmDialog
-        open={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
+        open={switchTo !== null}
+        onClose={() => setSwitchTo(null)}
+        onConfirm={() => {
+          if (switchTo !== null) setSelectedId(switchTo);
+          setSwitchTo(null);
+        }}
+        title="역할 이동"
+        message="저장하지 않은 변경사항이 있습니다. 다른 역할로 이동할까요?"
+        confirmLabel="이동"
+      />
+
+      {/* 역할 삭제 — 그 역할을 가진 회원이 없으면 공통 확인창(2026-11-09) */}
+      <ConfirmDialog
+        open={!!deleteTarget && deleteMembers.length === 0}
+        onClose={closeDelete}
         onConfirm={async () => {
           if (!deleteTarget) return;
           try {
             await deleteRole.mutateAsync(deleteTarget.id);
             addToast('success', `${deleteTarget.name} 역할이 삭제되었습니다`);
             if (selectedId === deleteTarget.id) setSelectedId(null);
-            setDeleteTarget(null);
+            closeDelete();
           } catch {
             addToast('error', '역할 삭제에 실패했습니다');
           }
@@ -443,6 +473,31 @@ export default function PlatformRolesPage() {
         variant="danger"
         loading={deleteRole.isPending}
       />
+
+      {/* 역할 삭제 — 그 역할을 가진 회원이 있으면 옮길 역할을 고른 뒤 삭제(2026-11-16 사용자: 한 번에 옮길 수 있게) */}
+      <Modal
+        open={!!deleteTarget && deleteMembers.length > 0}
+        onClose={() => !moving && closeDelete()}
+        title="역할 삭제"
+        size="sm"
+        footer={
+          <>
+            <Button variant="cancel" onClick={closeDelete} disabled={moving}>
+              취소
+            </Button>
+            <Button variant="danger" onClick={() => void deleteWithMove()} loading={moving}>
+              삭제
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm leading-relaxed text-white">
+            {deleteTarget?.name} 역할을 가진 회원이 {deleteMembers.length}명 있습니다. 회원을 옮길 역할을 선택해 주세요.
+          </p>
+          <Select label="옮길 역할" placeholder="선택" options={moveOptions} value={moveTo} onChange={(e) => setMoveTo(e.target.value)} />
+        </div>
+      </Modal>
     </div>
   );
 }
