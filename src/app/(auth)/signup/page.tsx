@@ -234,7 +234,7 @@ export default function SignupPage() {
           {stepLabels.map((label, i) => (
             <span
               key={label}
-              className={`text-[11px] font-medium ${i + 2 <= step ? 'text-primary' : 'text-slate-500'}`}
+              className={`text-xs font-medium ${i + 2 <= step ? 'text-primary' : 'text-slate-500'}`}
             >
               {label}
             </span>
@@ -499,7 +499,7 @@ export default function SignupPage() {
         )}
       </div>
 
-      <p className="mt-6 text-center text-[11px] text-slate-300">&copy; 2025 에너지 플랫폼. All rights reserved.</p>
+      <p className="mt-6 text-center text-xs text-slate-300">&copy; 2025 에너지 플랫폼. All rights reserved.</p>
     </div>
   );
 }

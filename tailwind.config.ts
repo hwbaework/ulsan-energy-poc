@@ -36,7 +36,8 @@ export default {
         sans: ['Pretendard', 'system-ui', 'sans-serif'],
       },
       fontSize: {
-        xs: ['0.75rem', { lineHeight: '1rem' }],
+        // 12px 는 쓰지 않는다(2026-11-16 사용자: 보이지 않는다) — 가장 작은 글자 text-xs 도 14px
+        xs: ['0.875rem', { lineHeight: '1.25rem' }],
         sm: ['0.875rem', { lineHeight: '1.25rem' }],
         md: ['1rem', { lineHeight: '1.5rem' }],
         lg: ['1.25rem', { lineHeight: '1.75rem' }],

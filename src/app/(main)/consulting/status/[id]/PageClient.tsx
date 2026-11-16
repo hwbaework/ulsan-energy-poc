@@ -990,7 +990,7 @@ export default function ConsultingDetailPage() {
                         >
                           {s.title}
                         </span>
-                        {s.date && <span className="text-[9px] text-slate-300 tabular-nums">{s.date}</span>}
+                        {s.date && <span className="text-xs text-slate-300 tabular-nums">{s.date}</span>}
                       </button>
                       {!isLast && (
                         <div className="flex-1 mx-2 mt-[-20px]">
@@ -1240,7 +1240,7 @@ export default function ConsultingDetailPage() {
                               <span className="text-xs text-white">
                                 {sch.scheduledDate} {sch.scheduledTime}
                               </span>
-                              <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full ring-1', st.color)}>
+                              <span className={cn('text-xs px-1.5 py-0.5 rounded-full ring-1', st.color)}>
                                 {st.label}
                               </span>
                             </div>
@@ -1821,14 +1821,14 @@ export default function ConsultingDetailPage() {
                             {st ? (
                               <span
                                 className={cn(
-                                  'text-[9px] px-1.5 py-0.5 rounded-full ring-1 mt-1 inline-block',
+                                  'text-xs px-1.5 py-0.5 rounded-full ring-1 mt-1 inline-block',
                                   st.color,
                                 )}
                               >
                                 {st.label}
                               </span>
                             ) : (
-                              <span className="text-[9px] text-slate-300 mt-1 block">미등록</span>
+                              <span className="text-xs text-slate-300 mt-1 block">미등록</span>
                             )}
                           </div>
                         );
@@ -1862,7 +1862,7 @@ export default function ConsultingDetailPage() {
                                   {DOC_TYPE_LABELS[doc.type] || doc.type}
                                 </span>
                                 {st && (
-                                  <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full ring-1', st.color)}>
+                                  <span className={cn('text-xs px-1.5 py-0.5 rounded-full ring-1', st.color)}>
                                     {st.label}
                                   </span>
                                 )}
@@ -2057,7 +2057,7 @@ export default function ConsultingDetailPage() {
                             <div className="flex items-center gap-2">
                               <p className="text-sm text-white font-medium">{site.name}</p>
                               {site.siteType && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/[0.05] ring-1 ring-white/[0.1] text-slate-400">
+                                <span className="text-xs px-1.5 py-0.5 rounded-full bg-white/[0.05] ring-1 ring-white/[0.1] text-slate-400">
                                   {ST_LABELS[site.siteType] || site.siteType}
                                 </span>
                               )}
@@ -2106,7 +2106,7 @@ export default function ConsultingDetailPage() {
                               {date} {time}
                             </span>
                           </div>
-                          <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full ring-1', st.color)}>
+                          <span className={cn('text-xs px-1.5 py-0.5 rounded-full ring-1', st.color)}>
                             {st.label}
                           </span>
                         </div>
@@ -2162,7 +2162,7 @@ export default function ConsultingDetailPage() {
                                 <span className="text-sm text-white">
                                   {sch.scheduledDate || sch.scheduled_date} {sch.scheduledTime || sch.scheduled_time}
                                 </span>
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded-full ring-1 ${st.color}`}>
+                                <span className={`text-xs px-1.5 py-0.5 rounded-full ring-1 ${st.color}`}>
                                   {st.label}
                                 </span>
                               </div>
@@ -2342,7 +2342,7 @@ export default function ConsultingDetailPage() {
                                 <p className="text-sm text-white truncate">{DOC_TYPE_LABELS[doc.type] || doc.type}</p>
                                 <div className="flex items-center gap-2 mt-0.5">
                                   {st && (
-                                    <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full ring-1', st.color)}>
+                                    <span className={cn('text-xs px-1.5 py-0.5 rounded-full ring-1', st.color)}>
                                       {st.label}
                                     </span>
                                   )}
@@ -2431,7 +2431,7 @@ export default function ConsultingDetailPage() {
                               <span className="text-xs text-slate-300">{stage.label}</span>
                               {st ? (
                                 <div className="flex items-center gap-2">
-                                  <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full ring-1', st.color)}>
+                                  <span className={cn('text-xs px-1.5 py-0.5 rounded-full ring-1', st.color)}>
                                     {st.label}
                                   </span>
                                   {r.fileId && (
@@ -3008,7 +3008,7 @@ export default function ConsultingDetailPage() {
                         {(() => {
                           const st = doc.status ? DOC_STATUS_META[doc.status] : null;
                           return st ? (
-                            <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full ring-1', st.color)}>
+                            <span className={cn('text-xs px-1.5 py-0.5 rounded-full ring-1', st.color)}>
                               {st.label}
                             </span>
                           ) : null;
@@ -3402,7 +3402,7 @@ export default function ConsultingDetailPage() {
                                   {(() => {
                                     const st = doc.status ? DOC_STATUS_META[doc.status] : null;
                                     return st ? (
-                                      <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full ring-1', st.color)}>
+                                      <span className={cn('text-xs px-1.5 py-0.5 rounded-full ring-1', st.color)}>
                                         {st.label}
                                       </span>
                                     ) : null;

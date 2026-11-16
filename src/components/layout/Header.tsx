@@ -89,7 +89,7 @@ export function Header({
         >
           <Bell size={18} />
           {notificationCount > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-semantic-red px-1 text-[10px] font-bold text-white">
+            <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-semantic-red px-1 text-xs font-bold text-white">
               {notificationCount > 99 ? '99+' : notificationCount}
             </span>
           )}

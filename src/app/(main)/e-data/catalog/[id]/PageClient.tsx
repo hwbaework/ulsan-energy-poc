@@ -397,7 +397,7 @@ export default function DatasetDetailPage(props: { params: Promise<{ id: string 
                       <li key={f.id} className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate text-xs text-white">{f.originalName}</p>
-                          <p className="text-[10px] text-accent">
+                          <p className="text-xs text-accent">
                             {(f.sizeBytes / 1024).toLocaleString(undefined, { maximumFractionDigits: 1 })} KB
                           </p>
                         </div>
@@ -414,7 +414,7 @@ export default function DatasetDetailPage(props: { params: Promise<{ id: string 
                   </ul>
                 )}
                 {downloadMsg && <p className="mt-2 text-xs text-semantic-yellow">{downloadMsg}</p>}
-                <p className="mt-2 text-[10px] text-accent/60">
+                <p className="mt-2 text-xs text-accent/60">
                   구매(결제 완료) 후 다운로드됩니다. 서버가 권한을 확인합니다.
                 </p>
               </Card>

@@ -62,7 +62,7 @@ export function PlantStatusTable({ plants }: { plants: PlantRow[] }) {
                   <td className={cn(TABLE_TD, 'whitespace-nowrap')}>
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium ring-1',
+                        'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium ring-1',
                         sm.bg,
                         sm.tone,
                         sm.ring,
@@ -87,7 +87,7 @@ export function PlantStatusTable({ plants }: { plants: PlantRow[] }) {
                     {inv && inv.total > 0 ? (
                       <span
                         className={cn(
-                          'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1',
+                          'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1',
                           invAllNormal
                             ? 'bg-emerald-500/[0.10] text-emerald-300 ring-emerald-500/30'
                             : 'bg-amber-500/[0.10] text-amber-300 ring-amber-500/30',
@@ -96,7 +96,7 @@ export function PlantStatusTable({ plants }: { plants: PlantRow[] }) {
                         {inv.normal}/{inv.total} 정상
                       </span>
                     ) : (
-                      <span className="text-[11px] text-slate-300">—</span>
+                      <span className="text-xs text-slate-300">—</span>
                     )}
                   </td>
                   <td className={TABLE_TD}>
@@ -112,17 +112,17 @@ export function PlantStatusTable({ plants }: { plants: PlantRow[] }) {
                         <div>
                           <p
                             className={cn(
-                              'text-[11px] font-medium',
+                              'text-xs font-medium',
                               p.alarm.severity === 'error' ? 'text-rose-200' : 'text-amber-200',
                             )}
                           >
                             {p.alarm.title}
                           </p>
-                          {p.alarm.detail && <p className="text-[10px] text-slate-300">{p.alarm.detail}</p>}
+                          {p.alarm.detail && <p className="text-xs text-slate-300">{p.alarm.detail}</p>}
                         </div>
                       </div>
                     ) : (
-                      <span className="text-[11px] text-slate-300">—</span>
+                      <span className="text-xs text-slate-300">—</span>
                     )}
                   </td>
                   <td className={TABLE_TD}>
@@ -130,7 +130,7 @@ export function PlantStatusTable({ plants }: { plants: PlantRow[] }) {
                       <button
                         type="button"
                         onClick={p.onDetail}
-                        className="text-[11px] text-slate-400 hover:text-white"
+                        className="text-xs text-slate-400 hover:text-white"
                       >
                         상세 <ArrowRight size={9} className="inline ml-0.5" />
                       </button>

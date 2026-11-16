@@ -90,14 +90,14 @@ export function OnboardingStepper({ steps, className }: OnboardingStepperProps) 
                   >
                     {step.label}
                   </p>
-                  <p className="text-[10px] text-slate-300 mt-0.5 leading-tight">{step.description}</p>
+                  <p className="text-xs text-slate-300 mt-0.5 leading-tight">{step.description}</p>
                   {step.status === 'current' && (
-                    <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full bg-blue-500/10 text-[10px] text-blue-300 ring-1 ring-blue-500/20">
+                    <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full bg-blue-500/10 text-xs text-blue-300 ring-1 ring-blue-500/20">
                       <Clock size={10} /> 진행 중
                     </span>
                   )}
                   {step.status === 'rejected' && step.rejectionReason && (
-                    <p className="text-[10px] text-red-400 mt-1 leading-tight">{step.rejectionReason}</p>
+                    <p className="text-xs text-red-400 mt-1 leading-tight">{step.rejectionReason}</p>
                   )}
                 </div>
               </div>

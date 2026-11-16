@@ -418,7 +418,7 @@ export default function PlantDetailPage() {
             <p className="text-2xl font-bold text-white tabular-nums">
               {plant.irradianceCumulative} <span className="text-sm font-normal text-slate-500">kWh/m²</span>
             </p>
-            <p className="text-[10px] text-slate-300 mt-1">현재 {plant.irradiance} W/m²</p>
+            <p className="text-xs text-slate-300 mt-1">현재 {plant.irradiance} W/m²</p>
           </div>
         </div>
       )}
@@ -434,7 +434,7 @@ export default function PlantDetailPage() {
                   <Sun size={16} className="text-amber-400" />
                 </div>
                 <div>
-                  <p className="text-[10px] text-slate-300">일사량</p>
+                  <p className="text-xs text-slate-300">일사량</p>
                   <p className="text-sm font-medium text-white tabular-nums">{plant.irradiance} W/m²</p>
                 </div>
               </div>
@@ -443,7 +443,7 @@ export default function PlantDetailPage() {
                   <Thermometer size={16} className="text-red-400" />
                 </div>
                 <div>
-                  <p className="text-[10px] text-slate-300">외기 온도</p>
+                  <p className="text-xs text-slate-300">외기 온도</p>
                   <p className="text-sm font-medium text-white tabular-nums">{plant.ambientTemp}°C</p>
                 </div>
               </div>
@@ -452,7 +452,7 @@ export default function PlantDetailPage() {
                   <Thermometer size={16} className="text-orange-400" />
                 </div>
                 <div>
-                  <p className="text-[10px] text-slate-300">모듈 온도</p>
+                  <p className="text-xs text-slate-300">모듈 온도</p>
                   <p className="text-sm font-medium text-white tabular-nums">{plant.moduleTemp}°C</p>
                 </div>
               </div>
@@ -461,7 +461,7 @@ export default function PlantDetailPage() {
                   <Wind size={16} className="text-cyan-400" />
                 </div>
                 <div>
-                  <p className="text-[10px] text-slate-300">풍속</p>
+                  <p className="text-xs text-slate-300">풍속</p>
                   <p className="text-sm font-medium text-white tabular-nums">{plant.windSpeed} m/s</p>
                 </div>
               </div>
@@ -473,19 +473,19 @@ export default function PlantDetailPage() {
               </p>
               <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3 text-center">
-                  <p className="text-[10px] text-slate-300">PV 전압</p>
+                  <p className="text-xs text-slate-300">PV 전압</p>
                   <p className="text-lg font-bold text-white tabular-nums">{plant.realtime.pvVoltage.toFixed(1)}</p>
-                  <p className="text-[10px] text-slate-300">V</p>
+                  <p className="text-xs text-slate-300">V</p>
                 </div>
                 <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3 text-center">
-                  <p className="text-[10px] text-slate-300">PV 전류</p>
+                  <p className="text-xs text-slate-300">PV 전류</p>
                   <p className="text-lg font-bold text-white tabular-nums">{plant.realtime.pvCurrent.toFixed(2)}</p>
-                  <p className="text-[10px] text-slate-300">A</p>
+                  <p className="text-xs text-slate-300">A</p>
                 </div>
                 <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3 text-center">
-                  <p className="text-[10px] text-slate-300">PV 전력</p>
+                  <p className="text-xs text-slate-300">PV 전력</p>
                   <p className="text-lg font-bold text-white tabular-nums">{plant.realtime.pvPower.toFixed(1)}</p>
-                  <p className="text-[10px] text-slate-300">kW</p>
+                  <p className="text-xs text-slate-300">kW</p>
                 </div>
               </div>
             </div>
@@ -633,17 +633,17 @@ export default function PlantDetailPage() {
                 <div className="space-y-3">
                   <div className="grid grid-cols-3 gap-3">
                     <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3">
-                      <p className="text-[10px] text-slate-300">계약 유형</p>
+                      <p className="text-xs text-slate-300">계약 유형</p>
                       <Badge variant="primary" className="mt-1">
                         {activeConsumer.contractType}
                       </Badge>
                     </div>
                     <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3">
-                      <p className="text-[10px] text-slate-300">계약 용량</p>
+                      <p className="text-xs text-slate-300">계약 용량</p>
                       <p className="text-sm font-medium text-white tabular-nums mt-1">{activeConsumer.capacity} kW</p>
                     </div>
                     <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] p-3">
-                      <p className="text-[10px] text-slate-300">계약 단가</p>
+                      <p className="text-xs text-slate-300">계약 단가</p>
                       <p className="text-sm font-medium text-white tabular-nums mt-1">
                         {activeConsumer.contractAmount} 원/kWh
                       </p>

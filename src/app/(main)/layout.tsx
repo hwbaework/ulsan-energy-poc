@@ -464,7 +464,7 @@ function GnbBar({
               key={item.to}
               href={href}
               className={cn(
-                'flex flex-col items-center justify-center gap-2 min-w-[90px] px-4 text-[11px] tracking-wide font-medium transition-all duration-150 border-b-2 active:scale-95',
+                'flex flex-col items-center justify-center gap-2 min-w-[90px] px-4 text-xs tracking-wide font-medium transition-all duration-150 border-b-2 active:scale-95',
                 isActive
                   ? 'bg-[#005DBD]/80 text-white font-bold border-[#4DA3FF]'
                   : 'text-white/60 hover:bg-[#00458C]/60 hover:text-white border-transparent',
@@ -564,7 +564,7 @@ function SidebarLink({ item, indent = false }: { item: GnbChild; indent?: boolea
       <item.icon size={16} className="shrink-0" />
       <span className="truncate">{item.label}</span>
       {item.badge ? (
-        <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white shrink-0">
+        <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-500 px-1.5 text-xs font-bold text-white shrink-0">
           {item.badge}
         </span>
       ) : null}
@@ -687,7 +687,7 @@ function SubSidebar({ children: items }: { children: GnbChild[] }) {
               {showSection && (
                 <div
                   className={cn(
-                    'px-3 pb-1 text-[10px] font-medium tracking-wider text-slate-300 uppercase select-none',
+                    'px-3 pb-1 text-xs font-medium tracking-wider text-slate-300 uppercase select-none',
                     idx > 0 && 'pt-4',
                   )}
                 >
@@ -1048,7 +1048,7 @@ function NotificationBell() {
       >
         <Bell size={18} className={cn(unread > 0 && 'animate-wiggle')} />
         {unread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white animate-fadeIn">
+          <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white animate-fadeIn">
             {unread > 99 ? '99+' : unread}
           </span>
         )}

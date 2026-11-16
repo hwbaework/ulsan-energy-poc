@@ -77,7 +77,7 @@ function HeaderCell({
       colSpan={colSpan}
       rowSpan={rowSpan}
       className={cn(
-        'border border-slate-600/60 px-2 py-1.5 text-[11px] text-slate-400 text-center whitespace-nowrap bg-white/[0.02]',
+        'border border-slate-600/60 px-2 py-1.5 text-xs text-slate-400 text-center whitespace-nowrap bg-white/[0.02]',
         className,
       )}
     >
@@ -117,7 +117,7 @@ export function TaxInvoicePreview(props: TaxInvoicePreviewProps) {
       {/* Title */}
       <div className="text-center mb-1">
         <h3 className="text-base font-bold text-white tracking-[0.3em]">{title}</h3>
-        {invoiceNumber && <p className="text-[10px] text-slate-300 mt-0.5">No. {invoiceNumber}</p>}
+        {invoiceNumber && <p className="text-xs text-slate-300 mt-0.5">No. {invoiceNumber}</p>}
       </div>
 
       <table className="w-full border-collapse text-white min-w-[600px]">
@@ -143,7 +143,7 @@ export function TaxInvoicePreview(props: TaxInvoicePreviewProps) {
             <HeaderCell>
               상호
               <br />
-              <span className="text-[9px]">(법인명)</span>
+              <span className="text-xs">(법인명)</span>
             </HeaderCell>
             <Cell className="text-white font-medium">{supplier.name}</Cell>
             <HeaderCell>성명</HeaderCell>
@@ -151,7 +151,7 @@ export function TaxInvoicePreview(props: TaxInvoicePreviewProps) {
             <HeaderCell>
               상호
               <br />
-              <span className="text-[9px]">(법인명)</span>
+              <span className="text-xs">(법인명)</span>
             </HeaderCell>
             <Cell className="text-white font-medium">{receiver.name}</Cell>
             <HeaderCell>성명</HeaderCell>
@@ -163,7 +163,7 @@ export function TaxInvoicePreview(props: TaxInvoicePreviewProps) {
               <br />
               주소
             </HeaderCell>
-            <Cell colSpan={3} className="text-slate-400 text-[11px]">
+            <Cell colSpan={3} className="text-slate-400 text-xs">
               {supplier.address ?? '—'}
             </Cell>
             <HeaderCell>
@@ -171,7 +171,7 @@ export function TaxInvoicePreview(props: TaxInvoicePreviewProps) {
               <br />
               주소
             </HeaderCell>
-            <Cell colSpan={3} className="text-slate-400 text-[11px]">
+            <Cell colSpan={3} className="text-slate-400 text-xs">
               {receiver.address ?? '—'}
             </Cell>
           </tr>
@@ -203,7 +203,7 @@ export function TaxInvoicePreview(props: TaxInvoicePreviewProps) {
             <Cell colSpan={3} className="text-right tabular-nums text-slate-300">
               ₩{fmt(vatTotal)}
             </Cell>
-            <Cell className="text-slate-300 text-[10px]"></Cell>
+            <Cell className="text-slate-300 text-xs"></Cell>
           </tr>
 
           {/* ── 품목 테이블 헤더 ── */}
@@ -234,7 +234,7 @@ export function TaxInvoicePreview(props: TaxInvoicePreviewProps) {
               </Cell>
               <Cell className="text-right tabular-nums text-emerald-300 font-medium">₩{fmt(item.supplyAmount)}</Cell>
               <Cell className="text-right tabular-nums text-slate-300">₩{fmt(item.tax)}</Cell>
-              <Cell className="text-slate-500 text-[10px]">{item.note ?? ''}</Cell>
+              <Cell className="text-slate-500 text-xs">{item.note ?? ''}</Cell>
             </tr>
           ))}
 

@@ -191,7 +191,7 @@ export function CheckoutModal({
             <CreditCard size={16} className="text-blue-400 shrink-0" />
             <div>
               <p className="text-xs font-medium text-blue-300">모의 PG 결제 페이지</p>
-              <p className="text-[11px] text-slate-400">결제키 {paymentKey} · 실 결제창 대신 시연 확인입니다.</p>
+              <p className="text-xs text-slate-400">결제키 {paymentKey} · 실 결제창 대신 시연 확인입니다.</p>
             </div>
           </div>
           <div className="rounded-lg bg-white/[0.03] px-4 py-3 text-sm">

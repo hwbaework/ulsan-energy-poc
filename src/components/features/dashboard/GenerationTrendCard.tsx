@@ -53,7 +53,7 @@ export function GenerationTrendCard({
           <p className="mt-0.5 text-xs text-slate-400">{description}</p>
         </div>
         <div className="flex items-center gap-3">
-          {yoyLabel && <span className="text-[11px] text-slate-300">{yoyLabel}</span>}
+          {yoyLabel && <span className="text-xs text-slate-300">{yoyLabel}</span>}
           <div className="flex rounded-md bg-white/[0.04] p-0.5 ring-1 ring-white/[0.06]">
             {timeUnits.map((opt) => (
               <button
@@ -93,7 +93,7 @@ export function GenerationTrendCard({
                       type="button"
                       onClick={() => onToggleLine(line.key)}
                       className={cn(
-                        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 transition-colors',
+                        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-colors',
                         hidden
                           ? 'bg-transparent text-slate-600 ring-white/[0.06] hover:text-slate-400'
                           : 'bg-white/[0.06] text-white ring-white/[0.12] hover:bg-white/[0.10]',

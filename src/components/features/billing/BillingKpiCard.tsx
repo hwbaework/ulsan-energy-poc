@@ -21,7 +21,7 @@ export function BillingKpiCard({
       {badge && (
         <span
           className={cn(
-            'mt-2 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium',
+            'mt-2 inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium',
             badge.tone === 'amber' && 'bg-amber-500/[0.12] text-amber-300',
             badge.tone === 'emerald' && 'bg-emerald-500/[0.12] text-emerald-300',
           )}

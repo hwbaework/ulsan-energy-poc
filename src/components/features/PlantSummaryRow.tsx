@@ -118,7 +118,7 @@ export function PlantSummaryRow({
           {meta && (
             <span
               className={cn(
-                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1',
+                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1',
                 meta.bg,
                 meta.tone,
                 meta.ring,
@@ -129,7 +129,7 @@ export function PlantSummaryRow({
             </span>
           )}
         </div>
-        <p className="text-[11px] text-slate-300 truncate mt-0.5">
+        <p className="text-xs text-slate-300 truncate mt-0.5">
           <span>{plant.source}</span>
           <span className="mx-1 text-slate-700">·</span>
           <span className="tabular-nums">{plant.capacityKw.toLocaleString()} kW</span>

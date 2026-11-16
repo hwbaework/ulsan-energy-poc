@@ -810,7 +810,7 @@ export default function DashboardPage() {
                         type="button"
                         onClick={() => toggleGenSeries(m.id)}
                         className={cn(
-                          'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 transition-colors',
+                          'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-colors',
                           hidden
                             ? 'bg-transparent text-slate-600 ring-white/[0.06] hover:text-slate-400'
                             : 'bg-white/[0.06] text-white ring-white/[0.12] hover:bg-white/[0.10]',
@@ -839,7 +839,7 @@ export default function DashboardPage() {
                           type="button"
                           onClick={() => togglePlantKey(key)}
                           className={cn(
-                            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 transition-colors',
+                            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-colors',
                             on
                               ? 'bg-white/[0.06] text-white ring-white/[0.12] hover:bg-white/[0.10]'
                               : 'bg-transparent text-slate-600 ring-white/[0.06] hover:text-slate-400',
@@ -1057,7 +1057,7 @@ export default function DashboardPage() {
                           type="button"
                           onClick={() => toggleCo2Plant(pl.key)}
                           className={cn(
-                            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 transition-colors',
+                            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-colors',
                             on
                               ? 'bg-white/[0.06] text-white ring-white/[0.12] hover:bg-white/[0.10]'
                               : 'bg-transparent text-slate-600 ring-white/[0.06] hover:text-slate-400',

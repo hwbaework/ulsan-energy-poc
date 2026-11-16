@@ -179,10 +179,10 @@ function OpCalendar({
             <>
               <span className={cn('flex items-center justify-between tabular-nums', d.on ? 'text-white' : 'text-slate-500')}>
                 {Number(d.date.slice(8))}
-                {isManual(d) && <span className="rounded bg-amber-500/20 px-1 text-[10px] text-amber-200">수동</span>}
+                {isManual(d) && <span className="rounded bg-amber-500/20 px-1 text-xs text-amber-200">수동</span>}
               </span>
-              <span className={cn('block text-[11px] tabular-nums', d.on ? 'text-emerald-200' : 'text-slate-500')}>{dayText(d)}</span>
-              {d.holiday && <span className="block truncate text-[10px] text-slate-300">{d.holiday}</span>}
+              <span className={cn('block text-xs tabular-nums', d.on ? 'text-emerald-200' : 'text-slate-500')}>{dayText(d)}</span>
+              {d.holiday && <span className="block truncate text-xs text-slate-300">{d.holiday}</span>}
             </>
           );
           return onDay ? (
