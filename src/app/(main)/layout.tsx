@@ -464,7 +464,8 @@ function GnbBar({
               key={item.to}
               href={href}
               className={cn(
-                'flex flex-col items-center justify-center gap-2 min-w-[90px] px-4 text-xs tracking-wide font-medium transition-all duration-150 border-b-2 active:scale-95',
+                // 상단 메뉴(통합관제 · RE100 · E-데이터마켓 · 관리) 글자는 11px 그대로 — 14px 로 올렸더니 커 보여 되돌림(2026-11-16 사용자)
+                'flex flex-col items-center justify-center gap-2 min-w-[90px] px-4 text-[11px] tracking-wide font-medium transition-all duration-150 border-b-2 active:scale-95',
                 isActive
                   ? 'bg-[#005DBD]/80 text-white font-bold border-[#4DA3FF]'
                   : 'text-white/60 hover:bg-[#00458C]/60 hover:text-white border-transparent',
