@@ -358,12 +358,12 @@ export default function UsersPage() {
           <div className="space-y-4">
             {/* 아이디는 변경 불가 — 라벨 + 텍스트로만 노출 */}
             <div>
-              <p className="text-xs text-slate-400 mb-1">아이디</p>
+              <p className="mb-1 text-sm font-medium text-accent">아이디</p>
               <p className="text-sm text-white">{editRow.email}</p>
             </div>
             <div className="flex items-center justify-between gap-3 rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] px-3 py-2.5">
               <div>
-                <p className="text-xs text-slate-400 mb-0.5">비밀번호</p>
+                <p className="mb-0.5 text-sm font-medium text-accent">비밀번호</p>
                 <p className="text-sm text-slate-300">
                   초기화하면 <span className="font-semibold text-white tabular-nums">{RESET_PASSWORD}</span> 로 바뀝니다
                 </p>
@@ -431,7 +431,7 @@ export default function UsersPage() {
         <div className="space-y-4">
           <Input maxLength={LIMIT.email} label="아이디 (이메일)" required type="email" value={cEmail} onChange={(e) => setCEmail(e.target.value)} placeholder="user@company.co.kr" />
           <div className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.06] px-3 py-2.5">
-            <p className="text-xs text-slate-400 mb-0.5">초기 비밀번호</p>
+            <p className="mb-0.5 text-sm font-medium text-accent">초기 비밀번호</p>
             <p className="text-sm text-slate-300">
               <span className="font-semibold text-white tabular-nums">{RESET_PASSWORD}</span> 로 등록됩니다. 회원은 로그인 후 직접 변경합니다.
             </p>
