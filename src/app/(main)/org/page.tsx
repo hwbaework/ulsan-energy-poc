@@ -369,7 +369,7 @@ export default function OrgInfoPage() {
       {persona !== 'admin' && <PaymentMethodCard companyId={companyId} canEdit={isCompanyAdmin} />}
 
       {/* 정산 계좌 — 데이터마켓에서 받을 금액이 들어오는 계좌 */}
-      {persona !== 'admin' && <SettleAccountCard companyId={companyId} companyName={company?.name ?? ''} canEdit={isCompanyAdmin} />}
+      {persona !== 'admin' && <SettleAccountCard companyId={companyId} companyName={company?.name ?? ''} businessNumber={company?.businessNumber ?? ''} canEdit={isCompanyAdmin} />}
 
       <SectionCard title={`소속 멤버 (${members.length})`} noPadding>
         <DataTable
