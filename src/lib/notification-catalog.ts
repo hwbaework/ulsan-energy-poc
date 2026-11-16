@@ -84,7 +84,7 @@ export const NOTIFICATION_CATALOG: NotifEvent[] = [
   // ── E-데이터마켓 — 순서: 판매 동의 · 판매 종료(파는 쪽이 한 일) → 이용 신청 · 이용 취소(사는 쪽이 한 일) → 대금 지급.
   //    판매 종료는 이용 기업과 관리자가 받는다 — 판매 동의 하나로 묶으면 중지했을 때도 '판매 동의'로 온다(2026-11-16 사용자) ──
   { key: 'EDATA_CONSENT', name: '판매 동의', label: '데이터 등록/신청 › 판매 동의', domain: 'E-데이터마켓', condition: '기업이 판매 동의(데이터 등록)를 누름', receivers: '관리자', go: '데이터 등록/신청', resolve: '해당 없음', adminOnly: true },
-  { key: 'EDATA_SALE_END', name: '판매 종료', label: '거래 현황 › 판매 종료', domain: 'E-데이터마켓', condition: '기업이 판매 중지를 예약함, 이용 중인 기업은 금월 말일까지 이용', receivers: '이용 기업 활성 사용자, 관리자', go: '거래 현황', resolve: '해당 없음' },
+  { key: 'EDATA_SALE_END', name: '판매 종료', label: '데이터 등록/신청 › 판매 종료', domain: 'E-데이터마켓', condition: '기업이 판매 중지를 예약함, 이용 중인 기업은 금월 말일까지 이용', receivers: '이용 기업 활성 사용자, 관리자', go: '데이터 등록/신청', resolve: '해당 없음' },
   { key: 'EDATA_REQUEST', name: '이용 신청', label: '거래 현황 › 이용 신청', domain: 'E-데이터마켓', condition: '내 데이터에 이용 신청이 들어옴', receivers: '판매 기업 활성 사용자, 관리자', go: '거래 현황', resolve: '해당 없음' },
   { key: 'EDATA_CANCEL', name: '이용 취소', label: '거래 현황 › 이용 취소', domain: 'E-데이터마켓', condition: '이용 기업이 이용을 취소함, 금월 말일까지 이용', receivers: '판매 기업 활성 사용자, 관리자', go: '거래 현황', resolve: '해당 없음' },
   { key: 'EDATA_PAYOUT', name: '대금 지급', label: '정산 › 대금 지급', domain: 'E-데이터마켓', condition: '매달 15일 정산 계좌로 지급됨', receivers: '판매 기업 활성 사용자', go: '정산', resolve: '해당 없음' },
@@ -118,7 +118,8 @@ export function notifPathOf(key: string, account: NotifAccount): string | null {
   if (e.adminOnly && account !== 'admin') return null;
   if (e.domain === '통합관제') return key.startsWith('SAFETY_') ? '/control/safety' : '/monitoring/anomalies';
   if (e.domain === 'E-데이터마켓') {
-    if (key === 'EDATA_CONSENT') return '/e-data/catalog';
+    // 판매 동의 · 판매 종료는 같은 데이터 카드의 일 — 종료 예정일이 보이는 데이터 등록/신청으로(2026-11-16 사용자)
+    if (key === 'EDATA_CONSENT' || key === 'EDATA_SALE_END') return '/e-data/catalog';
     if (key === 'EDATA_PAYOUT') return '/e-data/trading/settlement';
     return '/e-data/trading';
   }
