@@ -293,30 +293,30 @@ const NOTIFICATION_MESSAGE: Record<string, string> = {
   SAFETY_WARNING: '한일튜브 인버터 #1 — 전기안전지수 경고',
   SAFETY_FIRE: '용인금속 인버터 #1 — 화재 징후',
   SAFETY_CAUTION: '태성산업 인버터 #1 — 전기안전지수 주의',
-  TRADING_SELF_RECEIVED: '한일튜브 99.84 kW',
-  TRADING_SELF_TERMS: '한길 90.88 kW — 조건 확정',
-  TRADING_SELF_SIGN: '태성산업 46.08 kW — 전자서명 요청',
-  TRADING_SELF_APPROVED: '건호이엔씨 33.92 kW',
-  TRADING_PPA_RECEIVED: '한일튜브 329.6 kW',
-  TRADING_PPA_TERMS: '한일튜브 329.6 kW — 조건 확정',
-  TRADING_PPA_SIGN: '한일튜브 329.6 kW — 전자서명 요청',
-  TRADING_PPA_APPROVED: 'PPA-2026-ON-001 한일튜브 329.6 kW',
-  PPA_CONTRACT_CHANGE_REQUEST: '한길 — 계약 변경 요청',
-  PPA_CONTRACT_CHANGE_AGREED: '한길 — 변경 동의',
-  PPA_CONTRACT_CHANGE_SIGN: '한길 — 변경 합의서 전자서명 요청',
-  PPA_CONTRACT_CHANGE_APPROVED: '한길 — 변경 승인',
-  PPA_CONTRACT_TERMINATION_REQUEST: '용인금속 — 계약 해지 요청',
-  PPA_CONTRACT_TERMINATION_AGREED: '용인금속 — 해지 동의',
-  PPA_CONTRACT_TERMINATION_SIGN: '용인금속 — 해지 합의서 전자서명 요청',
-  PPA_CONTRACT_TERMINATION_APPROVED: '용인금속 — 해지 승인',
-  INVOICE: '2026-10 한일튜브 PPA 청구서',
-  TAX_INVOICE: '2026-10 한일튜브 PPA 세금계산서',
-  SETTLEMENT: '2026-10 한일튜브 PPA',
+  TRADING_SELF_RECEIVED: '한길 90.88 kW', // 거래 이력의 접수 줄(자가소비)
+  TRADING_SELF_TERMS: '태성산업 46.08 kW', // 거래 이력의 미팅 줄(자가소비에는 조건 확정 · 동의 대기 줄이 따로 없다)
+  TRADING_SELF_SIGN: '건호이엔씨 33.92 kW', // 거래 승인의 전자서명 줄(서명 전)
+  TRADING_SELF_APPROVED: '한일튜브 99.84 kW', // 내 계약
+  TRADING_PPA_RECEIVED: '한일튜브 50 kW', // 거래 이력의 접수 줄(PPA)
+  TRADING_PPA_TERMS: '한일튜브 329.6 kW', // 거래 이력 — 관리자가 조건 확정, 한일튜브 동의 대기
+  TRADING_PPA_SIGN: '한일튜브 200 kW', // 거래 승인의 전자서명 줄(기업 서명 끝, 관리자 남음)
+  TRADING_PPA_APPROVED: '한일튜브 329.6 kW', // 내 계약
+  PPA_CONTRACT_CHANGE_REQUEST: '한길 — 기간 변경', // 변경 · 해지의 신청 줄
+  PPA_CONTRACT_CHANGE_AGREED: '한일튜브 — 단가 변경', // 변경 동의 뒤 조건 입력 중
+  PPA_CONTRACT_CHANGE_SIGN: '태성산업 — O&M 변경', // 전자서명(태성산업 서명 끝, 관리자 남음)
+  PPA_CONTRACT_CHANGE_APPROVED: '한일튜브 — O&M 변경', // 내 계약(CH-2026-0006 승인)
+  PPA_CONTRACT_TERMINATION_REQUEST: '건호이엔씨', // 변경 · 해지의 해지 신청 줄
+  PPA_CONTRACT_TERMINATION_AGREED: '용인금속', // 해지 동의 뒤 전자서명
+  PPA_CONTRACT_TERMINATION_SIGN: '용인금속', // 전자서명(관리자 서명 끝, 용인금속 남음)
+  PPA_CONTRACT_TERMINATION_APPROVED: '한길', // 내 계약의 해지 줄(CH-2025-0001)
+  INVOICE: '한일튜브 PPA — 2026-09', // 2026-09 이용분(2026-10-01 발행)이 가장 최근
+  TAX_INVOICE: '한일튜브 PPA — 2026-09', // 원본이 올라와 있는 달
+  SETTLEMENT: '한일튜브 PPA — 2026-09',
   EDATA_CONSENT: '건호이엔씨 — 태양광 발전량',
   EDATA_REQUEST: '한일튜브 — 태성산업 태양광 발전량',
   EDATA_CANCEL: '한길 — 한일튜브 자가소비 태양광 발전량',
   EDATA_SALE_END: '용인금속 — 태양광 발전량, 금월 말일까지 이용',
-  EDATA_PAYOUT: '2026-10 이용 대금 — 정산 계좌로 지급',
+  EDATA_PAYOUT: '2026-09 이용 대금 — 정산 계좌로 지급', // 정산 화면이 처음 여는 달(2026-10-15 정산 = 2026-09 이용분)과 같게
   SIGNUP_COMPANY: '용인금속 박용인 — 기업 관리자',
   SIGNUP_MEMBER: '한일튜브 이설비 — 기업 회원',
   COMPANY_CHANGE: '한길 — 종목 변경, 새 사업자등록증 첨부',

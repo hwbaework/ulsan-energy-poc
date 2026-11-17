@@ -64,13 +64,13 @@ export const NOTIFICATION_CATALOG: NotifEvent[] = [
   { key: 'SAFETY_CAUTION', name: '전기안전지수 주의', label: '안전 › 발전소별 안전 현황 › 전기안전지수 › 주의', domain: '통합관제', condition: 'ITS 전기안전지수 등급이 주의, 주간만 판정', receivers: PLANT, go: '안전', resolve: '보내지 않음' },
   // ── RE100(전력거래) — 자가소비 · PPA 따로, 거래 4단계(신청 접수 → 미팅 조건 확정 → 전자서명 → 승인)마다 하나, 변경 · 해지도 단계마다 하나.
   //    승인은 끝났다는 알림이라 양측에 간다. RE100 설계서에서 확정 전 초안 ──
-  { key: 'TRADING_SELF_RECEIVED', name: '자가소비 신청 접수', label: '거래 신청 › 자가소비 › 신청 접수', domain: 'RE100', condition: '기업이 자가소비 거래를 신청함', receivers: '관리자(메뉴 권한 있는 회원)', go: '거래 신청', resolve: '해당 없음', emailDefault: true, adminOnly: true },
-  { key: 'TRADING_SELF_TERMS', name: '자가소비 조건 확정', label: '거래 신청 › 자가소비 › 미팅 › 조건 확정', domain: 'RE100', condition: '관리자가 미팅 조건을 확정함, 신청한 쪽이 조건 동의할 차례', receivers: '신청한 기업', go: '거래 신청 상세', resolve: '해당 없음' },
-  { key: 'TRADING_SELF_SIGN', name: '자가소비 서명 요청', label: '거래 신청 › 자가소비 › 전자서명 › 서명 요청', domain: 'RE100', condition: '조건 동의 뒤 서명할 차례가 됨', receivers: '서명할 쪽', go: '거래 신청 상세', resolve: '해당 없음' },
+  { key: 'TRADING_SELF_RECEIVED', name: '자가소비 신청 접수', label: '거래 신청 › 자가소비 › 신청 접수', domain: 'RE100', condition: '기업이 자가소비 거래를 신청함', receivers: '관리자(메뉴 권한 있는 회원)', go: '거래 이력', resolve: '해당 없음', emailDefault: true, adminOnly: true },
+  { key: 'TRADING_SELF_TERMS', name: '자가소비 조건 확정', label: '거래 신청 › 자가소비 › 미팅 › 조건 확정', domain: 'RE100', condition: '관리자가 미팅 조건을 확정함, 신청한 쪽이 조건 동의할 차례', receivers: '신청한 기업', go: '거래 이력', resolve: '해당 없음' },
+  { key: 'TRADING_SELF_SIGN', name: '자가소비 서명 요청', label: '거래 신청 › 자가소비 › 전자서명 › 서명 요청', domain: 'RE100', condition: '조건 동의 뒤 서명할 차례가 됨', receivers: '서명할 쪽', go: '거래 승인', resolve: '해당 없음' },
   { key: 'TRADING_SELF_APPROVED', name: '자가소비 승인', label: '거래 신청 › 자가소비 › 승인', domain: 'RE100', condition: '양측 전자서명 뒤 관리자가 승인함', receivers: '신청 기업, 관리자(메뉴 권한 있는 회원)', go: '내 계약', resolve: '해당 없음' },
-  { key: 'TRADING_PPA_RECEIVED', name: 'PPA 신청 접수', label: '거래 신청 › PPA › 신청 접수', domain: 'RE100', condition: '기업이 PPA 거래를 신청함', receivers: '관리자(메뉴 권한 있는 회원)', go: '거래 신청', resolve: '해당 없음', emailDefault: true, adminOnly: true },
-  { key: 'TRADING_PPA_TERMS', name: 'PPA 조건 확정', label: '거래 신청 › PPA › 미팅 › 조건 확정', domain: 'RE100', condition: '관리자가 미팅 조건(PPA 단가 포함)을 확정함, 신청한 쪽이 조건 동의할 차례', receivers: '신청한 기업', go: '거래 신청 상세', resolve: '해당 없음' },
-  { key: 'TRADING_PPA_SIGN', name: 'PPA 서명 요청', label: '거래 신청 › PPA › 전자서명 › 서명 요청', domain: 'RE100', condition: '조건 동의 뒤 서명할 차례가 됨', receivers: '서명할 쪽', go: '거래 신청 상세', resolve: '해당 없음' },
+  { key: 'TRADING_PPA_RECEIVED', name: 'PPA 신청 접수', label: '거래 신청 › PPA › 신청 접수', domain: 'RE100', condition: '기업이 PPA 거래를 신청함', receivers: '관리자(메뉴 권한 있는 회원)', go: '거래 이력', resolve: '해당 없음', emailDefault: true, adminOnly: true },
+  { key: 'TRADING_PPA_TERMS', name: 'PPA 조건 확정', label: '거래 신청 › PPA › 미팅 › 조건 확정', domain: 'RE100', condition: '관리자가 미팅 조건(PPA 단가 포함)을 확정함, 신청한 쪽이 조건 동의할 차례', receivers: '신청한 기업', go: '거래 이력', resolve: '해당 없음' },
+  { key: 'TRADING_PPA_SIGN', name: 'PPA 서명 요청', label: '거래 신청 › PPA › 전자서명 › 서명 요청', domain: 'RE100', condition: '조건 동의 뒤 서명할 차례가 됨', receivers: '서명할 쪽', go: '거래 승인', resolve: '해당 없음' },
   { key: 'TRADING_PPA_APPROVED', name: 'PPA 승인', label: '거래 신청 › PPA › 승인', domain: 'RE100', condition: '양측 전자서명 뒤 관리자가 승인함', receivers: '신청 기업, 발전사업자, 관리자(메뉴 권한 있는 회원)', go: '내 계약', resolve: '해당 없음' },
   { key: 'PPA_CONTRACT_CHANGE_REQUEST', name: '변경 요청', label: '변경 · 해지 › 변경 › 요청', domain: 'RE100', condition: '계약 변경을 신청함, 받는 쪽이 변경 동의할 차례', receivers: '상대 기업, 관리자(메뉴 권한 있는 회원)', go: '변경 · 해지', resolve: '해당 없음' },
   { key: 'PPA_CONTRACT_CHANGE_AGREED', name: '변경 동의', label: '변경 · 해지 › 변경 › 변경 동의', domain: 'RE100', condition: '받는 쪽이 변경 동의함', receivers: '신청한 기업, 관리자(메뉴 권한 있는 회원)', go: '변경 · 해지', resolve: '해당 없음' },
@@ -111,7 +111,7 @@ const tradeMenu = (a: NotifAccount) =>
 
 /**
  * 알림을 누르면 가는 화면 주소 — 항목표의 '클릭 시 이동'(go)을 계정별 메뉴 주소로 옮긴 것. 그 계정에 화면이 없으면 null(종에도 안 보인다).
- *  - 조건 확정은 조건을 보는 거래 이력, 서명 요청은 서명하는 거래 승인으로 간다
+ *  - 신청 접수 · 조건 확정은 신청이 보이는 거래 이력, 서명 요청은 서명하는 거래 승인으로 간다
  *  - 정산 확정은 수익 · 정산의 첫 화면(세금계산서)
  */
 export function notifPathOf(key: string, account: NotifAccount): string | null {
@@ -128,7 +128,7 @@ export function notifPathOf(key: string, account: NotifAccount): string | null {
   if (e.domain === '관리') return key === 'SIGNUP_MEMBER' ? '/platform/users' : '/platform/companies';
   const t = tradeMenu(account);
   if (!t) return null;
-  if (key.endsWith('_RECEIVED')) return t.request;
+  if (key.endsWith('_RECEIVED')) return t.history; // 들어온 신청은 거래 이력의 신청 표에 보인다(거래 신청은 신청을 넣는 화면)
   if (key.endsWith('_TERMS')) return t.history;
   if (key === 'TRADING_SELF_SIGN' || key === 'TRADING_PPA_SIGN') return t.approvals;
   if (key.endsWith('_APPROVED')) return t.contracts;
