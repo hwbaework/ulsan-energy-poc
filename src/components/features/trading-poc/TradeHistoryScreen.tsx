@@ -123,7 +123,7 @@ export function TradeHistoryScreen() {
       <PageHeader title="거래 이력" />
 
       <StatsGrid columns={3}>
-        <StatCard label="들어온 신청" value={`${stats.all}건`} />
+        <StatCard label="거래 신청" value={`${stats.all}건`} />
         <StatCard label="자가소비" value={`${stats.self}건`} />
         <StatCard label="PPA" value={`${stats.onsite}건`} />
       </StatsGrid>
