@@ -91,7 +91,7 @@ export interface TradeRequest extends ContractTerms {
   surveyDoneAt?: string;
   /** 관리자가 조건을 확정한 때 — 이때부터 신청한 쪽이 동의 / 반려. 값을 다시 고치면 풀린다 */
   termsConfirmedAt?: string;
-  /** 확정 취소 — 관리자 · 신청한 쪽 누구든 사유를 적고, 미팅으로 되돌아가 조건을 다시 맞춘다. 마지막 확정 취소의 때 · 누가 · 사유 */
+  /** 확정 취소 — 관리자 · 신청한 쪽 누구든(확인창), 미팅으로 되돌아가 관리자가 조건을 고친다. 마지막 확정 취소의 때 · 누가(returnReason 은 쓰지 않음) */
   returnedAt?: string;
   returnedBy?: Party;
   returnReason?: string;

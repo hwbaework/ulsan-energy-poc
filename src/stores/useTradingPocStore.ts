@@ -27,7 +27,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 71; // 2026-11-17 용인금속(id 20) 확정 취소 뒤 다시 확정 — 바뀐 연간 O&M 노란색. 70 — 2026-11-17 확정 취소(관리자 · 기업 양쪽, 사유 → 미팅으로) — 태성산업(id 15)이 확정 취소한 샘플. 69 — 2026-11-17 자가소비 조건 확정(용인금속) · 해지 반려(태성산업) 샘플 — 알림마다 그 상태의 줄이 있게. 68 — 2026-10-14 세금계산서 원본 1건(한일튜브 PPA 2026-09). 67 — 2026-10-14 변경·해지 신청은 모두 기업(태성산업 · 한길 · 용인금속 진행 이력). 66 — 2026-10-14 받는 쪽은 변경 동의 / 해지 동의, 승인은 마지막에만. 65 — 2026-10-13 관리자는 변경·해지 신청 안 함(받아서 승인 · 반려 · 서명만), 신청 단계엔 합의서 · 서명 없음. 63 — 2026-10-13 한일튜브 해지 신청(CH-2026-0014). 62 — 2026-10-13 관리자가 신청한 해지(용인금속, 전자서명 1/2). 61 — 2026-10-13 해지: 신청 → 전자서명 → 해지 승인, 문서 분류 변경 합의서 · 해지 합의서. 60 — 2026-10-13 해지 완료 1건(한길 예전 계약 CT-2024-0001 · CH-2025-0001). 59 — 2026-10-13 해지 3칸 · 상태 해지. 58 — 2026-10-13 신청 상태 PPA(CH-2026-0012) 추가. 57 — 2026-10-13 변경 조건은 지금 계약 값으로 시작. 56 — 2026-10-13 변경: 변경 동의 → 조건 입력(관리자) → 조건 동의 → 전자서명 → 승인. 55 — 2026-10-13 변경·해지 동의 → 변경 동의 / 해지 동의. 54 — 2026-10-13 승인된 변경·해지 합의서(서명본) 시드. 53 — 2026-10-13 변경·해지도 신청 접수 → 동의 → 전자서명 → 승인 완료. 52 — 2026-10-13 진행 이력 조건 동의(관리자 · 신청한 쪽) → 전자서명 → 승인 완료, 표시 SPC → 관리자. 51 — 2026-10-13 진행 이력 '승인'은 양측 서명 완료만, 동의는 '조건 동의'. 50 — 2026-10-13 서명 흔적(그림 · 이름) 저장. 49 — 2026-10-13 전자서명 자가소비(건호) · PPA(한일튜브) 1건씩. 48 — 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
+export const SEED_VERSION = 72; // 2026-11-17 확정 취소는 양쪽 확인창(사유 칸 없음, 이유는 채팅). 71 — 2026-11-17 용인금속(id 20) 확정 취소 뒤 다시 확정 — 바뀐 연간 O&M 노란색. 70 — 2026-11-17 확정 취소(관리자 · 기업 양쪽, 사유 → 미팅으로) — 태성산업(id 15)이 확정 취소한 샘플. 69 — 2026-11-17 자가소비 조건 확정(용인금속) · 해지 반려(태성산업) 샘플 — 알림마다 그 상태의 줄이 있게. 68 — 2026-10-14 세금계산서 원본 1건(한일튜브 PPA 2026-09). 67 — 2026-10-14 변경·해지 신청은 모두 기업(태성산업 · 한길 · 용인금속 진행 이력). 66 — 2026-10-14 받는 쪽은 변경 동의 / 해지 동의, 승인은 마지막에만. 65 — 2026-10-13 관리자는 변경·해지 신청 안 함(받아서 승인 · 반려 · 서명만), 신청 단계엔 합의서 · 서명 없음. 63 — 2026-10-13 한일튜브 해지 신청(CH-2026-0014). 62 — 2026-10-13 관리자가 신청한 해지(용인금속, 전자서명 1/2). 61 — 2026-10-13 해지: 신청 → 전자서명 → 해지 승인, 문서 분류 변경 합의서 · 해지 합의서. 60 — 2026-10-13 해지 완료 1건(한길 예전 계약 CT-2024-0001 · CH-2025-0001). 59 — 2026-10-13 해지 3칸 · 상태 해지. 58 — 2026-10-13 신청 상태 PPA(CH-2026-0012) 추가. 57 — 2026-10-13 변경 조건은 지금 계약 값으로 시작. 56 — 2026-10-13 변경: 변경 동의 → 조건 입력(관리자) → 조건 동의 → 전자서명 → 승인. 55 — 2026-10-13 변경·해지 동의 → 변경 동의 / 해지 동의. 54 — 2026-10-13 승인된 변경·해지 합의서(서명본) 시드. 53 — 2026-10-13 변경·해지도 신청 접수 → 동의 → 전자서명 → 승인 완료. 52 — 2026-10-13 진행 이력 조건 동의(관리자 · 신청한 쪽) → 전자서명 → 승인 완료, 표시 SPC → 관리자. 51 — 2026-10-13 진행 이력 '승인'은 양측 서명 완료만, 동의는 '조건 동의'. 50 — 2026-10-13 서명 흔적(그림 · 이름) 저장. 49 — 2026-10-13 전자서명 자가소비(건호) · PPA(한일튜브) 1건씩. 48 — 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -565,7 +565,6 @@ function seedRequests(): TradeRequest[] {
       surveyDoneAt: '2026-09-29',
       returnedAt: iso('2026-10-01', '15:20:00'),
       returnedBy: 'consumer',
-      returnReason: '연간 O&M 금액이 예상보다 높아 조정을 요청합니다',
       contact: { name: '설비 담당', phone: '052-000-0000', email: 'facility@taesung.co.kr' },
       events: [
         ev(iso('2026-09-25', '10:00:00'), 'spc', '신청 접수', '전화 문의 대리 접수'),
@@ -573,7 +572,7 @@ function seedRequests(): TradeRequest[] {
         ev(iso('2026-09-26', '09:40:00'), 'spc', '미팅', '2026-09-29 예정'),
         ev(iso('2026-09-30', '10:00:00'), 'spc', '조건 입력', '46.08 kW · 20년'),
         ev(iso('2026-09-30', '10:10:00'), 'spc', '조건 동의', '신청한 쪽 동의 대기'),
-        ev(iso('2026-10-01', '15:20:00'), 'consumer', '확정 취소', '연간 O&M 금액이 예상보다 높아 조정을 요청합니다'),
+        ev(iso('2026-10-01', '15:20:00'), 'consumer', '확정 취소', '조건 수정'),
       ],
       messages: [
         {
@@ -586,7 +585,7 @@ function seedRequests(): TradeRequest[] {
           at: iso('2026-10-01', '15:20:00'),
           by: 'consumer',
           byName: CO.TAESUNG.name,
-          text: '[확정 취소] 연간 O&M 금액이 예상보다 높아 조정을 요청합니다',
+          text: '[확정 취소] 연간 O&M 금액이 예상보다 높아 조정을 요청합니다.',
         },
       ],
     }),
@@ -669,7 +668,7 @@ function seedRequests(): TradeRequest[] {
         ev(iso('2026-09-22', '10:00:00'), 'spc', '미팅 확정', '2026-09-29'),
         ev(iso('2026-09-30', '13:40:00'), 'spc', '조건 입력', '152.32 kW · 20년'),
         ev(iso('2026-09-30', '14:00:00'), 'spc', '조건 동의', '신청한 쪽 동의 대기'),
-        ev(iso('2026-09-30', '16:30:00'), 'consumer', '확정 취소', '연간 O&M 비율 조정 요청'),
+        ev(iso('2026-09-30', '16:30:00'), 'consumer', '확정 취소', '조건 수정'),
         ev(iso('2026-10-01', '10:50:00'), 'spc', '조건 입력', '연간 O&M ₩2,467,584 → ₩2,056,320'),
         ev(iso('2026-10-01', '11:00:00'), 'spc', '조건 동의', '신청한 쪽 동의 대기'),
       ],
@@ -1467,8 +1466,8 @@ interface TradingPocState {
   ) => void;
   /** 반려 — 관리자든 신청한 쪽이든 사유를 적고. 서명 대기 중이면 계약 초안도 지운다 */
   rejectRequest: (id: number, reason: string, by?: Party) => void;
-  /** 확정 취소 — 관리자 · 신청한 쪽 누구든 사유를 적고 미팅으로 되돌려 조건을 다시 맞춘다(사유는 신청 내용 · 진행 이력 · 협의 채팅에). 서명 대기 계약 초안은 지운다 */
-  cancelConfirm: (id: number, reason: string, by: Party) => void;
+  /** 확정 취소 — 관리자 · 신청한 쪽 누구든(확인창) 미팅으로 되돌려 관리자가 조건을 고친다. 진행 이력 · 협의 채팅에 남는다. 서명 대기 계약 초안은 지운다 */
+  cancelConfirm: (id: number, by: Party) => void;
   cancelRequest: (id: number, note?: string) => void;
   signAsGenerator: (contractId: number, mark?: Omit<SignMark, 'at'>) => void;
   confirmConsumerSign: (contractId: number, mark?: Omit<SignMark, 'at'>) => void;
@@ -1707,7 +1706,7 @@ export const useTradingPocStore = create<TradingPocState>()(
         }));
       },
 
-      cancelConfirm: (id, reason, by) =>
+      cancelConfirm: (id, by) =>
         set((s) => {
           const r0 = s.requests.find((r) => r.id === id);
           const pendingContractId = r0?.contractId && s.contracts.find((c) => c.id === r0.contractId && c.status === 'PENDING_SIGN')?.id;
@@ -1716,14 +1715,14 @@ export const useTradingPocStore = create<TradingPocState>()(
             requests: s.requests.map((r) =>
               r.id === id
                 ? {
-                    ...patchReq({ ...r, contractId: pendingContractId ? undefined : r.contractId }, 'REVIEW', ev(nowIso(), by, '확정 취소', reason)),
+                    ...patchReq({ ...r, contractId: pendingContractId ? undefined : r.contractId }, 'REVIEW', ev(nowIso(), by, '확정 취소', '조건 수정')),
                     termsConfirmedAt: undefined,
                     // 확정됐던 조건 — 다시 확정하면 바뀐 칸을 노란색으로
                     termsBeforeCancel: { capacityKw: r.capacityKw, termYears: r.termYears, unitPrice: r.unitPrice, installUnit: r.installUnit, extraCost: r.extraCost, omAnnual: r.omAnnual, tariffPlan: r.tariffPlan },
                     returnedAt: nowIso(),
                     returnedBy: by,
-                    returnReason: reason,
-                    messages: [...(r.messages ?? []), { at: nowIso(), by, byName, text: `[확정 취소] ${reason}` }],
+                    // 이유는 협의 채팅으로 — 확정 취소 자체는 사유를 받지 않는다
+                    messages: [...(r.messages ?? []), { at: nowIso(), by, byName, text: by === 'spc' ? '[확정 취소] 조건을 수정해 다시 보내드리겠습니다.' : '[확정 취소] 조건을 다시 협의하고 싶습니다.' }],
                   }
                 : r,
             ),

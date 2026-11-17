@@ -27,16 +27,36 @@ export function TermsInfo({ x, edit }: { x: TradeRequest | Contract; edit?: Term
   // 확정 취소 뒤 다시 확정한 조건 — 그때와 바뀐 칸은 노란색(기업 정보 변경 검토와 같은 표시)
   const before = 'termsBeforeCancel' in x ? x.termsBeforeCancel : undefined;
   const changed = (k: keyof NonNullable<typeof before>) => !!before && before[k] !== undefined && before[k] !== x[k];
-  const mark = (on: boolean, v?: string) => (on && v ? <span className="font-bold text-amber-300">{v}</span> : v);
-  const cell = (editNode: ReactNode | undefined, label: string, value?: string, key?: keyof NonNullable<typeof before>) =>
-    editNode ?? (value !== undefined && value !== '' ? <Info label={label} value={mark(!!key && changed(key), value)} /> : pending ? <Info label={label} value={LATER} /> : null);
+  // 칸마다 값 글자 — 기존 값도 같은 꼴로 보여 준다
+  type K = keyof NonNullable<typeof before>;
+  const fmt: Record<K, (v: number | string | undefined) => string | undefined> = {
+    capacityKw: (v) => (Number(v) > 0 ? fmtKw(Number(v)) : undefined),
+    termYears: (v) => (Number(v) > 0 ? `${v}년` : undefined),
+    unitPrice: (v) => (Number(v) > 0 ? `₩${fmtNum(Number(v), 1)}/kWh` : undefined),
+    installUnit: (v) => (v ? `${won(Number(v))}/kW` : undefined),
+    extraCost: (v) => (v != null ? won(Number(v)) : undefined),
+    omAnnual: (v) => (v ? `${won(Number(v))}/년` : undefined),
+    tariffPlan: (v) => (v ? String(v) : undefined),
+  };
+  // 바뀐 칸 — '기존 → 새 값', 새 값은 굵은 노란색
+  const mark = (key: K | undefined, v?: string): ReactNode => {
+    if (!key || !v || !changed(key)) return v;
+    const old = fmt[key](before![key] as number | string | undefined) ?? '없음';
+    return (
+      <span>
+        {old} → <span className="font-bold text-amber-300">{v}</span>
+      </span>
+    );
+  };
+  const cell = (editNode: ReactNode | undefined, label: string, value?: string, key?: K) =>
+    editNode ?? (value !== undefined && value !== '' ? <Info label={label} value={mark(key, value)} /> : pending ? <Info label={label} value={LATER} /> : null);
   return (
     <>
       <Info label="계약 유형" value={kindLabel(x.kind)} />
       <Info label="기업명" value={x.consumerCompanyName} />
       <div />
       <Info label="기업 주소" value={x.address} className="col-span-3" />
-      {edit?.capacity ?? <Info label={received ? '희망 설치 용량' : '설치 용량'} value={mark(changed('capacityKw'), x.capacityKw > 0 ? fmtKw(x.capacityKw) : undefined)} />}
+      {edit?.capacity ?? <Info label={received ? '희망 설치 용량' : '설치 용량'} value={mark('capacityKw', x.capacityKw > 0 ? fmtKw(x.capacityKw) : undefined)} />}
       {cell(edit?.term, '계약 기간', x.termYears > 0 ? `${x.termYears}년` : undefined, 'termYears')}
       {/* 실제 거래에 필요한 값 — 두 유형 모두: 설치 단가 · 추가 설치비용 → 예상 설치비, 연간 O&M. PPA 는 단가도(사용분 × 단가) */}
       {/* 조건 칸 — 넣는 중이거나 값이 있을 때만. 취소 · 반려 · 미팅 전처럼 값이 없으면 아예 안 보인다 */}

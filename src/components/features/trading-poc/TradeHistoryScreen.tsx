@@ -284,8 +284,8 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   const agreeOpen = r.status === 'REVIEW' && !!r.termsConfirmedAt; // 동의 대기
 
   const [rejectOpen, setRejectOpen] = useState(false);
-  const [unconfirmOpen, setUnconfirmOpen] = useState(false);
-  const [unconfirmReason, setUnconfirmReason] = useState('');
+  // 확정 취소 확인창 — 관리자 · 기업 같은 창
+  const [adminUnconfirm, setAdminUnconfirm] = useState(false);
   const [reason, setReason] = useState('');
   const [confirm, setConfirm] = useState<'approve' | null>(null);
 
@@ -362,16 +362,14 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
           동의
         </Button>
       )}
-      {/* 확정 취소 — 관리자 · 신청한 쪽 양쪽 같은 기능. 사유를 적고 미팅으로 되돌아가 조건을 다시 맞춘다 */}
-      {agreeOpen && (admin || (!role.isAdmin && isMine)) && (
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => {
-            setUnconfirmReason('');
-            setUnconfirmOpen(true);
-          }}
-        >
+      {/* 확정 취소 — 양쪽 다 있다. 관리자는 확인창 뒤 조건 칸이 입력으로 바뀌어 바로 고치고, 기업은 조건을 못 고치니 사유를 적어 보낸다 */}
+      {agreeOpen && admin && (
+        <Button size="sm" variant="secondary" onClick={() => setAdminUnconfirm(true)}>
+          확정 취소
+        </Button>
+      )}
+      {agreeOpen && !role.isAdmin && isMine && (
+        <Button size="sm" variant="secondary" onClick={() => setAdminUnconfirm(true)}>
           확정 취소
         </Button>
       )}
@@ -478,10 +476,10 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
             <TermsInfo x={editing ? { ...r, ...termsOfDraft(draft, r) } : r} edit={edit} />
             {r.status === 'REJECTED' && <Info label="반려 사유" value={r.rejectReason} className="col-span-3" />}
             {/* 확정 취소로 돌아온 건 — 누가 · 언제 · 사유. 다시 조건을 확정하면 내려간다 */}
-            {r.status === 'REVIEW' && r.returnReason && (
+            {r.status === 'REVIEW' && r.returnedAt && !r.termsConfirmedAt && (
               <Info
-                label="확정 취소 사유"
-                value={`${r.returnedBy === 'spc' ? '관리자' : r.applicantCompanyName} · ${fmtDateTime(r.returnedAt!)} · ${r.returnReason}`}
+                label="확정 취소"
+                value={`${r.returnedBy === 'spc' ? '관리자' : r.applicantCompanyName} · ${fmtDateTime(r.returnedAt)} · 조건 수정 중`}
                 className="col-span-3"
               />
             )}
@@ -496,34 +494,20 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
 
       <ChatPanel r={r} canSend={active && (role.isAdmin || isMine)} />
 
-      {/* 확정 취소 — 사유를 적고 미팅으로(조건을 다시 맞춘다). 반려와 달리 끝나지 않는다 */}
-      <Modal open={unconfirmOpen} onClose={() => setUnconfirmOpen(false)} title="확정 취소" size="sm">
-        <div className="space-y-4">
-          <Textarea
-            label="확정 취소 사유"
-            maxLength={TEXT_MAX}
-            value={unconfirmReason}
-            onChange={(e) => setUnconfirmReason(e.target.value)}
-            rows={3}
-            className="resize-none"
-          />
-          <ModalFooter>
-            <Button variant="secondary" onClick={() => setUnconfirmOpen(false)}>
-              취소
-            </Button>
-            <Button
-              disabled={!unconfirmReason.trim()}
-              onClick={() => {
-                cancelConfirm(r.id, unconfirmReason.trim(), role.party);
-                addToast('success', `${r.no} 확정 취소 — 조건을 다시 맞춥니다`);
-                setUnconfirmOpen(false);
-              }}
-            >
-              확정 취소
-            </Button>
-          </ModalFooter>
-        </div>
-      </Modal>
+      {/* 확정 취소 — 관리자 · 기업 같은 확인창. 미팅으로 돌아가 관리자가 조건 칸을 고치고 다시 확정, 상대가 다시 동의. 이유는 협의 채팅으로 */}
+      <ConfirmDialog
+        open={adminUnconfirm}
+        onClose={() => setAdminUnconfirm(false)}
+        onConfirm={() => {
+          cancelConfirm(r.id, role.party);
+          addToast('success', `${r.no} 확정 취소`);
+          setAdminUnconfirm(false);
+        }}
+        title="확정 취소"
+        message={role.isAdmin ? '확정한 조건을 취소하고 수정합니다.' : '확정된 조건을 취소합니다.'}
+        confirmLabel="확정 취소"
+      />
+
 
       {/* 반려 — 관리자 · 신청한 쪽 누구든 사유를 적고. 반려는 그만두는 것(끝) */}
       <Modal open={rejectOpen} onClose={() => setRejectOpen(false)} title="신청 반려" size="sm">
