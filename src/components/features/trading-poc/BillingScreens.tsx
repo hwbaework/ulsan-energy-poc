@@ -29,6 +29,7 @@ import { fmtKrw, fmtKwh, fmtNum } from './meta';
 import { Info, PageHeader, TEXT_MAX, cell, cellMuted, cellNum, cellStrong } from './Bits';
 import { BILLING_LABEL } from './DocumentSheet';
 import { BillingPaper, UploadButton, useTaxOriginal } from './BillingPaper';
+import { useLocationSearch } from '@/lib/use-location-search';
 
 type Kind = 'TAX' | 'INVOICE';
 const NAME: Record<Kind, string> = { TAX: '세금계산서', INVOICE: '청구서' };
@@ -534,10 +535,11 @@ function BillingScreen({ kind }: { kind: Kind }) {
 function BillingDetailScreen({ kind }: { kind: Kind }) {
   const { role, rows } = useBilling(kind);
   const [key, setKey] = useState<{ contract: number; period: string } | null>(null);
+  const search = useLocationSearch();
   useEffect(() => {
-    const p = new URLSearchParams(window.location.search);
+    const p = new URLSearchParams(search);
     setKey({ contract: Number(p.get('contract')), period: p.get('period') ?? '' });
-  }, []);
+  }, [search]);
   const s = key ? rows.find((x) => x.contractId === key.contract && x.period === key.period) : undefined;
   const contract = s ? role.contracts.find((c) => c.id === s.contractId) : undefined;
   const list = baseOf(kind, role.isAdmin);

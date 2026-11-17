@@ -16,6 +16,7 @@ import { PageHeader, cell, cellNum, cellStrong } from './Bits';
 import { ContractDetailCard, monthOfContract } from './ContractDetailModal';
 import { ChangeRequestModal } from './ChangeRequestModal';
 import { PpaMonthlyCard } from './PpaMonthlyCard';
+import { useLocationSearch } from '@/lib/use-location-search';
 
 const YEAR = '2026';
 const arrow = {
@@ -33,9 +34,10 @@ export function MyContractsScreen() {
   const [kind, setKind] = useState('all');
   // 관리자 — 기업 고르기(계약 현황에서 기업을 누르면 ?company= 로 들어온다)
   const [company, setCompany] = useState('');
+  const search = useLocationSearch();
   useEffect(() => {
-    setCompany(new URLSearchParams(window.location.search).get('company') ?? '');
-  }, []);
+    setCompany(new URLSearchParams(search).get('company') ?? '');
+  }, [search]);
 
   const companies = useMemo(
     () => [...new Map(role.contracts.map((c) => [c.consumerCompanyId, c.consumerCompanyName] as const))],

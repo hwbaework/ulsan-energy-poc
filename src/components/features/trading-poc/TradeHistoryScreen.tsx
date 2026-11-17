@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, Send } from 'lucide-react';
 import { StatCard, StatsGrid } from '@/components/features/StatCard';
@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 import { useToastStore } from '@/stores/useToastStore';
 import { useTradingPocStore } from '@/stores/useTradingPocStore';
 import { PLAN_LABEL } from '@/lib/solar-sim';
-import type { TradeRequest } from '@/types/trading-poc';
+import type { Contract, TradeRequest } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
 import { TradeApprovalDetailScreen } from './TradeApprovalsScreen';
 import { KIND_OPTIONS, PARTY_LABEL, TERM_LIM, fmtDate, fmtDateTime, fmtKw, fmtNum, inLim, kindLabel, numIn } from './meta';
@@ -39,6 +39,7 @@ import {
   TEXT_MAX,
 } from './Bits';
 import { TermsInfo, type TermsEdit } from './TermsInfo';
+import { useLocationSearch } from '@/lib/use-location-search';
 
 const IN_TALK: TradeRequest['status'][] = ['SUBMITTED', 'REVIEW'];
 const IN_APPROVALS: TradeRequest['status'][] = ['SIGNED']; // 승인(양측 서명 완료)만 거래 승인으로 — 전자서명까지는 거래 이력
@@ -58,10 +59,27 @@ const lastTalkOf = (r: TradeRequest) => (r.messages?.length ? r.messages[r.messa
 /** 목록 정렬 순서 — 단계가 앞선 것이 위, 끝난 것(반려)이 아래 */
 const statusOrder = (r: TradeRequest) =>
   r.status === 'SUBMITTED' ? 0 : r.status === 'REVIEW' ? (r.termsConfirmedAt ? 2 : 1) : r.status === 'APPROVED' ? 3 : 4;
-const HistoryPill = ({ r }: { r: TradeRequest }) => {
+/** 내가 볼 차례인지 — 확인(상대가 한 일이 와서 내 차례) / 대기(내가 보내고 상대를 기다림). 반려는 끝이라 없음(2026-11-17 사용자)
+ *  - 신청 · 미팅(조건 확정 전): 관리자 차례(미팅 확정 · 조건 입력)
+ *  - 미팅(조건 확정 뒤): 신청한 쪽 차례(동의 · 조건 변경)
+ *  - 전자서명: 아직 서명 안 한 쪽 차례 */
+type Turn = '확인' | '대기';
+function turnOf(r: TradeRequest, isAdmin: boolean, contract?: Contract): Turn | null {
+  if (r.status === 'REJECTED' || r.status === 'CANCELLED') return null;
+  if (r.status === 'SUBMITTED' || (r.status === 'REVIEW' && !r.termsConfirmedAt)) return isAdmin ? '확인' : '대기';
+  if (r.status === 'REVIEW') return isAdmin ? '대기' : '확인';
+  if (r.status === 'APPROVED') {
+    // 관리자 = 계약의 공급 쪽(generator), 기업 = 전기사용자 쪽(consumer)
+    const mineSigned = isAdmin ? !!contract?.signedByGenerator : !!contract?.signedByConsumer;
+    return mineSigned ? '대기' : '확인';
+  }
+  return null;
+}
+const HistoryPill = ({ r, turn }: { r: TradeRequest; turn?: Turn | null }) => {
   const label = historyStatusOf(r);
   const done = r.status === 'REJECTED' || r.status === 'CANCELLED';
-  return <StatusPill tone={HISTORY_TONE[label]} label={done ? label : stepLabel(label, tradeStepOf(r))} />;
+  const text = done ? label : `${stepLabel(label, tradeStepOf(r))}${turn ? ` · ${turn}` : ''}`;
+  return <StatusPill tone={HISTORY_TONE[label]} label={text} />;
 };
 
 /** 신청한 쪽(기업·발전사업자)인지 — 관리자가 아니고 당사자 */
@@ -88,6 +106,13 @@ export function TradeHistoryScreen() {
   const [filter, setFilter] = useState('');
   const [kind, setKind] = useState('');
 
+  // 확인 / 대기 — 지금 계정 기준. 전자서명은 계약의 서명 여부로
+  const contractsAll = useTradingPocStore((st) => st.contracts);
+  const turnFor = useCallback(
+    (r: TradeRequest) => turnOf(r, role.isAdmin, contractsAll.find((c) => c.id === r.contractId)),
+    [role.isAdmin, contractsAll],
+  );
+
   // 승인 · 체결은 거래 승인으로 넘어가므로 빼고
   const mine = useMemo(() => role.requests.filter((r) => !IN_APPROVALS.includes(r.status)), [role.requests]);
   const list = useMemo(
@@ -95,9 +120,14 @@ export function TradeHistoryScreen() {
       mine
         .filter((r) => !filter || historyStatusOf(r) === filter)
         .filter((r) => !kind || r.kind === kind)
-        // 상태 순서(신청 → 미팅 → 조건 확정 → 전자서명 → 반려), 같은 상태 안에서는 최근 소통 순(2026-11-17 사용자)
-        .sort((a, b) => statusOrder(a) - statusOrder(b) || lastTalkOf(b).localeCompare(lastTalkOf(a))),
-    [mine, filter, kind],
+        // 상태 순서(신청 → 미팅 → 전자서명 → 반려), 같은 상태 안에서는 확인(내 차례)이 위, 그다음 최근 협의 순(2026-11-17 사용자)
+        .sort(
+          (a, b) =>
+            statusOrder(a) - statusOrder(b) ||
+            Number(turnFor(a) !== '확인') - Number(turnFor(b) !== '확인') ||
+            lastTalkOf(b).localeCompare(lastTalkOf(a)),
+        ),
+    [mine, filter, kind, turnFor],
   );
   // 들어온 신청 — 아직 미팅일을 잡지 않은 신청 접수 건만. 유형별로 따로
   const received = mine.filter((r) => r.status === 'SUBMITTED');
@@ -122,7 +152,7 @@ export function TradeHistoryScreen() {
       render: (r) => cellMuted(fmtDate(lastTalkOf(r))),
     },
     // 상태도 머리글을 눌러 정렬 — 단계 순서(신청 → 미팅 → 조건 확정 → 전자서명 → 반려)
-    { key: 'status', header: '상태', width: '200px', sortable: true, sortValue: (r) => statusOrder(r), render: (r) => <HistoryPill r={r} /> },
+    { key: 'status', header: '상태', width: '230px', sortable: true, sortValue: (r) => statusOrder(r), render: (r) => <HistoryPill r={r} turn={turnFor(r)} /> },
     arrow,
   ];
 
@@ -179,9 +209,11 @@ export function TradeHistoryScreen() {
 export function TradeHistoryDetailScreen() {
   const role = useTradingRole();
   const [id, setId] = useState<number | null>(null);
+  // 주소가 바뀌면(다른 알림을 눌러 같은 화면의 다른 건으로) 다시 읽는다
+  const search = useLocationSearch();
   useEffect(() => {
-    setId(Number(new URLSearchParams(window.location.search).get('id')));
-  }, []);
+    setId(Number(new URLSearchParams(search).get('id')));
+  }, [search]);
   const r = id == null ? undefined : role.requests.find((x) => x.id === id);
   const list = base(role.isAdmin);
   // 전자서명(동의 뒤) · 승인 — 서명 화면을 거래 이력 안에서 그대로
@@ -257,7 +289,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   // 접수(SUBMITTED): 조건 칸 없음 — 신청한 쪽은 신청 취소, 관리자는 미팅 확정 / 반려
   // 미팅(REVIEW): 관리자가 오프라인에서 정한 조건(금액)을 넣고 저장 → [조건 확정] → 전자서명. 신청한 쪽은 같은 화면에서 값을 보고, 서명 때 확인한다. 신청 취소(사유)는 서명 전까지
   const received = r.status === 'SUBMITTED';
-  const editing = r.status === 'REVIEW' && role.isAdmin && !r.termsConfirmedAt; // 확정하면 못 고친다 — 확정 취소로 다시 연다
+  const editing = r.status === 'REVIEW' && role.isAdmin && !r.termsConfirmedAt; // 확정하면 못 고친다 — 조건 변경로 다시 연다
   const confirmMeeting = useTradingPocStore((s) => s.confirmMeeting);
   const [meetDate, setMeetDate] = useState(r.surveyDate ?? '');
 
@@ -284,7 +316,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   const agreeOpen = r.status === 'REVIEW' && !!r.termsConfirmedAt; // 동의 대기
 
   const [rejectOpen, setRejectOpen] = useState(false);
-  // 확정 취소 확인창 — 관리자 · 기업 같은 창
+  // 조건 변경 확인창 — 관리자 · 기업 같은 창
   const [adminUnconfirm, setAdminUnconfirm] = useState(false);
   const [reason, setReason] = useState('');
   const [confirm, setConfirm] = useState<'approve' | null>(null);
@@ -362,15 +394,15 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
           동의
         </Button>
       )}
-      {/* 확정 취소 — 양쪽 다 있다. 관리자는 확인창 뒤 조건 칸이 입력으로 바뀌어 바로 고치고, 기업은 조건을 못 고치니 사유를 적어 보낸다 */}
+      {/* 조건 변경 — 양쪽 다 있다. 관리자는 확인창 뒤 조건 칸이 입력으로 바뀌어 바로 고치고, 기업은 조건을 못 고치니 사유를 적어 보낸다 */}
       {agreeOpen && admin && (
         <Button size="sm" variant="secondary" onClick={() => setAdminUnconfirm(true)}>
-          확정 취소
+          조건 변경
         </Button>
       )}
       {agreeOpen && !role.isAdmin && isMine && (
         <Button size="sm" variant="secondary" onClick={() => setAdminUnconfirm(true)}>
-          확정 취소
+          조건 변경
         </Button>
       )}
       {admin && received && (
@@ -473,13 +505,18 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
             ) : (
               stageLabel && <Info label="진행" value={stageLabel} className="col-span-3" />
             )}
-            <TermsInfo x={editing ? { ...r, ...termsOfDraft(draft, r) } : r} edit={edit} />
-            {r.status === 'REJECTED' && <Info label="반려 사유" value={r.rejectReason} className="col-span-3" />}
-            {/* 확정 취소로 돌아온 건 — 누가 · 언제 · 사유. 다시 조건을 확정하면 내려간다 */}
+            <TermsInfo x={editing ? { ...r, ...termsOfDraft(draft, r) } : r} edit={edit}  showChanges={!role.isAdmin} />
+            {/* 반려 — 누가(보낸 쪽인지 받은 쪽인지) · 언제 · 사유 */}
+            {r.status === 'REJECTED' && (() => {
+              const e = [...r.events].reverse().find((x) => x.label === '반려');
+              const who = !e ? '' : e.by === 'spc' ? '관리자' : r.applicantCompanyName;
+              return <Info label="반려" value={[who, e ? fmtDateTime(e.at) : '', r.rejectReason].filter(Boolean).join(' · ')} className="col-span-3" />;
+            })()}
+            {/* 조건 변경로 돌아온 건 — 누가 · 언제 · 사유. 다시 조건을 확정하면 내려간다 */}
             {r.status === 'REVIEW' && r.returnedAt && !r.termsConfirmedAt && (
               <Info
-                label="확정 취소"
-                value={`${r.returnedBy === 'spc' ? '관리자' : r.applicantCompanyName} · ${fmtDateTime(r.returnedAt)} · 조건 수정 중`}
+                label="조건 변경"
+                value={`${r.returnedBy === 'spc' ? '관리자' : r.applicantCompanyName} · ${fmtDateTime(r.returnedAt)} · 조건 변경 중`}
                 className="col-span-3"
               />
             )}
@@ -494,18 +531,18 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
 
       <ChatPanel r={r} canSend={active && (role.isAdmin || isMine)} />
 
-      {/* 확정 취소 — 관리자 · 기업 같은 확인창. 미팅으로 돌아가 관리자가 조건 칸을 고치고 다시 확정, 상대가 다시 동의. 이유는 협의 채팅으로 */}
+      {/* 조건 변경 — 관리자 · 기업 같은 확인창. 미팅으로 돌아가 관리자가 조건 칸을 고치고 다시 확정, 상대가 다시 동의. 이유는 협의 채팅으로 */}
       <ConfirmDialog
         open={adminUnconfirm}
         onClose={() => setAdminUnconfirm(false)}
         onConfirm={() => {
           cancelConfirm(r.id, role.party);
-          addToast('success', `${r.no} 확정 취소`);
+          addToast('success', `${r.no} 조건 변경`);
           setAdminUnconfirm(false);
         }}
-        title="확정 취소"
-        message={role.isAdmin ? '확정한 조건을 취소하고 수정합니다.' : '확정된 조건을 취소합니다.'}
-        confirmLabel="확정 취소"
+        title="조건 변경"
+        message={role.isAdmin ? '확정한 조건을 변경합니다.' : '확정된 조건의 변경을 요청합니다.'}
+        confirmLabel="조건 변경"
       />
 
 

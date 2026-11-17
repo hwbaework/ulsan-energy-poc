@@ -16,7 +16,7 @@ export type TermsEdit = Partial<Record<'capacity' | 'term' | 'price' | 'installU
  * 미팅 뒤 관리자가 넣는 조건(설치 용량 · 계약 기간 · 단가). 거래 이력 · 거래 승인 · 내 계약이 같은 칸.
  *  - 두 유형 모두 설치 단가 · 추가 설치비용 → 예상 설치비(자가소비 기업 부담 · PPA EPC 부담), 연간 O&M(설치비 대비 %). PPA 는 단가(₩/kWh)도. 요금제 · 요금 기준은 없다(2026-10-12)
  */
-export function TermsInfo({ x, edit }: { x: TradeRequest | Contract; edit?: TermsEdit }) {
+export function TermsInfo({ x, edit, showChanges }: { x: TradeRequest | Contract; edit?: TermsEdit; /** 상대가 바꿔 보낸 칸을 '기존 → 새 값'으로 — 고친 쪽(관리자) 화면에서는 끈다 */ showChanges?: boolean }) {
   const self = x.kind === 'SELF_CONSUMPTION';
   const total = totalCostOf(x);
   const hasTerms = !!x.installUnit || !!x.omAnnual || !!x.tariffPlan || x.unitPrice > 0;
@@ -24,8 +24,8 @@ export function TermsInfo({ x, edit }: { x: TradeRequest | Contract; edit?: Term
   const received = 'status' in x && x.status === 'SUBMITTED';
   const pending = 'status' in x && x.status === 'REVIEW';
   const LATER = '협의 후 작성'; // 현업이 미팅해서 정한 뒤 넣는다
-  // 확정 취소 뒤 다시 확정한 조건 — 그때와 바뀐 칸은 노란색(기업 정보 변경 검토와 같은 표시)
-  const before = 'termsBeforeCancel' in x ? x.termsBeforeCancel : undefined;
+  // 조건 변경 뒤 다시 확정한 조건 — 그때와 바뀐 칸은 노란색(기업 정보 변경 검토와 같은 표시)
+  const before = showChanges && 'termsBeforeCancel' in x ? x.termsBeforeCancel : undefined;
   const changed = (k: keyof NonNullable<typeof before>) => !!before && before[k] !== undefined && before[k] !== x[k];
   // 칸마다 값 글자 — 기존 값도 같은 꼴로 보여 준다
   type K = keyof NonNullable<typeof before>;

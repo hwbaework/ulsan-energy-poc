@@ -70,6 +70,7 @@ function SignMarkView({ mark, fallbackAt, company }: { mark?: SignMark; fallback
 import { fmtNum } from './meta';
 import { fmtDateTime } from './meta';
 import { fitPdf } from '@/lib/utils/fitPdf';
+import { useLocationSearch } from '@/lib/use-location-search';
 
 
 const arrow = {
@@ -179,9 +180,11 @@ export function TradeApprovalDetailScreen({ section = 'approvals' }: { section?:
   const [cancelReason, setCancelReason] = useState('');
   const [id, setId] = useState<number | null>(null);
   const [confirm, setConfirm] = useState<'sign' | null>(null);
+  // 주소가 바뀌면(다른 알림을 눌러 같은 화면의 다른 건으로) 다시 읽는다
+  const search = useLocationSearch();
   useEffect(() => {
-    setId(Number(new URLSearchParams(window.location.search).get('id')));
-  }, []);
+    setId(Number(new URLSearchParams(search).get('id')));
+  }, [search]);
   const r = id == null ? undefined : role.requests.find((x) => x.id === id);
   const c = r?.contractId ? role.contracts.find((x) => x.id === r.contractId) : undefined;
   const inHistory = section === 'history';

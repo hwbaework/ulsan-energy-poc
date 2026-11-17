@@ -22,6 +22,7 @@ import { TERM_LIM, changeTypeLabel, fmtDateTime, inLim, kindLabel, numIn, termRo
 import { EventTimeline, Info, ModalFooter, StepBar, TEXT_MAX } from './Bits';
 import { changeText } from './ChangeDetailModal';
 import { DocumentSheet, printSheet } from './DocumentSheet';
+import { useLocationSearch } from '@/lib/use-location-search';
 
 /** 지금(한국 시각) — toISOString 은 UTC 라 9시간 어긋난다 */
 const localNow = () => {
@@ -127,9 +128,11 @@ function SignBox({
 export function ChangeDetailScreen() {
   const role = useTradingRole();
   const [id, setId] = useState<number | null>(null);
+  // 주소가 바뀌면(다른 알림을 눌러 같은 화면의 다른 건으로) 다시 읽는다
+  const search = useLocationSearch();
   useEffect(() => {
-    setId(Number(new URLSearchParams(window.location.search).get('id')));
-  }, []);
+    setId(Number(new URLSearchParams(search).get('id')));
+  }, [search]);
   const changesAll = useTradingPocStore((s) => s.changes);
   const ch = id == null ? undefined : (role.isAdmin ? changesAll : role.changes).find((x) => x.id === id);
   const c = ch ? role.contracts.find((x) => x.id === ch.contractId) : undefined;
@@ -145,7 +148,7 @@ export function ChangeDetailScreen() {
           요청을 찾을 수 없습니다
         </div>
       ) : ch && c ? (
-        <ChangeWorkspace ch={ch} c={c} list={list} />
+        <ChangeWorkspace key={ch.id} ch={ch} c={c} list={list} />
       ) : null}
     </div>
   );
@@ -403,7 +406,7 @@ const totalOf = (t: ChangeTerms) => t.capacityKw * (t.installUnit ?? 0) + (t.ext
 
 /**
  * 변경 조건 — 항목 · 현재 · 변경. 관리자는 조건 입력 단계에서 '변경' 칸을 고친다(지금 계약 값 + 요청 값으로 시작, 그대로 둘 칸은 그대로).
- * 저장 → 조건 확정 → 상대(기업) 조건 동의 → 전자서명. 확정 뒤엔 못 고치고 확정 취소로 다시 연다
+ * 저장 → 조건 확정 → 상대(기업) 조건 동의 → 전자서명. 확정 뒤엔 못 고치고 조건 변경로 다시 연다
  */
 function ChangeTermsCard({ ch, c, onReject }: { ch: ContractChange; c: Contract; onReject: () => void }) {
   const role = useTradingRole();
@@ -508,10 +511,10 @@ function ChangeTermsCard({ ch, c, onReject }: { ch: ContractChange; c: Contract;
           variant="secondary"
           onClick={() => {
             unconfirmTerms(ch.id);
-            addToast('success', `${ch.no} 확정 취소 — 조건 다시 입력`);
+            addToast('success', `${ch.no} 조건 변경 — 조건 다시 입력`);
           }}
         >
-          확정 취소
+          조건 변경
         </Button>
       )}
       {isCompany && open && ch.stage === 'AGREE' && (

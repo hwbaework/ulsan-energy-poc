@@ -27,7 +27,7 @@ import type {
   TradeRequestStatus,
 } from '@/types/trading-poc';
 
-export const SEED_VERSION = 72; // 2026-11-17 확정 취소는 양쪽 확인창(사유 칸 없음, 이유는 채팅). 71 — 2026-11-17 용인금속(id 20) 확정 취소 뒤 다시 확정 — 바뀐 연간 O&M 노란색. 70 — 2026-11-17 확정 취소(관리자 · 기업 양쪽, 사유 → 미팅으로) — 태성산업(id 15)이 확정 취소한 샘플. 69 — 2026-11-17 자가소비 조건 확정(용인금속) · 해지 반려(태성산업) 샘플 — 알림마다 그 상태의 줄이 있게. 68 — 2026-10-14 세금계산서 원본 1건(한일튜브 PPA 2026-09). 67 — 2026-10-14 변경·해지 신청은 모두 기업(태성산업 · 한길 · 용인금속 진행 이력). 66 — 2026-10-14 받는 쪽은 변경 동의 / 해지 동의, 승인은 마지막에만. 65 — 2026-10-13 관리자는 변경·해지 신청 안 함(받아서 승인 · 반려 · 서명만), 신청 단계엔 합의서 · 서명 없음. 63 — 2026-10-13 한일튜브 해지 신청(CH-2026-0014). 62 — 2026-10-13 관리자가 신청한 해지(용인금속, 전자서명 1/2). 61 — 2026-10-13 해지: 신청 → 전자서명 → 해지 승인, 문서 분류 변경 합의서 · 해지 합의서. 60 — 2026-10-13 해지 완료 1건(한길 예전 계약 CT-2024-0001 · CH-2025-0001). 59 — 2026-10-13 해지 3칸 · 상태 해지. 58 — 2026-10-13 신청 상태 PPA(CH-2026-0012) 추가. 57 — 2026-10-13 변경 조건은 지금 계약 값으로 시작. 56 — 2026-10-13 변경: 변경 동의 → 조건 입력(관리자) → 조건 동의 → 전자서명 → 승인. 55 — 2026-10-13 변경·해지 동의 → 변경 동의 / 해지 동의. 54 — 2026-10-13 승인된 변경·해지 합의서(서명본) 시드. 53 — 2026-10-13 변경·해지도 신청 접수 → 동의 → 전자서명 → 승인 완료. 52 — 2026-10-13 진행 이력 조건 동의(관리자 · 신청한 쪽) → 전자서명 → 승인 완료, 표시 SPC → 관리자. 51 — 2026-10-13 진행 이력 '승인'은 양측 서명 완료만, 동의는 '조건 동의'. 50 — 2026-10-13 서명 흔적(그림 · 이름) 저장. 49 — 2026-10-13 전자서명 자가소비(건호) · PPA(한일튜브) 1건씩. 48 — 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
+export const SEED_VERSION = 77; // 2026-11-17 '확정 취소' → '조건 변경'. 76 — 2026-11-17 전자서명 4건(자가소비 · PPA × 관리자 먼저 / 기업 먼저), 둘 다 서명 전(건호이엔씨 · 한일튜브 PPA) 뺌. 75 — 2026-11-17 전자서명 경우의 수 4건(한길 · 용인금속 · 한일튜브 PPA 2) 추가, 반려는 2건(자가소비 · PPA)만. 74 — 2026-11-17 미팅 4가지(자가소비 · PPA × 보낸 것 · 받은 것) — PPA 조건 변경로 돌아온 건(id 21). 73 — 2026-11-17 한일튜브 PPA(id 5) 조건 변경 뒤 다시 확정 — 발전사업자 화면에서 바뀐 칸 표시. 72 — 2026-11-17 조건 변경는 양쪽 확인창(사유 칸 없음, 이유는 채팅). 71 — 2026-11-17 용인금속(id 20) 조건 변경 뒤 다시 확정 — 바뀐 연간 O&M 노란색. 70 — 2026-11-17 조건 변경(관리자 · 기업 양쪽, 사유 → 미팅으로) — 태성산업(id 15)이 조건 변경한 샘플. 69 — 2026-11-17 자가소비 조건 확정(용인금속) · 해지 반려(태성산업) 샘플 — 알림마다 그 상태의 줄이 있게. 68 — 2026-10-14 세금계산서 원본 1건(한일튜브 PPA 2026-09). 67 — 2026-10-14 변경·해지 신청은 모두 기업(태성산업 · 한길 · 용인금속 진행 이력). 66 — 2026-10-14 받는 쪽은 변경 동의 / 해지 동의, 승인은 마지막에만. 65 — 2026-10-13 관리자는 변경·해지 신청 안 함(받아서 승인 · 반려 · 서명만), 신청 단계엔 합의서 · 서명 없음. 63 — 2026-10-13 한일튜브 해지 신청(CH-2026-0014). 62 — 2026-10-13 관리자가 신청한 해지(용인금속, 전자서명 1/2). 61 — 2026-10-13 해지: 신청 → 전자서명 → 해지 승인, 문서 분류 변경 합의서 · 해지 합의서. 60 — 2026-10-13 해지 완료 1건(한길 예전 계약 CT-2024-0001 · CH-2025-0001). 59 — 2026-10-13 해지 3칸 · 상태 해지. 58 — 2026-10-13 신청 상태 PPA(CH-2026-0012) 추가. 57 — 2026-10-13 변경 조건은 지금 계약 값으로 시작. 56 — 2026-10-13 변경: 변경 동의 → 조건 입력(관리자) → 조건 동의 → 전자서명 → 승인. 55 — 2026-10-13 변경·해지 동의 → 변경 동의 / 해지 동의. 54 — 2026-10-13 승인된 변경·해지 합의서(서명본) 시드. 53 — 2026-10-13 변경·해지도 신청 접수 → 동의 → 전자서명 → 승인 완료. 52 — 2026-10-13 진행 이력 조건 동의(관리자 · 신청한 쪽) → 전자서명 → 승인 완료, 표시 SPC → 관리자. 51 — 2026-10-13 진행 이력 '승인'은 양측 서명 완료만, 동의는 '조건 동의'. 50 — 2026-10-13 서명 흔적(그림 · 이름) 저장. 49 — 2026-10-13 전자서명 자가소비(건호) · PPA(한일튜브) 1건씩. 48 — 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -246,30 +246,7 @@ function seedContracts(): Contract[] {
       signedByConsumer: true,
       signedAt: iso('2024-11-20', '09:30:00'),
     }),
-    // 거래 승인 상태별 샘플(실제 기업·용량) — 승인: 아직 서명 없음 / 전자서명: 기업 서명 끝, 계약 상대 서명 남음
-    {
-      ...base({
-        id: 7,
-        no: 'CT-2026-0007',
-        requestId: 4,
-        kind: 'SELF_CONSUMPTION',
-        plantName: '건호이엔씨',
-        generatorCompanyId: CO.SPC.id,
-        generatorCompanyName: CO.SPC.name,
-        consumerCompanyId: 7,
-        consumerCompanyName: CO.GUNHO.name,
-        siteName: '건호이엔씨 공장',
-        address: '울산 남구 부곡동 22-5',
-        capacityKw: 33.92,
-        unitPrice: 26,
-        termYears: 20,
-        startDate: '2026-11-01',
-        status: 'PENDING_SIGN',
-        signedByGenerator: false,
-        signedByConsumer: false,
-      }),
-      createdAt: iso('2026-09-15', '16:00:00'),
-    },
+    // 거래 승인 — 전자서명: 기업 서명 끝, 관리자 서명 남음(자가소비 · PPA × 관리자 먼저 / 기업 먼저 4건은 아래와 함께)
     {
       ...base({
         id: 8,
@@ -293,6 +270,79 @@ function seedContracts(): Contract[] {
         signMarkConsumer: { method: 'type', typedName: '박발전', at: iso('2026-09-23', '11:00:00') },
       }),
       createdAt: iso('2026-09-22', '15:00:00'),
+    },
+    // 전자서명 경우의 수 — 서명 대기 계약. 자가소비 · PPA × 관리자 먼저 / 기업 먼저(둘 다 서명 전은 양쪽 다 '확인'이라 기업 먼저와 같아 두지 않음)
+    {
+      ...base({
+        id: 10,
+        no: 'CT-2026-0010',
+        requestId: 22,
+        kind: 'SELF_CONSUMPTION',
+        plantName: '한길',
+        generatorCompanyId: CO.SPC.id,
+        generatorCompanyName: CO.SPC.name,
+        consumerCompanyId: 2,
+        consumerCompanyName: CO.CONSUMER_LOGIN.name,
+        siteName: '한길',
+        address: '울산 남구 용연동 490-11',
+        capacityKw: 90.88,
+        unitPrice: 26,
+        termYears: 20,
+        startDate: '2026-11-01',
+        status: 'PENDING_SIGN',
+        signedByGenerator: false,
+        signedByConsumer: true,
+        signMarkConsumer: { method: 'type', typedName: '이수용', at: iso('2026-09-26', '10:00:00') },
+      }),
+      createdAt: iso('2026-09-24', '15:00:00'),
+    },
+    {
+      ...base({
+        id: 11,
+        no: 'CT-2026-0011',
+        requestId: 23,
+        kind: 'SELF_CONSUMPTION',
+        plantName: '용인금속',
+        generatorCompanyId: CO.SPC.id,
+        generatorCompanyName: CO.SPC.name,
+        consumerCompanyId: CO.YONGIN.id,
+        consumerCompanyName: CO.YONGIN.name,
+        siteName: '용인금속 울산공장',
+        address: '울산 남구 여천동 887-18',
+        capacityKw: 152.32,
+        unitPrice: 26,
+        termYears: 20,
+        startDate: '2026-11-01',
+        status: 'PENDING_SIGN',
+        signedByGenerator: true,
+        signedByConsumer: false,
+        signMarkGenerator: { method: 'type', typedName: '김관리', at: iso('2026-09-27', '09:30:00') },
+      }),
+      createdAt: iso('2026-09-25', '15:00:00'),
+    },
+    {
+      ...base({
+        id: 13,
+        no: 'CT-2026-0013',
+        requestId: 25,
+        kind: 'ONSITE',
+        plantName: '한일튜브(PPA)',
+        generatorCompanyId: CO.SPC.id,
+        generatorCompanyName: CO.SPC.name,
+        consumerCompanyId: 4,
+        consumerCompanyName: CO.HANIL.name,
+        siteName: '한일튜브 울산공장',
+        address: '울산 남구 부곡동 273-6',
+        capacityKw: 329.6,
+        unitPrice: 138,
+        termYears: 20,
+        startDate: '2026-12-01',
+        status: 'PENDING_SIGN',
+        signedByGenerator: true,
+        signedByConsumer: false,
+        signMarkGenerator: { method: 'type', typedName: '김관리', at: iso('2026-09-28', '10:00:00') },
+      }),
+      createdAt: iso('2026-09-27', '15:00:00'),
     },
     // 해지 완료 — 한길 예전 계약(같은 공장 · 같은 용량). 해지하고 지금 계약 CT-2025-0003 으로 다시 맺음
     base({
@@ -572,7 +622,7 @@ function seedRequests(): TradeRequest[] {
         ev(iso('2026-09-26', '09:40:00'), 'spc', '미팅', '2026-09-29 예정'),
         ev(iso('2026-09-30', '10:00:00'), 'spc', '조건 입력', '46.08 kW · 20년'),
         ev(iso('2026-09-30', '10:10:00'), 'spc', '조건 동의', '신청한 쪽 동의 대기'),
-        ev(iso('2026-10-01', '15:20:00'), 'consumer', '확정 취소', '조건 수정'),
+        ev(iso('2026-10-01', '15:20:00'), 'consumer', '조건 변경', '조건 다시 입력'),
       ],
       messages: [
         {
@@ -585,7 +635,7 @@ function seedRequests(): TradeRequest[] {
           at: iso('2026-10-01', '15:20:00'),
           by: 'consumer',
           byName: CO.TAESUNG.name,
-          text: '[확정 취소] 연간 O&M 금액이 예상보다 높아 조정을 요청합니다.',
+          text: '[조건 변경] 연간 O&M 금액이 예상보다 높아 조정을 요청합니다.',
         },
       ],
     }),
@@ -604,17 +654,22 @@ function seedRequests(): TradeRequest[] {
       termYears: 20,
       status: 'REVIEW',
       submittedAt: iso('2026-09-20'),
-      updatedAt: iso('2026-09-27', '11:00:00'),
+      updatedAt: iso('2026-09-29', '10:30:00'),
       surveyDate: '2026-09-26',
       surveyDoneAt: '2026-09-26',
       // 관리자가 조건을 확정 — 박발전 동의 대기([동의] · [반려])
-      termsConfirmedAt: iso('2026-09-27', '11:30:00'),
+      termsConfirmedAt: iso('2026-09-29', '10:30:00'),
+      // 처음 확정한 조건(O&M 1.2%) — 한일튜브가 조건 변경, 관리자가 1%로 고쳐 다시 확정
+      termsBeforeCancel: { capacityKw: 329.6, termYears: 20, unitPrice: 138, installUnit: 1_350_000, extraCost: 0, omAnnual: 5339520, tariffPlan: '고압A 선택Ⅱ' },
       contact: { name: '박발전', phone: '010-2000-0002', email: 'operator@test.com' },
       events: [
         ev(iso('2026-09-20'), 'generator', '신청 접수'),
         ev(iso('2026-09-23', '10:30:00'), 'spc', '미팅 확정', '2026-09-26'),
         ev(iso('2026-09-27', '11:00:00'), 'spc', '조건 입력', '329.6 kW · 20년 · PPA ₩138/kWh'),
         ev(iso('2026-09-27', '11:30:00'), 'spc', '조건 동의', '신청한 쪽 동의 대기'),
+        ev(iso('2026-09-28', '14:00:00'), 'generator', '조건 변경', '조건 다시 입력'),
+        ev(iso('2026-09-29', '10:20:00'), 'spc', '조건 입력', '연간 O&M ₩5,339,520 → ₩4,449,600'),
+        ev(iso('2026-09-29', '10:30:00'), 'spc', '조건 동의', '신청한 쪽 동의 대기'),
       ],
       messages: [
         {
@@ -633,7 +688,19 @@ function seedRequests(): TradeRequest[] {
           at: iso('2026-09-27', '11:00:00'),
           by: 'spc',
           byName: CO.SPC.name,
-          text: '[조건 확정] 329.6 kW · 20년 · PPA ₩138/kWh · 설치 ₩1,350,000/kW · O&M 1% · 고압A 선택Ⅱ — 확인하시고 동의해 주세요.',
+          text: '[조건 확정] 329.6 kW · 20년 · PPA ₩138/kWh · 설치 ₩1,350,000/kW · O&M 1.2% · 고압A 선택Ⅱ — 확인하시고 동의해 주세요.',
+        },
+        {
+          at: iso('2026-09-28', '14:00:00'),
+          by: 'generator',
+          byName: CO.HANIL.name,
+          text: '[조건 변경] 연간 O&M 을 1% 로 맞춰 주실 수 있을까요?',
+        },
+        {
+          at: iso('2026-09-29', '10:30:00'),
+          by: 'spc',
+          byName: CO.SPC.name,
+          text: '[조건 확정] 연간 O&M 을 1% 로 고쳤습니다 — 바뀐 칸을 확인하시고 동의해 주세요.',
         },
       ],
     }),
@@ -660,7 +727,7 @@ function seedRequests(): TradeRequest[] {
       surveyDate: '2026-09-29',
       surveyDoneAt: '2026-09-29',
       termsConfirmedAt: iso('2026-10-01', '11:00:00'),
-      // 처음 확정한 조건(O&M 1.2%) — 용인금속이 확정 취소, 관리자가 1%로 고쳐 다시 확정
+      // 처음 확정한 조건(O&M 1.2%) — 용인금속이 조건 변경, 관리자가 1%로 고쳐 다시 확정
       termsBeforeCancel: { capacityKw: 152.32, termYears: 20, unitPrice: 0, installUnit: 1_350_000, extraCost: 0, omAnnual: 2467584, tariffPlan: '고압A 선택Ⅱ' },
       contact: { name: '설비 담당', phone: '052-000-0000', email: 'facility@yongin.co.kr' },
       events: [
@@ -668,7 +735,7 @@ function seedRequests(): TradeRequest[] {
         ev(iso('2026-09-22', '10:00:00'), 'spc', '미팅 확정', '2026-09-29'),
         ev(iso('2026-09-30', '13:40:00'), 'spc', '조건 입력', '152.32 kW · 20년'),
         ev(iso('2026-09-30', '14:00:00'), 'spc', '조건 동의', '신청한 쪽 동의 대기'),
-        ev(iso('2026-09-30', '16:30:00'), 'consumer', '확정 취소', '조건 수정'),
+        ev(iso('2026-09-30', '16:30:00'), 'consumer', '조건 변경', '조건 다시 입력'),
         ev(iso('2026-10-01', '10:50:00'), 'spc', '조건 입력', '연간 O&M ₩2,467,584 → ₩2,056,320'),
         ev(iso('2026-10-01', '11:00:00'), 'spc', '조건 동의', '신청한 쪽 동의 대기'),
       ],
@@ -683,13 +750,56 @@ function seedRequests(): TradeRequest[] {
           at: iso('2026-09-30', '16:30:00'),
           by: 'consumer',
           byName: CO.YONGIN.name,
-          text: '[확정 취소] 연간 O&M 비율 조정 요청',
+          text: '[조건 변경] 연간 O&M 비율 조정 요청',
         },
         {
           at: iso('2026-10-01', '11:00:00'),
           by: 'spc',
           byName: CO.SPC.name,
           text: '[조건 확정] 연간 O&M 을 1% 로 고쳤습니다 — 바뀐 칸을 확인하시고 동의해 주세요.',
+        },
+      ],
+    }),
+    // 조건 변경로 돌아온 PPA — 한일튜브가 조건 변경, 관리자가 조건을 고칠 차례(자가소비는 id 15 태성산업)
+    mk({
+      id: 21,
+      ...gen,
+      kind: 'ONSITE',
+      plantName: '한일튜브(PPA)',
+      consumerCompanyId: 4,
+      consumerCompanyName: CO.HANIL.name,
+      siteName: '한일튜브 울산공장',
+      address: '울산 남구 부곡동 273-6',
+      capacityKw: 329.6,
+      unitPrice: 138,
+      termYears: 20,
+      status: 'REVIEW',
+      submittedAt: iso('2026-09-15', '10:00:00'),
+      updatedAt: iso('2026-10-01', '09:40:00'),
+      surveyDate: '2026-09-24',
+      surveyDoneAt: '2026-09-24',
+      returnedAt: iso('2026-10-01', '09:40:00'),
+      returnedBy: 'generator',
+      contact: { name: '박발전', phone: '010-2000-0002', email: 'operator@test.com' },
+      events: [
+        ev(iso('2026-09-15', '10:00:00'), 'generator', '신청 접수'),
+        ev(iso('2026-09-18', '11:00:00'), 'spc', '미팅 확정', '2026-09-24'),
+        ev(iso('2026-09-25', '14:00:00'), 'spc', '조건 입력', '329.6 kW · 20년 · PPA ₩138/kWh'),
+        ev(iso('2026-09-25', '14:10:00'), 'spc', '조건 동의', '신청한 쪽 동의 대기'),
+        ev(iso('2026-10-01', '09:40:00'), 'generator', '조건 변경', '조건 다시 입력'),
+      ],
+      messages: [
+        {
+          at: iso('2026-09-25', '14:10:00'),
+          by: 'spc',
+          byName: CO.SPC.name,
+          text: '[조건 확정] 329.6 kW · 20년 · PPA ₩138/kWh — 확인하시고 동의해 주세요.',
+        },
+        {
+          at: iso('2026-10-01', '09:40:00'),
+          by: 'generator',
+          byName: CO.HANIL.name,
+          text: '[조건 변경] 요금제를 다시 검토하고 싶습니다.',
         },
       ],
     }),
@@ -714,28 +824,6 @@ function seedRequests(): TradeRequest[] {
         ev(iso('2026-08-03'), 'spc', '신청 접수', '전화 문의 대리 접수'),
         ev(iso('2026-08-05'), 'spc', '미팅 확정'),
         ev(iso('2026-08-12', '17:20:00'), 'spc', '반려', '설치 위치 도면 미제출 — 보완 후 재신청'),
-      ],
-    }),
-    // 반려(신청한 쪽이 사유 적고)
-    mk({
-      id: 9,
-      ...gen,
-      kind: 'SELF_CONSUMPTION',
-      plantName: '한일튜브(자가소비)',
-      consumerCompanyId: 4,
-      consumerCompanyName: CO.HANIL.name,
-      siteName: '한일튜브 울산공장',
-      address: '울산 남구 부곡동 273-6',
-      capacityKw: 99.84,
-      unitPrice: 0,
-      termYears: 0,
-      status: 'REJECTED',
-      rejectReason: '설치 일정 보류',
-      submittedAt: iso('2026-07-08'),
-      updatedAt: iso('2026-07-21', '09:00:00'),
-      events: [
-        ev(iso('2026-07-08'), 'generator', '신청 접수'),
-        ev(iso('2026-07-21', '09:00:00'), 'generator', '반려', '설치 일정 보류'),
       ],
     }),
     // 박발전(한일튜브) — 신청 PPA 1건(자가소비 신청은 id 6 한길, PPA 미팅 중은 id 5), 반려 PPA 1건(자가소비 반려는 id 9)
@@ -783,31 +871,82 @@ function seedRequests(): TradeRequest[] {
         ev(iso('2026-08-28', '16:00:00'), 'generator', '반려', '지붕 구조 보강 필요로 보류'),
       ],
     }),
-    // 승인 — 서명 전(거래 승인)
+    // ── 전자서명 경우의 수(2026-11-17 사용자) — 자가소비 · PPA × 관리자 먼저(관리자 대기) / 기업 먼저(관리자 확인)
+    //    둘 다 서명 전은 양쪽 다 '확인'이라 기업 먼저와 같아 두지 않는다
+    //    자가소비: 기업 먼저 id 22 한길 · 관리자 먼저 id 23 용인금속 / PPA: 기업 먼저 id 17 · 관리자 먼저 id 25 (한일튜브)
     mk({
-      id: 4,
+      id: 22,
       ...spc,
       kind: 'SELF_CONSUMPTION',
-      consumerCompanyId: 7,
-      consumerCompanyName: CO.GUNHO.name,
-      plantName: '건호이엔씨',
-      siteName: '건호이엔씨 공장',
-      address: '울산 남구 부곡동 22-5',
-      capacityKw: 33.92,
+      consumerCompanyId: 2,
+      consumerCompanyName: CO.CONSUMER_LOGIN.name,
+      plantName: '한길',
+      siteName: '한길',
+      address: '울산 남구 용연동 490-11',
+      capacityKw: 90.88,
       unitPrice: 26,
       termYears: 20,
       status: 'APPROVED',
-      contractId: 7,
-      submittedAt: iso('2026-09-02'),
-      updatedAt: iso('2026-09-15', '16:00:00'),
+      contractId: 10,
+      submittedAt: iso('2026-09-01'),
+      updatedAt: iso('2026-09-26', '10:00:00'),
       events: [
-        ev(iso('2026-09-02'), 'spc', '신청 접수', '전화 문의 대리 접수'),
-        ev(iso('2026-09-04'), 'spc', '미팅 확정'),
-        ev(iso('2026-09-15', '15:00:00'), 'spc', '조건 동의'),
-        ev(iso('2026-09-15', '16:00:00'), 'consumer', '조건 동의', '계약서 초안 생성 — 양측 전자서명 대기'),
+        ev(iso('2026-09-01'), 'spc', '신청 접수', '전화 문의 대리 접수'),
+        ev(iso('2026-09-03'), 'spc', '미팅 확정'),
+        ev(iso('2026-09-24', '14:00:00'), 'spc', '조건 동의'),
+        ev(iso('2026-09-24', '15:00:00'), 'consumer', '조건 동의', '계약서 초안 생성 — 양측 전자서명 대기'),
+        ev(iso('2026-09-26', '10:00:00'), 'consumer', '전자서명', '이수용 서명'),
       ],
     }),
-    // 전자서명 — PPA, 기업 서명 끝 · SPC 남음 (자가소비 전자서명은 id 4 건호이엔씨, 서명 전)
+    mk({
+      id: 23,
+      ...spc,
+      kind: 'SELF_CONSUMPTION',
+      consumerCompanyId: CO.YONGIN.id,
+      consumerCompanyName: CO.YONGIN.name,
+      plantName: '용인금속',
+      siteName: '용인금속 울산공장',
+      address: '울산 남구 여천동 887-18',
+      capacityKw: 152.32,
+      unitPrice: 26,
+      termYears: 20,
+      status: 'APPROVED',
+      contractId: 11,
+      submittedAt: iso('2026-09-02'),
+      updatedAt: iso('2026-09-27', '09:30:00'),
+      events: [
+        ev(iso('2026-09-02'), 'spc', '신청 접수', '전화 문의 대리 접수'),
+        ev(iso('2026-09-05'), 'spc', '미팅 확정'),
+        ev(iso('2026-09-25', '14:00:00'), 'spc', '조건 동의'),
+        ev(iso('2026-09-25', '15:00:00'), 'consumer', '조건 동의', '계약서 초안 생성 — 양측 전자서명 대기'),
+        ev(iso('2026-09-27', '09:30:00'), 'spc', '전자서명', '김관리 서명'),
+      ],
+    }),
+    mk({
+      id: 25,
+      ...gen,
+      kind: 'ONSITE',
+      plantName: '한일튜브(PPA)',
+      consumerCompanyId: 4,
+      consumerCompanyName: CO.HANIL.name,
+      siteName: '한일튜브 울산공장',
+      address: '울산 남구 부곡동 273-6',
+      capacityKw: 329.6,
+      unitPrice: 138,
+      termYears: 20,
+      status: 'APPROVED',
+      contractId: 13,
+      submittedAt: iso('2026-09-04'),
+      updatedAt: iso('2026-09-28', '10:00:00'),
+      events: [
+        ev(iso('2026-09-04'), 'generator', '신청 접수'),
+        ev(iso('2026-09-08'), 'spc', '미팅 확정'),
+        ev(iso('2026-09-27', '14:00:00'), 'spc', '조건 동의'),
+        ev(iso('2026-09-27', '15:00:00'), 'generator', '조건 동의', '계약서 초안 생성 — 양측 전자서명 대기'),
+        ev(iso('2026-09-28', '10:00:00'), 'spc', '전자서명', '김관리 서명'),
+      ],
+    }),
+    // 전자서명 — PPA, 기업 서명 끝 · 관리자 남음
     mk({
       id: 17,
       ...gen,
@@ -1453,7 +1592,7 @@ interface TradingPocState {
   addMessage: (id: number, by: Party, byName: string, text: string) => void;
   /** 미팅 확정(관리자) — 접수 → 미팅. 이때부터 양쪽이 조건을 넣는다 */
   confirmMeeting: (id: number, date: string) => void;
-  /** 조건 확정(관리자) — 신청한 쪽에 동의를 구한다. 채팅에도 자동으로 남긴다. 확정 뒤엔 못 고친다 → 확정 취소로 다시 연다 */
+  /** 조건 확정(관리자) — 신청한 쪽에 동의를 구한다. 채팅에도 자동으로 남긴다. 확정 뒤엔 못 고친다 → 조건 변경로 다시 연다 */
   confirmTerms: (id: number) => void;
   unconfirmTerms: (id: number) => void;
   markSurveyDone: (id: number, date: string) => void;
@@ -1466,7 +1605,7 @@ interface TradingPocState {
   ) => void;
   /** 반려 — 관리자든 신청한 쪽이든 사유를 적고. 서명 대기 중이면 계약 초안도 지운다 */
   rejectRequest: (id: number, reason: string, by?: Party) => void;
-  /** 확정 취소 — 관리자 · 신청한 쪽 누구든(확인창) 미팅으로 되돌려 관리자가 조건을 고친다. 진행 이력 · 협의 채팅에 남는다. 서명 대기 계약 초안은 지운다 */
+  /** 조건 변경 — 관리자 · 신청한 쪽 누구든(확인창) 미팅으로 되돌려 관리자가 조건을 고친다. 진행 이력 · 협의 채팅에 남는다. 서명 대기 계약 초안은 지운다 */
   cancelConfirm: (id: number, by: Party) => void;
   cancelRequest: (id: number, note?: string) => void;
   signAsGenerator: (contractId: number, mark?: Omit<SignMark, 'at'>) => void;
@@ -1479,7 +1618,7 @@ interface TradingPocState {
   agreeChange: (id: number, by: Party) => void;
   /** 조건 저장(관리자) */
   saveChangeTerms: (id: number, terms: ChangeTerms, note?: string) => void;
-  /** 조건 확정(관리자) — 상대 조건 동의 대기 · 확정 취소로 다시 입력 */
+  /** 조건 확정(관리자) — 상대 조건 동의 대기 · 조건 변경로 다시 입력 */
   confirmChangeTerms: (id: number) => void;
   unconfirmChangeTerms: (id: number) => void;
   /** 상대 조건 동의 — 전자서명으로 */
@@ -1587,8 +1726,8 @@ export const useTradingPocStore = create<TradingPocState>()(
                   ...r,
                   termsConfirmedAt: undefined,
                   updatedAt: nowIso(),
-                  events: [...r.events, ev(nowIso(), 'spc', '확정 취소', '조건 다시 입력')],
-                  messages: [...(r.messages ?? []), { at: nowIso(), by: 'spc', byName: CO.SPC.name, text: '[확정 취소] 조건을 다시 정리해 보내드리겠습니다.' }],
+                  events: [...r.events, ev(nowIso(), 'spc', '조건 변경', '조건 다시 입력')],
+                  messages: [...(r.messages ?? []), { at: nowIso(), by: 'spc', byName: CO.SPC.name, text: '[조건 변경] 조건을 다시 정리해 보내드리겠습니다.' }],
                 }
               : r,
           ),
@@ -1715,14 +1854,14 @@ export const useTradingPocStore = create<TradingPocState>()(
             requests: s.requests.map((r) =>
               r.id === id
                 ? {
-                    ...patchReq({ ...r, contractId: pendingContractId ? undefined : r.contractId }, 'REVIEW', ev(nowIso(), by, '확정 취소', '조건 수정')),
+                    ...patchReq({ ...r, contractId: pendingContractId ? undefined : r.contractId }, 'REVIEW', ev(nowIso(), by, '조건 변경', '조건 다시 입력')),
                     termsConfirmedAt: undefined,
                     // 확정됐던 조건 — 다시 확정하면 바뀐 칸을 노란색으로
                     termsBeforeCancel: { capacityKw: r.capacityKw, termYears: r.termYears, unitPrice: r.unitPrice, installUnit: r.installUnit, extraCost: r.extraCost, omAnnual: r.omAnnual, tariffPlan: r.tariffPlan },
                     returnedAt: nowIso(),
                     returnedBy: by,
-                    // 이유는 협의 채팅으로 — 확정 취소 자체는 사유를 받지 않는다
-                    messages: [...(r.messages ?? []), { at: nowIso(), by, byName, text: by === 'spc' ? '[확정 취소] 조건을 수정해 다시 보내드리겠습니다.' : '[확정 취소] 조건을 다시 협의하고 싶습니다.' }],
+                    // 이유는 협의 채팅으로 — 조건 변경 자체는 사유를 받지 않는다
+                    messages: [...(r.messages ?? []), { at: nowIso(), by, byName, text: by === 'spc' ? '[조건 변경] 조건을 고쳐 다시 보내드리겠습니다.' : '[조건 변경] 조건을 다시 협의하고 싶습니다.' }],
                   }
                 : r,
             ),
@@ -1890,7 +2029,7 @@ export const useTradingPocStore = create<TradingPocState>()(
       unconfirmChangeTerms: (id) =>
         set((s) => ({
           changes: s.changes.map((x) =>
-            x.id === id ? { ...x, stage: 'TERMS', events: [...(x.events ?? []), ev(nowIso(), 'spc', '확정 취소', '조건 다시 입력')] } : x,
+            x.id === id ? { ...x, stage: 'TERMS', events: [...(x.events ?? []), ev(nowIso(), 'spc', '조건 변경', '조건 다시 입력')] } : x,
           ),
         })),
       agreeChangeTerms: (id, by) =>

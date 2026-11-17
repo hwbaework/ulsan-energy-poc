@@ -295,13 +295,13 @@ const NOTIFICATION_MESSAGE: Record<string, string> = {
   SAFETY_CAUTION: '태성산업 인버터 #1 — 전기안전지수 주의',
   TRADING_SELF_RECEIVED: '한길 → 관리자 : 90.88 kW 신청',
   TRADING_SELF_TERMS: '관리자 → 용인금속 : 152.32 kW 조건 확정, 동의 대기',
-  TRADING_SELF_UNCONFIRMED: '태성산업 → 관리자 : 46.08 kW 확정 취소, 조건을 다시 확인해 주세요',
-  TRADING_SELF_SIGN: '관리자 → 건호이엔씨 : 33.92 kW 전자서명 요청',
+  TRADING_SELF_UNCONFIRMED: '태성산업 → 관리자 : 46.08 kW 조건 변경 요청',
+  TRADING_SELF_SIGN: '한길 → 관리자 : 90.88 kW 전자서명 요청',
   TRADING_SELF_APPROVED: '관리자 → 한일튜브 : 99.84 kW 승인',
   TRADING_SELF_REJECTED: '관리자 → 건호이엔씨 : 33.92 kW 반려',
   TRADING_PPA_RECEIVED: '한일튜브 → 관리자 : 50 kW 신청',
   TRADING_PPA_TERMS: '관리자 → 한일튜브 : 329.6 kW 조건 확정, 동의 대기',
-  TRADING_PPA_UNCONFIRMED: '',
+  TRADING_PPA_UNCONFIRMED: '한일튜브 → 관리자 : 329.6 kW 조건 변경 요청',
   TRADING_PPA_SIGN: '한일튜브 → 관리자 : 200 kW 전자서명 요청',
   TRADING_PPA_APPROVED: '관리자 → 한일튜브 : 329.6 kW 승인',
   TRADING_PPA_REJECTED: '한일튜브 → 관리자 : 200 kW 조건 반려',
@@ -332,11 +332,12 @@ const NOTIFICATION_TARGET: Record<string, string> = {
   TRADING_SELF_RECEIVED: '/view?id=6',
   TRADING_SELF_TERMS: '/view?id=20',
   TRADING_SELF_UNCONFIRMED: '/view?id=15',
-  TRADING_SELF_SIGN: '/view?id=4',
+  TRADING_SELF_SIGN: '/view?id=22',
   TRADING_SELF_APPROVED: '?company=4',
   TRADING_SELF_REJECTED: '/view?id=8',
   TRADING_PPA_RECEIVED: '/view?id=18',
   TRADING_PPA_TERMS: '/view?id=5',
+  TRADING_PPA_UNCONFIRMED: '/view?id=21',
   TRADING_PPA_SIGN: '/view?id=17',
   TRADING_PPA_APPROVED: '?company=4',
   TRADING_PPA_REJECTED: '/view?id=19',
@@ -375,7 +376,7 @@ const GENERATOR_RE100: Record<string, { message: string; link: string }> = {
   SETTLEMENT: { message: '관리자 → 한일튜브 : 2026-09 PPA 정산 확정', link: '/view?contract=1&period=2026-09' },
 };
 /** 데모에 그 상태의 건이 없는 알림 — 종에 넣지 않는다(눌러 가면 그 건이 진짜로 있어야) */
-const NO_DEMO = new Set(['TRADING_PPA_UNCONFIRMED']);
+const NO_DEMO = new Set<string>([]);
 const RE100_KEYS = new Set(NOTIFICATION_CATALOG.filter((e) => e.domain === 'RE100').map((e) => e.key));
 const myNotifications = () => {
   const persona = getPersona(useAuthStore.getState().user);

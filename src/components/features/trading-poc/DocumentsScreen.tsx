@@ -13,6 +13,7 @@ import { useTradingRole } from './useTradingRole';
 import { kindLabel } from './meta';
 import { PageHeader, cell, cellNum } from './Bits';
 import { periodOf } from './DocumentSheet';
+import { useLocationSearch } from '@/lib/use-location-search';
 
 /** 계약서 원문(양식) — 계약서는 이 PDF */
 export const CONTRACT_PDF = '/docs/lease-contract-template.pdf';
@@ -328,8 +329,9 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
 /** 예전 주소(/company?id=기업 번호) — 그 기업 폴더를 연 문서 관리 */
 export function DocumentsCompanyScreen() {
   const [id, setId] = useState<number | undefined>(undefined);
+  const search = useLocationSearch();
   useEffect(() => {
-    setId(Number(new URLSearchParams(window.location.search).get('id')) || undefined);
-  }, []);
+    setId(Number(new URLSearchParams(search).get('id')) || undefined);
+  }, [search]);
   return <DocumentsScreen initialCompany={id} />;
 }
