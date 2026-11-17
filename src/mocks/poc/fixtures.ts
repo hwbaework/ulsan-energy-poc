@@ -294,21 +294,25 @@ const NOTIFICATION_MESSAGE: Record<string, string> = {
   SAFETY_FIRE: '용인금속 인버터 #1 — 화재 징후',
   SAFETY_CAUTION: '태성산업 인버터 #1 — 전기안전지수 주의',
   TRADING_SELF_RECEIVED: '한길 90.88 kW', // 거래 이력의 접수 줄(자가소비)
-  TRADING_SELF_TERMS: '태성산업 46.08 kW', // 거래 이력의 미팅 줄(자가소비에는 조건 확정 · 동의 대기 줄이 따로 없다)
+  TRADING_SELF_TERMS: '용인금속 152.32 kW', // 거래 이력 — 관리자가 조건 확정, 용인금속 동의 대기
   TRADING_SELF_SIGN: '건호이엔씨 33.92 kW', // 거래 승인의 전자서명 줄(서명 전)
   TRADING_SELF_APPROVED: '한일튜브 99.84 kW', // 내 계약
+  TRADING_SELF_REJECTED: '건호이엔씨 33.92 kW', // 거래 이력의 반려 줄(자가소비)
   TRADING_PPA_RECEIVED: '한일튜브 50 kW', // 거래 이력의 접수 줄(PPA)
   TRADING_PPA_TERMS: '한일튜브 329.6 kW', // 거래 이력 — 관리자가 조건 확정, 한일튜브 동의 대기
   TRADING_PPA_SIGN: '한일튜브 200 kW', // 거래 승인의 전자서명 줄(기업 서명 끝, 관리자 남음)
   TRADING_PPA_APPROVED: '한일튜브 329.6 kW', // 내 계약
+  TRADING_PPA_REJECTED: '한일튜브 200 kW', // 거래 이력의 반려 줄(PPA)
   PPA_CONTRACT_CHANGE_REQUEST: '한길 — 기간 변경', // 변경 · 해지의 신청 줄
   PPA_CONTRACT_CHANGE_AGREED: '한일튜브 — 단가 변경', // 변경 동의 뒤 조건 입력 중
   PPA_CONTRACT_CHANGE_SIGN: '태성산업 — O&M 변경', // 전자서명(태성산업 서명 끝, 관리자 남음)
   PPA_CONTRACT_CHANGE_APPROVED: '한일튜브 — O&M 변경', // 내 계약(CH-2026-0006 승인)
+  PPA_CONTRACT_CHANGE_REJECTED: '한일튜브 — 기간 변경', // 변경 · 해지의 반려 줄(CH-2026-0003)
   PPA_CONTRACT_TERMINATION_REQUEST: '건호이엔씨', // 변경 · 해지의 해지 신청 줄
   PPA_CONTRACT_TERMINATION_AGREED: '용인금속', // 해지 동의 뒤 전자서명
   PPA_CONTRACT_TERMINATION_SIGN: '용인금속', // 전자서명(관리자 서명 끝, 용인금속 남음)
   PPA_CONTRACT_TERMINATION_APPROVED: '한길', // 내 계약의 해지 줄(CH-2025-0001)
+  PPA_CONTRACT_TERMINATION_REJECTED: '태성산업', // 변경 · 해지의 반려 줄(해지, CH-2026-0015)
   INVOICE: '한일튜브 PPA — 2026-09', // 2026-09 이용분(2026-10-01 발행)이 가장 최근
   TAX_INVOICE: '한일튜브 PPA — 2026-09', // 원본이 올라와 있는 달
   SETTLEMENT: '한일튜브 PPA — 2026-09',

@@ -11,6 +11,7 @@ import { getNotificationSettings, saveNotificationSettings, getNotificationEvent
 import { useToastStore } from '@/stores/useToastStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { getPersona, usePersonaOverride } from '@/lib/persona';
+import { notifGroupOf } from '@/lib/notification-catalog';
 
 // 알림 설정 — 지금 로그인한 계정의 설정. 알림 항목표(src/lib/notification-catalog.ts)의 항목마다 종(웹 알림)과 이메일을 켜고 끈다.
 // 묶음(통합관제 · RE100 · E-데이터마켓 · 관리)만 접고 펼치는 2단계. 항목은 짧은 이름이고 전체 위치 · 발생 조건은 툴팁(2026-11-11 사용자).
@@ -26,6 +27,8 @@ interface EventRow {
   /** 발생 조건 — 툴팁 */
   condition: string;
   domain: string;
+  /** 설정 묶음(자가소비 · PPA · 변경 · 해지) — 같은 묶음은 한 줄로 보이고 같이 켜고 끈다 */
+  group: string | null;
   inApp: boolean;
   email: boolean;
 }
@@ -71,6 +74,7 @@ export default function NotificationSettingsPage() {
             label: e.label,
             condition: e.condition ?? '',
             domain: e.domain,
+            group: notifGroupOf(e.eventKey),
             inApp: map.get(e.eventKey)?.inAppEnabled ?? true,
             email: map.get(e.eventKey)?.emailEnabled ?? false,
         }));
@@ -87,6 +91,12 @@ export default function NotificationSettingsPage() {
   const toggleDomain = (domain: string, ch: 'inApp' | 'email') => {
     const allOn = rows.filter((r) => r.domain === domain).every((r) => r[ch]);
     setRows((prev) => prev.map((r) => (r.domain === domain ? { ...r, [ch]: !allOn } : r)));
+    setDirty(true);
+  };
+  // 묶음 줄(자가소비 등)의 토글 — 그 묶음의 상태 알림 전부
+  const toggleGroup = (group: string, ch: 'inApp' | 'email') => {
+    const allOn = rows.filter((r) => r.group === group).every((r) => r[ch]);
+    setRows((prev) => prev.map((r) => (r.group === group ? { ...r, [ch]: !allOn } : r)));
     setDirty(true);
   };
   const toggleItem = (key: string, ch: 'inApp' | 'email') => {
@@ -159,6 +169,8 @@ export default function NotificationSettingsPage() {
             <tbody>
               {domains.map((domain) => {
                 const items = rows.filter((r) => r.domain === domain);
+                // 화면에 보이는 줄 — 묶음은 첫 항목 자리에 한 줄
+                const lines = items.filter((r, i) => !r.group || items.findIndex((x) => x.group === r.group) === i);
                 const allInApp = items.every((r) => r.inApp);
                 const allEmail = items.every((r) => r.email);
                 const open = !collapsed.has(domain);
@@ -181,18 +193,25 @@ export default function NotificationSettingsPage() {
                     <td className={TABLE_TD}><Toggle on={allEmail} onChange={() => toggleDomain(domain, 'email')} label={`${domain} 이메일 전체`} /></td>
                   </tr>,
                   ...(open
-                    ? items.map((r) => (
-                        <tr key={r.key} className={TABLE_ROW}>
-                          <td className={TABLE_TD}>
-                            {/* 짧은 이름 — 전체 위치 · 발생 조건은 툴팁 */}
-                            <span className="pl-[26px] text-sm text-white" title={`${r.label}\n${r.condition}`}>
-                              {r.name}
-                            </span>
-                          </td>
-                          <td className={TABLE_TD}><Toggle on={r.inApp} onChange={() => toggleItem(r.key, 'inApp')} label={`${r.name} 웹 알림`} /></td>
-                          <td className={TABLE_TD}><Toggle on={r.email} onChange={() => toggleItem(r.key, 'email')} label={`${r.name} 이메일`} /></td>
-                        </tr>
-                      ))
+                    ? lines.map((r) => {
+                        const members = r.group ? items.filter((x) => x.group === r.group) : [r];
+                        const name = r.group ?? r.name;
+                        // 묶음 줄의 툴팁은 안에 든 상태 알림 이름, 낱개 줄은 전체 위치 · 발생 조건
+                        const tip = r.group ? members.map((m) => m.name).join(', ') : `${r.label}\n${r.condition}`;
+                        const onOf = (ch: 'inApp' | 'email') => members.every((m) => m[ch]);
+                        const flip = (ch: 'inApp' | 'email') => (r.group ? toggleGroup(r.group, ch) : toggleItem(r.key, ch));
+                        return (
+                          <tr key={r.group ?? r.key} className={TABLE_ROW}>
+                            <td className={TABLE_TD}>
+                              <span className="pl-[26px] text-sm text-white" title={tip}>
+                                {name}
+                              </span>
+                            </td>
+                            <td className={TABLE_TD}><Toggle on={onOf('inApp')} onChange={() => flip('inApp')} label={`${name} 웹 알림`} /></td>
+                            <td className={TABLE_TD}><Toggle on={onOf('email')} onChange={() => flip('email')} label={`${name} 이메일`} /></td>
+                          </tr>
+                        );
+                      })
                     : []),
                 ];
               })}

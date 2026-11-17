@@ -56,7 +56,9 @@ function historyStatusOf(r: TradeRequest): HistoryStatus {
 const HistoryPill = ({ r }: { r: TradeRequest }) => {
   const label = historyStatusOf(r);
   const done = r.status === 'REJECTED' || r.status === 'CANCELLED';
-  return <StatusPill tone={HISTORY_TONE[label]} label={done ? label : stepLabel(label, tradeStepOf(r))} />;
+  // 미팅 단계 안에서 관리자가 조건을 확정해 넘긴 뒤 — 그 줄은 '조건 확정'으로 따로 보이게(화면의 [조건 확정] 버튼 · 알림 이름과 같은 말)(단계는 2/4 그대로, 2026-11-17 사용자)
+  const shown = r.status === 'REVIEW' && r.termsConfirmedAt ? '조건 확정' : label;
+  return <StatusPill tone={HISTORY_TONE[label]} label={done ? label : stepLabel(shown, tradeStepOf(r))} />;
 };
 
 /** 신청한 쪽(기업·발전사업자)인지 — 관리자가 아니고 당사자 */
@@ -114,7 +116,7 @@ export function TradeHistoryScreen() {
       sortValue: (r) => r.updatedAt,
       render: (r) => cellMuted(fmtDate(r.messages?.length ? r.messages[r.messages.length - 1]!.at : r.updatedAt)),
     },
-    { key: 'status', header: '상태', width: '150px', render: (r) => <HistoryPill r={r} /> },
+    { key: 'status', header: '상태', width: '200px', render: (r) => <HistoryPill r={r} /> },
     arrow,
   ];
 
