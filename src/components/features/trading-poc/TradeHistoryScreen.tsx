@@ -249,6 +249,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   const updateTerms = useTradingPocStore((s) => s.updateTerms);
   const approve = useTradingPocStore((s) => s.approveRequest);
   const reject = useTradingPocStore((s) => s.rejectRequest);
+  const cancelConfirm = useTradingPocStore((s) => s.cancelConfirm);
 
   const active = IN_TALK.includes(r.status);
   const isMine = isMineOf(role, r);
@@ -279,11 +280,12 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   // 승인 — 조건이 저장돼 있어야(미팅 완료 같은 버튼은 없다. 미팅은 채팅으로, 값은 여기에)
   const termsSaved = r.capacityKw > 0 && r.termYears > 0 && !!r.installUnit && !!r.omAnnual && !!r.tariffPlan && (self || r.unitPrice > 0);
   const confirmTerms = useTradingPocStore((s) => s.confirmTerms);
-  const unconfirmTerms = useTradingPocStore((s) => s.unconfirmTerms);
   const canConfirm = !dirty && termsSaved && !r.termsConfirmedAt; // 관리자 조건 확정 → 신청한 쪽 동의
   const agreeOpen = r.status === 'REVIEW' && !!r.termsConfirmedAt; // 동의 대기
 
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [unconfirmOpen, setUnconfirmOpen] = useState(false);
+  const [unconfirmReason, setUnconfirmReason] = useState('');
   const [reason, setReason] = useState('');
   const [confirm, setConfirm] = useState<'approve' | null>(null);
 
@@ -360,13 +362,14 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
           동의
         </Button>
       )}
-      {admin && agreeOpen && (
+      {/* 확정 취소 — 관리자 · 신청한 쪽 양쪽 같은 기능. 사유를 적고 미팅으로 되돌아가 조건을 다시 맞춘다 */}
+      {agreeOpen && (admin || (!role.isAdmin && isMine)) && (
         <Button
           size="sm"
           variant="secondary"
           onClick={() => {
-            unconfirmTerms(r.id);
-            addToast('success', `${r.no} 확정 취소 — 조건 다시 입력`);
+            setUnconfirmReason('');
+            setUnconfirmOpen(true);
           }}
         >
           확정 취소
@@ -474,6 +477,14 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
             )}
             <TermsInfo x={editing ? { ...r, ...termsOfDraft(draft, r) } : r} edit={edit} />
             {r.status === 'REJECTED' && <Info label="반려 사유" value={r.rejectReason} className="col-span-3" />}
+            {/* 확정 취소로 돌아온 건 — 누가 · 언제 · 사유. 다시 조건을 확정하면 내려간다 */}
+            {r.status === 'REVIEW' && r.returnReason && (
+              <Info
+                label="확정 취소 사유"
+                value={`${r.returnedBy === 'spc' ? '관리자' : r.applicantCompanyName} · ${fmtDateTime(r.returnedAt!)} · ${r.returnReason}`}
+                className="col-span-3"
+              />
+            )}
             {r.note && <Info label="비고" value={r.note} className="col-span-3" />}
           </div>
         </SectionCard>
@@ -485,7 +496,36 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
 
       <ChatPanel r={r} canSend={active && (role.isAdmin || isMine)} />
 
-      {/* 반려 — 관리자 · 신청한 쪽 누구든 사유를 적고. 말은 '반려' 하나로 */}
+      {/* 확정 취소 — 사유를 적고 미팅으로(조건을 다시 맞춘다). 반려와 달리 끝나지 않는다 */}
+      <Modal open={unconfirmOpen} onClose={() => setUnconfirmOpen(false)} title="확정 취소" size="sm">
+        <div className="space-y-4">
+          <Textarea
+            label="확정 취소 사유"
+            maxLength={TEXT_MAX}
+            value={unconfirmReason}
+            onChange={(e) => setUnconfirmReason(e.target.value)}
+            rows={3}
+            className="resize-none"
+          />
+          <ModalFooter>
+            <Button variant="secondary" onClick={() => setUnconfirmOpen(false)}>
+              취소
+            </Button>
+            <Button
+              disabled={!unconfirmReason.trim()}
+              onClick={() => {
+                cancelConfirm(r.id, unconfirmReason.trim(), role.party);
+                addToast('success', `${r.no} 확정 취소 — 조건을 다시 맞춥니다`);
+                setUnconfirmOpen(false);
+              }}
+            >
+              확정 취소
+            </Button>
+          </ModalFooter>
+        </div>
+      </Modal>
+
+      {/* 반려 — 관리자 · 신청한 쪽 누구든 사유를 적고. 반려는 그만두는 것(끝) */}
       <Modal open={rejectOpen} onClose={() => setRejectOpen(false)} title="신청 반려" size="sm">
         <div className="space-y-4">
           <Textarea

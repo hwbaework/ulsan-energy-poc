@@ -295,11 +295,13 @@ const NOTIFICATION_MESSAGE: Record<string, string> = {
   SAFETY_CAUTION: '태성산업 인버터 #1 — 전기안전지수 주의',
   TRADING_SELF_RECEIVED: '한길 → 관리자 : 90.88 kW 신청',
   TRADING_SELF_TERMS: '관리자 → 용인금속 : 152.32 kW 조건 확정, 동의 대기',
+  TRADING_SELF_UNCONFIRMED: '태성산업 → 관리자 : 46.08 kW 확정 취소, 조건을 다시 확인해 주세요',
   TRADING_SELF_SIGN: '관리자 → 건호이엔씨 : 33.92 kW 전자서명 요청',
   TRADING_SELF_APPROVED: '관리자 → 한일튜브 : 99.84 kW 승인',
   TRADING_SELF_REJECTED: '관리자 → 건호이엔씨 : 33.92 kW 반려',
   TRADING_PPA_RECEIVED: '한일튜브 → 관리자 : 50 kW 신청',
   TRADING_PPA_TERMS: '관리자 → 한일튜브 : 329.6 kW 조건 확정, 동의 대기',
+  TRADING_PPA_UNCONFIRMED: '',
   TRADING_PPA_SIGN: '한일튜브 → 관리자 : 200 kW 전자서명 요청',
   TRADING_PPA_APPROVED: '관리자 → 한일튜브 : 329.6 kW 승인',
   TRADING_PPA_REJECTED: '한일튜브 → 관리자 : 200 kW 조건 반려',
@@ -329,6 +331,7 @@ const NOTIFICATION_MESSAGE: Record<string, string> = {
 const NOTIFICATION_TARGET: Record<string, string> = {
   TRADING_SELF_RECEIVED: '/view?id=6',
   TRADING_SELF_TERMS: '/view?id=20',
+  TRADING_SELF_UNCONFIRMED: '/view?id=15',
   TRADING_SELF_SIGN: '/view?id=4',
   TRADING_SELF_APPROVED: '?company=4',
   TRADING_SELF_REJECTED: '/view?id=8',
@@ -357,20 +360,41 @@ const NOTIFICATIONS = NOTIFICATION_CATALOG.map((e, i) => {
   return { id: i + 1, type: e.key, title: e.name, message: NOTIFICATION_MESSAGE[e.key] ?? '', link: NOTIFICATION_TARGET[e.key], isRead: i >= 5, createdAt: at };
 });
 /** 지금 계정이 받는 알림 — 그 계정에 갈 화면이 있는 것만 */
+/**
+ * 발전사업자 데모 계정(박발전 = 한일튜브)이 받는 RE100 알림 — 한일튜브가 받는 쪽인 건만, 내용 · 이동도 그 건으로.
+ * 받는 쪽이 아닌 알림(한일튜브가 한 일, 다른 기업 건)은 이 계정의 종에 안 보인다(2026-11-17 사용자: 눌러 가면 그 건이 진짜로 있어야)
+ */
+const GENERATOR_RE100: Record<string, { message: string; link: string }> = {
+  TRADING_SELF_APPROVED: { message: '관리자 → 한일튜브 : 99.84 kW 승인', link: '' },
+  TRADING_PPA_TERMS: { message: '관리자 → 한일튜브 : 329.6 kW 조건 확정, 동의 대기', link: '/view?id=5' },
+  TRADING_PPA_APPROVED: { message: '관리자 → 한일튜브 : 329.6 kW 승인', link: '' },
+  PPA_CONTRACT_CHANGE_AGREED: { message: '관리자 → 한일튜브 : 단가 변경 동의', link: '/view?id=1' },
+  PPA_CONTRACT_CHANGE_APPROVED: { message: '관리자 → 한일튜브 : O&M 변경 승인', link: '' },
+  PPA_CONTRACT_CHANGE_REJECTED: { message: '관리자 → 한일튜브 : 기간 변경 반려', link: '/view?id=3' },
+  INVOICE: { message: '관리자 → 한일튜브 : 2026-09 PPA 청구서 발행', link: '/view?contract=1&period=2026-09' },
+  SETTLEMENT: { message: '관리자 → 한일튜브 : 2026-09 PPA 정산 확정', link: '/view?contract=1&period=2026-09' },
+};
+/** 데모에 그 상태의 건이 없는 알림 — 종에 넣지 않는다(눌러 가면 그 건이 진짜로 있어야) */
+const NO_DEMO = new Set(['TRADING_PPA_UNCONFIRMED']);
+const RE100_KEYS = new Set(NOTIFICATION_CATALOG.filter((e) => e.domain === 'RE100').map((e) => e.key));
 const myNotifications = () => {
   const persona = getPersona(useAuthStore.getState().user);
   const account: NotifAccount = persona === 'admin' || persona === 'spc' ? 'admin' : persona === 'generator' ? 'generator' : 'consumer';
   const roles = useAuthStore.getState().user?.roles ?? [];
   return NOTIFICATIONS.filter((n) => {
+    if (NO_DEMO.has(n.type)) return false;
     const path = notifPathOf(n.type, account);
     if (path === null) return false;
     // 관리자 쪽은 메뉴 권한 기준 — 관리자 소속이어도 그 화면의 메뉴 권한이 없는 회원은 받지 않는다(2026-11-16 사용자)
+    // 발전사업자는 RE100 알림 중 한일튜브가 받는 쪽인 건만
+    if (account === 'generator' && RE100_KEYS.has(n.type)) return !!GENERATOR_RE100[n.type];
     return account !== 'admin' || canReadMenuPath(roles, path);
-  });
+  }).map((n) => (account === 'generator' && GENERATOR_RE100[n.type] ? { ...n, ...GENERATOR_RE100[n.type] } : n));
 };
 registerMock(/^\/notifications\/unread-count$/, () => myNotifications().filter((n) => !n.isRead).length);
 registerMock(/^\/notifications\/read-all$/, () => {
-  myNotifications().forEach((n) => (n.isRead = true));
+  const ids = new Set(myNotifications().map((n) => n.id));
+  NOTIFICATIONS.forEach((n) => ids.has(n.id) && (n.isRead = true));
   return {};
 });
 registerMock(/^\/notifications\/(\d+)\/read$/, ({ match }) => {

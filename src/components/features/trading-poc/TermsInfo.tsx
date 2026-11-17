@@ -24,23 +24,27 @@ export function TermsInfo({ x, edit }: { x: TradeRequest | Contract; edit?: Term
   const received = 'status' in x && x.status === 'SUBMITTED';
   const pending = 'status' in x && x.status === 'REVIEW';
   const LATER = '협의 후 작성'; // 현업이 미팅해서 정한 뒤 넣는다
-  const cell = (editNode: ReactNode | undefined, label: string, value?: string) =>
-    editNode ?? (value !== undefined && value !== '' ? <Info label={label} value={value} /> : pending ? <Info label={label} value={LATER} /> : null);
+  // 확정 취소 뒤 다시 확정한 조건 — 그때와 바뀐 칸은 노란색(기업 정보 변경 검토와 같은 표시)
+  const before = 'termsBeforeCancel' in x ? x.termsBeforeCancel : undefined;
+  const changed = (k: keyof NonNullable<typeof before>) => !!before && before[k] !== undefined && before[k] !== x[k];
+  const mark = (on: boolean, v?: string) => (on && v ? <span className="font-bold text-amber-300">{v}</span> : v);
+  const cell = (editNode: ReactNode | undefined, label: string, value?: string, key?: keyof NonNullable<typeof before>) =>
+    editNode ?? (value !== undefined && value !== '' ? <Info label={label} value={mark(!!key && changed(key), value)} /> : pending ? <Info label={label} value={LATER} /> : null);
   return (
     <>
       <Info label="계약 유형" value={kindLabel(x.kind)} />
       <Info label="기업명" value={x.consumerCompanyName} />
       <div />
       <Info label="기업 주소" value={x.address} className="col-span-3" />
-      {edit?.capacity ?? <Info label={received ? '희망 설치 용량' : '설치 용량'} value={x.capacityKw > 0 ? fmtKw(x.capacityKw) : undefined} />}
-      {cell(edit?.term, '계약 기간', x.termYears > 0 ? `${x.termYears}년` : undefined)}
+      {edit?.capacity ?? <Info label={received ? '희망 설치 용량' : '설치 용량'} value={mark(changed('capacityKw'), x.capacityKw > 0 ? fmtKw(x.capacityKw) : undefined)} />}
+      {cell(edit?.term, '계약 기간', x.termYears > 0 ? `${x.termYears}년` : undefined, 'termYears')}
       {/* 실제 거래에 필요한 값 — 두 유형 모두: 설치 단가 · 추가 설치비용 → 예상 설치비, 연간 O&M. PPA 는 단가도(사용분 × 단가) */}
       {/* 조건 칸 — 넣는 중이거나 값이 있을 때만. 취소 · 반려 · 미팅 전처럼 값이 없으면 아예 안 보인다 */}
-      {!self && cell(edit?.price, 'PPA 단가', x.unitPrice > 0 ? `₩${fmtNum(x.unitPrice, 1)}/kWh` : undefined)}
-      {cell(edit?.installUnit, '설치 단가', x.installUnit ? `${won(x.installUnit)}/kW` : undefined)}
-      {cell(edit?.extraCost, '추가 설치비용', x.extraCost != null ? won(x.extraCost) : undefined)}
-      {cell(edit?.omAnnual, '연간 O&M', x.omAnnual ? `${won(x.omAnnual)}/년` : undefined)}
-      {cell(edit?.tariffPlan, '요금제', x.tariffPlan)}
+      {!self && cell(edit?.price, 'PPA 단가', x.unitPrice > 0 ? `₩${fmtNum(x.unitPrice, 1)}/kWh` : undefined, 'unitPrice')}
+      {cell(edit?.installUnit, '설치 단가', x.installUnit ? `${won(x.installUnit)}/kW` : undefined, 'installUnit')}
+      {cell(edit?.extraCost, '추가 설치비용', x.extraCost != null ? won(x.extraCost) : undefined, 'extraCost')}
+      {cell(edit?.omAnnual, '연간 O&M', x.omAnnual ? `${won(x.omAnnual)}/년` : undefined, 'omAnnual')}
+      {cell(edit?.tariffPlan, '요금제', x.tariffPlan, 'tariffPlan')}
       {(edit || hasTerms || pending) && <Info label="O&M 포함" value={<Checkbox label="포함 (설치비에 포함 · 필수)" checked={!!x.omIncluded} onChange={() => {}} />} />}
       {/* 설치비 — 민감한 금액이라 색으로만 살짝 포인트. O&M 은 설치비에 포함이라 따로 금액 없음. 월 사용료는 실제 쓴 만큼 내는 거라 미리 적지 않는다 */}
       {(total > 0 || pending) && (
