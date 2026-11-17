@@ -14,7 +14,7 @@ import type { ConsumerSite } from '@/types/consumer';
 import type { MarketPrice } from '@/types/trading';
 import { HOLIDAYS_SEED, type Holiday } from '@/lib/op-calendar';
 import { TARIFF_YEAR_SEED, cleanBook, type TariffYear, type TariffYearTable } from '@/lib/solar-sim';
-import './adminFixtures'; // 관리(ADMIN) 축 목업
+import { canReadMenuPath } from './adminFixtures'; // 관리(ADMIN) 축 목업 + 역할별 메뉴 권한
 import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
 import { FC_CAPACITY_KW, ORC_CAPACITY_KW, fuelCellAt, fuelCellTodayKwh, orcAt, orcTodayKwh } from '@/lib/heat-plants';
 
@@ -330,7 +330,13 @@ const NOTIFICATIONS = NOTIFICATION_CATALOG.map((e, i) => {
 const myNotifications = () => {
   const persona = getPersona(useAuthStore.getState().user);
   const account: NotifAccount = persona === 'admin' || persona === 'spc' ? 'admin' : persona === 'generator' ? 'generator' : 'consumer';
-  return NOTIFICATIONS.filter((n) => notifPathOf(n.type, account) !== null);
+  const roles = useAuthStore.getState().user?.roles ?? [];
+  return NOTIFICATIONS.filter((n) => {
+    const path = notifPathOf(n.type, account);
+    if (path === null) return false;
+    // 관리자 쪽은 메뉴 권한 기준 — 관리자 소속이어도 그 화면의 메뉴 권한이 없는 회원은 받지 않는다(2026-11-16 사용자)
+    return account !== 'admin' || canReadMenuPath(roles, path);
+  });
 };
 registerMock(/^\/notifications\/unread-count$/, () => myNotifications().filter((n) => !n.isRead).length);
 registerMock(/^\/notifications\/read-all$/, () => {

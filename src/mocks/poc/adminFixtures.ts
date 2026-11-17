@@ -186,6 +186,18 @@ for (const m of MENUS) {
   // 테스트 권한: 통합관제만 접근
   if (isUnder(m, M_CONTROL)) ROLE_MENU_PERMS[4]![m.id] = { canRead: true, canWrite: false };
 }
+/**
+ * 이 역할들로 그 화면에 들어갈 수 있는가 — 역할 · 권한에 저장된 메뉴 권한(조회) 기준. 역할 가운데 하나라도 되면 된다.
+ * 메뉴 표에 없는 주소, 역할 표에 없는 역할(데모 전환 계정)은 막지 않는다
+ */
+export function canReadMenuPath(roleCodes: string[], path: string): boolean {
+  // 같은 주소를 가진 메뉴가 둘이면(RE100 과 거래 신청) 아래쪽 메뉴가 기준
+  const menu = MENUS.filter((m) => m.path === path).sort((x, y) => y.depth - x.depth)[0];
+  if (!menu) return true;
+  const roleIds = ROLES.filter((r) => roleCodes.includes(r.code)).map((r) => r.id);
+  if (roleIds.length === 0) return true;
+  return roleIds.some((id) => !!ROLE_MENU_PERMS[id]?.[menu.id]?.canRead);
+}
 function roleMenusOf(roleId: number) {
   return Object.entries(ROLE_MENU_PERMS[roleId] ?? {}).map(([menuIdStr, p]) => {
     const menuId = Number(menuIdStr);
