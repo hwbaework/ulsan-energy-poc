@@ -15,7 +15,7 @@ import type { MonitoringPlant, PlantContractKind } from '@/types/monitoring';
  * 전체 상태 — 발전소(계약) 전부를 한 줄씩, 정상까지 보여준다.
  * 상태 = 통신 상태(정상/통신오류). 아직 복구되지 않은 통신오류 건이 있으면 통신오류.
  * RTU 끊김은 발전소 전체(계약 줄 전부), 인버터 끊김은 그 계약 줄에만.
- * 마지막 수신 = 통신오류 중이면 끊긴 시각, 아니면 인버터 마지막 수신 시각 중 가장 늦은 것.
+ * 최근 수신 = 통신오류 중이면 끊긴 시각, 아니면 인버터 마지막 수신 시각 중 가장 늦은 것.
  */
 export interface CommOutage {
   plantId: number;
@@ -118,7 +118,7 @@ export function PlantCommStatusTable({
     },
     {
       key: 'lastAt',
-      header: '마지막 수신',
+      header: '최근 수신',
       width: '180px',
       sortable: true,
       sortValue: (r) => r.lastAt ?? 0,

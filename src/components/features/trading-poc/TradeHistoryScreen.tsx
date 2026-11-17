@@ -53,6 +53,11 @@ function historyStatusOf(r: TradeRequest): HistoryStatus {
   if (r.status === 'APPROVED') return '전자서명';
   return '미팅';
 }
+/** 협의 채팅의 마지막 글 날짜 — 글이 없으면 마지막으로 바뀐 날 */
+const lastTalkOf = (r: TradeRequest) => (r.messages?.length ? r.messages[r.messages.length - 1]!.at : r.updatedAt);
+/** 목록 정렬 순서 — 단계가 앞선 것이 위, 끝난 것(반려)이 아래 */
+const statusOrder = (r: TradeRequest) =>
+  r.status === 'SUBMITTED' ? 0 : r.status === 'REVIEW' ? (r.termsConfirmedAt ? 2 : 1) : r.status === 'APPROVED' ? 3 : 4;
 const HistoryPill = ({ r }: { r: TradeRequest }) => {
   const label = historyStatusOf(r);
   const done = r.status === 'REJECTED' || r.status === 'CANCELLED';
@@ -92,7 +97,8 @@ export function TradeHistoryScreen() {
       mine
         .filter((r) => !filter || historyStatusOf(r) === filter)
         .filter((r) => !kind || r.kind === kind)
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+        // 상태 순서(신청 → 미팅 → 조건 확정 → 전자서명 → 반려), 같은 상태 안에서는 최근 소통 순(2026-11-17 사용자)
+        .sort((a, b) => statusOrder(a) - statusOrder(b) || lastTalkOf(b).localeCompare(lastTalkOf(a))),
     [mine, filter, kind],
   );
   // 들어온 신청 — 아직 미팅일을 잡지 않은 신청 접수 건만. 유형별로 따로
@@ -110,13 +116,15 @@ export function TradeHistoryScreen() {
     { key: 'capacity', header: '용량', width: '130px', render: (r) => cellNum(fmtKw(r.capacityKw)) },
     {
       key: 'talk',
-      header: '최근 소통',
+      header: '최근 협의일',
       width: '120px',
       sortable: true,
-      sortValue: (r) => r.updatedAt,
-      render: (r) => cellMuted(fmtDate(r.messages?.length ? r.messages[r.messages.length - 1]!.at : r.updatedAt)),
+      // 보이는 값과 정렬 기준을 같게 — 협의 채팅의 마지막 글 날짜(글이 없으면 마지막으로 바뀐 날)
+      sortValue: (r) => lastTalkOf(r),
+      render: (r) => cellMuted(fmtDate(lastTalkOf(r))),
     },
-    { key: 'status', header: '상태', width: '200px', render: (r) => <HistoryPill r={r} /> },
+    // 상태도 머리글을 눌러 정렬 — 단계 순서(신청 → 미팅 → 조건 확정 → 전자서명 → 반려)
+    { key: 'status', header: '상태', width: '200px', sortable: true, sortValue: (r) => statusOrder(r), render: (r) => <HistoryPill r={r} /> },
     arrow,
   ];
 
