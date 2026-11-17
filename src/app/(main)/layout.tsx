@@ -932,7 +932,9 @@ function getNotifLink(n: { type: string; link?: string }, persona: Persona): str
 
   // 알림 항목표에 있는 알림은 항목표의 '클릭 시 이동'대로(계정별 메뉴 주소) — src/lib/notification-catalog.ts notifPathOf
   if (NOTIFICATION_CATALOG.some((e) => e.key === n.type)) {
-    return notifPathOf(n.type, isSpcLike ? 'admin' : isGen ? 'generator' : 'consumer');
+    const base = notifPathOf(n.type, isSpcLike ? 'admin' : isGen ? 'generator' : 'consumer');
+    // 그 건의 상세로 — 알림에 실린 건(/view?id= · ?company= 등)을 목록 주소 뒤에 붙인다
+    return base && n.link && /^(\/view)?\?/.test(n.link) ? base + n.link : base;
   }
 
   if (n.link) {

@@ -82,7 +82,7 @@ export const NOTIFICATION_CATALOG: NotifEvent[] = [
   { key: 'PPA_CONTRACT_TERMINATION_REQUEST', name: '해지 신청', label: '변경 · 해지 › 해지 › 신청', domain: 'RE100', condition: '계약 해지를 신청함, 받는 쪽이 해지 동의할 차례', receivers: '상대 기업, 관리자(메뉴 권한 있는 회원)', go: '변경 · 해지', resolve: '해당 없음' },
   { key: 'PPA_CONTRACT_TERMINATION_AGREED', name: '해지 동의', label: '변경 · 해지 › 해지 › 해지 동의', domain: 'RE100', condition: '받는 쪽이 해지 동의함', receivers: '신청한 기업, 관리자(메뉴 권한 있는 회원)', go: '변경 · 해지', resolve: '해당 없음' },
   { key: 'PPA_CONTRACT_TERMINATION_SIGN', name: '해지 서명 요청', label: '변경 · 해지 › 해지 › 전자서명 › 서명 요청', domain: 'RE100', condition: '해지 동의 뒤 서명할 차례가 됨', receivers: '서명할 쪽', go: '변경 · 해지', resolve: '해당 없음' },
-  { key: 'PPA_CONTRACT_TERMINATION_APPROVED', name: '해지 승인', label: '변경 · 해지 › 해지 › 해지 승인', domain: 'RE100', condition: '양측 전자서명 뒤 해지 승인함, 상태 해지', receivers: '양측 기업', go: '내 계약', resolve: '해당 없음' },
+  { key: 'PPA_CONTRACT_TERMINATION_APPROVED', name: '해지 승인', label: '변경 · 해지 › 해지 › 해지 승인', domain: 'RE100', condition: '양측 전자서명 뒤 해지 승인함, 상태 해지', receivers: '양측 기업', go: '변경 · 해지', resolve: '해당 없음' },
   { key: 'PPA_CONTRACT_TERMINATION_REJECTED', name: '해지 반려', label: '변경 · 해지 › 해지 › 반려', domain: 'RE100', condition: '계약 해지가 반려됨', receivers: '반려한 쪽의 상대(기업 또는 관리자(메뉴 권한 있는 회원))', go: '변경 · 해지', resolve: '해당 없음' },
   { key: 'INVOICE', name: '청구서 발행', label: '수익 · 정산 › 청구서 › 발행', domain: 'RE100', condition: '달마다 청구서가 발행됨', receivers: '전기사용자', go: '수익 · 정산 › 청구서', resolve: '해당 없음' },
   { key: 'TAX_INVOICE', name: '세금계산서 발행', label: '수익 · 정산 › 세금계산서 › 발행', domain: 'RE100', condition: '세금계산서 원본이 올라옴', receivers: '상대 기업', go: '수익 · 정산 › 세금계산서', resolve: '해당 없음' },
@@ -136,6 +136,7 @@ export function notifPathOf(key: string, account: NotifAccount): string | null {
   if (key.endsWith('_RECEIVED')) return t.history; // 들어온 신청은 거래 이력의 신청 표에 보인다(거래 신청은 신청을 넣는 화면)
   if (key.endsWith('_TERMS')) return t.history;
   if (key === 'TRADING_SELF_SIGN' || key === 'TRADING_PPA_SIGN') return t.approvals;
+  if (key === 'PPA_CONTRACT_TERMINATION_APPROVED') return t.changes; // 해지된 계약은 내 계약 목록에 없다
   if (key.endsWith('_APPROVED')) return t.contracts;
   if (key.startsWith('PPA_CONTRACT_')) return t.changes;
   if (key === 'INVOICE') return t.invoices;

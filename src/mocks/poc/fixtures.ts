@@ -293,29 +293,29 @@ const NOTIFICATION_MESSAGE: Record<string, string> = {
   SAFETY_WARNING: '한일튜브 인버터 #1 — 전기안전지수 경고',
   SAFETY_FIRE: '용인금속 인버터 #1 — 화재 징후',
   SAFETY_CAUTION: '태성산업 인버터 #1 — 전기안전지수 주의',
-  TRADING_SELF_RECEIVED: '한길 90.88 kW', // 거래 이력의 접수 줄(자가소비)
-  TRADING_SELF_TERMS: '용인금속 152.32 kW', // 거래 이력 — 관리자가 조건 확정, 용인금속 동의 대기
-  TRADING_SELF_SIGN: '건호이엔씨 33.92 kW', // 거래 승인의 전자서명 줄(서명 전)
-  TRADING_SELF_APPROVED: '한일튜브 99.84 kW', // 내 계약
-  TRADING_SELF_REJECTED: '건호이엔씨 33.92 kW', // 거래 이력의 반려 줄(자가소비)
-  TRADING_PPA_RECEIVED: '한일튜브 50 kW', // 거래 이력의 접수 줄(PPA)
-  TRADING_PPA_TERMS: '한일튜브 329.6 kW', // 거래 이력 — 관리자가 조건 확정, 한일튜브 동의 대기
-  TRADING_PPA_SIGN: '한일튜브 200 kW', // 거래 승인의 전자서명 줄(기업 서명 끝, 관리자 남음)
-  TRADING_PPA_APPROVED: '한일튜브 329.6 kW', // 내 계약
-  TRADING_PPA_REJECTED: '한일튜브 200 kW', // 거래 이력의 반려 줄(PPA)
-  PPA_CONTRACT_CHANGE_REQUEST: '한길 — 기간 변경', // 변경 · 해지의 신청 줄
-  PPA_CONTRACT_CHANGE_AGREED: '한일튜브 — 단가 변경', // 변경 동의 뒤 조건 입력 중
-  PPA_CONTRACT_CHANGE_SIGN: '태성산업 — O&M 변경', // 전자서명(태성산업 서명 끝, 관리자 남음)
-  PPA_CONTRACT_CHANGE_APPROVED: '한일튜브 — O&M 변경', // 내 계약(CH-2026-0006 승인)
-  PPA_CONTRACT_CHANGE_REJECTED: '한일튜브 — 기간 변경', // 변경 · 해지의 반려 줄(CH-2026-0003)
-  PPA_CONTRACT_TERMINATION_REQUEST: '건호이엔씨', // 변경 · 해지의 해지 신청 줄
-  PPA_CONTRACT_TERMINATION_AGREED: '용인금속', // 해지 동의 뒤 전자서명
-  PPA_CONTRACT_TERMINATION_SIGN: '용인금속', // 전자서명(관리자 서명 끝, 용인금속 남음)
-  PPA_CONTRACT_TERMINATION_APPROVED: '한길', // 내 계약의 해지 줄(CH-2025-0001)
-  PPA_CONTRACT_TERMINATION_REJECTED: '태성산업', // 변경 · 해지의 반려 줄(해지, CH-2026-0015)
-  INVOICE: '한일튜브 PPA — 2026-09', // 2026-09 이용분(2026-10-01 발행)이 가장 최근
-  TAX_INVOICE: '한일튜브 PPA — 2026-09', // 원본이 올라와 있는 달
-  SETTLEMENT: '한일튜브 PPA — 2026-09',
+  TRADING_SELF_RECEIVED: '한길 → 관리자 : 90.88 kW 신청',
+  TRADING_SELF_TERMS: '관리자 → 용인금속 : 152.32 kW 조건 확정, 동의 대기',
+  TRADING_SELF_SIGN: '관리자 → 건호이엔씨 : 33.92 kW 전자서명 요청',
+  TRADING_SELF_APPROVED: '관리자 → 한일튜브 : 99.84 kW 승인',
+  TRADING_SELF_REJECTED: '관리자 → 건호이엔씨 : 33.92 kW 반려',
+  TRADING_PPA_RECEIVED: '한일튜브 → 관리자 : 50 kW 신청',
+  TRADING_PPA_TERMS: '관리자 → 한일튜브 : 329.6 kW 조건 확정, 동의 대기',
+  TRADING_PPA_SIGN: '한일튜브 → 관리자 : 200 kW 전자서명 요청',
+  TRADING_PPA_APPROVED: '관리자 → 한일튜브 : 329.6 kW 승인',
+  TRADING_PPA_REJECTED: '한일튜브 → 관리자 : 200 kW 조건 반려',
+  PPA_CONTRACT_CHANGE_REQUEST: '한길 → 관리자 : 기간 변경 신청',
+  PPA_CONTRACT_CHANGE_AGREED: '관리자 → 한일튜브 : 단가 변경 동의',
+  PPA_CONTRACT_CHANGE_SIGN: '태성산업 → 관리자 : O&M 변경 전자서명 요청',
+  PPA_CONTRACT_CHANGE_APPROVED: '관리자 → 한일튜브 : O&M 변경 승인',
+  PPA_CONTRACT_CHANGE_REJECTED: '관리자 → 한일튜브 : 기간 변경 반려',
+  PPA_CONTRACT_TERMINATION_REQUEST: '건호이엔씨 → 관리자 : 해지 신청',
+  PPA_CONTRACT_TERMINATION_AGREED: '관리자 → 용인금속 : 해지 동의',
+  PPA_CONTRACT_TERMINATION_SIGN: '관리자 → 용인금속 : 해지 전자서명 요청',
+  PPA_CONTRACT_TERMINATION_APPROVED: '관리자 → 한길 : 해지 승인',
+  PPA_CONTRACT_TERMINATION_REJECTED: '관리자 → 태성산업 : 해지 반려',
+  INVOICE: '관리자 → 한일튜브 : 2026-09 PPA 청구서 발행',
+  TAX_INVOICE: '한일튜브 → 관리자 : 2026-09 PPA 세금계산서 발행',
+  SETTLEMENT: '관리자 → 한일튜브 : 2026-09 PPA 정산 확정',
   EDATA_CONSENT: '건호이엔씨 — 태양광 발전량',
   EDATA_REQUEST: '한일튜브 — 태성산업 태양광 발전량',
   EDATA_CANCEL: '한길 — 한일튜브 자가소비 태양광 발전량',
@@ -325,10 +325,36 @@ const NOTIFICATION_MESSAGE: Record<string, string> = {
   SIGNUP_MEMBER: '한일튜브 이설비 — 기업 회원',
   COMPANY_CHANGE: '한길 — 종목 변경, 새 사업자등록증 첨부',
 };
+/** 누르면 그 건의 상세로 — 목록 주소(notifPathOf) 뒤에 붙인다. 데모 줄의 id(useTradingPocStore) */
+const NOTIFICATION_TARGET: Record<string, string> = {
+  TRADING_SELF_RECEIVED: '/view?id=6',
+  TRADING_SELF_TERMS: '/view?id=20',
+  TRADING_SELF_SIGN: '/view?id=4',
+  TRADING_SELF_APPROVED: '?company=4',
+  TRADING_SELF_REJECTED: '/view?id=8',
+  TRADING_PPA_RECEIVED: '/view?id=18',
+  TRADING_PPA_TERMS: '/view?id=5',
+  TRADING_PPA_SIGN: '/view?id=17',
+  TRADING_PPA_APPROVED: '?company=4',
+  TRADING_PPA_REJECTED: '/view?id=19',
+  PPA_CONTRACT_CHANGE_REQUEST: '/view?id=8',
+  PPA_CONTRACT_CHANGE_AGREED: '/view?id=1',
+  PPA_CONTRACT_CHANGE_SIGN: '/view?id=10',
+  PPA_CONTRACT_CHANGE_APPROVED: '?company=4',
+  PPA_CONTRACT_CHANGE_REJECTED: '/view?id=3',
+  PPA_CONTRACT_TERMINATION_REQUEST: '/view?id=11',
+  PPA_CONTRACT_TERMINATION_AGREED: '/view?id=14',
+  PPA_CONTRACT_TERMINATION_SIGN: '/view?id=14',
+  PPA_CONTRACT_TERMINATION_APPROVED: '/view?id=13',
+  PPA_CONTRACT_TERMINATION_REJECTED: '/view?id=16',
+  INVOICE: '/view?contract=1&period=2026-09',
+  TAX_INVOICE: '/view?contract=1&period=2026-09',
+  SETTLEMENT: '/view?contract=1&period=2026-09',
+};
 const NOTIFICATIONS = NOTIFICATION_CATALOG.map((e, i) => {
   // 항목표 순서대로 최근 것부터 — 2026-11-16 10:00 에서 3시간씩 앞으로
   const at = new Date(Date.UTC(2026, 10, 16, 10, 0, 0) - i * 3 * 3_600_000).toISOString().slice(0, 19);
-  return { id: i + 1, type: e.key, title: e.name, message: NOTIFICATION_MESSAGE[e.key] ?? '', isRead: i >= 5, createdAt: at };
+  return { id: i + 1, type: e.key, title: e.name, message: NOTIFICATION_MESSAGE[e.key] ?? '', link: NOTIFICATION_TARGET[e.key], isRead: i >= 5, createdAt: at };
 });
 /** 지금 계정이 받는 알림 — 그 계정에 갈 화면이 있는 것만 */
 const myNotifications = () => {
