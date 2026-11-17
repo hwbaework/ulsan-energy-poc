@@ -370,7 +370,7 @@ function DatasetCard({
         {d.ownerCompanyName} <span className="text-slate-600">·</span> {DATA_INTERVAL}
       </p>
       <div className="flex items-center justify-between border-t border-white/[0.06] pt-3">
-        <span className="text-sm text-slate-400">이용 {users}곳</span>
+        <span className="text-sm text-slate-400">이용 {users}건</span>
         <span className="text-base font-semibold tabular-nums text-white">{priceText(d)}</span>
       </div>
     </button>
@@ -596,7 +596,7 @@ export function DataConsentScreen() {
     { key: 'interval', header: '수집 주기', width: '100px', render: () => cell(DATA_INTERVAL) },
     { key: 'period', header: '기간', width: '170px', render: (d) => num(periodText(d)) },
     { key: 'price', header: '가격', width: '110px', render: (d) => num(priceText(d)) },
-    { key: 'users', header: '이용', width: '80px', render: (d) => num(`${usersOf(d.id)}곳`) },
+    { key: 'users', header: '이용', width: '80px', render: (d) => num(`${usersOf(d.id)}건`) },
     { key: 'at', header: '공개일', width: '120px', render: (d) => num(day(d.consentedAt)) },
     {
       key: 'sale',
@@ -709,7 +709,7 @@ function SampleMonth({ d }: { d: Dataset }) {
   );
 }
 
-/** 데이터 보기 — 이용 중 · 판매 기업 · 관리자. 단위(시간별 · 일별 · 월별)와 날짜 · 달을 고른다 */
+/** 데이터 보기 — 이용 중 · 제공 기업 · 관리자. 단위(시간별 · 일별 · 월별)와 날짜 · 달을 고른다 */
 function DataView({ d }: { d: Dataset }) {
   const days = dailyOf(d.sellerId);
   const months = dataMonths(d.sellerId);
@@ -787,7 +787,7 @@ function DataView({ d }: { d: Dataset }) {
   );
 }
 
-/* ══ 데이터 한 건 — 요약 · 데이터(이용 중 · 판매 기업 · 관리자: 시간별 전체 + CSV, 그 밖: 월별 요약 + 하루 샘플). 다른 기업: 신청 ══ */
+/* ══ 데이터 한 건 — 요약 · 데이터(이용 중 · 제공 기업 · 관리자: 시간별 전체 + CSV, 그 밖: 월별 요약 + 하루 샘플). 다른 기업: 신청 ══ */
 /**
  * 신청 = 결제 — 기업 카드(기업 정보 › 결제 수단, 토스페이먼츠 빌링키)로 첫 달을 결제하고 토큰을 준다. 익월부터 매달 1일 자동결제.
  * 카드가 없으면 결제할 수 없다 — 기업관리자는 등록하러, 소속 멤버는 기업관리자에게 요청
@@ -923,7 +923,7 @@ export function DataDetailScreen() {
   const myTrade = d ? role.bought.find((t) => t.datasetId === d.id && isActive(t) && !role.isAdmin) : undefined;
   // 판매 종료 예정이면 새 신청은 받지 않는다
   const canApply = !!d && !role.isAdmin && !mine && d.onSale && !d.endsAt && !myTrade;
-  // 이용 중 · 판매 기업 · 관리자는 시간별 전체, 나머지는 요약(월별) + 최근 하루 시간별 샘플
+  // 이용 중 · 제공 기업 · 관리자는 시간별 전체, 나머지는 요약(월별) + 최근 하루 시간별 샘플
   const full = role.isAdmin || mine || !!myTrade;
   const shown = useMemo(() => (d ? sheetOf(d) : undefined), [d]);
   const sum = d ? summaryOf(d) : undefined;
@@ -1063,8 +1063,8 @@ function DataTradesCompany() {
   type Mine = (typeof myData)[number];
   const soldCols: Column<Mine>[] = [
     { key: 'data', header: '내 데이터', render: (r) => cell(r.d.name, 'font-medium text-white') },
-    { key: 'users', header: '쓰는 곳', width: '120px', render: (r) => strong(`${r.users}건`) },
-    { key: 'amt', header: '금월 받을 금액', width: '160px', align: 'right', render: (r) => num(won(r.amount)) },
+    { key: 'users', header: '이용 중', width: '120px', render: (r) => strong(`${r.users}건`) },
+    { key: 'amt', header: '금월 정산 금액', width: '160px', align: 'right', render: (r) => num(won(r.amount)) },
     arrow,
   ];
   const boughtCols: Column<DataTrade>[] = [
@@ -1079,9 +1079,9 @@ function DataTradesCompany() {
       <Header title="거래 현황" />
       <StatsGrid columns={4}>
         <StatCard label="제공 중" value={`${myData.length}건`} />
-        <StatCard label="금월 받을 금액" value={won(getMonth)} />
-        <StatCard label="사용 중" value={`${bought.length}건`} />
-        <StatCard label="금월 낼 금액" value={won(payMonth)} />
+        <StatCard label="금월 정산 금액" value={won(getMonth)} />
+        <StatCard label="이용 중" value={`${bought.length}건`} />
+        <StatCard label="금월 결제 금액" value={won(payMonth)} />
       </StatsGrid>
       <SectionCard title="제공 중" noPadding>
         <DataTable
@@ -1092,12 +1092,12 @@ function DataTradesCompany() {
           onRowClick={(r) => router.push(`${TRADING}/view?id=${r.d.id}`)}
         />
       </SectionCard>
-      <SectionCard title="사용 중" noPadding>
+      <SectionCard title="이용 중" noPadding>
         <DataTable
           columns={boughtCols}
           data={bought}
           rowKey={(t) => t.id}
-          emptyMessage="사용 중인 데이터 없음"
+          emptyMessage="이용 중인 데이터 없음"
           onRowClick={(t) => router.push(`${CATALOG}/view?id=${t.datasetId}`)}
         />
       </SectionCard>
@@ -1154,8 +1154,8 @@ function DataTradesAdmin() {
           },
         ]
       : []),
-    { key: 'active', header: '이용 중', width: '100px', render: (r) => strong(`${r.active}곳`) },
-    { key: 'cancelled', header: '취소', width: '90px', render: (r) => num(`${r.cancelled}곳`) },
+    { key: 'active', header: '이용 중', width: '100px', render: (r) => strong(`${r.active}건`) },
+    { key: 'cancelled', header: '취소', width: '90px', render: (r) => num(`${r.cancelled}건`) },
     ...(role.isAdmin
       ? [
           {
@@ -1174,8 +1174,8 @@ function DataTradesAdmin() {
       <Header title="거래 현황" />
       {(role.isAdmin || role.isSeller) && (
         <StatsGrid columns={3}>
-          <StatCard label={role.isAdmin ? '이용 중' : '내 데이터 이용 중'} value={`${active.length}곳`} />
-          <StatCard label={role.isAdmin ? '취소' : '내 데이터 취소'} value={`${cancelled.length}곳`} />
+          <StatCard label={role.isAdmin ? '이용 중' : '내 데이터 이용 중'} value={`${active.length}건`} />
+          <StatCard label={role.isAdmin ? '취소' : '내 데이터 취소'} value={`${cancelled.length}건`} />
           <StatCard label="금월 이용 금액" value={won(thisMonth)} />
         </StatsGrid>
       )}
@@ -1205,7 +1205,7 @@ function DataTradesAdmin() {
 }
 
 /* ══ 3.3.3 정산 — 위에 연도 · 월 고르기, 아래 KPI(금액 · 정산일) + 표 하나
- *    플랫폼(관리자)이 이용 기업에게 받아 수수료(DM_FEE_RATE, 지금 0%)를 떼고 판매 기업에게 넘긴다. 쓰면 받는 돈 — 상태 없음
+ *    플랫폼(관리자)이 이용 기업에게 받아 수수료(DM_FEE_RATE, 지금 0%)를 떼고 제공 기업에게 넘긴다. 쓰면 받는 돈 — 상태 없음
  *    그 달 이용분은 익월 15일 정산
  *    관리자: 기업별 표(이용 건수 · 낼 금액 · 판매 건수 · 받을 금액 · 정산 금액) + 검색, 줄을 누르면 그 기업 정산 내역(← 로 돌아감)
  *    기업 계정: 내 정산 내역(받을 금액 · 낼 금액). 표 제목은 '이름 (개수)'까지만 ══ */
@@ -1271,18 +1271,18 @@ export function DataSettlementScreen() {
   const kpi =
     me == null
       ? [
-          { label: '받을 금액 (이용 기업)', value: won(total(inMonth)) },
+          { label: '결제 금액 (이용 기업)', value: won(total(inMonth)) },
           { label: `수수료 (${feePct})`, value: won(fee(total(inMonth))) },
-          { label: '넘길 금액 (판매 기업)', value: won(total(inMonth) - fee(total(inMonth))) },
+          { label: '정산 금액 (제공 기업)', value: won(total(inMonth) - fee(total(inMonth))) },
           { label: '정산일', value: payDate },
         ]
       : (() => {
           const x = of(me);
           const firstPay = x.pay.map(chargeDate).sort()[0];
           return [
-            { label: '받을 금액', value: won(x.getAmt) },
-            { label: '받는 날', value: x.get.length ? payDate : '-' },
-            { label: '낼 금액', value: won(x.payAmt) },
+            { label: '정산 금액', value: won(x.getAmt) },
+            { label: '정산일', value: x.get.length ? payDate : '-' },
+            { label: '결제 금액', value: won(x.payAmt) },
             { label: '결제일', value: firstPay ?? '-' },
           ];
         })();
@@ -1298,19 +1298,19 @@ export function DataSettlementScreen() {
   type Co = (typeof coRows)[number];
   const coCols: Column<Co>[] = [
     { key: 'name', header: '기업', render: (c) => cell(c.name, 'font-medium text-white') },
-    { key: 'payN', header: '사용 건수', width: '100px', sortable: true, sortValue: (c) => c.payN, render: (c) => num(`${c.payN}건`) },
+    { key: 'payN', header: '이용 건수', width: '120px', sortable: true, sortValue: (c) => c.payN, render: (c) => num(`${c.payN}건`) },
     {
       key: 'payAmt',
-      header: '낼 금액',
+      header: '결제 금액',
       width: '120px',
       sortable: true,
       sortValue: (c) => c.payAmt,
       render: (c) => cell(won(c.payAmt), 'tabular-nums text-amber-400'),
     },
-    { key: 'getN', header: '제공 건수', width: '100px', sortable: true, sortValue: (c) => c.getN, render: (c) => num(`${c.getN}건`) },
+    { key: 'getN', header: '제공 건수', width: '120px', sortable: true, sortValue: (c) => c.getN, render: (c) => num(`${c.getN}건`) },
     {
       key: 'getAmt',
-      header: '받을 금액',
+      header: '정산 금액',
       width: '120px',
       sortable: true,
       sortValue: (c) => c.getAmt,
@@ -1336,9 +1336,9 @@ export function DataSettlementScreen() {
   ].sort((x, y) => x.name.localeCompare(y.name, 'ko'));
   const getCols: Column<Give>[] = [
     { key: 'name', header: '데이터', render: (g) => cell(g.name, 'font-medium text-white') },
-    { key: 'n', header: '쓰는 곳', width: '110px', render: (g) => num(`${g.n}건`) },
+    { key: 'n', header: '이용 건수', width: '110px', render: (g) => num(`${g.n}건`) },
     { key: 'amt', header: '금액', width: '120px', render: (g) => cell(won(g.amount), 'tabular-nums text-white') },
-    { key: 'date', header: '받는 날', width: '130px', render: (g) => num(g.payDate) },
+    { key: 'date', header: '정산일', width: '130px', render: (g) => num(g.payDate) },
     arrow,
   ];
   const payCols: Column<SettleRow>[] = [
@@ -1447,7 +1447,7 @@ export function DataSettlementScreen() {
             </div>
           )}
           <SectionCard
-            title={`제공 (${gives.length})`}
+            title="제공"
             noPadding
           >
             <DataTable
@@ -1458,8 +1458,8 @@ export function DataSettlementScreen() {
               onRowClick={(g) => router.push(`${TRADING}/view?id=${g.id}`)}
             />
           </SectionCard>
-          <SectionCard title={`사용 (${mine?.pay.length ?? 0})`} noPadding>
-            <DataTable columns={payCols} data={mine?.pay ?? []} rowKey={(r) => r.key} emptyMessage="사용 없음" />
+          <SectionCard title="이용" noPadding>
+            <DataTable columns={payCols} data={mine?.pay ?? []} rowKey={(r) => r.key} emptyMessage="이용 없음" />
           </SectionCard>
         </>
       )}
@@ -1504,7 +1504,7 @@ export function DataApiHubScreen() {
     { key: 'name', header: 'API', render: (d) => apiName(d.name, d.sellerId, String(d.id)) },
     { key: 'owner', header: '제공 기업', width: '120px', render: (d) => cell(d.ownerCompanyName) },
     { key: 'at', header: '공개일', width: '120px', render: (d) => num(day(d.consentedAt)) },
-    { key: 'users', header: '이용 기업', width: '100px', render: (d) => strong(`${tokensOf(d.id).length}곳`) },
+    { key: 'users', header: '이용 중', width: '100px', render: (d) => strong(`${tokensOf(d.id).length}건`) },
     {
       key: 'calls',
       header: '호출',
@@ -1734,7 +1734,7 @@ export function DataTradeDetailScreen({ fixedId }: { fixedId?: number } = {}) {
       width: '110px',
       render: (t) => num(`${usageOf(t, DM_TODAY).toLocaleString('ko-KR')}회`),
     },
-    { key: 'months', header: '이용한 달', width: '100px', render: (t) => num(`${paidMonths(t)}개월`) },
+    { key: 'months', header: '이용 기간', width: '100px', render: (t) => num(`${paidMonths(t)}개월`) },
     { key: 'paid', header: '누적 금액', width: '120px', render: (t) => strong(won(paidMonths(t) * t.price)) },
   ];
 
@@ -1770,8 +1770,8 @@ export function DataTradeDetailScreen({ fixedId }: { fixedId?: number } = {}) {
       ) : d ? (
         <>
           <StatsGrid columns={3}>
-            <StatCard label="이용 중" value={`${on.length}곳`} />
-            <StatCard label="취소" value={`${trades.length - on.length}곳`} />
+            <StatCard label="이용 중" value={`${on.length}건`} />
+            <StatCard label="취소" value={`${trades.length - on.length}건`} />
             <StatCard label="금월 이용 금액" value={won(sumPrice(trades.filter((t) => billedIn(t, THIS_MONTH))))} />
           </StatsGrid>
           <SectionCard title={`이용 내역 (${trades.length})`} noPadding>

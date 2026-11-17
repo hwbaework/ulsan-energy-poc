@@ -254,7 +254,7 @@ export default function AgencyDetailPage() {
     {
       key: 'activeProjects',
       header: '진행 프로젝트',
-      width: '110px',
+      width: '130px',
       align: 'center',
       render: (row) => <span className="text-sm text-slate-300 tabular-nums">{row.activeProjects}건</span>,
     },

@@ -530,7 +530,7 @@ export default function ConsultantsPage() {
     {
       key: 'completedProjects',
       header: '완료 프로젝트',
-      width: '110px',
+      width: '130px',
       align: 'center',
       render: (row) => <span className="text-sm text-slate-300 tabular-nums">{row.completedProjects}건</span>,
     },

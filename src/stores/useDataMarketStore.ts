@@ -23,7 +23,7 @@ export const PRICE_TYPE_LABEL: Record<PriceType, string> = {
   ONCE: '1회 구매',
 };
 export const DM_PRICE = 1_000;
-/** 플랫폼 수수료율 — 이용 기업에게 받은 금액에서 떼고 판매 기업에게 넘긴다. 아직 정하지 않아 0 */
+/** 플랫폼 수수료율 — 이용 기업에게 받은 금액에서 떼고 제공 기업에게 넘긴다. 아직 정하지 않아 0 */
 export const DM_FEE_RATE = 0;
 
 /** 지금 날짜(데모 기준) · 금월 · 마지막으로 끝난 달 */
@@ -32,10 +32,10 @@ export const THIS_MONTH = DM_TODAY.slice(0, 7);
 const LAST_MONTH = '2026-09';
 const PERIOD_FROM = '2025-03';
 /* ── 판매 데이터 단위 — 설비(계약) 하나 = 데이터 하나. 설비 · 인버터가 따로라 한일튜브는 자가소비 · PPA 둘(2026-10-15).
- *  id = 데이터 단위 id(기업 id 와 같거나, 한일튜브 PPA 는 8), companyId = 판매 기업 ── */
+ *  id = 데이터 단위 id(기업 id 와 같거나, 한일튜브 PPA 는 8), companyId = 제공 기업 ── */
 export interface SellerCompany {
   id: number;
-  /** 판매 기업 — 없으면 id 와 같다 */
+  /** 제공 기업 — 없으면 id 와 같다 */
   companyId?: number;
   name: string;
   /** 계약 유형 — 한 기업에 설비가 둘일 때만(자가소비 / PPA) */
@@ -53,7 +53,7 @@ export const DM_SELLERS: SellerCompany[] = [
   { id: 6, name: '태성산업', solarKw: 46.08 },
   { id: 7, name: '건호이엔씨', solarKw: 33.92 },
 ];
-/** 판매 기업 id */
+/** 제공 기업 id */
 export const companyOfSeller = (c: SellerCompany) => c.companyId ?? c.id;
 /** PPA 운전 — 기본 규칙(주말 · 공휴일 OFF, 매일 10:00 ~ 17:00 운전)으로 시간마다 꺼졌는지. PPA 설비만 */
 const HOLIDAYS = new Map(Object.values(HOLIDAYS_SEED).flat().map((h) => [h.date, h.name]));
@@ -593,7 +593,7 @@ export function useHydrateDataMarket() {
   }, []);
 }
 
-/* ── 정산 — 판매 기업에 들어오는 돈. 월 이용료는 시작한 달부터 끝나는 달까지 매달 ── */
+/* ── 정산 — 제공 기업에 들어오는 돈. 월 이용료는 시작한 달부터 끝나는 달까지 매달 ── */
 /** 그 달 말일 — 2026-10-02 → 2026-10-31 */
 export function monthEndOf(day: string): string {
   const [y = 2026, m = 1] = day.slice(0, 7).split('-').map(Number);
@@ -638,7 +638,7 @@ export interface SettleRow {
   key: string;
   /** 이용한 달 */
   period: string;
-  /** 들어오는 날 — 익월 15일 */
+  /** 정산일 — 익월 15일 */
   payDate: string;
   trade: DataTrade;
   amount: number;
