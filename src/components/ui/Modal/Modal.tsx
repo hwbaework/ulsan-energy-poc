@@ -104,12 +104,13 @@ export function Modal({ open, onClose, title, size = 'md', children, footer }: M
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
         className={cn(
-          'w-full rounded-xl bg-[#0d1520] ring-1 ring-white/[0.08] shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)]',
+          // 화면 높이를 넘지 않게 — 넘치면 본문만 스크롤(제목 · 아래 버튼은 그대로). 100% 배율에서 긴 팝업이 화면 밖으로 나가던 문제(2026-11-18)
+          'flex max-h-[calc(100vh-3rem)] w-full flex-col rounded-xl bg-[#0d1520] ring-1 ring-white/[0.08] shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)]',
           sizeStyles[size],
         )}
       >
         {title && (
-          <div className="flex items-center justify-between px-6 pt-5 pb-4">
+          <div className="flex shrink-0 items-center justify-between px-6 pt-5 pb-4">
             <h2 id={titleId} className="text-[15px] font-semibold text-white">
               {title}
             </h2>
@@ -122,9 +123,9 @@ export function Modal({ open, onClose, title, size = 'md', children, footer }: M
             </button>
           </div>
         )}
-        <div className={cn('px-6', title ? 'pb-5' : 'py-6')}>{children}</div>
+        <div className={cn('min-h-0 flex-1 overflow-y-auto px-6', title ? 'pb-5' : 'py-6')}>{children}</div>
         {footer && (
-          <div className="flex items-center justify-end gap-2.5 border-t border-white/[0.06] px-6 py-4">{footer}</div>
+          <div className="flex shrink-0 items-center justify-end gap-2.5 border-t border-white/[0.06] px-6 py-4">{footer}</div>
         )}
       </div>
     </div>,

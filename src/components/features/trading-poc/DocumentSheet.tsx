@@ -13,7 +13,7 @@ import {
   writtenDateOf,
 } from '@/stores/useTradingPocStore';
 import type { Contract, ContractChange, TradeDocument } from '@/types/trading-poc';
-import { changeTypeLabel, fmtDateTime, fmtKw, fmtKwh, fmtNum, kindLabel, termRows } from './meta';
+import { changeLabel, fmtDateTime, fmtKw, fmtKwh, fmtNum, kindLabel, termRows } from './meta';
 import { changeText } from './ChangeDetailModal';
 
 const won = (n: number) => `₩${fmtNum(Math.round(n))}`;
@@ -154,8 +154,8 @@ function SheetBody({ doc, contract: c, change }: { doc: TradeDocument; contract:
       {change && (
         <Rows
           rows={[
-            ['변경 유형', changeTypeLabel(change.type, c.kind)],
-            ['요청 내용', changeText(change, c.kind)],
+            ['구분', changeLabel(change, c.kind)],
+            ['신청 내용', changeText(change, c.kind)],
             ['요청', `${change.requestedByName} · ${fmtDateTime(change.requestedAt)}`],
             [change.type === 'TERMINATE' ? '해지' : '승인', fmtDateTime(change.decidedAt)],
             ['사유', change.reason],

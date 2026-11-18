@@ -6,7 +6,7 @@
  * 변경 · 해지는 알림 이름에 자가소비 / PPA 가 없어 내용에 붙인다(한일튜브처럼 계약이 둘인 기업 구분).
  */
 import { useTradingPocStore } from '@/stores/useTradingPocStore';
-import { changeStateOf, changeTypeLabel } from '@/components/features/trading-poc/meta';
+import { changeStateOf } from '@/components/features/trading-poc/meta';
 import type { Contract, ContractChange, TradeRequest } from '@/types/trading-poc';
 
 export interface GenNotif {
@@ -70,22 +70,30 @@ function fromChange(ch: ContractChange, contracts: Contract[]): Omit<GenNotif, '
   const term = ch.type === 'TERMINATE';
   const pre = term ? 'PPA_CONTRACT_TERMINATION_' : 'PPA_CONTRACT_CHANGE_';
   const co = c.consumerCompanyName;
-  const what = term ? `${kindOf(c.kind)} 해지` : `${kindOf(c.kind)} ${changeTypeLabel(ch.type, c.kind)}`;
+  const what = `${kindOf(c.kind)} ${term ? '해지' : '변경'}`; // 변경은 구분 하나(단가 · 기간 등은 상세의 바뀐 칸에서)
   const reqAdmin = ch.requestedBy === 'spc';
   const [req, recv] = reqAdmin ? ['관리자', co] : [co, '관리자'];
   const base = { link: `/view?id=${ch.id}`, createdAt: lastAt(ch.events, ch.requestedAt), companyId: c.consumerCompanyId };
   const st = changeStateOf(ch);
   const out: Omit<GenNotif, 'id'>[] = [];
-  if (st === '신청') out.push({ ...base, createdAt: ch.requestedAt, type: `${pre}REQUEST`, message: `${req} → ${recv} : ${what} 신청` }); // 신청은 거래 신청처럼 꼬리 없이
-  // 조건 입력 — 받는 쪽이 변경 동의함(이제 관리자가 조건을 쓴다)
-  if (st === '조건 입력') out.push({ ...base, type: `${pre}AGREED`, message: `${recv} → ${req} : ${what} 동의` });
-  // 조건 동의 — 관리자가 조건을 확정해 상대가 동의할 차례
-  if (st === '조건 동의') out.push({ ...base, type: 'PPA_CONTRACT_CHANGE_TERMS', message: `관리자 → ${co} : ${what} 조건 확정, 확인` });
+  if (st === '신청') {
+    const sender = term ? ch.requestedBy : ch.proposedBy ?? ch.requestedBy;
+    if (!term && ch.stage === 'TERMS') {
+      // 조건 변경으로 고치는 중 — 알림 없음(고쳐서 조건 확정하면 상대에게 간다)
+    } else if (sender === ch.requestedBy && !ch.termsPrev) {
+      out.push({ ...base, createdAt: ch.requestedAt, type: `${pre}REQUEST`, message: `${req} → ${recv} : ${what} 신청` }); // 신청은 거래 신청처럼 꼬리 없이
+    } else {
+      // 조건 변경으로 고쳐 다시 조건 확정 — 거래와 같은 '조건 변경, 확인'(신청한 쪽이 고쳐도 같다)
+      const [from, to] = sender === 'spc' ? ['관리자', co] : [co, '관리자'];
+      out.push({ ...base, type: 'PPA_CONTRACT_CHANGE_TERMS', message: `${from} → ${to} : ${what} 조건 변경, 확인` });
+    }
+  }
   if (st === '전자서명') {
-    // 해지 — 받는 쪽이 해지 동의한 뒤 서명이 시작된다
-    if (term) {
-      const agreed = (ch.events ?? []).find((e) => e.label === '해지 동의');
-      if (agreed) out.push({ ...base, createdAt: agreed.at, type: `${pre}AGREED`, message: `${recv} → ${req} : ${what} 동의` });
+    // 받는 쪽이 동의한 뒤 서명이 시작된다(변경 동의 · 해지 동의)
+    const agreed = [...(ch.events ?? [])].reverse().find((e) => e.label === '해지 동의' || e.label === '변경 동의');
+    if (agreed) {
+      const [from, to] = agreed.by === 'spc' ? ['관리자', co] : [co, '관리자'];
+      out.push({ ...base, createdAt: agreed.at, type: `${pre}AGREED`, message: `${from} → ${to} : ${what} 동의` });
     }
     if (!!ch.spcSign !== !!ch.companySign) {
       const [from, to] = ch.spcSign ? ['관리자', co] : [co, '관리자'];

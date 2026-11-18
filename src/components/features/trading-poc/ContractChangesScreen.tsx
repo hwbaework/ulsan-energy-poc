@@ -11,7 +11,7 @@ import { Select } from '@/components/ui/Select';
 import type { ContractChange } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
 import { ChangeRequestModal } from './ChangeRequestModal';
-import { CHANGE_STATES, CHANGE_STATE_TONE, changeStateOf, changeTypeLabel, fmtDate, kindLabel, type ChangeState } from './meta';
+import { CHANGE_STATES, CHANGE_STATE_TONE, changeStateOf, changeLabel, fmtDate, kindLabel, type ChangeState } from './meta';
 import { StatusPill } from '@/components/ui/Design';
 import { PageHeader, cell, cellMuted, cellStrong } from './Bits';
 
@@ -24,14 +24,17 @@ const lastTalkOf = (ch: ContractChange) =>
 /**
  * 내가 볼 차례인지 — 확인(상대가 한 일이 와서 내 차례) / 대기(내가 하고 상대를 기다림). 끝난 것은 없음(거래 이력과 같은 기준, 2026-11-18 사용자)
  *  - 신청: 받는 쪽 차례(변경 동의 · 해지 동의). 신청한 쪽은 대기
- *  - 조건 입력: 관리자 차례 / 조건 동의: 기업 차례
+ *  - 변경은 신청 안에서 값을 주고받는다 — 보낸 쪽 대기, 받은 쪽 확인, 조건 변경으로 고치는 중이면 고치는 쪽 확인
  *  - 전자서명: 아직 서명 안 한 쪽 차례
  */
 function changeTurnOf(ch: ContractChange, isAdmin: boolean): Turn | null {
   const st = changeStateOf(ch);
-  if (st === '신청') return (ch.requestedBy === 'spc') === isAdmin ? '대기' : '확인';
-  if (st === '조건 입력') return isAdmin ? '확인' : '대기';
-  if (st === '조건 동의') return isAdmin ? '대기' : '확인';
+  if (st === '신청') {
+    // 변경 — 고치는 중이면 고치는 쪽 차례, 아니면 값을 보낸 쪽은 대기 · 받은 쪽은 확인
+    if (ch.type !== 'TERMINATE' && ch.stage === 'TERMS') return (ch.editingBy === 'spc') === isAdmin ? '확인' : '대기';
+    const sender = ch.type !== 'TERMINATE' ? (ch.proposedBy ?? ch.requestedBy) : ch.requestedBy;
+    return (sender === 'spc') === isAdmin ? '대기' : '확인';
+  }
   if (st === '전자서명') return (isAdmin ? !!ch.spcSign : !!ch.companySign) ? '대기' : '확인';
   return null;
 }
@@ -84,9 +87,9 @@ export function ContractChangesScreen() {
     },
     {
       key: 'type',
-      header: '변경 유형',
+      header: '구분',
       width: '100px',
-      render: (c) => cell(changeTypeLabel(c.type, contractOf(c.contractId)?.kind)),
+      render: (c) => cell(changeLabel(c, contractOf(c.contractId)?.kind)),
     },
     {
       key: 'at',

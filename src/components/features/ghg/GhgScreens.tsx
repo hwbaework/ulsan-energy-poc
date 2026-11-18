@@ -943,11 +943,14 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
     return {
       title: `${doc.title} · ${name}`,
       kindLabel: `온실가스 감축 실적 ${isYear ? '연간' : '월간'} 보고서`,
+      // 머리 표 — 발전소 · 설비 용량 · 발전원을 여기 한 번만(2. 실적은 요약과 겹쳐 뺌, 2026-11-18 사용자)
       meta: [
         ['기간', doc.label],
-        ['대상', `${name} · 설비 ${fmt(f.kw, 2)} kW`],
-        ['계약 유형', f.kind],
         ['생성일', doc.createdAt],
+        ['발전소', name],
+        ['계약 유형', f.kind],
+        ['설비 용량', `${fmt(f.kw, 2)} kW`],
+        ['발전원', sourceOf(f.source).label],
       ],
       sections: [
         {
@@ -956,15 +959,9 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
             ['총 감축량', `${fmtT(sum.tco2)} tCO₂eq`],
             ['총 발전량', `${fmt(sum.kwh)} kWh`],
             ['전력 배출계수', `${fx.co2For(doc.period)} tCO₂eq/MWh`],
-          ],
-        },
-        {
-          heading: '실적',
-          rows: [
-            ['발전소', `${name} (${sourceOf(f.source).label})`],
-            ['설비 용량', `${fmt(f.kw, 2)} kW`],
-            ['발전량', `${fmt(sum.kwh)} kWh`],
-            ['감축량', `${fmtT(sum.tco2)} tCO₂eq`],
+            // 환산 — 배출량 산정과 같은 값 · 이름(관리 › 에너지 설정 화석에너지 대체 · 소나무 식재, 2026-11-18 사용자)
+            ['화석에너지 대체', `${fmtT(sum.toe)} TOE`],
+            ['소나무 식재', `${fmt(sum.pine)} 그루`],
           ],
         },
         {

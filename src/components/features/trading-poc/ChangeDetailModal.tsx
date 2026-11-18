@@ -10,12 +10,14 @@ import { useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { Contract, ContractChange } from '@/types/trading-poc';
 import type { PlantContractKind } from '@/types/monitoring';
 import { useTradingRole } from './useTradingRole';
-import { PARTY_LABEL, changeTypeLabel, fmtDateTime, fmtKw, fmtNum, fmtPrice, kindLabel } from './meta';
+import { changeSummary } from '@/stores/useTradingPocStore';
+import { PARTY_LABEL, changeLabel, fmtDateTime, fmtKw, fmtNum, fmtPrice, kindLabel } from './meta';
 import { ChangeStatusPill, Info, ModalFooter, TEXT_MAX } from './Bits';
 
 /** 변경 내용 한 줄 — 단가 · 용량 · 기간은 전 → 후, 해지는 해지일 */
 export function changeText(ch: ContractChange, kind?: PlantContractKind) {
-  if (ch.type === 'TERMINATE') return `해지일 ${ch.effectiveDate ?? ''}`;
+  if (ch.type === 'TERMINATE') return '계약 해지 — 양측 서명으로 해지 승인되면 바로';
+  if (ch.type === 'CHANGE') return ch.termsBefore && ch.terms ? changeSummary(ch.termsBefore, ch.terms, kind ?? 'SELF_CONSUMPTION') || '바뀐 조건 없음' : '';
   if (ch.type === 'PRICE' && kind === 'SELF_CONSUMPTION') return `O&M ₩${fmtNum(Number(ch.before))} → ₩${fmtNum(Number(ch.after))}/년`;
   if (ch.type === 'PRICE')
     return `${fmtPrice(Number(ch.before))} → ${fmtPrice(Number(ch.after))}`;
@@ -58,7 +60,7 @@ export function ChangeDetailModal({
               <Info label="계약번호" value={contract?.no} />
               <Info label="기업명" value={contract?.consumerCompanyName} />
               <Info label="계약 유형" value={contract ? kindLabel(contract.kind) : undefined} />
-              <Info label="변경 유형" value={changeTypeLabel(ch.type, contract?.kind)} />
+              <Info label="변경 유형" value={changeLabel(ch, contract?.kind)} />
               <Info label="내용" value={changeText(ch, contract?.kind)} className="col-span-2" />
               <Info label="요청자" value={`${ch.requestedByName} (${PARTY_LABEL[ch.requestedBy]})`} />
               <Info label="요청일" value={fmtDateTime(ch.requestedAt)} />
@@ -133,7 +135,7 @@ export function ChangeDetailModal({
           setConfirm(null);
           onClose();
         }}
-        title={confirm === 'approve' ? `${ch ? changeTypeLabel(ch.type, contract?.kind) : ''} 승인` : '요청 취소'}
+        title={confirm === 'approve' ? `${ch ? changeLabel(ch, contract?.kind) : ''} 승인` : '요청 취소'}
         message={
           confirm === 'approve'
             ? `${ch?.no} 승인 — 계약 ${contract?.no ?? ''} 에 바로 반영되고 합의서가 문서 관리에 남습니다.`

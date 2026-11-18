@@ -7,6 +7,7 @@ import { CONTRACT_KIND } from '@/lib/design';
 import type {
   ChangeStatus,
   ChangeType,
+  ContractChange,
   ContractStatus,
   Party,
   TradeRequestStatus,
@@ -41,6 +42,7 @@ export const CONTRACT_STATUS: Record<ContractStatus, { label: string; tone: Stat
 };
 
 export const CHANGE_TYPE: Record<ChangeType, string> = {
+  CHANGE: '변경',
   PRICE: '단가 변경',
   CAPACITY: '용량 변경',
   TERM: '기간 변경',
@@ -56,7 +58,7 @@ export const CHANGE_STATUS: Record<ChangeStatus, { label: string; tone: StatusTo
 /** 변경·해지 한 건의 상태 — 신청 → 변경 동의 → 조건 입력(관리자) → 조건 동의(상대) → 전자서명 → 승인. 해지는 동의 뒤 바로 전자서명. 멈춤은 반려 · 취소 */
 export type ChangeState = '신청' | '조건 입력' | '조건 동의' | '전자서명' | '승인' | '해지' | '반려' | '취소';
 /** 상태 고르기 — 취소는 지금 규칙에 없어 뺀다(신청한 쪽이 그만두는 것도 반려). 예전 데이터를 읽을 때만 '취소'가 남는다 */
-export const CHANGE_STATES: ChangeState[] = ['신청', '조건 입력', '조건 동의', '전자서명', '승인', '해지', '반려'];
+export const CHANGE_STATES: ChangeState[] = ['신청', '전자서명', '승인', '해지', '반려'];
 export const changeStateOf = (ch: {
   status: ChangeStatus;
   type: ChangeType;
@@ -67,8 +69,7 @@ export const changeStateOf = (ch: {
   if (ch.status === 'REJECTED') return '반려';
   if (ch.status === 'CANCELLED') return '취소';
   if (ch.status === 'APPROVED') return ch.type === 'TERMINATE' ? '해지' : '승인'; // 해지는 양측 서명이 곧 끝
-  if (ch.stage === 'TERMS') return '조건 입력';
-  if (ch.stage === 'AGREE') return '조건 동의';
+  // 변경은 3단계(신청 → 전자서명 → 승인) — 값을 주고받는 동안(조건 변경 포함)은 신청
   // 해지는 신청하면 서명 칸이 바로 열리지만, 아무도 서명 안 했으면 아직 '신청'
   if (ch.type === 'TERMINATE' && ch.stage === 'SIGN' && !ch.spcSign && !ch.companySign) return '신청';
   return ch.stage === 'SIGN' ? '전자서명' : '신청';
@@ -121,6 +122,18 @@ export const totalCostOf = (t: { capacityKw: number; installUnit?: number; extra
 /** 변경 유형 이름 — 단가 변경은 자가소비면 O&M 변경 */
 export const changeTypeLabel = (type: ChangeType, kind?: PlantContractKind) =>
   type === 'PRICE' && kind === 'SELF_CONSUMPTION' ? 'O&M 변경' : CHANGE_TYPE[type];
+/** 구분 — 변경은 바뀐 항목 이름으로(기간 변경 · 단가 · O&M 변경), 해지는 해지. 지금 보낸 값(terms)과 계약 값(termsBefore)을 견준다 */
+export function changeLabel(ch: Pick<ContractChange, 'type' | 'terms' | 'termsBefore'>, kind?: PlantContractKind): string {
+  if (ch.type !== 'CHANGE' || !ch.terms || !ch.termsBefore) return changeTypeLabel(ch.type, kind);
+  const t = ch.terms;
+  const b = ch.termsBefore;
+  const names = [
+    t.termYears !== b.termYears && '기간',
+    kind === 'ONSITE' && t.unitPrice !== b.unitPrice && '단가',
+    (t.omAnnual ?? 0) !== (b.omAnnual ?? 0) && 'O&M',
+  ].filter(Boolean);
+  return names.length ? `${names.join(' · ')} 변경` : '변경';
+}
 
 /** 한전 산업용 단가(₩/kWh) — 관리자 설정 › 에너지 설정 KEPCO_UNIT_PRICE 와 같은 값. onsite 할인 = 한전 요금 − PPA 요금 */
 export const KEPCO_UNIT_PRICE = 152.3;
@@ -154,13 +167,10 @@ export const inLim = (v: number, [lo, hi]: readonly [number, number, number]) =>
 export function termRows(kind: PlantContractKind, before: ChangeTermsLike, after: ChangeTermsLike) {
   const w = (n?: number) => (n == null ? '-' : `₩${fmtNum(Math.round(n))}`);
   const rows: [string, string, string][] = [
-    ['설치 용량', fmtKw(before.capacityKw), fmtKw(after.capacityKw)],
+    // 변경 항목 — 기간 · 단가(PPA) · 연간 O&M 셋(2026-11-18 사용자). 용량은 허가를 다시 받는 일이라 변경에 없음
     ['계약 기간', `${before.termYears}년`, `${after.termYears}년`],
     ...(kind === 'ONSITE' ? ([['PPA 단가', fmtPrice(before.unitPrice), fmtPrice(after.unitPrice)]] as [string, string, string][]) : []),
-    ['설치 단가', `${w(before.installUnit)}/kW`, `${w(after.installUnit)}/kW`],
-    ['추가 설치비용', w(before.extraCost ?? 0), w(after.extraCost ?? 0)],
     ['연간 O&M', `${w(before.omAnnual)}/년`, `${w(after.omAnnual)}/년`],
-    ['요금제', before.tariffPlan ?? '-', after.tariffPlan ?? '-'],
   ];
   return rows.map(([label, b, a]) => ({ label, before: b, after: a, changed: b !== a }));
 }

@@ -7,18 +7,16 @@ import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { BackButton } from '@/components/layout/PageTitle';
 import { ContractSignature } from '@/components/features/ContractSignature';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
-import { PLAN_LABEL } from '@/lib/solar-sim';
 import { Modal } from '@/components/ui/Modal';
+import { Input } from '@/components/ui/Input';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Textarea } from '@/components/ui/Textarea';
 import { cn } from '@/lib/utils';
-import { TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/components/features/DataList';
 import { useToastStore } from '@/stores/useToastStore';
-import { CO, changeTermsOf, useTradingPocStore } from '@/stores/useTradingPocStore';
+import { CO, changeSummary, changeTermsOf, useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { ChangeSign, ChangeTerms, Contract, ContractChange, TradeDocument } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
-import { TERM_LIM, changeTypeLabel, fmtDateTime, inLim, kindLabel, numIn, termRows, type TermLimKey } from './meta';
+import { TERM_LIM, changeLabel, fmtDateTime, inLim, kindLabel, numIn, termRows } from './meta';
 import { EventTimeline, Info, ModalFooter, StepBar, TEXT_MAX } from './Bits';
 import { changeText } from './ChangeDetailModal';
 import { DocumentSheet, printSheet } from './DocumentSheet';
@@ -45,7 +43,7 @@ function Direction({ fromSpc, company }: { fromSpc: boolean; company: string }) 
 /* ══ 변경·해지 한 건 — 거래(신청 접수 → 미팅 → 전자서명 → 승인)와 같은 4칸: 신청 → 조건 입력 → 전자서명 → 승인.
  *    받는 쪽이 [변경 동의]를 누르면 바로 조건 입력(거래의 미팅 확정처럼). 미팅은 시스템 밖(통화 등).
  *    해지는 조건이 없어 두 번째 칸이 해지 동의, 동의하면 바로 전자서명 ══ */
-const STEPS = ['신청', '조건 입력', '전자서명', '승인'] as const; // 승인은 마지막(양측 서명 끝)에만
+const STEPS = ['신청', '전자서명', '승인'] as const; // 변경 3단계(2026-11-18). 승인은 마지막(양측 서명 끝)에만
 /** 해지 — 조건이 없어 3칸. 신청(내용만 · 합의서 없음) → 받는 쪽 해지 동의 → 전자서명(합의서 + 서명) → 둘 다 서명하면 해지 승인 (2026-10-13 신청 단계에 서명 금지) */
 const STEPS_TERMINATE = ['신청', '전자서명', '해지 승인'] as const;
 const stepsOf = (ch: Pick<ContractChange, 'type'>) => (ch.type === 'TERMINATE' ? STEPS_TERMINATE : STEPS);
@@ -58,11 +56,7 @@ const stepOf = (ch: ContractChange) =>
     ? stepsOf(ch).length
     : ch.stage === 'SIGN'
       ? (stepsOf(ch) as readonly string[]).indexOf('전자서명')
-      : ch.stage === 'TERMS' || ch.stage === 'AGREE'
-        ? 1
-        : 0;
-/** 두 번째 칸 이름 — 해지는 해지 동의, 변경은 조건 입력 → (확정 뒤) 조건 동의 */
-const agreeStepLabel = (ch: ContractChange) => (ch.stage === 'AGREE' ? '조건 동의' : '조건 입력');
+      : 0;
 
 /** 단계 — 거래 이력과 같은 표시줄. 서명 단계는 몇 명 서명했는지, 조건 단계는 입력 / 동의 대기 */
 function Stepper({ ch }: { ch: ContractChange }) {
@@ -73,7 +67,7 @@ function Stepper({ ch }: { ch: ContractChange }) {
       steps={stepsOf(ch)}
       step={stepOf(ch)}
       failed={failed}
-      labelOf={(label) => (label === '조건 입력' ? agreeStepLabel(ch) : label === '전자서명' && ch.stage === 'SIGN' ? `전자서명 ${signed}/2` : label)}
+      labelOf={(label) => (label === '전자서명' && ch.stage === 'SIGN' ? `전자서명 ${signed}/2` : label)}
     />
   );
 }
@@ -190,7 +184,7 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
   const mineRequest = role.isAdmin ? fromSpc : !fromSpc && isCompany;
   /** 받는 쪽 — 기업이 신청하면 SPC, SPC 가 신청하면 그 기업. 받는 쪽이 승인(곧 합의) · 반려 */
   const receiver = role.isAdmin ? !fromSpc : fromSpc && isCompany;
-  const typeLabel = changeTypeLabel(ch.type, c.kind);
+  const typeLabel = changeLabel(ch, c.kind);
 
 
   /** 반려 — 누구든 한 번만. 받는 쪽은 신청 단계에서, 신청한 쪽은 서명 전까지(2026-10-13 반려 두 개 · 신청 취소 삭제) */
@@ -211,7 +205,7 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
   // 버튼은 지금 처리하는 칸 위에 — 신청은 요청 내용, 전자서명은 합의서(거래 전자서명과 같게). 요청 내용은 전자서명 때 내용만
   const actions = (
     <>
-      {open && receiver && step === 0 && (
+      {open && receiver && step === 0 && ch.type === 'TERMINATE' && (
         <Button
           size="sm"
           onClick={() => {
@@ -222,7 +216,7 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
           {agreeLabel(ch)}
         </Button>
       )}
-      {canReject && !signing && rejectButton}
+      {canReject && !signing && ch.type === 'TERMINATE' && rejectButton}
     </>
   );
 
@@ -283,9 +277,9 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
         )}
 
         {/* 변경 조건 — 변경 동의 뒤 관리자가 다시 넣는다(지금 계약 값으로 시작). 해지는 없음 */}
-        {ch.type !== 'TERMINATE' && (ch.stage || ch.status === 'APPROVED') && (
+        {ch.type !== 'TERMINATE' && (ch.terms || ch.status === 'APPROVED') && (
           <ChangeTermsCard
-            key={`${ch.id}-${ch.stage ?? ''}`}
+            key={`${ch.id}-${ch.stage ?? ''}-${ch.editingBy ?? ''}`}
             ch={ch}
             c={c}
             onReject={() => {
@@ -297,12 +291,8 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
 
         <SectionCard title={<Direction fromSpc={fromSpc} company={c.consumerCompanyName} />} actions={actions}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <Info label="변경 유형" value={typeLabel} />
+            <Info label="구분" value={typeLabel} />
             <Info label="내용" value={changeText(ch, c.kind)} />
-            <Info
-              label={ch.type === 'TERMINATE' ? '희망 해지일' : '적용일'}
-              value={ch.effectiveDate ?? (ch.type === 'TERM' ? ch.after : undefined)}
-            />
             {ch.type === 'TERMINATE' && <Info label="계약 종료일" value={c.endDate} />}
             <Info label="사유" value={ch.reason} className="md:col-span-3" />
             {ch.status === 'REJECTED' && <Info label="반려 사유" value={ch.decisionNote} className="md:col-span-3" />}
@@ -374,214 +364,168 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
   );
 }
 
-type TermDraft = Record<'capacityKw' | 'termYears' | 'price' | 'installUnit' | 'extraCost' | 'omAnnual' | 'tariffPlan', string>;
-const TERM_KEY: Record<string, keyof TermDraft> = {
-  '설치 용량': 'capacityKw',
-  '계약 기간': 'termYears',
-  'PPA 단가': 'price',
-  '설치 단가': 'installUnit',
-  '추가 설치비용': 'extraCost',
-  '연간 O&M': 'omAnnual',
-  요금제: 'tariffPlan',
-};
-const LIM_KEY: Partial<Record<keyof TermDraft, TermLimKey>> = {
-  capacityKw: 'capacityKw',
-  termYears: 'termYears',
-  price: 'price',
-  installUnit: 'installUnit',
-  extraCost: 'extraCost',
-  omAnnual: 'omAnnual',
-};
-const MONEY_KEYS: (keyof TermDraft)[] = ['installUnit', 'extraCost', 'omAnnual'];
-const toDraft = (t: ChangeTerms): TermDraft => ({
-  capacityKw: String(t.capacityKw),
-  termYears: String(t.termYears),
-  price: t.unitPrice ? String(t.unitPrice) : '',
-  installUnit: t.installUnit != null ? String(t.installUnit) : '',
-  extraCost: String(t.extraCost ?? 0),
-  omAnnual: t.omAnnual != null ? String(t.omAnnual) : '',
-  tariffPlan: t.tariffPlan ?? '',
-});
-const totalOf = (t: ChangeTerms) => t.capacityKw * (t.installUnit ?? 0) + (t.extraCost ?? 0);
 
 /**
- * 변경 조건 — 항목 · 현재 · 변경. 관리자는 조건 입력 단계에서 '변경' 칸을 고친다(지금 계약 값 + 요청 값으로 시작, 그대로 둘 칸은 그대로).
- * 저장 → 조건 확정 → 상대(기업) 조건 동의 → 전자서명. 확정 뒤엔 못 고치고 조건 변경로 다시 연다
+ * 변경 조건 — 항목 · 현재 · 변경. 거래 미팅과 같은 흐름(2026-11-18 사용자):
+ *  - 받은 쪽: 동의(→ 전자서명) / 조건 변경 / 반려. 보낸 쪽: 조건 변경 / 반려
+ *  - 조건 변경 → 확인창 → 누른 쪽 화면의 변경 칸이 입력으로 바뀜 → 취소 / 조건 확정 → 상대 차례
+ *  - 받은 쪽 화면에만 바뀐 칸 '기존 → 새 값'(새 값 노란색), 고친 쪽 화면엔 없음
  */
+type TermKey = 'termYears' | 'unitPrice' | 'omAnnual';
+const TERM_LIM_OF: Record<TermKey, readonly [number, number, number]> = { termYears: TERM_LIM.termYears, unitPrice: TERM_LIM.price, omAnnual: TERM_LIM.omAnnual };
+const INPUT_LABEL: Record<TermKey, string> = { termYears: '계약 기간 (년)', unitPrice: 'PPA 단가 (₩/kWh)', omAnnual: '연간 O&M (원/년)' };
+const draftOfTerms =(t: ChangeTerms): Record<TermKey, string> => ({ termYears: String(t.termYears), unitPrice: String(t.unitPrice), omAnnual: String(t.omAnnual ?? '') });
+
 function ChangeTermsCard({ ch, c, onReject }: { ch: ContractChange; c: Contract; onReject: () => void }) {
   const role = useTradingRole();
   const addToast = useToastStore((s) => s.add);
-  const save = useTradingPocStore((s) => s.saveChangeTerms);
-  const confirmTerms = useTradingPocStore((s) => s.confirmChangeTerms);
-  const unconfirmTerms = useTradingPocStore((s) => s.unconfirmChangeTerms);
-  const agreeTerms = useTradingPocStore((s) => s.agreeChangeTerms);
-  const ppa = c.kind === 'ONSITE';
+  const agreeChange = useTradingPocStore((s) => s.agreeChange);
+  const unconfirm = useTradingPocStore((s) => s.unconfirmChangeTerms);
+  const confirmTerms = useTradingPocStore((s) => s.counterChange);
+  const saveTerms = useTradingPocStore((s) => s.saveChangeTerms);
+  const [askChange, setAskChange] = useState(false);
   const open = ch.status === 'REQUESTED';
   const before = ch.termsBefore ?? changeTermsOf(c);
-  const saved = ch.terms ?? changeTermsOf(c);
-  const editing = role.isAdmin && open && ch.stage === 'TERMS';
+  const shown = ch.terms ?? changeTermsOf(c);
   const isCompany = !role.isAdmin && role.companyId === c.consumerCompanyId;
-  const [d, setD] = useState<TermDraft>(() => toDraft(saved));
-  const n = (k: keyof TermDraft) => Number(d[k]) || 0;
-  const draft: ChangeTerms = {
-    capacityKw: n('capacityKw'),
-    termYears: n('termYears'),
-    unitPrice: ppa ? n('price') : 0,
-    installUnit: n('installUnit'),
-    extraCost: n('extraCost'),
-    omAnnual: n('omAnnual'),
-    tariffPlan: d.tariffPlan || undefined,
-  };
-  const dirty = JSON.stringify(toDraft(saved)) !== JSON.stringify(d);
-  const lim = (k: keyof TermDraft) => TERM_LIM[LIM_KEY[k]!];
-  const valid =
-    inLim(n('capacityKw'), lim('capacityKw')) &&
-    inLim(n('termYears'), lim('termYears')) &&
-    inLim(n('installUnit'), lim('installUnit')) &&
-    inLim(n('extraCost'), lim('extraCost')) &&
-    inLim(n('omAnnual'), lim('omAnnual')) &&
-    !!d.tariffPlan &&
-    (!ppa || inLim(n('price'), lim('price')));
-  const shown = editing ? draft : saved;
-  const rows = termRows(c.kind, before, shown);
-  const won = (v: number) => `₩${Math.round(v).toLocaleString('ko-KR')}`;
-  const totalRow = { label: '설치비 (O&M 포함)', before: won(totalOf(before)), after: won(totalOf(shown)) };
-  const changes = rows.filter((r) => r.changed);
-  const note = changes.map((r) => `${r.label} ${r.before} → ${r.after}`).join(' · ') || '바뀐 조건 없음';
+  // 나는 관리자 쪽인지 기업 쪽인지(당사자가 아니면 없음)
+  const side = (p?: string) => (p === 'spc' ? 'admin' : 'company');
+  const mySide = role.isAdmin ? 'admin' : isCompany ? 'company' : null;
+  const sender = side(ch.proposedBy ?? ch.requestedBy);
+  const nameOf = (x: 'admin' | 'company') => (x === 'admin' ? '관리자' : c.consumerCompanyName);
+  // 조건 변경 중 — 누른 쪽만 고친다
+  const editingSide = ch.stage === 'TERMS' && ch.editingBy ? side(ch.editingBy) : null;
+  const editing = open && !!mySide && editingSide === mySide;
+  const waiting = open && ch.stage === 'AGREE' && !!mySide;
+  // 상대가 보낸 값 — 내가 동의 / 조건 변경 / 반려
+  const toAgree = waiting && sender !== mySide;
 
-  const inputOf = (k: keyof TermDraft) =>
-    k === 'tariffPlan' ? (
-      <Select
-        options={[{ value: '', label: '선택' }, ...Object.values(PLAN_LABEL).map((l) => ({ value: l, label: l }))]}
-        value={d.tariffPlan}
-        onChange={(e) => setD((p) => ({ ...p, tariffPlan: e.target.value }))}
-      />
-    ) : (
-      <Input
-        aria-label={k}
-        inputMode={lim(k)[2] ? 'decimal' : 'numeric'}
-        value={MONEY_KEYS.includes(k) && d[k] ? Number(d[k]).toLocaleString('ko-KR') : d[k]}
-        error={d[k] !== '' && n(k) < lim(k)[0] ? `${lim(k)[0].toLocaleString('ko-KR')} 이상` : undefined}
-        onChange={(e) => setD((p) => ({ ...p, [k]: numIn(e.target.value, lim(k)) }))}
-      />
-    );
+  const [d, setD] = useState<Record<TermKey, string>>(() => draftOfTerms(shown));
+  useEffect(() => setD(draftOfTerms(shown)), [ch.terms]); // eslint-disable-line react-hooks/exhaustive-deps
+  const saved = draftOfTerms(shown);
+  const keys: TermKey[] = c.kind === 'ONSITE' ? ['termYears', 'unitPrice', 'omAnnual'] : ['termYears', 'omAnnual'];
+  const dirty = keys.some((k) => (Number(d[k]) || 0) !== (Number(saved[k]) || 0));
+  const valid = keys.every((k) => inLim(Number(d[k]) || 0, TERM_LIM_OF[k]));
+  const draftTerms: ChangeTerms = { ...shown, termYears: Number(d.termYears) || 0, unitPrice: Number(d.unitPrice) || 0, omAnnual: Number(d.omAnnual) || 0 };
+  const rows = termRows(c.kind, before, editing ? draftTerms : shown);
+  // 받은 쪽 — 조건 변경 전 값과 바뀐 칸은 '기존 → 새 값'
+  const prevRows = toAgree && ch.termsPrev ? termRows(c.kind, before, ch.termsPrev) : null;
 
   const state =
     ch.status === 'APPROVED'
       ? '승인 완료 · 계약에 반영'
       : ch.stage === 'TERMS'
-        ? '조건 입력 중'
+        ? `${nameOf(editingSide ?? 'admin')} 조건 변경 중`
         : ch.stage === 'AGREE'
-          ? '조건 확정 · 상대 조건 동의 대기'
-          : '조건 동의 완료 · 전자서명';
+          ? `${nameOf(sender)} ${(ch.proposedBy ?? ch.requestedBy) === ch.requestedBy && !ch.termsPrev ? '신청' : '조건 확정'} · ${toAgree ? '확인' : '동의 대기'}`
+          : '동의 완료 · 전자서명';
 
-  const actions = (
-    <>
-      {editing && (
-        <>
-          <Button size="sm" variant="secondary" disabled={!dirty} onClick={() => setD(toDraft(saved))}>
-            취소
-          </Button>
+  const actions =
+    open && mySide && (waiting || editing) ? (
+      <>
+        {toAgree && (
           <Button
             size="sm"
-            variant="secondary"
-            disabled={!dirty || !valid}
             onClick={() => {
-              save(ch.id, draft, note);
-              addToast('success', `${ch.no} 조건 저장`);
+              agreeChange(ch.id, role.party);
+              addToast('success', `${ch.no} 변경 동의 — 전자서명 대기`);
             }}
           >
-            저장
+            동의
           </Button>
-          <Button
-            size="sm"
-            disabled={dirty || !valid}
-            onClick={() => {
-              confirmTerms(ch.id);
-              addToast('success', `${ch.no} 조건 확정 — 조건 동의 대기`);
-            }}
-          >
-            조건 확정
+        )}
+        {waiting && (
+          <Button size="sm" variant="secondary" onClick={() => setAskChange(true)}>
+            조건 변경
           </Button>
-        </>
-      )}
-      {role.isAdmin && open && ch.stage === 'AGREE' && (
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => {
-            unconfirmTerms(ch.id);
-            addToast('success', `${ch.no} 조건 변경 — 조건 다시 입력`);
-          }}
-        >
-          조건 변경
+        )}
+        {editing && (
+          <>
+            <Button size="sm" variant="secondary" disabled={!dirty} onClick={() => setD(saved)}>
+              취소
+            </Button>
+            {/* 거래 미팅과 같은 셋 — 취소 · 저장 · 조건 확정(저장한 값을 보낸다, 저장 안 한 값이 있으면 확정 못 함) */}
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!dirty || !valid}
+              onClick={() => {
+                saveTerms(ch.id, draftTerms, changeSummary(before, draftTerms, c.kind), role.party);
+                addToast('success', `${ch.no} 조건 저장`);
+              }}
+            >
+              저장
+            </Button>
+            <Button
+              size="sm"
+              disabled={dirty}
+              onClick={() => {
+                confirmTerms(ch.id, shown, role.party, role.isAdmin ? CO.SPC.name : role.companyName);
+                addToast('success', `${ch.no} 조건 확정 — 동의 대기`);
+              }}
+            >
+              조건 확정
+            </Button>
+          </>
+        )}
+        <Button size="sm" variant="danger" onClick={onReject}>
+          반려
         </Button>
-      )}
-      {isCompany && open && ch.stage === 'AGREE' && (
-        <>
-          <Button
-            size="sm"
-            onClick={() => {
-              agreeTerms(ch.id, role.party);
-              addToast('success', `${ch.no} 조건 동의 — 전자서명 대기`);
-            }}
-          >
-            조건 동의
-          </Button>
-          <Button size="sm" variant="danger" onClick={onReject}>
-            반려
-          </Button>
-        </>
-      )}
-    </>
+      </>
+    ) : undefined;
+
+  const input = (k: TermKey) => (
+    <Input
+      inputMode={k === 'termYears' ? 'numeric' : 'decimal'}
+      label={INPUT_LABEL[k]}
+      required
+      value={k === 'omAnnual' && d[k] ? Number(d[k]).toLocaleString('ko-KR') : d[k]}
+      onChange={(e) => setD((x) => ({ ...x, [k]: numIn(e.target.value, TERM_LIM_OF[k]) }))}
+    />
   );
+  const keyOfLabel: Record<string, TermKey> = { '계약 기간': 'termYears', 'PPA 단가': 'unitPrice', '연간 O&M': 'omAnnual' };
 
   return (
     <SectionCard title="변경 조건" actions={actions}>
-      <p className="mb-3 text-sm text-slate-300">
-        진행 <span className="font-semibold text-white">{state}</span>
-        <span className="ml-3 text-slate-400">바뀐 조건 {changes.length}개</span>
-      </p>
-      <table className={TABLE}>
-        <thead>
-          <tr className={TABLE_HEAD_ROW}>
-            <th className={TABLE_TH}>항목</th>
-            <th className={TABLE_TH}>현재</th>
-            <th className={TABLE_TH}>변경</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.label} className={cn(TABLE_ROW, r.changed && 'bg-amber-500/[0.06]')}>
-              <td className={TABLE_TD}>
-                {r.label}
-                {editing && r.label !== '추가 설치비용' && <span className="ml-0.5 text-semantic-red">*</span>}
-              </td>
-              <td className={cn(TABLE_TD, 'tabular-nums')}>{r.before}</td>
-              <td className={cn(TABLE_TD, 'tabular-nums', r.changed && 'font-semibold text-amber-300')}>
-                {editing ? (
-                  <div className="flex items-center gap-2">
-                    <div className={cn('w-full max-w-[240px] rounded', r.changed && 'ring-1 ring-amber-400/70')}>{inputOf(TERM_KEY[r.label]!)}</div>
-                    {r.changed && <span className="shrink-0 text-xs font-semibold text-amber-300">변경</span>}
-                  </div>
+      {/* 거래 '신청 내용'과 같은 네모 칸(이름 위 · 값 아래, 세 칸씩). 고칠 때는 그 칸이 이름 붙은 입력으로 */}
+      <div className="grid grid-cols-3 gap-4">
+        <Info label="진행" value={state} className="col-span-3" />
+        {rows.map((r, i) => {
+          const k = keyOfLabel[r.label]!;
+          if (editing) return <div key={r.label}>{input(k)}</div>;
+          // 바뀐 칸 — '현재 → 새 값'. 새 값 노란색: 처음 신청은 바뀐 칸 전부, 조건 변경 뒤 받은 쪽은 이번에 고친 칸만(거래와 같음)
+          const prev = prevRows?.[i];
+          const hot = prevRows ? !!prev && prev.after !== r.after : r.changed;
+          return (
+            <Info
+              key={r.label}
+              label={r.label}
+              value={
+                r.changed ? (
+                  <span className="tabular-nums">
+                    {r.before} → <span className={cn(hot ? 'font-bold text-amber-300' : 'font-semibold')}>{r.after}</span>
+                  </span>
                 ) : (
-                  <>
-                    {r.after}
-                    {r.changed && <span className="ml-2 text-xs font-semibold text-amber-300">변경</span>}
-                  </>
-                )}
-              </td>
-            </tr>
-          ))}
-          <tr className={cn(totalRow.before !== totalRow.after && 'bg-amber-500/[0.06]')}>
-            <td className={TABLE_TD}>{totalRow.label}</td>
-            <td className={cn(TABLE_TD, 'tabular-nums')}>{totalRow.before}</td>
-            <td className={cn(TABLE_TD, 'tabular-nums', totalRow.before !== totalRow.after && 'font-semibold text-amber-300')}>
-              {totalRow.after}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+                  <span className="tabular-nums">{r.after}</span>
+                )
+              }
+            />
+          );
+        })}
+      </div>
+      {/* 조건 변경 — 관리자 · 기업 같은 확인창(거래 미팅과 같음). 이유는 협의 채팅으로 */}
+      <ConfirmDialog
+        open={askChange}
+        onClose={() => setAskChange(false)}
+        onConfirm={() => {
+          unconfirm(ch.id, role.party);
+          addToast('success', `${ch.no} 조건 변경`);
+          setAskChange(false);
+        }}
+        title="조건 변경"
+        message="확정된 조건을 변경합니다."
+        confirmLabel="조건 변경"
+      />
     </SectionCard>
   );
 }

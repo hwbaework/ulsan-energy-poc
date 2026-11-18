@@ -142,7 +142,8 @@ export interface Contract extends ContractTerms {
   createdAt: string;
 }
 
-export type ChangeType = 'PRICE' | 'CAPACITY' | 'TERM' | 'TERMINATE';
+/** 변경 · 해지 구분 — 변경은 CHANGE 하나(2026-11-18 사용자: 무엇 하나만 바뀌어도 합의서를 다시 쓴다). PRICE · CAPACITY · TERM 은 예전 데이터용 */
+export type ChangeType = 'CHANGE' | 'PRICE' | 'CAPACITY' | 'TERM' | 'TERMINATE';
 export type ChangeStatus = 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
 export interface ContractChange {
@@ -157,16 +158,22 @@ export interface ContractChange {
   /** 변경 전·후 — PPA 단가 ₩/kWh · 자가소비 연간 O&M %, 용량 kW, 기간 종료일 */
   before?: string;
   after?: string;
-  /** TERMINATE — 희망 해지일 */
+  /** 예전 데이터 — 희망 해지일 · 적용일. 지금은 받지 않는다(해지는 해지 승인 때 바로, 변경 적용일은 협의 채팅으로) */
   effectiveDate?: string;
   status: ChangeStatus;
   decidedAt?: string;
   decisionNote?: string;
   /** 진행 단계(신청 다음) — 변경: 변경 동의 → TERMS(관리자 조건 입력) → AGREE(조건 확정, 상대 동의 대기) → SIGN. 해지: 해지 동의 → SIGN. 둘 다 서명하면 APPROVED */
   stage?: ChangeStage;
+  /** 변경 — 지금 값을 보낸 쪽(신청한 쪽, 조건 변경 뒤에는 고친 쪽). 상대가 동의 / 조건 변경 / 반려 */
+  proposedBy?: Party;
+  /** 변경 — 조건 변경을 눌러 값을 고치는 중인 쪽 */
+  editingBy?: Party;
   /** 변경 — 동의할 때의 계약 조건(현재)과 관리자가 다시 넣은 조건(변경). 승인되면 계약이 terms 로 바뀐다 */
   termsBefore?: ChangeTerms;
   terms?: ChangeTerms;
+  /** 변경 — 조건 변경을 누르기 전에 보낸 값. 다시 조건 확정하면 받는 쪽 화면에서 바뀐 칸을 '기존 → 새 값'으로(거래 termsBeforeCancel 과 같음) */
+  termsPrev?: ChangeTerms;
   events?: TradeEvent[];
   messages?: TradeMessage[];
   /** 합의서 서명 — 서로 확인했다는 서명. SPC(관리자)와 기업이 각자 */
@@ -174,7 +181,7 @@ export interface ContractChange {
   companySign?: ChangeSign;
 }
 
-/** TERMS 조건 입력(관리자) · AGREE 조건 확정 뒤 상대 동의 대기 · SIGN 전자서명 */
+/** 변경(3단계, 2026-11-18): AGREE 보낸 값에 상대 동의 대기 · TERMS 조건 변경으로 고치는 중 · SIGN 전자서명. 해지: SIGN */
 export type ChangeStage = 'TERMS' | 'AGREE' | 'SIGN';
 /** 변경 때 다시 넣는 계약 조건 — 미팅 조건 칸과 같은 항목 */
 export interface ChangeTerms {
