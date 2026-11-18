@@ -26,8 +26,9 @@ import type {
   TradeRequest,
   TradeRequestStatus,
 } from '@/types/trading-poc';
+import { signatureImage } from '@/lib/demo-signature';
 
-export const SEED_VERSION = 84; // 2026-11-18 한일튜브 PPA 새 승인 건 빼고 원래 계약에 신규. 83 — 2026-11-18 건호이엔씨 옛 계약 · 옛 신청 · 해지 신청 뺌(신규 승인과 중복). 82 — 2026-11-18 최근 승인 2건(건호이엔씨 자가소비 · 한일튜브 PPA) — 거래 승인 '신규'. 79 — 2026-11-18 최근 승인 2건 뺌(건호이엔씨 · 한일튜브 PPA 계약 중복). 80 — 2026-11-18 최근 승인 2건(건호이엔씨 자가소비 · 한일튜브 PPA) — 거래 승인 '신규'. 79 — 2026-11-17 자동 채팅 글 짧게. 78 — 2026-11-17 조건 변경은 누른 쪽이 고쳐 다시 확정(termsConfirmedBy), 상대는 바뀐 칸 보고 동의. 77 — 2026-11-17 '확정 취소' → '조건 변경'. 76 — 2026-11-17 전자서명 4건(자가소비 · PPA × 관리자 먼저 / 기업 먼저), 둘 다 서명 전(건호이엔씨 · 한일튜브 PPA) 뺌. 75 — 2026-11-17 전자서명 경우의 수 4건(한길 · 용인금속 · 한일튜브 PPA 2) 추가, 반려는 2건(자가소비 · PPA)만. 74 — 2026-11-17 미팅 4가지(자가소비 · PPA × 보낸 것 · 받은 것) — PPA 조건 변경로 돌아온 건(id 21). 73 — 2026-11-17 한일튜브 PPA(id 5) 조건 변경 뒤 다시 확정 — 발전사업자 화면에서 바뀐 칸 표시. 72 — 2026-11-17 조건 변경는 양쪽 확인창(사유 칸 없음, 이유는 채팅). 71 — 2026-11-17 용인금속(id 20) 조건 변경 뒤 다시 확정 — 바뀐 연간 O&M 노란색. 70 — 2026-11-17 조건 변경(관리자 · 기업 양쪽, 사유 → 미팅으로) — 태성산업(id 15)이 조건 변경한 샘플. 69 — 2026-11-17 자가소비 조건 확정(용인금속) · 해지 반려(태성산업) 샘플 — 알림마다 그 상태의 줄이 있게. 68 — 2026-10-14 세금계산서 원본 1건(한일튜브 PPA 2026-09). 67 — 2026-10-14 변경·해지 신청은 모두 기업(태성산업 · 한길 · 용인금속 진행 이력). 66 — 2026-10-14 받는 쪽은 변경 동의 / 해지 동의, 승인은 마지막에만. 65 — 2026-10-13 관리자는 변경·해지 신청 안 함(받아서 승인 · 반려 · 서명만), 신청 단계엔 합의서 · 서명 없음. 63 — 2026-10-13 한일튜브 해지 신청(CH-2026-0014). 62 — 2026-10-13 관리자가 신청한 해지(용인금속, 전자서명 1/2). 61 — 2026-10-13 해지: 신청 → 전자서명 → 해지 승인, 문서 분류 변경 합의서 · 해지 합의서. 60 — 2026-10-13 해지 완료 1건(한길 예전 계약 CT-2024-0001 · CH-2025-0001). 59 — 2026-10-13 해지 3칸 · 상태 해지. 58 — 2026-10-13 신청 상태 PPA(CH-2026-0012) 추가. 57 — 2026-10-13 변경 조건은 지금 계약 값으로 시작. 56 — 2026-10-13 변경: 변경 동의 → 조건 입력(관리자) → 조건 동의 → 전자서명 → 승인. 55 — 2026-10-13 변경·해지 동의 → 변경 동의 / 해지 동의. 54 — 2026-10-13 승인된 변경·해지 합의서(서명본) 시드. 53 — 2026-10-13 변경·해지도 신청 접수 → 동의 → 전자서명 → 승인 완료. 52 — 2026-10-13 진행 이력 조건 동의(관리자 · 신청한 쪽) → 전자서명 → 승인 완료, 표시 SPC → 관리자. 51 — 2026-10-13 진행 이력 '승인'은 양측 서명 완료만, 동의는 '조건 동의'. 50 — 2026-10-13 서명 흔적(그림 · 이름) 저장. 49 — 2026-10-13 전자서명 자가소비(건호) · PPA(한일튜브) 1건씩. 48 — 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
+export const SEED_VERSION = 85; // 2026-11-18 데모 서명은 사람 이름의 펜 서명(직접 서명). 84 — 2026-11-18 한일튜브 PPA 새 승인 건 빼고 원래 계약에 신규. 83 — 2026-11-18 건호이엔씨 옛 계약 · 옛 신청 · 해지 신청 뺌(신규 승인과 중복). 82 — 2026-11-18 최근 승인 2건(건호이엔씨 자가소비 · 한일튜브 PPA) — 거래 승인 '신규'. 79 — 2026-11-18 최근 승인 2건 뺌(건호이엔씨 · 한일튜브 PPA 계약 중복). 80 — 2026-11-18 최근 승인 2건(건호이엔씨 자가소비 · 한일튜브 PPA) — 거래 승인 '신규'. 79 — 2026-11-17 자동 채팅 글 짧게. 78 — 2026-11-17 조건 변경은 누른 쪽이 고쳐 다시 확정(termsConfirmedBy), 상대는 바뀐 칸 보고 동의. 77 — 2026-11-17 '확정 취소' → '조건 변경'. 76 — 2026-11-17 전자서명 4건(자가소비 · PPA × 관리자 먼저 / 기업 먼저), 둘 다 서명 전(건호이엔씨 · 한일튜브 PPA) 뺌. 75 — 2026-11-17 전자서명 경우의 수 4건(한길 · 용인금속 · 한일튜브 PPA 2) 추가, 반려는 2건(자가소비 · PPA)만. 74 — 2026-11-17 미팅 4가지(자가소비 · PPA × 보낸 것 · 받은 것) — PPA 조건 변경로 돌아온 건(id 21). 73 — 2026-11-17 한일튜브 PPA(id 5) 조건 변경 뒤 다시 확정 — 발전사업자 화면에서 바뀐 칸 표시. 72 — 2026-11-17 조건 변경는 양쪽 확인창(사유 칸 없음, 이유는 채팅). 71 — 2026-11-17 용인금속(id 20) 조건 변경 뒤 다시 확정 — 바뀐 연간 O&M 노란색. 70 — 2026-11-17 조건 변경(관리자 · 기업 양쪽, 사유 → 미팅으로) — 태성산업(id 15)이 조건 변경한 샘플. 69 — 2026-11-17 자가소비 조건 확정(용인금속) · 해지 반려(태성산업) 샘플 — 알림마다 그 상태의 줄이 있게. 68 — 2026-10-14 세금계산서 원본 1건(한일튜브 PPA 2026-09). 67 — 2026-10-14 변경·해지 신청은 모두 기업(태성산업 · 한길 · 용인금속 진행 이력). 66 — 2026-10-14 받는 쪽은 변경 동의 / 해지 동의, 승인은 마지막에만. 65 — 2026-10-13 관리자는 변경·해지 신청 안 함(받아서 승인 · 반려 · 서명만), 신청 단계엔 합의서 · 서명 없음. 63 — 2026-10-13 한일튜브 해지 신청(CH-2026-0014). 62 — 2026-10-13 관리자가 신청한 해지(용인금속, 전자서명 1/2). 61 — 2026-10-13 해지: 신청 → 전자서명 → 해지 승인, 문서 분류 변경 합의서 · 해지 합의서. 60 — 2026-10-13 해지 완료 1건(한길 예전 계약 CT-2024-0001 · CH-2025-0001). 59 — 2026-10-13 해지 3칸 · 상태 해지. 58 — 2026-10-13 신청 상태 PPA(CH-2026-0012) 추가. 57 — 2026-10-13 변경 조건은 지금 계약 값으로 시작. 56 — 2026-10-13 변경: 변경 동의 → 조건 입력(관리자) → 조건 동의 → 전자서명 → 승인. 55 — 2026-10-13 변경·해지 동의 → 변경 동의 / 해지 동의. 54 — 2026-10-13 승인된 변경·해지 합의서(서명본) 시드. 53 — 2026-10-13 변경·해지도 신청 접수 → 동의 → 전자서명 → 승인 완료. 52 — 2026-10-13 진행 이력 조건 동의(관리자 · 신청한 쪽) → 전자서명 → 승인 완료, 표시 SPC → 관리자. 51 — 2026-10-13 진행 이력 '승인'은 양측 서명 완료만, 동의는 '조건 동의'. 50 — 2026-10-13 서명 흔적(그림 · 이름) 저장. 49 — 2026-10-13 전자서명 자가소비(건호) · PPA(한일튜브) 1건씩. 48 — 2026-10-13 연간 O&M % → 금액(원/년). 47 — 2026-10-13 신청 상태 자가소비(한길) · PPA(한일튜브) 1건씩. 46 — 2026-10-12 거래 5단계(접수 → 미팅 → 승인 → 전자서명 → 체결) · 조건 = 용량 · 기간 · 단가 하나 (저장본 다시 시작)
 
 /* ── 회사 (로그인 계정은 useAuthStore 와 동일: 1 SPC(관리자) · 2 한길(전기사용자) · 4 한일튜브(발전사업자)) ───────── */
 export const CO = {
@@ -105,6 +106,10 @@ export function seedTermsOf(x: { kind: PlantContractKind; unitPrice: number; ter
   return { installUnit, extraCost: 0, omAnnual: Math.round(x.capacityKw * installUnit * 0.01), tariffPlan: '고압A 선택Ⅱ', omIncluded: true };
 }
 
+/** 기업 쪽 서명한 사람 — 한길 이수용 · 한일튜브 박발전(데모 계정), 나머지는 기업 정보의 대표자 */
+const SIGNER_OF: Record<number, string> = { 2: '이수용', 4: '박발전', 5: '정용인', 6: '강태성', 7: '윤건호' };
+/** 데모 서명 — 펜으로 그린 사인(직접 서명) */
+const penMark = (person: string, at: string) => ({ method: 'draw' as const, image: signatureImage(person), person, at });
 function seedContracts(): Contract[] {
   const base = (
     c: Omit<Contract, 'endDate' | 'createdAt' | 'address'> & { address?: string },
@@ -114,9 +119,9 @@ function seedContracts(): Contract[] {
     endDate: addYears(c.startDate, c.termYears),
     createdAt: iso(c.startDate),
     ...seedTermsOf(c),
-    // 시드 체결 계약 — 서명한 쪽은 회사 이름을 입력한 서명으로(빈 칸 대신)
-    ...(c.signedByGenerator && !c.signMarkGenerator ? { signMarkGenerator: { method: 'type' as const, typedName: c.generatorCompanyName, at: c.signedAt ?? iso(c.startDate) } } : {}),
-    ...(c.signedByConsumer && !c.signMarkConsumer ? { signMarkConsumer: { method: 'type' as const, typedName: c.consumerCompanyName, at: c.signedAt ?? iso(c.startDate) } } : {}),
+    // 시드 체결 계약 — 서명한 사람이 펜으로 그린 서명(작업 규칙: 서명 표시는 이름 (회사)). 관리자 쪽 김관리, 기업 쪽은 그 기업 담당
+    ...(c.signedByGenerator && !c.signMarkGenerator ? { signMarkGenerator: penMark('김관리', c.signedAt ?? iso(c.startDate)) } : {}),
+    ...(c.signedByConsumer && !c.signMarkConsumer ? { signMarkConsumer: penMark(SIGNER_OF[c.consumerCompanyId] ?? c.consumerCompanyName, c.signedAt ?? iso(c.startDate)) } : {}),
   });
   return [
     base({
@@ -251,7 +256,7 @@ function seedContracts(): Contract[] {
         status: 'PENDING_SIGN',
         signedByGenerator: false,
         signedByConsumer: true,
-        signMarkConsumer: { method: 'type', typedName: '박발전', at: iso('2026-09-23', '11:00:00') },
+        signMarkConsumer: penMark('박발전', iso('2026-09-23', '11:00:00')),
       }),
       createdAt: iso('2026-09-22', '15:00:00'),
     },
@@ -276,7 +281,7 @@ function seedContracts(): Contract[] {
         status: 'PENDING_SIGN',
         signedByGenerator: false,
         signedByConsumer: true,
-        signMarkConsumer: { method: 'type', typedName: '이수용', at: iso('2026-09-26', '10:00:00') },
+        signMarkConsumer: penMark('이수용', iso('2026-09-26', '10:00:00')),
       }),
       createdAt: iso('2026-09-24', '15:00:00'),
     },
@@ -300,7 +305,7 @@ function seedContracts(): Contract[] {
         status: 'PENDING_SIGN',
         signedByGenerator: true,
         signedByConsumer: false,
-        signMarkGenerator: { method: 'type', typedName: '김관리', at: iso('2026-09-27', '09:30:00') },
+        signMarkGenerator: penMark('김관리', iso('2026-09-27', '09:30:00')),
       }),
       createdAt: iso('2026-09-25', '15:00:00'),
     },
@@ -324,7 +329,7 @@ function seedContracts(): Contract[] {
         status: 'PENDING_SIGN',
         signedByGenerator: true,
         signedByConsumer: false,
-        signMarkGenerator: { method: 'type', typedName: '김관리', at: iso('2026-09-28', '10:00:00') },
+        signMarkGenerator: penMark('김관리', iso('2026-09-28', '10:00:00')),
       }),
       createdAt: iso('2026-09-27', '15:00:00'),
     },

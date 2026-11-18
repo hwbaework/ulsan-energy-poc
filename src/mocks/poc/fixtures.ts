@@ -304,7 +304,7 @@ const NOTIFICATION_MESSAGE: Record<string, string> = {
   TRADING_PPA_UNCONFIRMED: '한일튜브 → 관리자 : 329.6 kW 조건 변경, 확인',
   TRADING_PPA_SIGN: '한일튜브 → 관리자 : 200 kW 전자서명, 확인',
   TRADING_PPA_APPROVED: '관리자 → 한일튜브 : 329.6 kW 승인',
-  TRADING_PPA_REJECTED: '한일튜브 → 관리자 : 200 kW 조건 반려',
+  TRADING_PPA_REJECTED: '한일튜브 → 관리자 : 200 kW 반려',
   PPA_CONTRACT_CHANGE_REQUEST: '한길 → 관리자 : 기간 변경 신청',
   PPA_CONTRACT_CHANGE_AGREED: '관리자 → 한일튜브 : 단가 변경 동의',
   PPA_CONTRACT_CHANGE_SIGN: '태성산업 → 관리자 : O&M 변경 전자서명, 확인',
