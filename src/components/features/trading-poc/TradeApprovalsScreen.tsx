@@ -94,8 +94,14 @@ export function TradeApprovalsScreen() {
 
   // 승인 — 양측 서명이 끝난 거래만. 서명 대기 · 전자서명은 거래 이력에서
   const approved = useMemo(() => role.requests.filter((r) => r.status === 'SIGNED'), [role.requests]);
+  // 신규 — 양측 서명이 끝나 승인된 지 7일 안(2026-11-18 사용자: 뭐가 들어왔는지 보이게)
+  const approvedAt = (r: TradeRequest) => contractOf(r.contractId)?.signedAt ?? r.updatedAt;
+  const isNew = (r: TradeRequest) => Date.now() - new Date(approvedAt(r)).getTime() <= 7 * 86_400_000;
   const rows = useMemo(
-    () => approved.filter((r) => !kind || r.kind === kind).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    () =>
+      approved
+        .filter((r) => !kind || r.kind === kind)
+        .sort((a, b) => Number(isNew(b)) - Number(isNew(a)) || approvedAt(b).localeCompare(approvedAt(a))),
     [approved, kind],
   );
   const stats = {
@@ -120,8 +126,8 @@ export function TradeApprovalsScreen() {
     {
       key: 'status',
       header: '상태',
-      width: '150px',
-      render: () => <StatusPill tone="normal" label={stepLabel('승인', TRADE_STEPS.length - 1)} />,
+      width: '190px',
+      render: (r) => <StatusPill tone="normal" label={`${stepLabel('승인', TRADE_STEPS.length - 1)}${isNew(r) ? ' · 신규' : ''}`} />,
     },
     arrow,
   ];

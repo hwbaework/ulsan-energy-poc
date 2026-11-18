@@ -66,20 +66,20 @@ export const NOTIFICATION_CATALOG: NotifEvent[] = [
   //    승인은 끝났다는 알림이라 양측에 간다. RE100 설계서에서 확정 전 초안 ──
   { key: 'TRADING_SELF_RECEIVED', name: '자가소비 신청', label: '거래 신청 › 자가소비 › 신청', domain: 'RE100', condition: '기업이 자가소비 거래를 신청함', receivers: '관리자(메뉴 권한 있는 회원)', go: '거래 이력', resolve: '해당 없음', emailDefault: true, adminOnly: true },
   { key: 'TRADING_SELF_TERMS', name: '자가소비 조건 확정', label: '거래 신청 › 자가소비 › 미팅 › 조건 확정', domain: 'RE100', condition: '관리자가 미팅 조건을 확정함, 신청한 쪽이 조건 동의할 차례', receivers: '신청한 기업', go: '거래 이력', resolve: '해당 없음', emailDefault: true },
-  { key: 'TRADING_SELF_UNCONFIRMED', name: '자가소비 조건 변경', label: '거래 신청 › 자가소비 › 미팅 › 조건 변경', domain: 'RE100', condition: '확정된 조건을 관리자나 신청한 쪽이 조건 변경함, 미팅으로 돌아가 관리자가 조건을 고침', receivers: '조건 변경한 쪽의 상대(기업 또는 관리자(메뉴 권한 있는 회원))', go: '거래 이력', resolve: '해당 없음', emailDefault: true },
+  { key: 'TRADING_SELF_UNCONFIRMED', name: '자가소비 조건 변경', label: '거래 신청 › 자가소비 › 미팅 › 조건 변경', domain: 'RE100', condition: '관리자나 신청한 쪽이 조건 변경을 눌러 조건을 고쳐 다시 확정함 — 상대가 바뀐 칸(기존 → 새 값)을 보고 동의 / 조건 변경 / 반려', receivers: '조건을 바꾼 쪽의 상대(기업 또는 관리자(메뉴 권한 있는 회원))', go: '거래 이력', resolve: '해당 없음', emailDefault: true },
   { key: 'TRADING_SELF_SIGN', name: '자가소비 서명 요청', label: '거래 신청 › 자가소비 › 전자서명 › 서명 요청', domain: 'RE100', condition: '조건 동의 뒤 서명할 차례가 됨', receivers: '서명할 쪽', go: '거래 승인', resolve: '해당 없음', emailDefault: true },
-  { key: 'TRADING_SELF_APPROVED', name: '자가소비 승인', label: '거래 신청 › 자가소비 › 승인', domain: 'RE100', condition: '양측 전자서명 뒤 관리자가 승인함', receivers: '신청 기업, 관리자(메뉴 권한 있는 회원)', go: '내 계약', resolve: '해당 없음', emailDefault: true },
+  { key: 'TRADING_SELF_APPROVED', name: '자가소비 승인', label: '거래 신청 › 자가소비 › 승인', domain: 'RE100', condition: '양측 전자서명 뒤 관리자가 승인함', receivers: '신청 기업, 관리자(메뉴 권한 있는 회원)', go: '거래 승인', resolve: '해당 없음', emailDefault: true },
   { key: 'TRADING_SELF_REJECTED', name: '자가소비 반려', label: '거래 신청 › 자가소비 › 반려', domain: 'RE100', condition: '관리자가 신청을 반려하거나, 신청한 쪽이 확정된 조건을 반려함', receivers: '반려한 쪽의 상대(기업 또는 관리자(메뉴 권한 있는 회원))', go: '거래 이력', resolve: '해당 없음', emailDefault: true },
   { key: 'TRADING_PPA_RECEIVED', name: 'PPA 신청', label: '거래 신청 › PPA › 신청', domain: 'RE100', condition: '기업이 PPA 거래를 신청함', receivers: '관리자(메뉴 권한 있는 회원)', go: '거래 이력', resolve: '해당 없음', emailDefault: true, adminOnly: true },
   { key: 'TRADING_PPA_TERMS', name: 'PPA 조건 확정', label: '거래 신청 › PPA › 미팅 › 조건 확정', domain: 'RE100', condition: '관리자가 미팅 조건(PPA 단가 포함)을 확정함, 신청한 쪽이 조건 동의할 차례', receivers: '신청한 기업', go: '거래 이력', resolve: '해당 없음', emailDefault: true },
-  { key: 'TRADING_PPA_UNCONFIRMED', name: 'PPA 조건 변경', label: '거래 신청 › PPA › 미팅 › 조건 변경', domain: 'RE100', condition: '확정된 조건을 관리자나 신청한 쪽이 조건 변경함, 미팅으로 돌아가 관리자가 조건을 고침', receivers: '조건 변경한 쪽의 상대(기업 또는 관리자(메뉴 권한 있는 회원))', go: '거래 이력', resolve: '해당 없음', emailDefault: true },
+  { key: 'TRADING_PPA_UNCONFIRMED', name: 'PPA 조건 변경', label: '거래 신청 › PPA › 미팅 › 조건 변경', domain: 'RE100', condition: '관리자나 신청한 쪽이 조건 변경을 눌러 조건을 고쳐 다시 확정함 — 상대가 바뀐 칸(기존 → 새 값)을 보고 동의 / 조건 변경 / 반려', receivers: '조건을 바꾼 쪽의 상대(기업 또는 관리자(메뉴 권한 있는 회원))', go: '거래 이력', resolve: '해당 없음', emailDefault: true },
   { key: 'TRADING_PPA_SIGN', name: 'PPA 서명 요청', label: '거래 신청 › PPA › 전자서명 › 서명 요청', domain: 'RE100', condition: '조건 동의 뒤 서명할 차례가 됨', receivers: '서명할 쪽', go: '거래 승인', resolve: '해당 없음', emailDefault: true },
-  { key: 'TRADING_PPA_APPROVED', name: 'PPA 승인', label: '거래 신청 › PPA › 승인', domain: 'RE100', condition: '양측 전자서명 뒤 관리자가 승인함', receivers: '신청 기업, 발전사업자, 관리자(메뉴 권한 있는 회원)', go: '내 계약', resolve: '해당 없음', emailDefault: true },
+  { key: 'TRADING_PPA_APPROVED', name: 'PPA 승인', label: '거래 신청 › PPA › 승인', domain: 'RE100', condition: '양측 전자서명 뒤 관리자가 승인함', receivers: '신청 기업, 발전사업자, 관리자(메뉴 권한 있는 회원)', go: '거래 승인', resolve: '해당 없음', emailDefault: true },
   { key: 'TRADING_PPA_REJECTED', name: 'PPA 반려', label: '거래 신청 › PPA › 반려', domain: 'RE100', condition: '관리자가 신청을 반려하거나, 신청한 쪽이 확정된 조건을 반려함', receivers: '반려한 쪽의 상대(기업 또는 관리자(메뉴 권한 있는 회원))', go: '거래 이력', resolve: '해당 없음', emailDefault: true },
   { key: 'PPA_CONTRACT_CHANGE_REQUEST', name: '변경 신청', label: '변경 · 해지 › 변경 › 신청', domain: 'RE100', condition: '계약 변경을 신청함, 받는 쪽이 변경 동의할 차례', receivers: '상대 기업, 관리자(메뉴 권한 있는 회원)', go: '변경 · 해지', resolve: '해당 없음' },
   { key: 'PPA_CONTRACT_CHANGE_AGREED', name: '변경 동의', label: '변경 · 해지 › 변경 › 변경 동의', domain: 'RE100', condition: '받는 쪽이 변경 동의함', receivers: '신청한 기업, 관리자(메뉴 권한 있는 회원)', go: '변경 · 해지', resolve: '해당 없음' },
   { key: 'PPA_CONTRACT_CHANGE_SIGN', name: '변경 서명 요청', label: '변경 · 해지 › 변경 › 전자서명 › 서명 요청', domain: 'RE100', condition: '변경 동의 뒤 서명할 차례가 됨', receivers: '서명할 쪽', go: '변경 · 해지', resolve: '해당 없음' },
-  { key: 'PPA_CONTRACT_CHANGE_APPROVED', name: '변경 승인', label: '변경 · 해지 › 변경 › 승인', domain: 'RE100', condition: '양측 전자서명 뒤 승인함', receivers: '양측 기업', go: '내 계약', resolve: '해당 없음' },
+  { key: 'PPA_CONTRACT_CHANGE_APPROVED', name: '변경 승인', label: '변경 · 해지 › 변경 › 승인', domain: 'RE100', condition: '양측 전자서명 뒤 승인함', receivers: '양측 기업', go: '변경 · 해지', resolve: '해당 없음' },
   { key: 'PPA_CONTRACT_CHANGE_REJECTED', name: '변경 반려', label: '변경 · 해지 › 변경 › 반려', domain: 'RE100', condition: '계약 변경이 반려됨', receivers: '반려한 쪽의 상대(기업 또는 관리자(메뉴 권한 있는 회원))', go: '변경 · 해지', resolve: '해당 없음' },
   { key: 'PPA_CONTRACT_TERMINATION_REQUEST', name: '해지 신청', label: '변경 · 해지 › 해지 › 신청', domain: 'RE100', condition: '계약 해지를 신청함, 받는 쪽이 해지 동의할 차례', receivers: '상대 기업, 관리자(메뉴 권한 있는 회원)', go: '변경 · 해지', resolve: '해당 없음' },
   { key: 'PPA_CONTRACT_TERMINATION_AGREED', name: '해지 동의', label: '변경 · 해지 › 해지 › 해지 동의', domain: 'RE100', condition: '받는 쪽이 해지 동의함', receivers: '신청한 기업, 관리자(메뉴 권한 있는 회원)', go: '변경 · 해지', resolve: '해당 없음' },
@@ -139,8 +139,9 @@ export function notifPathOf(key: string, account: NotifAccount): string | null {
   if (key.endsWith('_RECEIVED')) return t.history; // 들어온 신청은 거래 이력의 신청 표에 보인다(거래 신청은 신청을 넣는 화면)
   if (key.endsWith('_TERMS')) return t.history;
   if (key === 'TRADING_SELF_SIGN' || key === 'TRADING_PPA_SIGN') return t.approvals;
-  if (key === 'PPA_CONTRACT_TERMINATION_APPROVED') return t.changes; // 해지된 계약은 내 계약 목록에 없다
-  if (key.endsWith('_APPROVED')) return t.contracts;
+  // 승인 — 거래는 승인된 거래가 모인 거래 승인, 변경 · 해지는 변경·해지의 그 건(2026-11-18 사용자: 내 계약이 아니라 거래 승인으로)
+  if (key === 'TRADING_SELF_APPROVED' || key === 'TRADING_PPA_APPROVED') return t.approvals;
+  if (key.endsWith('_APPROVED')) return t.changes;
   if (key.startsWith('PPA_CONTRACT_')) return t.changes;
   if (key === 'INVOICE') return t.invoices;
   return t.tax; // TAX_INVOICE · SETTLEMENT

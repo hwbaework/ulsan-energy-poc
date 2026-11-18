@@ -61,13 +61,22 @@ const statusOrder = (r: TradeRequest) =>
   r.status === 'SUBMITTED' ? 0 : r.status === 'REVIEW' ? (r.termsConfirmedAt ? 2 : 1) : r.status === 'APPROVED' ? 3 : 4;
 /** 내가 볼 차례인지 — 확인(상대가 한 일이 와서 내 차례) / 대기(내가 보내고 상대를 기다림). 반려는 끝이라 없음(2026-11-17 사용자)
  *  - 신청 · 미팅(조건 확정 전): 관리자 차례(미팅 확정 · 조건 입력)
- *  - 미팅(조건 확정 뒤): 신청한 쪽 차례(동의 · 조건 변경)
+ *  - 미팅: 조건을 쓰는 중이면 쓰는 쪽(처음은 관리자, 조건 변경을 누른 쪽), 확정했으면 상대 차례(동의 · 조건 변경 · 반려)
  *  - 전자서명: 아직 서명 안 한 쪽 차례 */
 type Turn = '확인' | '대기';
+/** 관리자 쪽인지 기업 쪽인지 */
+const sideOf = (p?: string) => (p === 'spc' ? 'admin' : 'company');
+/** 미팅에서 조건을 쓰는 쪽 — 처음은 관리자, 조건 변경을 누르면 누른 쪽 */
+const editorSide = (r: TradeRequest) => (r.returnedBy ? sideOf(r.returnedBy) : 'admin');
+/** 조건을 확정한 쪽 — 처음은 관리자, 조건 변경 뒤에는 고친 쪽 */
+const confirmedSide = (r: TradeRequest) => sideOf(r.termsConfirmedBy ?? 'spc');
 function turnOf(r: TradeRequest, isAdmin: boolean, contract?: Contract): Turn | null {
   if (r.status === 'REJECTED' || r.status === 'CANCELLED') return null;
-  if (r.status === 'SUBMITTED' || (r.status === 'REVIEW' && !r.termsConfirmedAt)) return isAdmin ? '확인' : '대기';
-  if (r.status === 'REVIEW') return isAdmin ? '대기' : '확인';
+  const me = isAdmin ? 'admin' : 'company';
+  if (r.status === 'SUBMITTED') return isAdmin ? '확인' : '대기';
+  // 미팅 — 조건을 쓰는 중이면 쓰는 쪽 차례, 확정했으면 상대 차례
+  if (r.status === 'REVIEW' && !r.termsConfirmedAt) return editorSide(r) === me ? '확인' : '대기';
+  if (r.status === 'REVIEW') return confirmedSide(r) === me ? '대기' : '확인';
   if (r.status === 'APPROVED') {
     // 관리자 = 계약의 공급 쪽(generator), 기업 = 전기사용자 쪽(consumer)
     const mineSigned = isAdmin ? !!contract?.signedByGenerator : !!contract?.signedByConsumer;
@@ -289,7 +298,10 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   // 접수(SUBMITTED): 조건 칸 없음 — 신청한 쪽은 신청 취소, 관리자는 미팅 확정 / 반려
   // 미팅(REVIEW): 관리자가 오프라인에서 정한 조건(금액)을 넣고 저장 → [조건 확정] → 전자서명. 신청한 쪽은 같은 화면에서 값을 보고, 서명 때 확인한다. 신청 취소(사유)는 서명 전까지
   const received = r.status === 'SUBMITTED';
-  const editing = r.status === 'REVIEW' && role.isAdmin && !r.termsConfirmedAt; // 확정하면 못 고친다 — 조건 변경로 다시 연다
+  // 나는 관리자 쪽인지 기업 쪽인지(당사자가 아니면 없음)
+  const mySide = role.isAdmin ? 'admin' : isMine ? 'company' : null;
+  // 조건을 고칠 수 있는 쪽 — 처음은 관리자, 조건 변경을 누르면 누른 쪽. 확정하면 못 고친다(조건 변경으로 다시 연다)
+  const editing = r.status === 'REVIEW' && !r.termsConfirmedAt && !!mySide && editorSide(r) === mySide;
   const confirmMeeting = useTradingPocStore((s) => s.confirmMeeting);
   const [meetDate, setMeetDate] = useState(r.surveyDate ?? '');
 
@@ -312,8 +324,10 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   // 승인 — 조건이 저장돼 있어야(미팅 완료 같은 버튼은 없다. 미팅은 채팅으로, 값은 여기에)
   const termsSaved = r.capacityKw > 0 && r.termYears > 0 && !!r.installUnit && !!r.omAnnual && !!r.tariffPlan && (self || r.unitPrice > 0);
   const confirmTerms = useTradingPocStore((s) => s.confirmTerms);
-  const canConfirm = !dirty && termsSaved && !r.termsConfirmedAt; // 관리자 조건 확정 → 신청한 쪽 동의
+  const canConfirm = !dirty && termsSaved && !r.termsConfirmedAt; // 조건 확정 → 상대 동의
   const agreeOpen = r.status === 'REVIEW' && !!r.termsConfirmedAt; // 동의 대기
+  // 상대가 확정해 보낸 조건 — 내가 동의 / 조건 변경 / 반려
+  const toAgree = agreeOpen && !!mySide && confirmedSide(r) !== mySide;
 
   const [rejectOpen, setRejectOpen] = useState(false);
   // 조건 변경 확인창 — 관리자 · 기업 같은 창
@@ -335,7 +349,8 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   );
   const edit: TermsEdit | undefined = editing
     ? {
-        meetDate: (
+        // 미팅일은 관리자만 고친다(조건 변경으로 기업이 고칠 때는 조건 칸만)
+        meetDate: !role.isAdmin ? undefined : (
           <Input
             label="미팅일"
             type="date"
@@ -389,18 +404,13 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
         : undefined;
   const actions = (
     <>
-      {!role.isAdmin && isMine && agreeOpen && (
+      {toAgree && (
         <Button size="sm" onClick={() => setConfirm('approve')}>
           동의
         </Button>
       )}
-      {/* 조건 변경 — 양쪽 다 있다. 관리자는 확인창 뒤 조건 칸이 입력으로 바뀌어 바로 고치고, 기업은 조건을 못 고치니 사유를 적어 보낸다 */}
-      {agreeOpen && admin && (
-        <Button size="sm" variant="secondary" onClick={() => setAdminUnconfirm(true)}>
-          조건 변경
-        </Button>
-      )}
-      {agreeOpen && !role.isAdmin && isMine && (
+      {/* 조건 변경 — 양쪽 다 같은 버튼. 누른 쪽의 조건 칸이 입력으로 바뀌고, 고쳐서 다시 확정하면 상대가 바뀐 칸을 보고 동의 */}
+      {agreeOpen && !!mySide && (
         <Button size="sm" variant="secondary" onClick={() => setAdminUnconfirm(true)}>
           조건 변경
         </Button>
@@ -437,18 +447,16 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
           <Button size="sm" variant="secondary" disabled={!dirty || !valid} onClick={save}>
             저장
           </Button>
-          {role.isAdmin && (
-            <Button
-              size="sm"
-              disabled={!canConfirm}
-              onClick={() => {
-                confirmTerms(r.id);
-                addToast('success', `${r.no} 조건 확정 — 동의 대기`);
-              }}
-            >
-              조건 확정
-            </Button>
-          )}
+          <Button
+            size="sm"
+            disabled={!canConfirm}
+            onClick={() => {
+              confirmTerms(r.id, role.party);
+              addToast('success', `${r.no} 조건 확정 — 동의 대기`);
+            }}
+          >
+            조건 확정
+          </Button>
         </>
       )}
       {admin && (
@@ -501,11 +509,11 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
         <SectionCard title="신청 내용" actions={actions}>
           <div className="grid grid-cols-3 gap-4">
             {agreeOpen ? (
-              <Info label="진행" value={`조건 확정 ${fmtDateTime(r.termsConfirmedAt!)} · 동의 대기`} className="col-span-3" />
+              <Info label="진행" value={`${confirmedSide(r) === 'admin' ? '관리자' : r.applicantCompanyName} 조건 확정 ${fmtDateTime(r.termsConfirmedAt!)} · ${toAgree ? '확인' : '동의 대기'}`} className="col-span-3" />
             ) : (
               stageLabel && <Info label="진행" value={stageLabel} className="col-span-3" />
             )}
-            <TermsInfo x={editing ? { ...r, ...termsOfDraft(draft, r) } : r} edit={edit}  showChanges={!role.isAdmin} />
+            <TermsInfo x={editing ? { ...r, ...termsOfDraft(draft, r) } : r} edit={edit} showChanges={toAgree} />
             {/* 반려 — 누가(보낸 쪽인지 받은 쪽인지) · 언제 · 사유 */}
             {r.status === 'REJECTED' && (() => {
               const e = [...r.events].reverse().find((x) => x.label === '반려');
@@ -541,7 +549,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
           setAdminUnconfirm(false);
         }}
         title="조건 변경"
-        message={role.isAdmin ? '확정한 조건을 변경합니다.' : '확정된 조건의 변경을 요청합니다.'}
+        message="확정된 조건을 변경합니다."
         confirmLabel="조건 변경"
       />
 
