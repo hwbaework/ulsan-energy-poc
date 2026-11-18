@@ -78,6 +78,7 @@ export const NOTIFICATION_CATALOG: NotifEvent[] = [
   { key: 'TRADING_PPA_REJECTED', name: 'PPA 반려', label: '거래 신청 › PPA › 반려', domain: 'RE100', condition: '관리자가 신청을 반려하거나, 신청한 쪽이 확정된 조건을 반려함', receivers: '반려한 쪽의 상대(기업 또는 관리자(메뉴 권한 있는 회원))', go: '거래 이력', resolve: '해당 없음', emailDefault: true },
   { key: 'PPA_CONTRACT_CHANGE_REQUEST', name: '변경 신청', label: '변경 · 해지 › 변경 › 신청', domain: 'RE100', condition: '계약 변경을 신청함, 받는 쪽이 변경 동의할 차례', receivers: '상대 기업, 관리자(메뉴 권한 있는 회원)', go: '변경 · 해지', resolve: '해당 없음' },
   { key: 'PPA_CONTRACT_CHANGE_AGREED', name: '변경 동의', label: '변경 · 해지 › 변경 › 변경 동의', domain: 'RE100', condition: '받는 쪽이 변경 동의함', receivers: '신청한 기업, 관리자(메뉴 권한 있는 회원)', go: '변경 · 해지', resolve: '해당 없음' },
+  { key: 'PPA_CONTRACT_CHANGE_TERMS', name: '변경 조건 확정', label: '변경 · 해지 › 변경 › 조건 확정', domain: 'RE100', condition: '관리자가 변경 조건을 확정함, 상대가 조건 동의할 차례', receivers: '상대 기업', go: '변경 · 해지', resolve: '해당 없음' },
   { key: 'PPA_CONTRACT_CHANGE_SIGN', name: '변경 서명 요청', label: '변경 · 해지 › 변경 › 전자서명 › 서명 요청', domain: 'RE100', condition: '변경 동의 뒤 서명할 차례가 됨', receivers: '서명할 쪽', go: '변경 · 해지', resolve: '해당 없음' },
   { key: 'PPA_CONTRACT_CHANGE_APPROVED', name: '변경 승인', label: '변경 · 해지 › 변경 › 승인', domain: 'RE100', condition: '양측 전자서명 뒤 승인함', receivers: '양측 기업', go: '변경 · 해지', resolve: '해당 없음' },
   { key: 'PPA_CONTRACT_CHANGE_REJECTED', name: '변경 반려', label: '변경 · 해지 › 변경 › 반려', domain: 'RE100', condition: '계약 변경이 반려됨', receivers: '반려한 쪽의 상대(기업 또는 관리자(메뉴 권한 있는 회원))', go: '변경 · 해지', resolve: '해당 없음' },
@@ -137,6 +138,7 @@ export function notifPathOf(key: string, account: NotifAccount): string | null {
   if (key === 'TRADING_SELF_REJECTED' || key === 'TRADING_PPA_REJECTED') return t.history;
   if (key === 'TRADING_SELF_UNCONFIRMED' || key === 'TRADING_PPA_UNCONFIRMED') return t.history;
   if (key.endsWith('_RECEIVED')) return t.history; // 들어온 신청은 거래 이력의 신청 표에 보인다(거래 신청은 신청을 넣는 화면)
+  if (key === 'PPA_CONTRACT_CHANGE_TERMS') return t.changes; // 변경 조건 확정은 변경·해지의 그 건
   if (key.endsWith('_TERMS')) return t.history;
   if (key === 'TRADING_SELF_SIGN' || key === 'TRADING_PPA_SIGN') return t.approvals;
   // 승인 — 거래는 승인된 거래가 모인 거래 승인, 변경 · 해지는 변경·해지의 그 건(2026-11-18 사용자: 내 계약이 아니라 거래 승인으로)

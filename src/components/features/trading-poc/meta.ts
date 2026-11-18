@@ -55,7 +55,8 @@ export const CHANGE_STATUS: Record<ChangeStatus, { label: string; tone: StatusTo
 
 /** 변경·해지 한 건의 상태 — 신청 → 변경 동의 → 조건 입력(관리자) → 조건 동의(상대) → 전자서명 → 승인. 해지는 동의 뒤 바로 전자서명. 멈춤은 반려 · 취소 */
 export type ChangeState = '신청' | '조건 입력' | '조건 동의' | '전자서명' | '승인' | '해지' | '반려' | '취소';
-export const CHANGE_STATES: ChangeState[] = ['신청', '조건 입력', '조건 동의', '전자서명', '승인', '해지', '반려', '취소'];
+/** 상태 고르기 — 취소는 지금 규칙에 없어 뺀다(신청한 쪽이 그만두는 것도 반려). 예전 데이터를 읽을 때만 '취소'가 남는다 */
+export const CHANGE_STATES: ChangeState[] = ['신청', '조건 입력', '조건 동의', '전자서명', '승인', '해지', '반려'];
 export const changeStateOf = (ch: {
   status: ChangeStatus;
   type: ChangeType;

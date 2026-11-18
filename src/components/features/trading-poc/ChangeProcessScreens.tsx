@@ -141,11 +141,11 @@ export function ChangeDetailScreen() {
   return (
     <div className="space-y-6">
       <Breadcrumb
-        items={[{ label: 'RE100', path: '/re100' }, { label: '변경·해지', path: list }, { label: ch?.no ?? '요청' }]}
+        items={[{ label: 'RE100', path: '/re100' }, { label: '변경·해지', path: list }, { label: ch?.no ?? '신청' }]}
       />
       {id != null && (!ch || !c) ? (
         <div className="rounded-2xl bg-[#0d1520] p-10 text-center text-sm text-slate-400 ring-1 ring-white/[0.06]">
-          요청을 찾을 수 없습니다
+          신청을 찾을 수 없습니다
         </div>
       ) : ch && c ? (
         <ChangeWorkspace key={ch.id} ch={ch} c={c} list={list} />
@@ -238,7 +238,7 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
                 {c.consumerCompanyName} · {typeLabel}
               </h1>
               <p className="mt-1 text-sm tabular-nums text-slate-400">
-                {ch.no} · {c.no} · {kindLabel(c.kind)} · 요청 {fmtDateTime(ch.requestedAt)}
+                {ch.no} · {c.no} · {kindLabel(c.kind)} · 신청 {fmtDateTime(ch.requestedAt)}
               </p>
             </div>
           </div>
@@ -341,7 +341,7 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
       )}
 
       {/* 반려 — 거래와 같은 팝업. 사유 필수 */}
-      <Modal open={rejecting} onClose={() => setRejecting(false)} title="요청 반려" size="sm">
+      <Modal open={rejecting} onClose={() => setRejecting(false)} title="신청 반려" size="sm">
         <div className="space-y-4">
           <Textarea
             label="반려 사유"

@@ -1023,7 +1023,7 @@ function NotificationBell() {
   const ref = useRef<HTMLDivElement>(null);
   const unreadQuery = useUnreadCount();
   const unread = (unreadQuery.data as number) ?? 0;
-  const listQuery = useNotifications({ size: 100 });
+  const listQuery = useNotifications({ size: 200 });
   // 읽음·안 읽음 모두 노출(안 읽음은 강조 표시). 최대 5개 높이까지 보이고 이후 스크롤.
   const items: any[] = (listQuery.data as any)?.content ?? [];
   const markRead = useMarkRead();

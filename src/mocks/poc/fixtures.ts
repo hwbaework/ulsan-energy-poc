@@ -14,6 +14,7 @@ import type { ConsumerSite } from '@/types/consumer';
 import type { MarketPrice } from '@/types/trading';
 import { HOLIDAYS_SEED, type Holiday } from '@/lib/op-calendar';
 import { TARIFF_YEAR_SEED, cleanBook, type TariffYear, type TariffYearTable } from '@/lib/solar-sim';
+import { buildRe100Notifications } from './re100Notifications';
 import { canReadMenuPath } from './adminFixtures'; // 관리(ADMIN) 축 목업 + 역할별 메뉴 권한
 import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
 import { FC_CAPACITY_KW, ORC_CAPACITY_KW, fuelCellAt, fuelCellTodayKwh, orcAt, orcTodayKwh } from '@/lib/heat-plants';
@@ -360,38 +361,48 @@ const NOTIFICATIONS = NOTIFICATION_CATALOG.map((e, i) => {
   const at = new Date(Date.UTC(2026, 10, 16, 10, 0, 0) - i * 3 * 3_600_000).toISOString().slice(0, 19);
   return { id: i + 1, type: e.key, title: e.name, message: NOTIFICATION_MESSAGE[e.key] ?? '', link: NOTIFICATION_TARGET[e.key], isRead: i >= 5, createdAt: at };
 });
-/** 지금 계정이 받는 알림 — 그 계정에 갈 화면이 있는 것만 */
-/**
- * 발전사업자 데모 계정(박발전 = 한일튜브)이 받는 RE100 알림 — 한일튜브가 받는 쪽인 건만, 내용 · 이동도 그 건으로.
- * 받는 쪽이 아닌 알림(한일튜브가 한 일, 다른 기업 건)은 이 계정의 종에 안 보인다(2026-11-17 사용자: 눌러 가면 그 건이 진짜로 있어야)
- */
-const GENERATOR_RE100: Record<string, { message: string; link: string }> = {
-  TRADING_SELF_APPROVED: { message: '관리자 → 한일튜브 : 99.84 kW 승인', link: '/view?id=2' },
-  TRADING_PPA_UNCONFIRMED: { message: '관리자 → 한일튜브 : 329.6 kW 조건 변경, 확인', link: '/view?id=5' },
-  TRADING_PPA_APPROVED: { message: '관리자 → 한일튜브 : 329.6 kW 승인', link: '/view?id=1' },
-  PPA_CONTRACT_CHANGE_AGREED: { message: '관리자 → 한일튜브 : 단가 변경 동의', link: '/view?id=1' },
-  PPA_CONTRACT_CHANGE_APPROVED: { message: '관리자 → 한일튜브 : O&M 변경 승인', link: '/view?id=6' },
-  PPA_CONTRACT_CHANGE_REJECTED: { message: '관리자 → 한일튜브 : 기간 변경 반려', link: '/view?id=3' },
+/** 데모 건에서 만드는 RE100 알림 종류 — 거래 · 변경 · 해지(청구서 · 세금계산서 · 정산은 항목표 샘플 그대로) */
+const GENERATED_KEYS = new Set(NOTIFICATION_CATALOG.filter((e) => /^(TRADING_|PPA_CONTRACT_)/.test(e.key)).map((e) => e.key));
+const RE100_KEYS = new Set(NOTIFICATION_CATALOG.filter((e) => e.domain === 'RE100').map((e) => e.key));
+/** 만든 알림의 읽음 표시 — 다시 만들어도 남게 id 로 */
+const READ_GENERATED = new Set<number>();
+/** 발전사업자 계정이 받는 정산 쪽 알림(한일튜브) */
+const GENERATOR_BILLING: Record<string, { message: string; link: string }> = {
   INVOICE: { message: '관리자 → 한일튜브 : 2026-09 PPA 청구서 발행', link: '/view?contract=1&period=2026-09' },
   SETTLEMENT: { message: '관리자 → 한일튜브 : 2026-09 PPA 정산 확정', link: '/view?contract=1&period=2026-09' },
 };
-/** 데모에 그 상태의 건이 없는 알림 — 종에 넣지 않는다(눌러 가면 그 건이 진짜로 있어야) */
-const NO_DEMO = new Set<string>([]);
-const RE100_KEYS = new Set(NOTIFICATION_CATALOG.filter((e) => e.domain === 'RE100').map((e) => e.key));
+const HANIL_ID = 4;
+/** 지금 계정이 받는 알림 — 그 계정에 갈 화면이 있는 것만 */
 const myNotifications = () => {
   const persona = getPersona(useAuthStore.getState().user);
   const account: NotifAccount = persona === 'admin' || persona === 'spc' ? 'admin' : persona === 'generator' ? 'generator' : 'consumer';
   const roles = useAuthStore.getState().user?.roles ?? [];
-  return NOTIFICATIONS.filter((n) => {
-    if (NO_DEMO.has(n.type)) return false;
-    const path = notifPathOf(n.type, account);
+  // 관리자 쪽은 메뉴 권한 기준 — 관리자 소속이어도 그 화면의 메뉴 권한이 없는 회원은 받지 않는다(2026-11-16 사용자)
+  const allowed = (type: string) => {
+    const path = notifPathOf(type, account);
     if (path === null) return false;
-    // 관리자 쪽은 메뉴 권한 기준 — 관리자 소속이어도 그 화면의 메뉴 권한이 없는 회원은 받지 않는다(2026-11-16 사용자)
-    // 발전사업자는 RE100 알림 중 한일튜브가 받는 쪽인 건만
-    if (account === 'generator' && RE100_KEYS.has(n.type)) return !!GENERATOR_RE100[n.type];
     return account !== 'admin' || canReadMenuPath(roles, path);
-  })
-    .map((n) => (account === 'generator' && GENERATOR_RE100[n.type] ? { ...n, ...GENERATOR_RE100[n.type] } : n))
+  };
+  // 1. 항목표 샘플 — 거래 · 변경 · 해지는 빼고(아래 2에서 데모 건마다), 발전사업자는 한일튜브 정산 쪽만
+  const sample = NOTIFICATIONS.filter((n) => !GENERATED_KEYS.has(n.type) && allowed(n.type))
+    .filter((n) => account !== 'generator' || !RE100_KEYS.has(n.type) || !!GENERATOR_BILLING[n.type])
+    .map((n) => (account === 'generator' && GENERATOR_BILLING[n.type] ? { ...n, ...GENERATOR_BILLING[n.type] } : n));
+  // 2. 거래 · 변경 · 해지 — 데모 건마다 하나씩(목록의 줄과 1:1). 발전사업자는 한일튜브 건만
+  const generated = buildRe100Notifications()
+    .filter((g) => allowed(g.type) && (account !== 'generator' || g.companyId === HANIL_ID))
+    .map((g) => ({
+      id: g.id,
+      type: g.type,
+      title: NOTIFICATION_CATALOG.find((e) => e.key === g.type)?.name ?? g.type,
+      message: g.message,
+      link: g.link,
+      isRead: READ_GENERATED.has(g.id),
+      createdAt: g.createdAt,
+    }));
+  // 항목표 순서(묶음)대로, 같은 종류 안에서는 최근 것부터
+  const order = new Map(NOTIFICATION_CATALOG.map((e, i) => [e.key, i]));
+  return [...sample, ...generated]
+    .sort((x, y) => (order.get(x.type) ?? 0) - (order.get(y.type) ?? 0) || y.createdAt.localeCompare(x.createdAt))
     // 보는 사람 기준 — 화살표 앞이 나면 내가 보낸 것이라 '대기', 뒤가 나면 받은 것이라 '확인'(2026-11-18 사용자: 목록의 확인 / 대기와 같은 기준)
     .map((n) => {
       const me = account === 'admin' ? '관리자' : account === 'generator' ? '한일튜브' : '한길';
@@ -402,14 +413,17 @@ registerMock(/^\/notifications\/unread-count$/, () => myNotifications().filter((
 registerMock(/^\/notifications\/read-all$/, () => {
   const ids = new Set(myNotifications().map((n) => n.id));
   NOTIFICATIONS.forEach((n) => ids.has(n.id) && (n.isRead = true));
+  ids.forEach((id) => id >= 100_000 && READ_GENERATED.add(id));
   return {};
 });
 registerMock(/^\/notifications\/(\d+)\/read$/, ({ match }) => {
-  const n = NOTIFICATIONS.find((x) => x.id === Number(match[1]));
+  const id = Number(match[1]);
+  const n = NOTIFICATIONS.find((x) => x.id === id);
   if (n) n.isRead = true;
+  if (id >= 100_000) READ_GENERATED.add(id);
   return {};
 });
-registerMock(/^\/notifications$/, () => pageOf(myNotifications(), 100));
+registerMock(/^\/notifications$/, () => pageOf(myNotifications(), 200));
 
 // 에너지 설정 — 관리 › 시스템 › 에너지 설정에서 관리. 대시보드·RE100·PPA 보고서·무료진단이 같은 값을 읽는다.
 // 새로고침해도 남게 브라우저에 저장 (POC)
