@@ -18,7 +18,6 @@ import {
   CO,
   billOf,
   invoiceKey,
-  issueDateOf,
   settlementsOf,
   useTradingPocStore,
   writtenDateOf,
@@ -253,12 +252,18 @@ function InvoiceEditor({ b }: { b: Bill }) {
   );
 }
 
-/** PDF 칸 — 올렸으면 등록, 아니면 기업 계정은 [올리기] · 관리자는 미등록 */
+/** PDF 칸 — 등록 / 미등록, 관리자는 옆에 [업로드](누르면 바로 파일 고르기, 다시 올리면 바뀜 — 카본 서식 표와 같은 말 · 모양, 2026-11-19 사용자) */
 function OriginalCell({ s }: { s: Bill }) {
   const { original, upload, canUpload } = useTaxOriginal(s.contractId, s.period);
-  if (original) return <StatusPill tone="normal" label="등록" />;
-  if (canUpload) return <UploadButton onFile={upload} label="올리기" />;
-  return <StatusPill tone="muted" label="미등록" />;
+  const pill = original ? <StatusPill tone="normal" label="등록" /> : <StatusPill tone="muted" label="미등록" />;
+  if (canUpload)
+    return (
+      <div className="flex items-center gap-2 whitespace-nowrap">
+        {pill}
+        <UploadButton onFile={upload} label="업로드" />
+      </div>
+    );
+  return pill;
 }
 
 const STATE_TONE = { DRAFT: 'muted', BILLED: 'warning', PAID: 'normal' } as const;
@@ -333,7 +338,7 @@ function BillingScreen({ kind }: { kind: Kind }) {
   const originalCol: Column<Bill> = {
     key: 'original',
     header: 'PDF',
-    width: '110px',
+    width: role.isAdmin ? '200px' : '110px',
     render: (s) => <OriginalCell s={s} />,
   };
   // 기업 계정 — 한 달 한 줄이라 표에 다 보이고, 줄을 누르면 상세(문서 · PDF)
@@ -369,12 +374,6 @@ function BillingScreen({ kind }: { kind: Kind }) {
           },
           { key: 'vat', header: '세액', width: '120px', sortable: true, sortValue: (s: Bill) => s.vat, render: (s: Bill) => cellMuted(fmtKrw(s.vat)) },
           { key: 'total', header: '합계', width: '130px', sortable: true, sortValue: (s: Bill) => s.total, render: (s: Bill) => cellStrong(fmtKrw(s.total)) },
-          {
-            key: 'issue',
-            header: '발행일',
-            width: '120px',
-            render: (s: Bill) => cellMuted(issueDateOf(s.period)),
-          },
           originalCol,
         ]
       : [
@@ -424,10 +423,8 @@ function BillingScreen({ kind }: { kind: Kind }) {
       sortValue: (s) => s.total,
       render: (s) => cellNum(fmtKrw(s.total)),
     },
-    kind === 'TAX'
-      ? { key: 'issue', header: '발행일', width: '120px', render: (s) => cellMuted(issueDateOf(s.period)) }
-      : { key: 'status', header: '상태', width: '110px', render: (s) => <StatePill s={s} /> },
-    ...(kind === 'TAX' ? [originalCol] : []),
+    // 세금계산서는 날짜 칸 없음 — 발행은 홈택스, 우리는 PDF 등록만(2026-11-19 사용자: 굳이 필요 없으면 뺌)
+    kind === 'TAX' ? originalCol : { key: 'status', header: '상태', width: '110px', render: (s) => <StatePill s={s} /> },
   ];
   const columns = role.isAdmin ? sideColumns : fullColumns;
   const sel = list.find((s) => s.id === selId) ?? list[0];
@@ -593,7 +590,6 @@ function BillingDetailScreen({ kind }: { kind: Kind }) {
                   <Info label="단가" value={`₩${fmtNum(s.smpUnitPrice, 1)}/kWh`} />
                   <div />
                   <Info label="작성일" value={writtenDateOf(s.period)} />
-                  <Info label="발행일" value={issueDateOf(s.period)} />
                 </div>
               </SectionCard>
             </>

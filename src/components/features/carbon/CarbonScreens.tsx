@@ -399,9 +399,9 @@ function FormModal({ board, f, open, onClose }: { board: string; f?: CarbonForm;
     if (!picked) return;
     const k = kindOf(picked.name);
     if (!k || !kinds.includes(k)) {
-      return toast('error', `${kinds.map((k) => KIND_LABEL[k]).join(', ')} 파일만 올릴 수 있습니다`);
+      return toast('error', `${kinds.map((k) => KIND_LABEL[k]).join(', ')} 파일만 업로드할 수 있습니다`);
     }
-    if (picked.size > MAX_MB * 1024 * 1024) return toast('error', `${MAX_MB}MB 이하 파일만 올릴 수 있습니다`);
+    if (picked.size > MAX_MB * 1024 * 1024) return toast('error', `${MAX_MB}MB 이하 파일만 업로드할 수 있습니다`);
     setFile(picked);
   };
   // 추가는 전부 필수, 업로드는 새 파일 또는(이미 올린 서식의) 시행일만 고치기
@@ -517,7 +517,7 @@ function FormModal({ board, f, open, onClose }: { board: string; f?: CarbonForm;
             toast('success', `${f.title} 문서를 삭제했습니다`);
           }}
           title="문서 삭제"
-          message={f.custom ? `'${f.title}'을(를) 지웁니다. 올린 파일도 함께 지워집니다.` : `'${f.title}'을(를) 이 화면 문서 목록에서 지웁니다.`}
+          message={f.custom ? `'${f.title}'을(를) 지웁니다. 업로드한 파일도 함께 지워집니다.` : `'${f.title}'을(를) 이 화면 문서 목록에서 지웁니다.`}
           confirmLabel="삭제"
           variant="danger"
         />

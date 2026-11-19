@@ -29,8 +29,8 @@ export function useTaxOriginal(contractId: number, period: string) {
   );
   const upload = (f: File | undefined) => {
     if (!f || !taxDoc) return;
-    if (f.type !== 'application/pdf') return addToast('error', 'PDF 파일만 올릴 수 있습니다');
-    if (f.size > 3 * 1024 * 1024) return addToast('error', '3MB 이하 파일만 올릴 수 있습니다');
+    if (f.type !== 'application/pdf') return addToast('error', 'PDF 파일만 업로드할 수 있습니다');
+    if (f.size > 3 * 1024 * 1024) return addToast('error', '3MB 이하 파일만 업로드할 수 있습니다');
     const r = new FileReader();
     r.onload = () => {
       attach(taxDoc.id, {
@@ -40,7 +40,7 @@ export function useTaxOriginal(contractId: number, period: string) {
         by: role.companyName,
         at: new Date().toLocaleString('sv-SE').slice(0, 16),
       });
-      addToast('success', `${period} 세금계산서 PDF 를 올렸습니다`);
+      addToast('success', `${period} 세금계산서 PDF를 업로드했습니다`);
     };
     r.readAsDataURL(f);
   };
@@ -85,7 +85,7 @@ export function UploadButton({
 }
 
 function TaxOriginalPaper({ contract: c, period }: { contract: Contract; period: string }) {
-  const { original, upload, canUpload } = useTaxOriginal(c.id, period);
+  const { original } = useTaxOriginal(c.id, period);
   return (
     <div className="min-w-0 overflow-hidden rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] md:sticky md:top-4">
       <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-3">
@@ -96,7 +96,6 @@ function TaxOriginalPaper({ contract: c, period }: { contract: Contract; period:
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {canUpload && original && <UploadButton onFile={upload} label="PDF 바꾸기" />}
           {original && (
             <a href={original.url} download={original.name}>
               <Button size="sm" variant="secondary">
@@ -117,7 +116,6 @@ function TaxOriginalPaper({ contract: c, period }: { contract: Contract; period:
         <div className="flex flex-col items-center justify-center gap-4 px-6 py-24 text-center">
           <FileText size={32} className="text-slate-600" />
           <p className="text-sm text-slate-400">PDF 미등록</p>
-          {canUpload && <UploadButton onFile={upload} label="PDF 올리기" size="md" />}
         </div>
       )}
     </div>

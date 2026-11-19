@@ -327,7 +327,7 @@ export default function OrgInfoPage() {
                       const f = e.target.files?.[0];
                       if (f) {
                         if (f.size > 3 * 1024 * 1024) {
-                          addToast('error', '3MB 이하 파일만 올릴 수 있습니다');
+                          addToast('error', '3MB 이하 파일만 업로드할 수 있습니다');
                         } else {
                           setPendingLicense(f.name);
                           // 관리자가 검토 창에서 열어 볼 수 있게 파일을 그대로 담는다
@@ -340,7 +340,7 @@ export default function OrgInfoPage() {
                     }}
                   />
                   <Button size="sm" onClick={() => fileRef.current?.click()}>
-                    <Upload size={14} className="mr-1.5" /> 새 등록증 올리기
+                    <Upload size={14} className="mr-1.5" /> 업로드
                   </Button>
                   {pendingLicense && <span className="text-sm text-slate-300">{pendingLicense}</span>}
                 </>

@@ -126,9 +126,9 @@ function SheetBody({ doc, contract: c, change }: { doc: TradeDocument; contract:
           <Rows
             rows={[
               ['작성일', writtenDateOf(period)],
-              ['발행일', issueDateOf(period)],
               ...(doc.category === 'INVOICE'
                 ? ([
+                    ['발행일', issueDateOf(period)],
                     ['납부 기한', dueDateOf(period)],
                     ['상태', BILLING_LABEL[billingStatusOf(period)]],
                   ] as [string, string][])

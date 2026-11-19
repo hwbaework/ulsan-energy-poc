@@ -88,7 +88,7 @@ const iconBtn = 'inline-flex rounded-md p-1.5 text-slate-400 hover:bg-white/[0.0
 
 /**
  * 문서 관리 — 전력거래에서 생긴 문서만 모아 본다(계약서 · 청구서 · 세금계산서 · 변경 합의서 · 해지 합의서).
- * 여기서 등록하지 않는다 — 각자 전자서명 · 발행 · 청구서의 세금계산서 원본 올리기에서 들어온다.
+ * 여기서 등록하지 않는다 — 각자 전자서명 · 청구서 발행 · 세금계산서 원본 업로드에서 들어온다.
  * 왼쪽 폴더(전체 · 카테고리 · 기업별), 오른쪽 문서 표(다른 화면과 같은 표 · 검색). 줄을 누르면 보기, 오른쪽 끝 PDF.
  * ?company=기업 번호 로 기업 폴더를 열 수 있다.
  */
@@ -110,7 +110,7 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
 
   const docs = useMemo<Row[]>(
     () =>
-      // 세금계산서는 플랫폼이 만들지 않는다 — 기업이 원본을 올린 달만 문서
+      // 세금계산서는 플랫폼이 만들지 않는다 — 관리자가 홈택스 원본을 올린 달만 문서, 날짜는 올린 날(등록일)
       role.documents.filter(isShown).flatMap((d) => {
         if (d.category === 'TAX' && !d.original) return [];
         // 청구서는 발행된 것부터 기업에 보인다(작성 중은 관리자만)
@@ -128,7 +128,8 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
           : d.category === 'SIGNED' || d.category === 'CHANGE' || d.category === 'TERMINATE'
             ? `${label}_${c.no}_${c.consumerCompanyName}.pdf`
             : `${label}_${p}_${c.consumerCompanyName}.pdf`;
-        return [{ ...d, company: c.consumerCompanyName, companyId: c.consumerCompanyId, contract: c, name }];
+        const issuedAt = d.category === 'TAX' && d.original ? d.original.at.slice(0, 10) : d.issuedAt;
+        return [{ ...d, issuedAt, company: c.consumerCompanyName, companyId: c.consumerCompanyId, contract: c, name }];
       }),
     [role.documents, role.contracts, role.isAdmin, invoices],
   );
@@ -203,17 +204,17 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
       sortable: true,
       sortValue: (d) => d.name,
       render: (d) => (
-        <div className="min-w-0">
-          <p className="whitespace-nowrap text-sm text-white">{d.name}</p>
-          {d.contract && <p className="truncate text-xs text-slate-300">{kindLabel(d.contract.kind)}</p>}
-        </div>
+        <p className="whitespace-nowrap text-sm text-white">{d.name}</p>
       ),
     },
+    // 계약 유형 — 파일 이름 아래 둘째 줄이 아니라 칸 하나(칸 하나에 값 하나, 2026-11-19 사용자)
+    { key: 'kind', header: '계약 유형', width: '100px', render: (d) => cell(d.contract ? kindLabel(d.contract.kind) : '') },
     { key: 'cat', header: '카테고리', width: '100px', render: (d) => cell(CATEGORY_META[d.category].label) },
     ...(role.isAdmin ? [{ key: 'company', header: '기업', width: '110px', render: (d: Row) => cell(d.company) }] : []),
     {
+      // 등록일 — 문서 관리에 들어온 날. 세금계산서는 홈택스 발행이라 '발행일'이 아니고 관리자가 업로드한 날(2026-11-19 사용자)
       key: 'issued',
-      header: '발행일',
+      header: '등록일',
       width: '130px',
       sortable: true,
       sortValue: (d) => d.issuedAt,
