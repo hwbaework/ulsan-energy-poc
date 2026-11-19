@@ -316,7 +316,7 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
         {/* 진행 이력 — 전자서명 전에는 아래 */}
         {!showSign && (
           <SectionCard title="진행 이력">
-            <EventTimeline events={ch.events ?? []} />
+            <EventTimeline events={ch.events ?? []} companyName={c.consumerCompanyName} signs={{ spc: ch.spcSign, company: ch.companySign }} />
           </SectionCard>
         )}
       </div>
@@ -324,7 +324,7 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
       {/* 오른쪽 — 거래와 같게: 신청 · 조건 단계는 협의 채팅, 전자서명부터는 채팅 없이 진행 이력(2026-10-14) */}
       {showSign ? (
         <SectionCard title="진행 이력" className="lg:sticky lg:top-6">
-          <EventTimeline events={ch.events ?? []} />
+          <EventTimeline events={ch.events ?? []} companyName={c.consumerCompanyName} signs={{ spc: ch.spcSign, company: ch.companySign }} />
         </SectionCard>
       ) : (
         <ChangeChat ch={ch} canSend={open && (role.isAdmin || isCompany)} />
@@ -408,8 +408,6 @@ function ChangeTermsCard({ ch, c, onReject }: { ch: ContractChange; c: Contract;
   const valid = keys.every((k) => inLim(Number(d[k]) || 0, TERM_LIM_OF[k]));
   const draftTerms: ChangeTerms = { ...shown, termYears: Number(d.termYears) || 0, unitPrice: Number(d.unitPrice) || 0, omAnnual: Number(d.omAnnual) || 0 };
   const rows = termRows(c.kind, before, editing ? draftTerms : shown);
-  // 받은 쪽 — 조건 변경 전 값과 바뀐 칸은 '기존 → 새 값'
-  const prevRows = toAgree && ch.termsPrev ? termRows(c.kind, before, ch.termsPrev) : null;
 
   const state =
     ch.status === 'APPROVED'
@@ -490,12 +488,11 @@ function ChangeTermsCard({ ch, c, onReject }: { ch: ContractChange; c: Contract;
       {/* 거래 '신청 내용'과 같은 네모 칸(이름 위 · 값 아래). 연간 O&M 처럼 '현재 → 새 값'이 긴 금액이 잘리지 않게 두 칸씩, 값은 한 줄 */}
       <div className="grid grid-cols-2 gap-4">
         <Info label="진행" value={state} className="col-span-2" />
-        {rows.map((r, i) => {
+        {rows.map((r) => {
           const k = keyOfLabel[r.label]!;
           if (editing) return <div key={r.label}>{input(k)}</div>;
-          // 바뀐 칸 — '현재 → 새 값'. 새 값 노란색: 처음 신청은 바뀐 칸 전부, 조건 변경 뒤 받은 쪽은 이번에 고친 칸만(거래와 같음)
-          const prev = prevRows?.[i];
-          const hot = prevRows ? !!prev && prev.after !== r.after : r.changed;
+          // 지금 계약과 달라지는 칸은 모두 노란색 — 고쳐 보낸 것도 아직 동의 전(다시 보낸 기록은 진행 이력 · 협의 채팅)
+          const hot = r.changed;
           return (
             <Info
               key={r.label}

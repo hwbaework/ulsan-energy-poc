@@ -6,7 +6,7 @@
  * 변경 · 해지는 알림 이름에 자가소비 / PPA 가 없어 내용에 붙인다(한일튜브처럼 계약이 둘인 기업 구분).
  */
 import { useTradingPocStore } from '@/stores/useTradingPocStore';
-import { changeStateOf } from '@/components/features/trading-poc/meta';
+import { changeLabel, changeStateOf } from '@/components/features/trading-poc/meta';
 import type { Contract, ContractChange, TradeRequest } from '@/types/trading-poc';
 
 export interface GenNotif {
@@ -35,7 +35,7 @@ function fromRequest(r: TradeRequest, contracts: Contract[]): Omit<GenNotif, 'id
   const base = { link, createdAt: at, companyId: r.consumerCompanyId };
   if (r.status === 'SUBMITTED') {
     if (r.applicant === 'spc') return []; // 관리자가 대신 신청한 건은 관리자에게 알리지 않는다
-    return [{ ...base, type: `${pre}RECEIVED`, message: `${co} → 관리자 : ${kw(r.capacityKw)} 신청` }];
+    return [{ ...base, type: `${pre}RECEIVED`, message: `${co} → 관리자 : ${kw(r.capacityKw)} 신청, 확인` }];
   }
   if (r.status === 'REVIEW' && r.termsConfirmedAt) {
     const byAdmin = (r.termsConfirmedBy ?? 'spc') === 'spc';
@@ -53,7 +53,7 @@ function fromRequest(r: TradeRequest, contracts: Contract[]): Omit<GenNotif, 'id
     const c = contracts.find((x) => x.id === r.contractId);
     const signedAt = c?.signedAt ?? r.updatedAt;
     if (Date.now() - new Date(signedAt).getTime() > SIGNED_NEW_DAYS * 86_400_000) return []; // 승인 알림은 신규(7일 안)만
-    return [{ ...base, link: `/view?id=${r.id}`, createdAt: signedAt, type: `${pre}APPROVED`, message: `관리자 → ${co} : ${kw(r.capacityKw)} 승인` }];
+    return [{ ...base, link: `/view?id=${r.id}`, createdAt: signedAt, type: `${pre}APPROVED`, message: `${co} · 관리자 : ${kw(r.capacityKw)} 승인` }]; // 승인은 결과라 양쪽 모두(2026-11-19 사용자)
   }
   if (r.status === 'REJECTED' || r.status === 'CANCELLED') {
     const e = [...r.events].reverse().find((x) => x.label === '반려');
@@ -64,7 +64,7 @@ function fromRequest(r: TradeRequest, contracts: Contract[]): Omit<GenNotif, 'id
   return [];
 }
 
-/** 변경 · 해지 — 신청 · 변경 동의 / 해지 동의 · 변경 조건 확정 · 전자서명 · 승인 / 해지 승인 · 반려 */
+/** 변경 · 해지 — 신청 · 조건 변경 · 서명 요청 · 승인 · 반려(동의 알림 없음, 거래와 같음) */
 function fromChange(ch: ContractChange, contracts: Contract[]): Omit<GenNotif, 'id'>[] {
   const c = contracts.find((x) => x.id === ch.contractId);
   if (!c) return [];
@@ -73,8 +73,9 @@ function fromChange(ch: ContractChange, contracts: Contract[]): Omit<GenNotif, '
   const kindKey = c.kind === 'ONSITE' ? 'PPA' : 'SELF';
   const pre = `${kindKey}_CONTRACT_${term ? 'TERMINATION' : 'CHANGE'}_`;
   const co = c.consumerCompanyName;
-  // 제목에 계약 유형(PPA 변경 신청), 내용은 거래처럼 용량(한일튜브 → 관리자 : 329.6 kW 변경 신청) — 같은 말 두 번 쓰지 않게
-  const what = `${kw(c.capacityKw)} ${term ? '해지' : '변경'}`;
+  // 내용 — 변경은 바뀐 항목(구분 칸과 같은 말: 기간 · 단가 · O&M), 해지는 용량. 제목에 계약 유형이 있다('변경 신청 (자가소비)')
+  const items = term ? kw(c.capacityKw) : changeLabel(ch, c.kind).replace(/ 변경$/, '');
+  const what = `${items} ${term ? '해지' : '변경'}`;
   const reqAdmin = ch.requestedBy === 'spc';
   const [req, recv] = reqAdmin ? ['관리자', co] : [co, '관리자'];
   const base = { link: `/view?id=${ch.id}`, createdAt: lastAt(ch.events, ch.requestedAt), companyId: c.consumerCompanyId };
@@ -85,27 +86,25 @@ function fromChange(ch: ContractChange, contracts: Contract[]): Omit<GenNotif, '
     if (!term && ch.stage === 'TERMS') {
       // 조건 변경으로 고치는 중 — 알림 없음(고쳐서 조건 확정하면 상대에게 간다)
     } else if (sender === ch.requestedBy && !ch.termsPrev) {
-      out.push({ ...base, createdAt: ch.requestedAt, type: `${pre}REQUEST`, message: `${req} → ${recv} : ${what} 신청` }); // 신청은 거래 신청처럼 꼬리 없이
+      out.push({ ...base, createdAt: ch.requestedAt, type: `${pre}REQUEST`, message: `${req} → ${recv} : ${what} 신청, 확인` }); // 받는 쪽이 할 일이 있는 알림은 모두 꼬리 '확인'(보낸 쪽 화면은 '대기') — 신청 · 조건 확정 · 조건 변경 · 전자서명 통일(2026-11-19 사용자)
     } else {
-      // 조건 변경으로 고쳐 다시 조건 확정 — 거래와 같은 '조건 변경, 확인'(신청한 쪽이 고쳐도 같다)
+      // 받은 쪽이 고쳐 다시 보냄 — 제목 '조건 변경 (자가소비)', 처음 신청('변경 신청')과 글자를 달리(2026-11-19 사용자)
       const [from, to] = sender === 'spc' ? ['관리자', co] : [co, '관리자'];
-      out.push({ ...base, type: `${kindKey}_CONTRACT_CHANGE_TERMS`, message: `${from} → ${to} : ${what} 조건 변경, 확인` });
+      out.push({ ...base, type: `${kindKey}_CONTRACT_CHANGE_TERMS`, message: `${from} → ${to} : ${items} 조건 변경, 확인` });
     }
   }
   if (st === '전자서명') {
-    // 받는 쪽이 동의한 뒤 서명이 시작된다(변경 동의 · 해지 동의)
-    const agreed = [...(ch.events ?? [])].reverse().find((e) => e.label === '해지 동의' || e.label === '변경 동의');
-    if (agreed) {
-      const [from, to] = agreed.by === 'spc' ? ['관리자', co] : [co, '관리자'];
-      out.push({ ...base, createdAt: agreed.at, type: `${pre}AGREED`, message: `${from} → ${to} : ${what} 동의` });
-    }
+    // 동의 알림은 없다 — 거래처럼 동의하면 바로 서명 요청(2026-11-19 사용자: 누가 신청했든 신청 → 서명 요청)
     if (!!ch.spcSign !== !!ch.companySign) {
       const [from, to] = ch.spcSign ? ['관리자', co] : [co, '관리자'];
       out.push({ ...base, type: `${pre}SIGN`, message: `${from} → ${to} : ${what} 전자서명, 확인` });
     }
   }
-  if (st === '승인') out.push({ ...base, type: `${pre}APPROVED`, message: `관리자 → ${co} : ${what} 승인` });
-  if (st === '해지') out.push({ ...base, type: `${pre}APPROVED`, message: `관리자 → ${co} : ${what} 승인` });
+  // 승인 — 결과라 양쪽 모두(관리자 · 기업, 2026-11-19 사용자). 방향 없이 '기업 · 관리자'
+  if (st === '승인' || st === '해지') {
+    const last = [ch.spcSign?.at, ch.companySign?.at].filter(Boolean).sort().pop();
+    out.push({ ...base, createdAt: last ?? base.createdAt, type: `${pre}APPROVED`, message: `${co} · 관리자 : ${what} 승인` });
+  }
   if (st === '반려') {
     const e = [...(ch.events ?? [])].reverse().find((x) => x.label === '반려');
     const byAdmin = !e || e.by === 'spc';

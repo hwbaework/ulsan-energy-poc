@@ -967,8 +967,7 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
           rows: lines.map((l) => [l.at, `${fmt(l.kwh)} kWh`, `${fmt(l.tco2, 3)} tCO₂eq`, `${fmt(l.acc, 3)} tCO₂eq`]),
         },
       ],
-      note: `통합관제에서 수집한 발전 이력에 전력 배출계수를 곱해 ${isYear ? '연' : '월'} 단위로 집계한 보고서입니다. ${isYear ? '연' : '월'} 마감 후 자동 생성됩니다.
-화석에너지 대체 = 발전량 ${fmtT(sum.mwh)} MWh × ${fx.toe} TOE/MWh = ${fmtT(sum.toe)} TOE
+      note: `화석에너지 대체 = 발전량 ${fmtT(sum.mwh)} MWh × ${fx.toe} TOE/MWh = ${fmtT(sum.toe)} TOE
 소나무 식재 = 감축량 ${fmtT(sum.tco2)} tCO₂eq × ${fx.pine} 그루/tCO₂eq = ${fmt(sum.pine)} 그루`,
     };
   };

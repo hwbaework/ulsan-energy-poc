@@ -25,6 +25,7 @@ import { TradeApprovalDetailScreen } from './TradeApprovalsScreen';
 import { KIND_OPTIONS, PARTY_LABEL, TERM_LIM, fmtDate, fmtDateTime, fmtKw, fmtNum, inLim, kindLabel, numIn } from './meta';
 import {
   EventTimeline,
+  signsOfContract,
   Info,
   ModalFooter,
   PageHeader,
@@ -293,6 +294,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
   const cancelConfirm = useTradingPocStore((s) => s.cancelConfirm);
 
   const active = IN_TALK.includes(r.status);
+  const contractOfReq = useTradingPocStore((st) => st.contracts.find((x) => x.id === r.contractId));
   const isMine = isMineOf(role, r);
   const admin = role.isAdmin && active;
   // 접수(SUBMITTED): 조건 칸 없음 — 신청한 쪽은 신청 취소, 관리자는 미팅 확정 / 반려
@@ -533,7 +535,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
         </SectionCard>
 
         <SectionCard title="진행 이력">
-          <EventTimeline events={r.events} />
+          <EventTimeline events={r.events} companyName={r.consumerCompanyName} signs={signsOfContract(contractOfReq)} />
         </SectionCard>
       </div>
 

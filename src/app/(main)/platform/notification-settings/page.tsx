@@ -27,7 +27,7 @@ interface EventRow {
   /** 발생 조건 — 툴팁 */
   condition: string;
   domain: string;
-  /** 설정 묶음(자가소비 · 자가소비 변경 · 자가소비 해지 · PPA · PPA 변경 · PPA 해지) — 같은 묶음은 한 줄로 보이고 같이 켜고 끈다 */
+  /** 설정 묶음(자가소비 · PPA · 변경 · 해지) — 같은 묶음은 한 줄로 보이고 같이 켜고 끈다 */
   group: string | null;
   inApp: boolean;
   email: boolean;

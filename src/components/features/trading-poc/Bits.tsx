@@ -5,7 +5,7 @@ import { CheckCircle2, XCircle } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { StatusPill } from '@/components/ui/Design';
 import { cn } from '@/lib/utils';
-import type { ChangeStatus, ContractStatus, TradeEvent, TradeRequest, TradeRequestStatus } from '@/types/trading-poc';
+import type { ChangeSign, ChangeStatus, Contract, ContractStatus, SignMark, TradeEvent, TradeRequest, TradeRequestStatus } from '@/types/trading-poc';
 import {
   CHANGE_STATUS,
   CHANGE_STATE_TONE,
@@ -188,29 +188,67 @@ export function TradeStepper({
 }
 
 /* ── 진행 이력 ── */
-export function EventTimeline({ events }: { events: TradeEvent[] }) {
+/**
+ * 진행 이력 — 누가 했는지는 관리자 / 기업명(companyName 을 주면, 2026-11-19 사용자: '· 기업' 대신 '· 용인금속').
+ * 전자서명 줄은 글자('김관리 서명') 대신 서명 그 자체(그린 서명 이미지 또는 서명체 이름) + 이름 (회사) — signs 를 주면
+ */
+export function EventTimeline({
+  events,
+  companyName,
+  signs,
+}: {
+  events: TradeEvent[];
+  companyName?: string;
+  signs?: { spc?: ChangeSign; company?: ChangeSign };
+}) {
   const sorted = events
     .map((e, i) => ({ e, i }))
     .sort((a, b) => b.e.at.localeCompare(a.e.at) || b.i - a.i)
     .map((x) => x.e);
   if (sorted.length === 0) return <p className="text-sm text-slate-500">이력 없음</p>;
+  const who = (by: TradeEvent['by']) => (by === 'spc' || !companyName ? PARTY_LABEL[by] : companyName);
   return (
     <ol className="space-y-3">
-      {sorted.map((e, i) => (
-        <li key={`${e.at}-${i}`} className="flex gap-3">
-          <span className={cn('mt-1.5 h-2 w-2 rounded-full shrink-0', i === 0 ? 'bg-primary' : 'bg-slate-600')} />
-          <div className="min-w-0">
-            <p className="text-sm text-white">
-              {e.label} <span className="text-slate-500">· {PARTY_LABEL[e.by]}</span>
-            </p>
-            {e.note && <p className="text-sm text-slate-400 mt-0.5">{e.note}</p>}
-            <p className="text-xs text-slate-300 tabular-nums mt-0.5">{fmtDateTime(e.at)}</p>
-          </div>
-        </li>
-      ))}
+      {sorted.map((e, i) => {
+        const sign = e.label === '전자서명' ? (e.by === 'spc' ? signs?.spc : signs?.company) : undefined;
+        return (
+          <li key={`${e.at}-${i}`} className="flex gap-3">
+            <span className={cn('mt-1.5 h-2 w-2 rounded-full shrink-0', i === 0 ? 'bg-primary' : 'bg-slate-600')} />
+            <div className="min-w-0">
+              <p className="text-sm text-white">
+                {e.label} <span className="text-slate-500">· {who(e.by)}</span>
+              </p>
+              {sign ? (
+                <div className="mt-1">
+                  <div className="flex h-12 w-40 items-center justify-center rounded-md bg-[#0d1520] ring-1 ring-white/[0.08]">
+                    {sign.image ? (
+                      <img src={sign.image} alt={`${sign.name} 서명`} className="h-full object-contain" />
+                    ) : (
+                      <span className="text-xl text-white" style={{ fontFamily: "'Nanum Pen Script', 'Gaegu', cursive" }}>
+                        {sign.name}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-sm text-slate-300">
+                    {sign.name} ({who(e.by)}) · {sign.image ? '직접 서명' : '이름 입력'}
+                  </p>
+                </div>
+              ) : (
+                e.note && <p className="text-sm text-slate-400 mt-0.5">{e.note}</p>
+              )}
+              <p className="text-xs text-slate-300 tabular-nums mt-0.5">{fmtDateTime(e.at)}</p>
+            </div>
+          </li>
+        );
+      })}
     </ol>
   );
 }
+
+/** 거래 계약의 서명(SignMark) → 진행 이력 서명 표시 */
+const markToSign = (m?: SignMark): ChangeSign | undefined =>
+  m ? { at: m.at, name: m.person ?? m.typedName ?? '', image: m.method === 'draw' ? m.image : undefined } : undefined;
+export const signsOfContract = (c?: Contract) => ({ spc: markToSign(c?.signMarkGenerator), company: markToSign(c?.signMarkConsumer) });
 
 /** 모달 하단 버튼 줄 */
 export function ModalFooter({ children }: { children: ReactNode }) {

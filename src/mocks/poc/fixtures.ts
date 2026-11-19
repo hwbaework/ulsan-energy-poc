@@ -294,25 +294,23 @@ const NOTIFICATION_MESSAGE: Record<string, string> = {
   SAFETY_WARNING: '한일튜브 인버터 #1 — 전기안전지수 경고',
   SAFETY_FIRE: '용인금속 인버터 #1 — 화재 징후',
   SAFETY_CAUTION: '태성산업 인버터 #1 — 전기안전지수 주의',
-  TRADING_SELF_RECEIVED: '한길 → 관리자 : 90.88 kW 신청',
+  TRADING_SELF_RECEIVED: '한길 → 관리자 : 90.88 kW 신청, 확인',
   TRADING_SELF_TERMS: '관리자 → 태성산업 : 46.08 kW 조건 확정, 확인',
   TRADING_SELF_UNCONFIRMED: '용인금속 → 관리자 : 152.32 kW 조건 변경, 확인',
   TRADING_SELF_SIGN: '한길 → 관리자 : 90.88 kW 전자서명, 확인',
-  TRADING_SELF_APPROVED: '관리자 → 건호이엔씨 : 33.92 kW 승인',
+  TRADING_SELF_APPROVED: '건호이엔씨 · 관리자 : 33.92 kW 승인',
   TRADING_SELF_REJECTED: '관리자 → 건호이엔씨 : 33.92 kW 반려',
-  TRADING_PPA_RECEIVED: '한일튜브 → 관리자 : 50 kW 신청',
+  TRADING_PPA_RECEIVED: '한일튜브 → 관리자 : 50 kW 신청, 확인',
   TRADING_PPA_TERMS: '관리자 → 한일튜브 : 329.6 kW 조건 확정, 확인',
   TRADING_PPA_UNCONFIRMED: '한일튜브 → 관리자 : 329.6 kW 조건 변경, 확인',
   TRADING_PPA_SIGN: '한일튜브 → 관리자 : 200 kW 전자서명, 확인',
-  TRADING_PPA_APPROVED: '관리자 → 한일튜브 : 329.6 kW 승인',
+  TRADING_PPA_APPROVED: '한일튜브 · 관리자 : 329.6 kW 승인',
   TRADING_PPA_REJECTED: '한일튜브 → 관리자 : 200 kW 반려',
   PPA_CONTRACT_CHANGE_REQUEST: '한길 → 관리자 : 기간 변경 신청',
-  PPA_CONTRACT_CHANGE_AGREED: '관리자 → 한일튜브 : 단가 변경 동의',
   PPA_CONTRACT_CHANGE_SIGN: '태성산업 → 관리자 : O&M 변경 전자서명, 확인',
   PPA_CONTRACT_CHANGE_APPROVED: '관리자 → 한일튜브 : O&M 변경 승인',
   PPA_CONTRACT_CHANGE_REJECTED: '관리자 → 한일튜브 : 기간 변경 반려',
   PPA_CONTRACT_TERMINATION_REQUEST: '한일튜브 → 관리자 : 해지 신청',
-  PPA_CONTRACT_TERMINATION_AGREED: '관리자 → 용인금속 : 해지 동의',
   PPA_CONTRACT_TERMINATION_SIGN: '관리자 → 용인금속 : 해지 전자서명, 확인',
   PPA_CONTRACT_TERMINATION_APPROVED: '관리자 → 한길 : 해지 승인',
   PPA_CONTRACT_TERMINATION_REJECTED: '관리자 → 태성산업 : 해지 반려',
@@ -343,12 +341,10 @@ const NOTIFICATION_TARGET: Record<string, string> = {
   TRADING_PPA_APPROVED: '/view?id=1',
   TRADING_PPA_REJECTED: '/view?id=19',
   PPA_CONTRACT_CHANGE_REQUEST: '/view?id=8',
-  PPA_CONTRACT_CHANGE_AGREED: '/view?id=1',
   PPA_CONTRACT_CHANGE_SIGN: '/view?id=10',
   PPA_CONTRACT_CHANGE_APPROVED: '/view?id=6',
   PPA_CONTRACT_CHANGE_REJECTED: '/view?id=3',
   PPA_CONTRACT_TERMINATION_REQUEST: '/view?id=15',
-  PPA_CONTRACT_TERMINATION_AGREED: '/view?id=14',
   PPA_CONTRACT_TERMINATION_SIGN: '/view?id=14',
   PPA_CONTRACT_TERMINATION_APPROVED: '/view?id=13',
   PPA_CONTRACT_TERMINATION_REJECTED: '/view?id=16',
@@ -387,9 +383,15 @@ const myNotifications = () => {
   const sample = NOTIFICATIONS.filter((n) => !GENERATED_KEYS.has(n.type) && allowed(n.type))
     .filter((n) => account !== 'generator' || !RE100_KEYS.has(n.type) || !!GENERATOR_BILLING[n.type])
     .map((n) => (account === 'generator' && GENERATOR_BILLING[n.type] ? { ...n, ...GENERATOR_BILLING[n.type] } : n));
-  // 2. 거래 · 변경 · 해지 — 데모 건마다 하나씩(목록의 줄과 1:1). 발전사업자는 한일튜브 건만
+  // 2. 거래 · 변경 · 해지 — 데모 건마다 하나씩(목록의 줄과 1:1). 받는 쪽에만 — 내가 보낸 일은 내 알림에 오지 않는다(2026-11-19 사용자, 메일도 같음)
+  const me = account === 'admin' ? '관리자' : account === 'generator' ? '한일튜브' : '한길';
   const generated = buildRe100Notifications()
     .filter((g) => allowed(g.type) && (account !== 'generator' || g.companyId === HANIL_ID))
+    .filter((g) => {
+      const head = g.message.split(' : ')[0] ?? '';
+      // 승인은 양쪽 모두('한일튜브 · 관리자'), 나머지는 화살표 뒤(받는 쪽)만
+      return head.includes(' → ') ? head.split(' → ')[1] === me : head.split(' · ').includes(me);
+    })
     .map((g) => ({
       id: g.id,
       type: g.type,
@@ -402,12 +404,7 @@ const myNotifications = () => {
   // 항목표 순서(묶음)대로, 같은 종류 안에서는 최근 것부터
   const order = new Map(NOTIFICATION_CATALOG.map((e, i) => [e.key, i]));
   return [...sample, ...generated]
-    .sort((x, y) => (order.get(x.type) ?? 0) - (order.get(y.type) ?? 0) || y.createdAt.localeCompare(x.createdAt))
-    // 보는 사람 기준 — 화살표 앞이 나면 내가 보낸 것이라 '대기', 뒤가 나면 받은 것이라 '확인'(2026-11-18 사용자: 목록의 확인 / 대기와 같은 기준)
-    .map((n) => {
-      const me = account === 'admin' ? '관리자' : account === 'generator' ? '한일튜브' : '한길';
-      return n.message.startsWith(`${me} →`) && n.message.endsWith(', 확인') ? { ...n, message: n.message.replace(/, 확인$/, ', 대기') } : n;
-    });
+    .sort((x, y) => (order.get(x.type) ?? 0) - (order.get(y.type) ?? 0) || y.createdAt.localeCompare(x.createdAt));
 };
 registerMock(/^\/notifications\/unread-count$/, () => myNotifications().filter((n) => !n.isRead).length);
 registerMock(/^\/notifications\/read-all$/, () => {
