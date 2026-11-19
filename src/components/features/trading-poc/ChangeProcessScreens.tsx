@@ -18,7 +18,6 @@ import type { ChangeSign, ChangeTerms, Contract, ContractChange, TradeDocument }
 import { useTradingRole } from './useTradingRole';
 import { TERM_LIM, changeLabel, fmtDateTime, inLim, kindLabel, numIn, termRows } from './meta';
 import { EventTimeline, Info, ModalFooter, StepBar, TEXT_MAX } from './Bits';
-import { changeText } from './ChangeDetailModal';
 import { DocumentSheet, printSheet } from './DocumentSheet';
 import { useLocationSearch } from '@/lib/use-location-search';
 
@@ -289,15 +288,16 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
           />
         )}
 
-        <SectionCard title={<Direction fromSpc={fromSpc} company={c.consumerCompanyName} />} actions={actions}>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <Info label="구분" value={typeLabel} />
-            <Info label="내용" value={changeText(ch, c.kind)} />
-            {ch.type === 'TERMINATE' && <Info label="계약 종료일" value={c.endDate} />}
-            <Info label="사유" value={ch.reason} className="md:col-span-3" />
-            {ch.status === 'REJECTED' && <Info label="반려 사유" value={ch.decisionNote} className="md:col-span-3" />}
-          </div>
-        </SectionCard>
+        {/* 해지 — 신청 카드(계약 종료일 · 사유). 구분은 제목에, 변경은 사유까지 변경 조건 카드 안에 있어 이 카드가 없다(2026-11-18 사용자) */}
+        {ch.type === 'TERMINATE' && (
+          <SectionCard title={<Direction fromSpc={fromSpc} company={c.consumerCompanyName} />} actions={actions}>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <Info label="계약 종료일" value={c.endDate} />
+              <Info label="사유" value={ch.reason} className="md:col-span-3" />
+              {ch.status === 'REJECTED' && <Info label="반려 사유" value={ch.decisionNote} className="md:col-span-3" />}
+            </div>
+          </SectionCard>
+        )}
 
         {/* 합의서 문서 — 계약서처럼. 전자서명 단계부터 초안, 양측 서명 뒤 서명본(문서 관리에도 남는다) */}
         {showSign && (
@@ -487,9 +487,9 @@ function ChangeTermsCard({ ch, c, onReject }: { ch: ContractChange; c: Contract;
 
   return (
     <SectionCard title="변경 조건" actions={actions}>
-      {/* 거래 '신청 내용'과 같은 네모 칸(이름 위 · 값 아래, 세 칸씩). 고칠 때는 그 칸이 이름 붙은 입력으로 */}
-      <div className="grid grid-cols-3 gap-4">
-        <Info label="진행" value={state} className="col-span-3" />
+      {/* 거래 '신청 내용'과 같은 네모 칸(이름 위 · 값 아래). 연간 O&M 처럼 '현재 → 새 값'이 긴 금액이 잘리지 않게 두 칸씩, 값은 한 줄 */}
+      <div className="grid grid-cols-2 gap-4">
+        <Info label="진행" value={state} className="col-span-2" />
         {rows.map((r, i) => {
           const k = keyOfLabel[r.label]!;
           if (editing) return <div key={r.label}>{input(k)}</div>;
@@ -502,16 +502,18 @@ function ChangeTermsCard({ ch, c, onReject }: { ch: ContractChange; c: Contract;
               label={r.label}
               value={
                 r.changed ? (
-                  <span className="tabular-nums">
+                  <span className="whitespace-nowrap tabular-nums">
                     {r.before} → <span className={cn(hot ? 'font-bold text-amber-300' : 'font-semibold')}>{r.after}</span>
                   </span>
                 ) : (
-                  <span className="tabular-nums">{r.after}</span>
+                  <span className="whitespace-nowrap tabular-nums">{r.after}</span>
                 )
               }
             />
           );
         })}
+        <Info label="사유" value={ch.reason} className="col-span-2" />
+        {ch.status === 'REJECTED' && <Info label="반려 사유" value={ch.decisionNote} className="col-span-2" />}
       </div>
       {/* 조건 변경 — 관리자 · 기업 같은 확인창(거래 미팅과 같음). 이유는 협의 채팅으로 */}
       <ConfirmDialog

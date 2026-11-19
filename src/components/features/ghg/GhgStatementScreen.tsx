@@ -72,7 +72,13 @@ export function GhgStatementScreen() {
   const { data: es } = useEnergySettings();
   const form: GhgFormData | null = useMemo(() => {
     if (!sel || !f) return null;
+    // 일련번호 — 그 기업 안에서 등록된 순서로 고정(계약번호가 체결 순서): 배출시설은 계약 순서, 사업장은 그 주소의 첫 계약 순서. 해지된 계약도 번호를 차지해 번호가 바뀌지 않는다
+    const mine = role.facilities.filter((x) => x.companyId === f.companyId);
+    const facs = [...mine].sort((a, b) => a.contractNo.localeCompare(b.contractNo));
+    const sites = [...new Set(facs.map((x) => x.address))];
     return {
+      siteNo: sites.indexOf(f.address) + 1,
+      facilityNo: facs.findIndex((x) => x.id === f.id) + 1,
       month: sel.month,
       writtenAt: GHG_TODAY,
       company: {
@@ -88,14 +94,19 @@ export function GhgStatementScreen() {
         source: sourceOf(f.source).label,
         kw: sel.g.fs.reduce((a, x) => a + x.kw, 0),
         startDate: f.startDate,
+        installCost: f.kind === '자가소비' ? sel.g.fs.reduce((a, x) => a + x.installCost, 0) : 0,
         kwh: sel.kwh,
         tco2: sel.tco2,
+        toe: (sel.kwh / 1000) * fx.toe,
+        pine: sel.tco2 * fx.pine,
       },
       // 명세서는 한 달 — 그 달 적용년도의 계수
       co2Factor: fx.co2For(sel.month),
       co2Source: factorSource(es, 'CO2_EMISSION_FACTOR'),
+      toeFactor: fx.toe,
+      pineFactor: fx.pine,
     };
-  }, [sel, f, co, fx.co2Key, es]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sel, f, co, fx.co2Key, es, role.facilities]); // eslint-disable-line react-hooks/exhaustive-deps
   const html = form ? generateGhgStatementHtml(form) : '';
 
   return (

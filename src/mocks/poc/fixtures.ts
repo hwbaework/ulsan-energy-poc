@@ -362,7 +362,7 @@ const NOTIFICATIONS = NOTIFICATION_CATALOG.map((e, i) => {
   return { id: i + 1, type: e.key, title: e.name, message: NOTIFICATION_MESSAGE[e.key] ?? '', link: NOTIFICATION_TARGET[e.key], isRead: i >= 5, createdAt: at };
 });
 /** 데모 건에서 만드는 RE100 알림 종류 — 거래 · 변경 · 해지(청구서 · 세금계산서 · 정산은 항목표 샘플 그대로) */
-const GENERATED_KEYS = new Set(NOTIFICATION_CATALOG.filter((e) => /^(TRADING_|PPA_CONTRACT_)/.test(e.key)).map((e) => e.key));
+const GENERATED_KEYS = new Set(NOTIFICATION_CATALOG.filter((e) => /^(TRADING_|PPA_CONTRACT_|SELF_CONTRACT_)/.test(e.key)).map((e) => e.key));
 const RE100_KEYS = new Set(NOTIFICATION_CATALOG.filter((e) => e.domain === 'RE100').map((e) => e.key));
 /** 만든 알림의 읽음 표시 — 다시 만들어도 남게 id 로 */
 const READ_GENERATED = new Set<number>();
@@ -393,7 +393,7 @@ const myNotifications = () => {
     .map((g) => ({
       id: g.id,
       type: g.type,
-      title: NOTIFICATION_CATALOG.find((e) => e.key === g.type)?.name ?? g.type,
+      title: [g.titlePrefix, NOTIFICATION_CATALOG.find((e) => e.key === g.type)?.name ?? g.type].filter(Boolean).join(' '),
       message: g.message,
       link: g.link,
       isRead: READ_GENERATED.has(g.id),

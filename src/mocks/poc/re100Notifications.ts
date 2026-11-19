@@ -18,9 +18,10 @@ export interface GenNotif {
   createdAt: string;
   /** 이 알림에 걸린 기업 — 발전사업자 계정(한일튜브)은 자기 기업 건만 */
   companyId: number;
+  /** 제목 앞에 붙일 계약 유형 — 변경 · 해지는 'PPA 변경 신청'처럼(거래 'PPA 반려'와 같게, 2026-11-18 사용자) */
+  titlePrefix?: string;
 }
 
-const kindOf = (k: string) => (k === 'ONSITE' ? 'PPA' : '자가소비');
 const kw = (n: number) => `${n} kW`;
 const lastAt = (events?: { at: string }[], fallback = '') => (events?.length ? events[events.length - 1]!.at : fallback);
 const SIGNED_NEW_DAYS = 7;
@@ -68,9 +69,12 @@ function fromChange(ch: ContractChange, contracts: Contract[]): Omit<GenNotif, '
   const c = contracts.find((x) => x.id === ch.contractId);
   if (!c) return [];
   const term = ch.type === 'TERMINATE';
-  const pre = term ? 'PPA_CONTRACT_TERMINATION_' : 'PPA_CONTRACT_CHANGE_';
+  // 계약 유형마다 따로 — 자가소비 변경 신청 / PPA 변경 신청(이름에 유형이 들어 있다)
+  const kindKey = c.kind === 'ONSITE' ? 'PPA' : 'SELF';
+  const pre = `${kindKey}_CONTRACT_${term ? 'TERMINATION' : 'CHANGE'}_`;
   const co = c.consumerCompanyName;
-  const what = `${kindOf(c.kind)} ${term ? '해지' : '변경'}`; // 변경은 구분 하나(단가 · 기간 등은 상세의 바뀐 칸에서)
+  // 제목에 계약 유형(PPA 변경 신청), 내용은 거래처럼 용량(한일튜브 → 관리자 : 329.6 kW 변경 신청) — 같은 말 두 번 쓰지 않게
+  const what = `${kw(c.capacityKw)} ${term ? '해지' : '변경'}`;
   const reqAdmin = ch.requestedBy === 'spc';
   const [req, recv] = reqAdmin ? ['관리자', co] : [co, '관리자'];
   const base = { link: `/view?id=${ch.id}`, createdAt: lastAt(ch.events, ch.requestedAt), companyId: c.consumerCompanyId };
@@ -85,7 +89,7 @@ function fromChange(ch: ContractChange, contracts: Contract[]): Omit<GenNotif, '
     } else {
       // 조건 변경으로 고쳐 다시 조건 확정 — 거래와 같은 '조건 변경, 확인'(신청한 쪽이 고쳐도 같다)
       const [from, to] = sender === 'spc' ? ['관리자', co] : [co, '관리자'];
-      out.push({ ...base, type: 'PPA_CONTRACT_CHANGE_TERMS', message: `${from} → ${to} : ${what} 조건 변경, 확인` });
+      out.push({ ...base, type: `${kindKey}_CONTRACT_CHANGE_TERMS`, message: `${from} → ${to} : ${what} 조건 변경, 확인` });
     }
   }
   if (st === '전자서명') {

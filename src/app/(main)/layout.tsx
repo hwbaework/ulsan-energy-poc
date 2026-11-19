@@ -989,7 +989,7 @@ function getNotifLink(n: { type: string; link?: string }, persona: Persona): str
   if (t === 'INVOICE' || t === 'TAX_INVOICE') return settlement;
   if (t.startsWith('ANOMALY') || t.startsWith('DETECTION') || t.startsWith('OPERATOR') || t === 'SUPPLY_DEMAND_ALERT')
     return '/monitoring/anomalies';
-  if (t.startsWith('PPA_CONTRACT_CHANGE') || t.startsWith('PPA_CONTRACT_TERMINATION') || t.startsWith('PPA_GENERATOR_APPROVAL')) return changes;
+  if (/^(PPA|SELF)_CONTRACT_(CHANGE|TERMINATION)/.test(t) || t.startsWith('PPA_GENERATOR_APPROVAL')) return changes;
   if (t === 'CONTRACT_SIGNED' || t.startsWith('PPA_CONTRACT'))
     return myContracts;
   if (t.startsWith('SETTLEMENT') || t === 'INVOICE_ISSUED' || t === 'INVOICE_PAID') return settlement;

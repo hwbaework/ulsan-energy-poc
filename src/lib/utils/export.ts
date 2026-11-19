@@ -631,7 +631,7 @@ export function generateReportHtml(doc: ReportPreviewDoc): string {
   table.doc.list th.lbl { text-align: center; width: 30%; }
   table.doc tr.total-row td { font-weight: 800; }
   p.empty { font-size: 12px; padding: 14px 0; text-align: center; border: 1px solid #000; }
-  .note { font-size: 11px; line-height: 1.8; }
+  .note { font-size: 11px; line-height: 1.8; white-space: pre-line; }
   @page { size: A4 portrait; margin: 0; }
   @media print { html, body { background: #fff; } .paper { margin: 0; box-shadow: none; } }
 </style>
