@@ -44,7 +44,7 @@ export function useTaxOriginal(contractId: number, period: string) {
     };
     r.readAsDataURL(f);
   };
-  return { taxDoc, original: taxDoc?.original, upload, canUpload: !role.isAdmin && !!taxDoc };
+  return { taxDoc, original: taxDoc?.original, upload, canUpload: role.isAdmin && !!taxDoc };
 }
 
 /** 파일 고르기 버튼 — 숨긴 input 을 연다 */

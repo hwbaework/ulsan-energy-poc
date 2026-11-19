@@ -1,8 +1,8 @@
 // 온실가스 감축 실적 명세서 — 한 달 × 계약 하나 = 한 장.
 // 모양은 온실가스 목표관리 운영지침 명세서 '서식 8. 사업장 배출시설별 온실가스 감축실적'(한국환경공단 자료 39쪽) — 플랫폼에서 가져올 수 있는 칸만(2026-11-19 사용자).
 //   1. 사업장 정보: 일련번호 · 사업장명 · 사업자등록번호 · 업종 정보(업태). 대표자 · 소재지는 같은 지침 사업장 목록(18쪽) 항목
-//   2. 배출시설별 온실가스 감축실적: 배출시설 일련번호 · 배출시설명 · 시설용량(15쪽) / 감축실적(세부 감축조치 · 감축대상 · 감축량 산출근거) · 사업현황(가동일) · 감축효과(온실가스 감축효과) · 투자실적(투자비)
-//   값이 없어 뺀 칸: 표준산업분류코드 · 코드[참고7] · 착공일 · 준공일 · 기술공정도. 근거 확인 전이라 뺀 칸: 부하율 · 에너지 절약효과(TJ) · 투자비 회수기간
+//   2. 배출시설별 온실가스 감축실적: 배출시설 일련번호 · 배출시설명 · 시설용량(15쪽) / 감축실적(세부 감축조치 · 감축대상 · 감축량 산출근거) · 사업현황(가동일) · 감축효과(온실가스 감축효과)
+//   값이 없어 뺀 칸: 표준산업분류코드 · 코드[참고7] · 착공일 · 준공일 · 기술공정도. 근거 확인 전이라 뺀 칸: 투자실적(2026-11-19 사용자) · 부하율 · 에너지 절약효과(TJ) · 투자비 회수기간
 // 정부 검증 제출용이 아닌 플랫폼 자체 문서(서식 8은 배출권거래제 할당대상업체용 — 목표관리 관리업체는 작성하지 않음). 한일튜브처럼 계약이 둘이면 각각 따로.
 
 export interface GhgFormCompany {
@@ -21,8 +21,6 @@ export interface GhgFormFacility {
   source: string;
   kw: number;
   startDate: string;
-  /** 투자비(원) — 자가소비 계약 설치비. PPA 는 EPC 가 설치해 기업 투자 없음(0) */
-  installCost: number;
   kwh: number;
   tco2: number;
   /** 참고 — 화석에너지 대체(TOE) · 소나무 식재(그루). 서식에 없는 환산값이라 문서 맨 아래 글자로만 */
@@ -106,10 +104,10 @@ export function generateGhgStatementHtml(d: GhgFormData): string {
     <tr><td>${d.facilityNo}</td><td>${esc(f.name)}</td><td class="r">${n(f.kw, 2)}</td><td>태양광 발전설비 설치 (${esc(f.kind)})</td><td>간접배출 (전력)</td><td>${esc(f.startDate)}</td></tr>
   </table>
   <table>
-    <colgroup><col style="width:56%"><col style="width:22%"><col style="width:22%"></colgroup>
-    <tr><th>감축실적</th><th>감축효과</th><th>투자실적</th></tr>
-    <tr><th>온실가스 감축량 산출근거</th><th>온실가스 감축효과<br>(tCO₂eq)</th><th>투자비<br>(백만원)</th></tr>
-    <tr><td class="l">발전량 ${n(f.kwh / 1000, 3)} MWh × 전력 배출계수 ${d.co2Factor} tCO₂eq/MWh</td><td class="r b">${n(f.tco2, 3)}</td><td class="r">${f.installCost > 0 ? n(f.installCost / 1_000_000, 1) : '-'}</td></tr>
+    <colgroup><col style="width:70%"><col style="width:30%"></colgroup>
+    <tr><th>감축실적</th><th>감축효과</th></tr>
+    <tr><th>온실가스 감축량 산출근거</th><th>온실가스 감축효과<br>(tCO₂eq)</th></tr>
+    <tr><td class="l">발전량 ${n(f.kwh / 1000, 3)} MWh × 전력 배출계수 ${d.co2Factor} tCO₂eq/MWh</td><td class="r b">${n(f.tco2, 3)}</td></tr>
   </table>
 
   <p class="ref">화석에너지 대체 = 발전량 ${n(f.kwh / 1000, 3)} MWh × ${d.toeFactor} TOE/MWh = ${n(f.toe, 3)} TOE</p>

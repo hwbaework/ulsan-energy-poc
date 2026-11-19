@@ -95,8 +95,7 @@ export const NOTIFICATION_CATALOG: NotifEvent[] = [
   { key: 'PPA_CONTRACT_TERMINATION_APPROVED', name: '해지 승인 (PPA)', label: '변경 · 해지 › PPA › 해지 › 해지 승인', domain: 'RE100', condition: '양측 전자서명 뒤 해지 승인함, 상태 해지', receivers: '양측(관리자, 기업)', go: '변경 · 해지', resolve: '해당 없음' },
   { key: 'PPA_CONTRACT_TERMINATION_REJECTED', name: '해지 반려 (PPA)', label: '변경 · 해지 › PPA › 해지 › 반려', domain: 'RE100', condition: '계약 해지가 반려됨', receivers: '반려한 쪽의 상대(기업 또는 관리자(메뉴 권한 있는 회원))', go: '변경 · 해지', resolve: '해당 없음' },
   { key: 'INVOICE', name: '청구서 발행', label: '수익 · 정산 › 청구서 › 발행', domain: 'RE100', condition: '달마다 청구서가 발행됨', receivers: '전기사용자', go: '수익 · 정산 › 청구서', resolve: '해당 없음' },
-  { key: 'TAX_INVOICE', name: '세금계산서 발행', label: '수익 · 정산 › 세금계산서 › 발행', domain: 'RE100', condition: '세금계산서 원본이 올라옴', receivers: '상대 기업', go: '수익 · 정산 › 세금계산서', resolve: '해당 없음' },
-  { key: 'SETTLEMENT', name: '정산 확정', label: '수익 · 정산 › 정산 › 확정', domain: 'RE100', condition: '달 정산이 확정됨', receivers: '당사자 기업', go: '수익 · 정산 › 정산', resolve: '해당 없음' },
+  { key: 'TAX_INVOICE', name: '세금계산서 발행', label: '수익 · 정산 › 세금계산서 › 발행', domain: 'RE100', condition: '관리자가 세금계산서 원본을 올림', receivers: '그 계약 기업', go: '수익 · 정산 › 세금계산서', resolve: '해당 없음' },
   // ── E-데이터마켓 — 순서: 판매 동의 · 판매 종료(파는 쪽이 한 일) → 이용 신청 · 이용 취소(사는 쪽이 한 일) → 대금 지급.
   //    판매 종료는 이용 기업과 관리자가 받는다 — 판매 동의 하나로 묶으면 중지했을 때도 '판매 동의'로 온다(2026-11-16 사용자) ──
   { key: 'EDATA_CONSENT', name: '판매 동의', label: '데이터 등록/신청 › 판매 동의', domain: 'E-데이터마켓', condition: '기업이 판매 동의(데이터 등록)를 누름', receivers: '관리자(메뉴 권한 있는 회원)', go: '데이터 등록/신청', resolve: '해당 없음', adminOnly: true },
@@ -153,7 +152,7 @@ export function notifPathOf(key: string, account: NotifAccount): string | null {
   if (key.endsWith('_APPROVED')) return t.changes;
   if (key.startsWith('PPA_CONTRACT_') || key.startsWith('SELF_CONTRACT_')) return t.changes;
   if (key === 'INVOICE') return t.invoices;
-  return t.tax; // TAX_INVOICE · SETTLEMENT
+  return t.tax; // TAX_INVOICE
 }
 
 /**

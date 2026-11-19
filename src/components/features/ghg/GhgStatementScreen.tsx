@@ -94,7 +94,6 @@ export function GhgStatementScreen() {
         source: sourceOf(f.source).label,
         kw: sel.g.fs.reduce((a, x) => a + x.kw, 0),
         startDate: f.startDate,
-        installCost: f.kind === '자가소비' ? sel.g.fs.reduce((a, x) => a + x.installCost, 0) : 0,
         kwh: sel.kwh,
         tco2: sel.tco2,
         toe: (sel.kwh / 1000) * fx.toe,

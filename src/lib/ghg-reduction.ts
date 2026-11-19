@@ -40,8 +40,6 @@ export interface Facility {
   source: EnergySource;
   /** 연결된 통합관제 발전소 — 설비 구성(인버터 · 통신 상태) */
   plantId?: number;
-  /** 설치비(원) — 계약 조건 설치 단가 × 용량 + 추가 설치비용. 명세서 투자실적(투자비), 자가소비만 기업 투자 */
-  installCost: number;
 }
 
 /** 체결(이용 중 · 해지 포함) 계약 → 배출원. 서명 전 계약은 아직 아니다 */
@@ -66,7 +64,6 @@ export function facilitiesOf(
       status: c.status === 'TERMINATED' ? ('TERMINATED' as const) : ('ACTIVE' as const),
       source: typeOf(c.plantId),
       plantId: c.plantId,
-      installCost: c.installUnit ? Math.round(c.capacityKw * c.installUnit + (c.extraCost ?? 0)) : 0,
     }))
     .sort((a, b) => a.company.localeCompare(b.company, 'ko') || a.id - b.id);
 }

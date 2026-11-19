@@ -315,8 +315,7 @@ const NOTIFICATION_MESSAGE: Record<string, string> = {
   PPA_CONTRACT_TERMINATION_APPROVED: '관리자 → 한길 : 해지 승인',
   PPA_CONTRACT_TERMINATION_REJECTED: '관리자 → 태성산업 : 해지 반려',
   INVOICE: '관리자 → 한일튜브 : 2026-09 PPA 청구서 발행',
-  TAX_INVOICE: '한일튜브 → 관리자 : 2026-09 PPA 세금계산서 발행',
-  SETTLEMENT: '관리자 → 한일튜브 : 2026-09 PPA 정산 확정',
+  TAX_INVOICE: '관리자 → 한일튜브 : 2026-09 PPA 세금계산서 발행',
   EDATA_CONSENT: '건호이엔씨 — 태양광 발전량',
   EDATA_REQUEST: '한일튜브 — 태성산업 태양광 발전량',
   EDATA_CANCEL: '한길 — 한일튜브 자가소비 태양광 발전량',
@@ -350,7 +349,6 @@ const NOTIFICATION_TARGET: Record<string, string> = {
   PPA_CONTRACT_TERMINATION_REJECTED: '/view?id=16',
   INVOICE: '/view?contract=1&period=2026-09',
   TAX_INVOICE: '/view?contract=1&period=2026-09',
-  SETTLEMENT: '/view?contract=1&period=2026-09',
 };
 const NOTIFICATIONS = NOTIFICATION_CATALOG.map((e, i) => {
   // 항목표 순서대로 최근 것부터 — 2026-11-16 10:00 에서 3시간씩 앞으로
@@ -365,7 +363,7 @@ const READ_GENERATED = new Set<number>();
 /** 발전사업자 계정이 받는 정산 쪽 알림(한일튜브) */
 const GENERATOR_BILLING: Record<string, { message: string; link: string }> = {
   INVOICE: { message: '관리자 → 한일튜브 : 2026-09 PPA 청구서 발행', link: '/view?contract=1&period=2026-09' },
-  SETTLEMENT: { message: '관리자 → 한일튜브 : 2026-09 PPA 정산 확정', link: '/view?contract=1&period=2026-09' },
+  TAX_INVOICE: { message: '관리자 → 한일튜브 : 2026-09 PPA 세금계산서 발행', link: '/view?contract=1&period=2026-09' },
 };
 const HANIL_ID = 4;
 /** 지금 계정이 받는 알림 — 그 계정에 갈 화면이 있는 것만 */
@@ -404,6 +402,11 @@ const myNotifications = () => {
   // 항목표 순서(묶음)대로, 같은 종류 안에서는 최근 것부터
   const order = new Map(NOTIFICATION_CATALOG.map((e, i) => [e.key, i]));
   return [...sample, ...generated]
+    // 항목표 샘플(청구서 발행 · 세금계산서 발행 등)도 같은 규칙 — '보낸 → 받는' 이 있으면 받는 쪽에만(2026-11-19)
+    .filter((n) => {
+      const head = n.message.split(' : ')[0] ?? '';
+      return !head.includes(' → ') || head.split(' → ')[1] === me;
+    })
     .sort((x, y) => (order.get(x.type) ?? 0) - (order.get(y.type) ?? 0) || y.createdAt.localeCompare(x.createdAt));
 };
 registerMock(/^\/notifications\/unread-count$/, () => myNotifications().filter((n) => !n.isRead).length);
