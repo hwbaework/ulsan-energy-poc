@@ -7,7 +7,7 @@
  */
 import { useTradingPocStore } from '@/stores/useTradingPocStore';
 import { changeLabel, changeStateOf } from '@/components/features/trading-poc/meta';
-import type { Contract, ContractChange, TradeRequest } from '@/types/trading-poc';
+import type { Contract, ContractChange, TradeDocument, TradeRequest } from '@/types/trading-poc';
 
 export interface GenNotif {
   id: number;
@@ -114,8 +114,24 @@ function fromChange(ch: ContractChange, contracts: Contract[]): Omit<GenNotif, '
   return out;
 }
 
+/** 세금계산서 업로드 — 관리자가 홈택스 PDF 를 업로드하면 그 계약 기업에만(발행이 아니라 업로드, 2026-11-20 사용자). 데모에서 업로드하면 바로 생긴다 */
+function fromTaxDoc(d: TradeDocument, contracts: Contract[]): Omit<GenNotif, 'id'>[] {
+  if (d.category !== 'TAX' || !d.original) return [];
+  const c = contracts.find((x) => x.id === d.contractId);
+  const period = d.fileName.match(/^TX-(\d{4}-\d{2})-/)?.[1];
+  if (!c || !period) return [];
+  const kind = c.kind === 'ONSITE' ? 'PPA' : '자가소비';
+  return [{
+    type: 'TAX_INVOICE',
+    message: `관리자 → ${c.consumerCompanyName} : ${period} ${kind} 세금계산서 업로드`,
+    link: `/view?contract=${c.id}&period=${period}`,
+    createdAt: `${d.original.at.replace(' ', 'T')}:00`,
+    companyId: c.consumerCompanyId,
+  }];
+}
+
 /** 알림 id — 데모 건과 알림 종류로 정해진다(읽음 표시가 다시 만들어도 유지되게) */
-const idOf = (kind: 1 | 2, rowId: number, type: string) => {
+const idOf = (kind: 1 | 2 | 3, rowId: number, type: string) => {
   let h = 0;
   for (const ch of type) h = (h * 31 + ch.charCodeAt(0)) % 997;
   return 100_000 + kind * 100_000 + rowId * 1000 + h;
@@ -126,5 +142,6 @@ export function buildRe100Notifications(): GenNotif[] {
   const out: GenNotif[] = [];
   for (const r of s.requests) fromRequest(r, s.contracts).forEach((n) => out.push({ ...n, id: idOf(1, r.id, n.type) }));
   for (const ch of s.changes) fromChange(ch, s.contracts).forEach((n) => out.push({ ...n, id: idOf(2, ch.id, n.type) }));
+  for (const d of s.documents) fromTaxDoc(d, s.contracts).forEach((n) => out.push({ ...n, id: idOf(3, d.id, n.type) }));
   return out.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
