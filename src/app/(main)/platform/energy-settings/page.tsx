@@ -253,6 +253,10 @@ export default function EnergySettingsPage() {
           title="가동일"
           actions={
             <div className="flex items-center gap-2">
+              {/* 초기화 — 년도 셀렉트 왼쪽(2026-11-20 사용자) */}
+              <Button size="sm" variant="secondary" className="whitespace-nowrap" onClick={() => setResetAsk(true)}>
+                <RotateCcw size={14} className="mr-1" /> 초기화
+              </Button>
               <div className="w-32">
                 <Select
                   options={[thisYear, thisYear + 1].map((y) => ({ value: String(y), label: `${y}년` }))}
@@ -264,9 +268,6 @@ export default function EnergySettingsPage() {
                   }}
                 />
               </div>
-              <Button size="sm" variant="secondary" className="whitespace-nowrap" onClick={() => setResetAsk(true)}>
-                <RotateCcw size={14} className="mr-1" /> 초기화
-              </Button>
             </div>
           }
         >
