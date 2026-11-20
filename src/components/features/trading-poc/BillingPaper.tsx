@@ -85,7 +85,7 @@ export function UploadButton({
 }
 
 function TaxOriginalPaper({ contract: c, period }: { contract: Contract; period: string }) {
-  const { original } = useTaxOriginal(c.id, period);
+  const { original, upload, canUpload } = useTaxOriginal(c.id, period);
   return (
     <div className="min-w-0 overflow-hidden rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] md:sticky md:top-4">
       <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-3">
@@ -96,6 +96,8 @@ function TaxOriginalPaper({ contract: c, period }: { contract: Contract; period:
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {/* 업로드 — 관리자만, PDF 왼쪽. 등록 뒤에도 다시 업로드(바뀜), 누르면 바로 파일 고르기(2026-11-20 사용자) */}
+          {canUpload && <UploadButton onFile={upload} label="업로드" />}
           {original && (
             <a href={original.url} download={original.name}>
               <Button size="sm" variant="secondary">

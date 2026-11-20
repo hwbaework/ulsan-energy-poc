@@ -27,7 +27,7 @@ import { useTradingRole } from './useTradingRole';
 import { fmtKrw, fmtKwh, fmtNum } from './meta';
 import { Info, PageHeader, TEXT_MAX, cell, cellMuted, cellNum, cellStrong } from './Bits';
 import { BILLING_LABEL } from './DocumentSheet';
-import { BillingPaper, UploadButton, useTaxOriginal } from './BillingPaper';
+import { BillingPaper, useTaxOriginal } from './BillingPaper';
 import { useLocationSearch } from '@/lib/use-location-search';
 
 type Kind = 'TAX' | 'INVOICE';
@@ -252,18 +252,10 @@ function InvoiceEditor({ b }: { b: Bill }) {
   );
 }
 
-/** PDF 칸 — 등록 / 미등록, 관리자는 옆에 [업로드](누르면 바로 파일 고르기, 다시 올리면 바뀜 — 카본 서식 표와 같은 말 · 모양, 2026-11-19 사용자) */
+/** PDF 칸 — 등록 / 미등록만. 업로드는 미리보기 위 PDF 왼쪽(2026-11-20 사용자: 표 칸 버튼은 디자인 별로) */
 function OriginalCell({ s }: { s: Bill }) {
-  const { original, upload, canUpload } = useTaxOriginal(s.contractId, s.period);
-  const pill = original ? <StatusPill tone="normal" label="등록" /> : <StatusPill tone="muted" label="미등록" />;
-  if (canUpload)
-    return (
-      <div className="flex items-center gap-2 whitespace-nowrap">
-        {pill}
-        <UploadButton onFile={upload} label="업로드" />
-      </div>
-    );
-  return pill;
+  const { original } = useTaxOriginal(s.contractId, s.period);
+  return original ? <StatusPill tone="normal" label="등록" /> : <StatusPill tone="muted" label="미등록" />;
 }
 
 const STATE_TONE = { DRAFT: 'muted', BILLED: 'warning', PAID: 'normal' } as const;
@@ -338,7 +330,7 @@ function BillingScreen({ kind }: { kind: Kind }) {
   const originalCol: Column<Bill> = {
     key: 'original',
     header: 'PDF',
-    width: role.isAdmin ? '200px' : '110px',
+    width: '110px',
     render: (s) => <OriginalCell s={s} />,
   };
   // 기업 계정 — 한 달 한 줄이라 표에 다 보이고, 줄을 누르면 상세(문서 · PDF)

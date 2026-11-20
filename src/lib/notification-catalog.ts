@@ -6,7 +6,7 @@
  * 근거: 개발팀 "울산에너지 알림 기획 확인·수정 요청"(2026-11-06)과 답변(2026-11-09, 000. 개발팀 소통 폴더)
  *  - DT 팝업을 빼고 알림은 플랫폼 종 하나로 모은다. DT 는 플랫폼 배경이다.
  *  - 알림은 종(웹 알림)과 이메일 두 가지뿐. 팝업 · 토스트 같은 다른 표시는 없다(2026-11-09 사용자).
- *  - 알림 설정은 계정마다(관리자 · 발전사업자 · 전기사용자 모두 설정 › 시스템 › 알림 설정). 관리자만 받는 항목(adminOnly)은 기업 계정에 안 보인다.
+ *  - 알림 설정은 계정마다(관리자 · 발전사업자 · 전기사용자 모두 설정 › 시스템 › 알림 설정). 관리자만 받는 항목(adminOnly)은 기업 계정에, 기업만 받는 항목(companyOnly)은 관리자 계정에 안 보인다.
  *  - 클릭 이동: 이상감지 목록 항목은 이상감지 관리, 전기안전지수는 안전. DT 는 플랫폼 배경(energy-v4)이라 위치로 쓰지 않는다
  *  - 해소 알림: 표의 '해소' 칸대로. 문구는 '복구 완료'가 아니라 '해소', 태풍만 기상청 용어대로 '해제'
  *  - 같은 대상 · 같은 알림은 해소 전까지 한 번만, 등급이 오를 때(주의 → 경고 → 위험)만 새로
@@ -44,6 +44,8 @@ export interface NotifEvent {
   emailDefault?: boolean;
   /** 관리자만 받는 알림 — 기업 계정의 알림 설정에는 안 보인다 */
   adminOnly?: boolean;
+  /** 기업만 받는 알림 — 관리자는 보내는 쪽이라 받지 않아 관리자 알림 설정에 안 보인다(2026-11-20 사용자) */
+  companyOnly?: boolean;
 }
 
 const PLANT = '관리자(메뉴 권한 있는 회원), 발전소 소유 발전사업자, 계약 전기사용자';
@@ -97,14 +99,14 @@ export const NOTIFICATION_CATALOG: NotifEvent[] = [
   // 청구서는 달마다 자동 발행 — 누가 보낸 게 아니라 양측(관리자, 기업) 모두에게(2026-11-20 사용자)
   { key: 'INVOICE', name: '청구서 발행', label: '수익 · 정산 › 청구서 › 발행', domain: 'RE100', condition: '달마다 청구서가 자동 발행됨', receivers: '양측(관리자, 기업)', go: '수익 · 정산 › 청구서', resolve: '해당 없음' },
   // 세금계산서는 홈택스에서 발행하고 관리자가 PDF 를 업로드 — 발행이 아니라 업로드, 받는 쪽(그 계약 기업)에만(2026-11-20 사용자)
-  { key: 'TAX_INVOICE', name: '세금계산서 업로드', label: '수익 · 정산 › 세금계산서 › 업로드', domain: 'RE100', condition: '관리자가 세금계산서 PDF를 업로드함', receivers: '그 계약 기업', go: '수익 · 정산 › 세금계산서', resolve: '해당 없음' },
+  { key: 'TAX_INVOICE', name: '세금계산서 업로드', label: '수익 · 정산 › 세금계산서 › 업로드', domain: 'RE100', condition: '관리자가 세금계산서 PDF를 업로드함', receivers: '그 계약 기업', go: '수익 · 정산 › 세금계산서', resolve: '해당 없음', companyOnly: true },
   // ── E-데이터마켓 — 순서: 판매 동의 · 판매 종료(파는 쪽이 한 일) → 이용 신청 · 이용 취소(사는 쪽이 한 일) → 대금 지급.
   //    판매 종료는 이용 기업과 관리자가 받는다 — 판매 동의 하나로 묶으면 중지했을 때도 '판매 동의'로 온다(2026-11-16 사용자) ──
   { key: 'EDATA_CONSENT', name: '판매 동의', label: '데이터 등록/신청 › 판매 동의', domain: 'E-데이터마켓', condition: '기업이 판매 동의(데이터 등록)를 누름', receivers: '관리자(메뉴 권한 있는 회원)', go: '데이터 등록/신청', resolve: '해당 없음', adminOnly: true },
   { key: 'EDATA_SALE_END', name: '판매 종료', label: '데이터 등록/신청 › 판매 종료', domain: 'E-데이터마켓', condition: '기업이 판매 중지를 예약함, 이용 중인 기업은 금월 말일까지 이용', receivers: '이용 기업 활성 회원, 관리자(메뉴 권한 있는 회원)', go: '데이터 등록/신청', resolve: '해당 없음' },
   { key: 'EDATA_REQUEST', name: '이용 신청', label: '거래 현황 › 이용 신청', domain: 'E-데이터마켓', condition: '내 데이터에 이용 신청이 들어옴', receivers: '제공 기업 활성 회원, 관리자(메뉴 권한 있는 회원)', go: '거래 현황', resolve: '해당 없음' },
   { key: 'EDATA_CANCEL', name: '이용 취소', label: '거래 현황 › 이용 취소', domain: 'E-데이터마켓', condition: '이용 기업이 이용을 취소함, 금월 말일까지 이용', receivers: '제공 기업 활성 회원, 관리자(메뉴 권한 있는 회원)', go: '거래 현황', resolve: '해당 없음' },
-  { key: 'EDATA_PAYOUT', name: '대금 지급', label: '정산 › 대금 지급', domain: 'E-데이터마켓', condition: '매달 15일 정산 계좌로 지급됨', receivers: '제공 기업 활성 회원', go: '정산', resolve: '해당 없음' },
+  { key: 'EDATA_PAYOUT', name: '대금 지급', label: '정산 › 대금 지급', domain: 'E-데이터마켓', condition: '매달 15일 정산 계좌로 지급됨', receivers: '제공 기업 활성 회원', go: '정산', resolve: '해당 없음', companyOnly: true },
   // ── 관리 ──
   { key: 'SIGNUP_COMPANY', name: '기업 가입 신청', label: '기업 관리 › 기업 목록 › 가입 신청', domain: '관리', condition: '새 기업이 기업 관리자 계정으로 가입을 신청함, 상태 대기', receivers: '관리자(메뉴 권한 있는 회원)', go: '기업 관리', resolve: '해당 없음', emailDefault: true, adminOnly: true },
   { key: 'SIGNUP_MEMBER', name: '회원 가입 신청', label: '회원 관리 › 회원 목록 › 가입 신청', domain: '관리', condition: '기존 기업에 회원이 가입을 신청함, 상태 대기', receivers: '관리자(메뉴 권한 있는 회원)', go: '회원 관리', resolve: '해당 없음', emailDefault: true, adminOnly: true },

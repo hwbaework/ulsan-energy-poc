@@ -24,6 +24,8 @@ export interface NotificationEventCatalogItem {
   resolve?: string;
   /** 관리자만 받는 알림 */
   adminOnly?: boolean;
+  /** 기업만 받는 알림 */
+  companyOnly?: boolean;
 }
 
 // 이벤트 카탈로그 경로 — 공유 endpoints.ts 미수정 정책. list 경로에서 V1 base 파생(sibling 경로).

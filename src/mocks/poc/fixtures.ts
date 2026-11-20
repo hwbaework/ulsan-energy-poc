@@ -255,6 +255,7 @@ const NOTIFICATION_EVENTS = NOTIFICATION_CATALOG.map((e) => ({
   go: e.go,
   resolve: e.resolve,
   adminOnly: !!e.adminOnly,
+  companyOnly: !!e.companyOnly,
 }));
 // 기본값: 웹 알림 전부 켬 · 이메일은 바로 처리해야 하는 것(설비 알림 · 거래 신청 · 가입 신청 · 자동결제 실패)만
 // 저장값은 계정마다(이 아이디의 설정) — 사용자 id 로 나눠 메모리에
