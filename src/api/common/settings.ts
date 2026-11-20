@@ -48,6 +48,11 @@ export async function getHolidays(year: number): Promise<Holiday[]> {
   return getApiClient().get(ENDPOINTS.systemSettings.holidays, { year });
 }
 
+/** 공휴일 원본 — 사람이 더하고 뺀 것 없이 특일 정보로 받은 그 해 목록(초기화용) */
+export async function getHolidaysOrigin(year: number): Promise<Holiday[]> {
+  return getApiClient().get(ENDPOINTS.systemSettings.holidays, { year, origin: 1 });
+}
+
 /** 공휴일 저장 — API 로 받은 목록에 사람이 더하고 뺀 결과(임시공휴일 · 취소) */
 export async function saveHolidays(year: number, list: Holiday[]): Promise<Holiday[]> {
   return getApiClient().put(`${ENDPOINTS.systemSettings.holidays}?year=${year}`, list);

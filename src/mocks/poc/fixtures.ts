@@ -510,7 +510,12 @@ if (typeof window !== 'undefined') {
     /* 깨졌으면 API 값으로 */
   }
 }
-registerMock(/^\/settings\/public\/holidays$/, ({ query }) => HOLIDAYS[Number(query.get('year'))] ?? HOLIDAYS_SEED[Number(query.get('year'))] ?? [], 'GET');
+registerMock(/^\/settings\/public\/holidays$/, ({ query }) => {
+  const y = Number(query.get('year'));
+  // origin=1 — 초기화: 사람이 고친 목록 말고 특일 정보 원본
+  if (query.get('origin')) return HOLIDAYS_SEED[y] ?? [];
+  return HOLIDAYS[y] ?? HOLIDAYS_SEED[y] ?? [];
+}, 'GET');
 registerMock(/^\/settings\/public\/holidays$/, ({ query, body }) => {
   const y = Number(query.get('year'));
   const list = (Array.isArray(body) ? (body as Holiday[]) : [])

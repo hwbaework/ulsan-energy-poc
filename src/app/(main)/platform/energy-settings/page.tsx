@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, Plus, Save, Trash2 } from 'lucide-react';
+import { Loader2, Plus, RotateCcw, Save, Trash2 } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { BaseFactorCards, GhgFactorSettings, inlineError, inlineValuesOf } from '@/components/features/settings/FactorSettings';
 import { SectionCard } from '@/components/features';
@@ -13,6 +13,7 @@ import { TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TABLE_TD } from '@/componen
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useToastStore } from '@/stores/useToastStore';
 import { useEnergySettings, useHolidays, useKepcoTariff, useSaveEnergySettings, useSaveHolidays, useSaveKepcoTariff } from '@/hooks/common/useSettings';
+import { getHolidaysOrigin } from '@/api/common/settings';
 import { holidayMap, opRuleOf, opYear, weekdayOf, type Holiday, type OpRule } from '@/lib/op-calendar';
 
 const WEEK_KO = ['일', '월', '화', '수', '목', '금', '토'];
@@ -87,6 +88,17 @@ export default function EnergySettingsPage() {
   const [hol, setHol] = useState<Holiday[]>([]);
   const [holDirty, setHolDirty] = useState(false);
   const [newHol, setNewHol] = useState({ date: '', name: '' });
+  // 초기화 — 그 해 공휴일을 특일 정보 원본으로(더하고 뺀 날을 되돌림). 바로 저장하지 않고 화면에 넣은 뒤 상단 [저장](2026-11-20 사용자)
+  const [resetAsk, setResetAsk] = useState(false);
+  const resetHolidays = async () => {
+    setResetAsk(false);
+    try {
+      setHol(await getHolidaysOrigin(opYearNo));
+      setHolDirty(true);
+    } catch {
+      addToast('error', '공휴일을 불러오지 못했습니다');
+    }
+  };
   useEffect(() => {
     if (holidays && !holDirty) setHol(holidays);
   }, [holidays, holDirty]);
@@ -181,6 +193,14 @@ export default function EnergySettingsPage() {
     <div className="space-y-6">
       <Breadcrumb items={[{ label: '관리' }, { label: '에너지 설정' }]} />
       <ConfirmDialog
+        open={resetAsk}
+        onClose={() => setResetAsk(false)}
+        onConfirm={() => void resetHolidays()}
+        title="초기화"
+        message={`${opYearNo}년 공휴일을 특일 정보 목록으로 되돌립니다. 추가하거나 삭제한 날은 원래대로 돌아갑니다.`}
+        confirmLabel="초기화"
+      />
+      <ConfirmDialog
         open={saveAsk}
         onClose={() => setSaveAsk(false)}
         onConfirm={() => {
@@ -232,16 +252,21 @@ export default function EnergySettingsPage() {
         <SectionCard
           title="가동일"
           actions={
-            <div className="w-32">
-              <Select
-                options={[thisYear, thisYear + 1].map((y) => ({ value: String(y), label: `${y}년` }))}
-                value={String(opYearNo)}
-                disabled={holDirty}
-                onChange={(e) => {
-                  setOpYearNo(Number(e.target.value));
-                  setNewHol({ date: '', name: '' });
-                }}
-              />
+            <div className="flex items-center gap-2">
+              <div className="w-32">
+                <Select
+                  options={[thisYear, thisYear + 1].map((y) => ({ value: String(y), label: `${y}년` }))}
+                  value={String(opYearNo)}
+                  disabled={holDirty}
+                  onChange={(e) => {
+                    setOpYearNo(Number(e.target.value));
+                    setNewHol({ date: '', name: '' });
+                  }}
+                />
+              </div>
+              <Button size="sm" variant="secondary" className="whitespace-nowrap" onClick={() => setResetAsk(true)}>
+                <RotateCcw size={14} className="mr-1" /> 초기화
+              </Button>
             </div>
           }
         >
