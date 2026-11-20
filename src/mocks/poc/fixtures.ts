@@ -317,7 +317,7 @@ const NOTIFICATION_MESSAGE: Record<string, string> = {
   PPA_CONTRACT_TERMINATION_REJECTED: '관리자 → 태성산업 : 해지 반려',
   INVOICE: '관리자 → 한일튜브 : 2026-09 PPA 청구서 발행, 확인',
   INVOICE_DUE: '한일튜브 : 2026-10 PPA 청구서 작성, 확인',
-  TAX_INVOICE: '관리자 → 한일튜브 : 2026-09 PPA 세금계산서 업데이트',
+  TAX_INVOICE: '관리자 → 한일튜브 : 2026-09 PPA 세금계산서 등록, 확인',
   EDATA_CONSENT: '건호이엔씨 — 태양광 발전량',
   EDATA_REQUEST: '한일튜브 — 태성산업 태양광 발전량',
   EDATA_CANCEL: '한길 — 한일튜브 자가소비 태양광 발전량',
@@ -357,7 +357,7 @@ const NOTIFICATIONS = NOTIFICATION_CATALOG.map((e, i) => {
   const at = new Date(Date.UTC(2026, 10, 16, 10, 0, 0) - i * 3 * 3_600_000).toISOString().slice(0, 19);
   return { id: i + 1, type: e.key, title: e.name, message: NOTIFICATION_MESSAGE[e.key] ?? '', link: NOTIFICATION_TARGET[e.key], isRead: i >= 5, createdAt: at };
 });
-/** 데모 건에서 만드는 RE100 알림 종류 — 거래 · 변경 · 해지 · 청구서(발행 예정 · 발행) · 세금계산서 발행 */
+/** 데모 건에서 만드는 RE100 알림 종류 — 거래 · 변경 · 해지 · 청구서(발행 예정 · 발행) · 세금계산서 등록 */
 const GENERATED_KEYS = new Set(NOTIFICATION_CATALOG.filter((e) => /^(TRADING_|PPA_CONTRACT_|SELF_CONTRACT_|TAX_INVOICE$|INVOICE$|INVOICE_DUE$)/.test(e.key)).map((e) => e.key));
 const RE100_KEYS = new Set(NOTIFICATION_CATALOG.filter((e) => e.domain === 'RE100').map((e) => e.key));
 /** 만든 알림의 읽음 표시 — 다시 만들어도 남게 id 로 */

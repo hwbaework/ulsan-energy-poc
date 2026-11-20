@@ -116,7 +116,7 @@ function fromChange(ch: ContractChange, contracts: Contract[]): Omit<GenNotif, '
   return out;
 }
 
-/** 세금계산서 발행 — 관리자가 홈택스에서 발행된 PDF 를 업로드하면 그 계약 기업에만, 내용은 참고용 업데이트(2026-11-20 사용자). 데모에서 업로드하면 바로 생긴다 */
+/** 세금계산서 등록 — 관리자가 홈택스에서 발행된 PDF 를 업로드하면 그 계약 기업에만, 내용은 참고용 업데이트(2026-11-20 사용자). 데모에서 업로드하면 바로 생긴다 */
 function fromTaxDoc(d: TradeDocument, contracts: Contract[]): Omit<GenNotif, 'id'>[] {
   if (d.category !== 'TAX' || !d.original) return [];
   const c = contracts.find((x) => x.id === d.contractId);
@@ -125,7 +125,7 @@ function fromTaxDoc(d: TradeDocument, contracts: Contract[]): Omit<GenNotif, 'id
   const kind = c.kind === 'ONSITE' ? 'PPA' : '자가소비';
   return [{
     type: 'TAX_INVOICE',
-    message: `관리자 → ${c.consumerCompanyName} : ${period} ${kind} 세금계산서 업데이트`, // 참고용 — 꼬리 '확인' 없음
+    message: `관리자 → ${c.consumerCompanyName} : ${period} ${kind} 세금계산서 등록, 확인`, // 받는 쪽이 확인할 차례
     link: `/view?contract=${c.id}&period=${period}`,
     createdAt: `${d.original.at.replace(' ', 'T')}:00`,
     companyId: c.consumerCompanyId,

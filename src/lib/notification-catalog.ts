@@ -99,8 +99,8 @@ export const NOTIFICATION_CATALOG: NotifEvent[] = [
   // 청구서 — 관리자가 작성해서 [발행]. 청구일 5일 전부터 관리자에게 발행 예정(D-day), 발행하면 그 계약 기업에만(2026-11-20 사용자)
   { key: 'INVOICE_DUE', name: '청구서 발행 예정', label: '수익 · 정산 › 청구서 › 발행할 청구서', domain: 'RE100', condition: '청구일 5일 전인데 아직 발행하지 않은 청구서', receivers: '관리자(메뉴 권한 있는 회원)', go: '수익 · 정산 › 청구서', resolve: '해당 없음', adminOnly: true },
   { key: 'INVOICE', name: '청구서 발행', label: '수익 · 정산 › 청구서 › 발행', domain: 'RE100', condition: '관리자가 청구서를 발행함', receivers: '그 계약 기업', go: '수익 · 정산 › 청구서', resolve: '해당 없음', companyOnly: true },
-  // 세금계산서 — 홈택스에서 발행된 것을 관리자가 PDF 로 업로드. 받는 기업에게는 '발행', 내용은 참고용 업데이트(할 일 없음, 2026-11-20 사용자)
-  { key: 'TAX_INVOICE', name: '세금계산서 발행', label: '수익 · 정산 › 세금계산서 › 발행', domain: 'RE100', condition: '관리자가 홈택스에서 발행된 세금계산서 PDF를 업로드함', receivers: '그 계약 기업', go: '수익 · 정산 › 세금계산서', resolve: '해당 없음', companyOnly: true },
+  // 세금계산서 — 홈택스에서 발행된 것을 관리자가 PDF 로 업로드. 받는 기업(한일튜브)은 발행한 쪽이 아니라 보는 쪽 → '등록'(PDF 칸 등록 / 미등록과 같은 말), 받는 쪽이 확인(2026-11-20 사용자)
+  { key: 'TAX_INVOICE', name: '세금계산서 등록', label: '수익 · 정산 › 세금계산서 › 등록', domain: 'RE100', condition: '관리자가 홈택스에서 발행된 세금계산서 PDF를 업로드함', receivers: '그 계약 기업', go: '수익 · 정산 › 세금계산서', resolve: '해당 없음', companyOnly: true },
   // ── E-데이터마켓 — 순서: 판매 동의 · 판매 종료(파는 쪽이 한 일) → 이용 신청 · 이용 취소(사는 쪽이 한 일) → 대금 지급.
   //    판매 종료는 이용 기업과 관리자가 받는다 — 판매 동의 하나로 묶으면 중지했을 때도 '판매 동의'로 온다(2026-11-16 사용자) ──
   { key: 'EDATA_CONSENT', name: '판매 동의', label: '데이터 등록/신청 › 판매 동의', domain: 'E-데이터마켓', condition: '기업이 판매 동의(데이터 등록)를 누름', receivers: '관리자(메뉴 권한 있는 회원)', go: '데이터 등록/신청', resolve: '해당 없음', adminOnly: true },
