@@ -113,7 +113,7 @@ function useFactorSave() {
 
 
 /** 전력배출계수 · 한전 요금 가산 카드 — 전력배출계수만 [변경](적용년도별 팝업), 나머지는 칸에 바로 입력하고 페이지 상단 [저장]으로 저장 */
-export function BaseFactorCards({ draft, onChange }: { draft: Record<string, string>; onChange: (key: string, value: string) => void }) {
+export function BaseFactorCards({ draft, onChange, cards }: { draft: Record<string, string>; onChange: (key: string, value: string) => void; /** 보일 카드 — 화면 순서대로 나눠 놓을 때(2026-11-20 사용자) */ cards?: ('co2' | 'adj')[] }) {
   const { energy, commit, pending } = useFactorSave();
   const [co2Open, setCo2Open] = useState(false);
   const co2ByYear = parseFactorByYear(energy?.[CO2_BY_YEAR_KEY], YEARS, energy?.CO2_EMISSION_FACTOR ? Number(energy.CO2_EMISSION_FACTOR) : undefined);
@@ -123,7 +123,7 @@ export function BaseFactorCards({ draft, onChange }: { draft: Record<string, str
 
   return (
     <>
-      {BASE_CARDS.map((c) => (
+      {BASE_CARDS.filter((c) => !cards || cards.includes(c.card)).map((c) => (
         <SectionCard key={c.card} title={c.title}>
           <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
             {BASE_FIELDS.filter((f) => f.card === c.card).map((f) => (

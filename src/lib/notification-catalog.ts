@@ -96,10 +96,11 @@ export const NOTIFICATION_CATALOG: NotifEvent[] = [
   { key: 'PPA_CONTRACT_TERMINATION_SIGN', name: '해지 서명 요청 (PPA)', label: '변경 · 해지 › PPA › 해지 › 전자서명 › 서명 요청', domain: 'RE100', condition: '해지 동의 뒤 서명할 차례가 됨', receivers: '서명할 쪽', go: '변경 · 해지', resolve: '해당 없음' },
   { key: 'PPA_CONTRACT_TERMINATION_APPROVED', name: '해지 승인 (PPA)', label: '변경 · 해지 › PPA › 해지 › 해지 승인', domain: 'RE100', condition: '양측 전자서명 뒤 해지 승인함, 상태 해지', receivers: '양측(관리자, 기업)', go: '변경 · 해지', resolve: '해당 없음' },
   { key: 'PPA_CONTRACT_TERMINATION_REJECTED', name: '해지 반려 (PPA)', label: '변경 · 해지 › PPA › 해지 › 반려', domain: 'RE100', condition: '계약 해지가 반려됨', receivers: '반려한 쪽의 상대(기업 또는 관리자(메뉴 권한 있는 회원))', go: '변경 · 해지', resolve: '해당 없음' },
-  // 청구서는 달마다 자동 발행 — 누가 보낸 게 아니라 양측(관리자, 기업) 모두에게(2026-11-20 사용자)
-  { key: 'INVOICE', name: '청구서 발행', label: '수익 · 정산 › 청구서 › 발행', domain: 'RE100', condition: '달마다 청구서가 자동 발행됨', receivers: '양측(관리자, 기업)', go: '수익 · 정산 › 청구서', resolve: '해당 없음' },
-  // 세금계산서는 홈택스에서 발행하고 관리자가 PDF 를 업로드 — 발행이 아니라 업로드, 받는 쪽(그 계약 기업)에만(2026-11-20 사용자)
-  { key: 'TAX_INVOICE', name: '세금계산서 업로드', label: '수익 · 정산 › 세금계산서 › 업로드', domain: 'RE100', condition: '관리자가 세금계산서 PDF를 업로드함', receivers: '그 계약 기업', go: '수익 · 정산 › 세금계산서', resolve: '해당 없음', companyOnly: true },
+  // 청구서 — 관리자가 작성해서 [발행]. 청구일 5일 전부터 관리자에게 발행 예정(D-day), 발행하면 그 계약 기업에만(2026-11-20 사용자)
+  { key: 'INVOICE_DUE', name: '청구서 발행 예정', label: '수익 · 정산 › 청구서 › 발행할 청구서', domain: 'RE100', condition: '청구일 5일 전인데 아직 발행하지 않은 청구서', receivers: '관리자(메뉴 권한 있는 회원)', go: '수익 · 정산 › 청구서', resolve: '해당 없음', adminOnly: true },
+  { key: 'INVOICE', name: '청구서 발행', label: '수익 · 정산 › 청구서 › 발행', domain: 'RE100', condition: '관리자가 청구서를 발행함', receivers: '그 계약 기업', go: '수익 · 정산 › 청구서', resolve: '해당 없음', companyOnly: true },
+  // 세금계산서 — 홈택스에서 발행된 것을 관리자가 PDF 로 업로드. 받는 기업에게는 '발행', 내용은 참고용 업데이트(할 일 없음, 2026-11-20 사용자)
+  { key: 'TAX_INVOICE', name: '세금계산서 발행', label: '수익 · 정산 › 세금계산서 › 발행', domain: 'RE100', condition: '관리자가 홈택스에서 발행된 세금계산서 PDF를 업로드함', receivers: '그 계약 기업', go: '수익 · 정산 › 세금계산서', resolve: '해당 없음', companyOnly: true },
   // ── E-데이터마켓 — 순서: 판매 동의 · 판매 종료(파는 쪽이 한 일) → 이용 신청 · 이용 취소(사는 쪽이 한 일) → 대금 지급.
   //    판매 종료는 이용 기업과 관리자가 받는다 — 판매 동의 하나로 묶으면 중지했을 때도 '판매 동의'로 온다(2026-11-16 사용자) ──
   { key: 'EDATA_CONSENT', name: '판매 동의', label: '데이터 등록/신청 › 판매 동의', domain: 'E-데이터마켓', condition: '기업이 판매 동의(데이터 등록)를 누름', receivers: '관리자(메뉴 권한 있는 회원)', go: '데이터 등록/신청', resolve: '해당 없음', adminOnly: true },
@@ -155,7 +156,7 @@ export function notifPathOf(key: string, account: NotifAccount): string | null {
   if (key === 'TRADING_SELF_APPROVED' || key === 'TRADING_PPA_APPROVED') return t.approvals;
   if (key.endsWith('_APPROVED')) return t.changes;
   if (key.startsWith('PPA_CONTRACT_') || key.startsWith('SELF_CONTRACT_')) return t.changes;
-  if (key === 'INVOICE') return t.invoices;
+  if (key === 'INVOICE' || key === 'INVOICE_DUE') return t.invoices;
   return t.tax; // TAX_INVOICE
 }
 

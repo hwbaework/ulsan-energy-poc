@@ -5,7 +5,7 @@
  * 내용 = 보낸 쪽 → 받는 쪽 : (계약 유형) 할 일. 꼬리 ', 확인'은 받은 쪽이 할 차례인 알림에만 — 보는 사람이 보낸 쪽이면 fixtures 가 '대기'로 바꾼다.
  * 변경 · 해지는 알림 이름에 자가소비 / PPA 가 없어 내용에 붙인다(한일튜브처럼 계약이 둘인 기업 구분).
  */
-import { useTradingPocStore } from '@/stores/useTradingPocStore';
+import { INVOICE_NOTICE_DAYS, billOf, billingSettlementsOf, dDayLabel, daysUntil, invoiceKey, useTradingPocStore } from '@/stores/useTradingPocStore';
 import { changeLabel, changeStateOf } from '@/components/features/trading-poc/meta';
 import type { Contract, ContractChange, TradeDocument, TradeRequest } from '@/types/trading-poc';
 
@@ -20,6 +20,8 @@ export interface GenNotif {
   companyId: number;
   /** 제목 앞에 붙일 계약 유형 — 변경 · 해지는 'PPA 변경 신청'처럼(거래 'PPA 반려'와 같게, 2026-11-18 사용자) */
   titlePrefix?: string;
+  /** 제목을 통째로 — 청구서 발행 예정은 위에 'D-5'까지 보여야 놓치지 않는다(2026-11-20 사용자) */
+  title?: string;
 }
 
 const kw = (n: number) => `${n} kW`;
@@ -114,7 +116,7 @@ function fromChange(ch: ContractChange, contracts: Contract[]): Omit<GenNotif, '
   return out;
 }
 
-/** 세금계산서 업로드 — 관리자가 홈택스 PDF 를 업로드하면 그 계약 기업에만(발행이 아니라 업로드, 2026-11-20 사용자). 데모에서 업로드하면 바로 생긴다 */
+/** 세금계산서 발행 — 관리자가 홈택스에서 발행된 PDF 를 업로드하면 그 계약 기업에만, 내용은 참고용 업데이트(2026-11-20 사용자). 데모에서 업로드하면 바로 생긴다 */
 function fromTaxDoc(d: TradeDocument, contracts: Contract[]): Omit<GenNotif, 'id'>[] {
   if (d.category !== 'TAX' || !d.original) return [];
   const c = contracts.find((x) => x.id === d.contractId);
@@ -123,15 +125,58 @@ function fromTaxDoc(d: TradeDocument, contracts: Contract[]): Omit<GenNotif, 'id
   const kind = c.kind === 'ONSITE' ? 'PPA' : '자가소비';
   return [{
     type: 'TAX_INVOICE',
-    message: `관리자 → ${c.consumerCompanyName} : ${period} ${kind} 세금계산서 업로드`,
+    message: `관리자 → ${c.consumerCompanyName} : ${period} ${kind} 세금계산서 업데이트`, // 참고용 — 꼬리 '확인' 없음
     link: `/view?contract=${c.id}&period=${period}`,
     createdAt: `${d.original.at.replace(' ', 'T')}:00`,
     companyId: c.consumerCompanyId,
   }];
 }
 
+/**
+ * 청구서 — 관리자가 작성해서 [발행](2026-11-20 사용자).
+ *  발행 전: 청구일 5일 전부터 관리자에게 '발행 예정'(D-day, 보낸 쪽 없음). 지나도 발행 전이면 계속(D+n)
+ *  발행(납부 대기): 그 계약 기업에만 '관리자 → 기업 : 달 PPA 청구서 발행'
+ */
+function fromBills(contracts: Contract[], invoices: ReturnType<typeof useTradingPocStore.getState>['invoices']): (Omit<GenNotif, 'id'> & { rowId: number })[] {
+  const out: (Omit<GenNotif, 'id'> & { rowId: number })[] = [];
+  for (const st of billingSettlementsOf(contracts)) {
+    const rec = invoices[invoiceKey(st.contractId, st.period)];
+    const b = billOf(st, rec);
+    const c = contracts.find((x) => x.id === b.contractId);
+    if (!c) continue;
+    const kind = c.kind === 'ONSITE' ? 'PPA' : '자가소비';
+    const rowId = b.contractId * 10_000 + Number(b.period.replace('-', '')) % 10_000;
+    if (b.billStatus === 'DRAFT') {
+      const n = daysUntil(b.issueDate);
+      if (n > INVOICE_NOTICE_DAYS) continue;
+      const [y, m, d] = b.issueDate.split('-').map(Number) as [number, number, number];
+      const from = new Date(Date.UTC(y, m - 1, d - INVOICE_NOTICE_DAYS, 0, 0, 0)).toISOString().slice(0, 19);
+      out.push({
+        rowId,
+        type: 'INVOICE_DUE',
+        // 제목 = '청구서 발행 (10월): D-5' — 위에서 바로 보이게(항목 이름 '발행 예정'은 알림 설정에만), 내용 = 어느 청구서인지
+        title: `청구서 발행 (${Number(b.period.slice(5, 7))}월): ${dDayLabel(n)}`,
+        message: `${c.consumerCompanyName} : ${b.period} ${kind} 청구서 작성, 확인`,
+        link: `?contract=${c.id}&period=${b.period}`,
+        createdAt: from,
+        companyId: c.consumerCompanyId,
+      });
+    } else if (b.billStatus === 'BILLED' && daysUntil(b.issueDate) <= 0) { // 청구일에 나간다(발행을 미리 눌러도 그날 알림)
+      out.push({
+        rowId,
+        type: 'INVOICE',
+        message: `관리자 → ${c.consumerCompanyName} : ${b.period} ${kind} 청구서 발행, 확인`, // 기업이 확인 · 납부할 차례라 꼬리 확인(2026-11-20 사용자)
+        link: `/view?contract=${c.id}&period=${b.period}`,
+        createdAt: [rec?.issuedAt ?? '', `${b.issueDate}T09:00:00`].sort().pop()!,
+        companyId: c.consumerCompanyId,
+      });
+    }
+  }
+  return out;
+}
+
 /** 알림 id — 데모 건과 알림 종류로 정해진다(읽음 표시가 다시 만들어도 유지되게) */
-const idOf = (kind: 1 | 2 | 3, rowId: number, type: string) => {
+const idOf = (kind: 1 | 2 | 3 | 4, rowId: number, type: string) => {
   let h = 0;
   for (const ch of type) h = (h * 31 + ch.charCodeAt(0)) % 997;
   return 100_000 + kind * 100_000 + rowId * 1000 + h;
@@ -142,6 +187,7 @@ export function buildRe100Notifications(): GenNotif[] {
   const out: GenNotif[] = [];
   for (const r of s.requests) fromRequest(r, s.contracts).forEach((n) => out.push({ ...n, id: idOf(1, r.id, n.type) }));
   for (const ch of s.changes) fromChange(ch, s.contracts).forEach((n) => out.push({ ...n, id: idOf(2, ch.id, n.type) }));
+  for (const { rowId, ...n } of fromBills(s.contracts, s.invoices)) out.push({ ...n, id: idOf(4, rowId, n.type) });
   for (const d of s.documents) fromTaxDoc(d, s.contracts).forEach((n) => out.push({ ...n, id: idOf(3, d.id, n.type) }));
   return out.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }

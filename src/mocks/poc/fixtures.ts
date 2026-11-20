@@ -315,8 +315,9 @@ const NOTIFICATION_MESSAGE: Record<string, string> = {
   PPA_CONTRACT_TERMINATION_SIGN: '관리자 → 용인금속 : 해지 전자서명, 확인',
   PPA_CONTRACT_TERMINATION_APPROVED: '관리자 → 한길 : 해지 승인',
   PPA_CONTRACT_TERMINATION_REJECTED: '관리자 → 태성산업 : 해지 반려',
-  INVOICE: '한일튜브 · 관리자 : 2026-09 PPA 청구서 발행',
-  TAX_INVOICE: '관리자 → 한일튜브 : 2026-09 PPA 세금계산서 업로드',
+  INVOICE: '관리자 → 한일튜브 : 2026-09 PPA 청구서 발행, 확인',
+  INVOICE_DUE: '한일튜브 : 2026-10 PPA 청구서 작성, 확인',
+  TAX_INVOICE: '관리자 → 한일튜브 : 2026-09 PPA 세금계산서 업데이트',
   EDATA_CONSENT: '건호이엔씨 — 태양광 발전량',
   EDATA_REQUEST: '한일튜브 — 태성산업 태양광 발전량',
   EDATA_CANCEL: '한길 — 한일튜브 자가소비 태양광 발전량',
@@ -356,14 +357,13 @@ const NOTIFICATIONS = NOTIFICATION_CATALOG.map((e, i) => {
   const at = new Date(Date.UTC(2026, 10, 16, 10, 0, 0) - i * 3 * 3_600_000).toISOString().slice(0, 19);
   return { id: i + 1, type: e.key, title: e.name, message: NOTIFICATION_MESSAGE[e.key] ?? '', link: NOTIFICATION_TARGET[e.key], isRead: i >= 5, createdAt: at };
 });
-/** 데모 건에서 만드는 RE100 알림 종류 — 거래 · 변경 · 해지 · 세금계산서 업로드(청구서는 항목표 샘플 그대로) */
-const GENERATED_KEYS = new Set(NOTIFICATION_CATALOG.filter((e) => /^(TRADING_|PPA_CONTRACT_|SELF_CONTRACT_|TAX_INVOICE$)/.test(e.key)).map((e) => e.key));
+/** 데모 건에서 만드는 RE100 알림 종류 — 거래 · 변경 · 해지 · 청구서(발행 예정 · 발행) · 세금계산서 발행 */
+const GENERATED_KEYS = new Set(NOTIFICATION_CATALOG.filter((e) => /^(TRADING_|PPA_CONTRACT_|SELF_CONTRACT_|TAX_INVOICE$|INVOICE$|INVOICE_DUE$)/.test(e.key)).map((e) => e.key));
 const RE100_KEYS = new Set(NOTIFICATION_CATALOG.filter((e) => e.domain === 'RE100').map((e) => e.key));
 /** 만든 알림의 읽음 표시 — 다시 만들어도 남게 id 로 */
 const READ_GENERATED = new Set<number>();
 /** 발전사업자 계정이 받는 정산 쪽 알림(한일튜브) */
 const GENERATOR_BILLING: Record<string, { message: string; link: string }> = {
-  INVOICE: { message: '한일튜브 · 관리자 : 2026-09 PPA 청구서 발행', link: '/view?contract=1&period=2026-09' },
 };
 const HANIL_ID = 4;
 /** 지금 계정이 받는 알림 — 그 계정에 갈 화면이 있는 것만 */
@@ -386,6 +386,8 @@ const myNotifications = () => {
   const generated = buildRe100Notifications()
     .filter((g) => allowed(g.type) && (account !== 'generator' || g.companyId === HANIL_ID))
     .filter((g) => {
+      // 관리자만 받는 알림(청구서 발행 예정)은 보낸 쪽이 없다 — 관리자 계정에만
+      if (NOTIFICATION_CATALOG.find((e) => e.key === g.type)?.adminOnly) return account === 'admin';
       const head = g.message.split(' : ')[0] ?? '';
       // 승인은 양쪽 모두('한일튜브 · 관리자'), 나머지는 화살표 뒤(받는 쪽)만
       return head.includes(' → ') ? head.split(' → ')[1] === me : head.split(' · ').includes(me);
@@ -393,7 +395,7 @@ const myNotifications = () => {
     .map((g) => ({
       id: g.id,
       type: g.type,
-      title: [g.titlePrefix, NOTIFICATION_CATALOG.find((e) => e.key === g.type)?.name ?? g.type].filter(Boolean).join(' '),
+      title: g.title ?? [g.titlePrefix, NOTIFICATION_CATALOG.find((e) => e.key === g.type)?.name ?? g.type].filter(Boolean).join(' '),
       message: g.message,
       link: g.link,
       isRead: READ_GENERATED.has(g.id),
@@ -404,6 +406,7 @@ const myNotifications = () => {
   return [...sample, ...generated]
     // 항목표 샘플도 같은 규칙 — '보낸 → 받는' 이면 받는 쪽에만, '기업 · 관리자'(청구서 발행처럼 양측)면 그 둘에만(2026-11-19, 11-20)
     .filter((n) => {
+      if (!n.message.includes(' : ')) return true; // 보낸 쪽 없는 알림(발행 예정 등)은 위에서 계정으로 걸렀다
       const head = n.message.split(' : ')[0] ?? '';
       if (head.includes(' → ')) return head.split(' → ')[1] === me;
       if (head.includes(' · ')) return head.split(' · ').includes(me);

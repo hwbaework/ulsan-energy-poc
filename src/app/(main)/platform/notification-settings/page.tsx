@@ -50,7 +50,7 @@ function Toggle({ on, onChange, label }: { on: boolean; onChange: () => void; la
 
 export default function NotificationSettingsPage() {
   const addToast = useToastStore((s) => s.add);
-  // 계정 역할 — 관리자는 기업만 받는 항목(세금계산서 업로드 등)을, 기업 계정(발전사업자 · 전기사용자)은 관리자만 받는 항목을 뺀다
+  // 계정 역할 — 관리자는 기업만 받는 항목(세금계산서 발행 등)을, 기업 계정(발전사업자 · 전기사용자)은 관리자만 받는 항목을 뺀다
   const user = useAuthStore((s) => s.user);
   const overrideVal = usePersonaOverride((s) => s.override);
   const isAdmin = (overrideVal ?? getPersona(user)) === 'admin';

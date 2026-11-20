@@ -986,7 +986,7 @@ function getNotifLink(n: { type: string; link?: string }, persona: Persona): str
   if (t === 'EDATA_SETTLEMENT' || t === 'EDATA_PAYOUT') return '/e-data/trading/settlement';
   if (t.startsWith('EDATA_API')) return '/e-data/api-hub';
   if (t.startsWith('EDATA')) return '/e-data/trading';
-  if (t === 'INVOICE' || t === 'TAX_INVOICE') return settlement;
+  if (t === 'INVOICE' || t === 'INVOICE_DUE' || t === 'TAX_INVOICE') return settlement;
   if (t.startsWith('ANOMALY') || t.startsWith('DETECTION') || t.startsWith('OPERATOR') || t === 'SUPPLY_DEMAND_ALERT')
     return '/monitoring/anomalies';
   if (/^(PPA|SELF)_CONTRACT_(CHANGE|TERMINATION)/.test(t) || t.startsWith('PPA_GENERATOR_APPROVAL')) return changes;

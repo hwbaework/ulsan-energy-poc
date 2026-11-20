@@ -7,7 +7,7 @@ import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { Input } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
-import { billingStatusOf, invoiceKey, useTradingPocStore } from '@/stores/useTradingPocStore';
+import { billingStatusOf, invoiceKey, isInvoiceOut, issueDateOf, useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { Contract, DocCategory, TradeDocument } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
 import { kindLabel } from './meta';
@@ -113,11 +113,12 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
       // 세금계산서는 플랫폼이 만들지 않는다 — 관리자가 홈택스 원본을 올린 달만 문서, 날짜는 올린 날(등록일)
       role.documents.filter(isShown).flatMap((d) => {
         if (d.category === 'TAX' && !d.original) return [];
-        // 청구서는 발행된 것부터 기업에 보인다(작성 중은 관리자만)
-        if (d.category === 'INVOICE' && !role.isAdmin && d.contractId) {
+        // 청구서는 발행된 것만 문서 — 발행 전은 관리자에게도 문서가 아니다(청구서 화면의 발행할 청구서에서 작성, 2026-11-20 사용자)
+        if (d.category === 'INVOICE' && d.contractId) {
           const p = periodOf(d) ?? '';
-          const st = invoices[invoiceKey(d.contractId, p)]?.status ?? billingStatusOf(p);
-          if (st === 'DRAFT') return [];
+          const rec = invoices[invoiceKey(d.contractId, p)];
+          // 청구일이 되어 나간 것만(발행을 눌렀어도 청구일 전이면 아직 문서 아님)
+          if (!isInvoiceOut({ billStatus: rec?.status ?? billingStatusOf(p), issueDate: rec?.issueDate ?? issueDateOf(p) })) return [];
         }
         const c = role.contracts.find((x) => x.id === d.contractId);
         if (!c) return [];

@@ -16,9 +16,16 @@ import { Textarea } from '@/components/ui/Textarea';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import {
   CO,
+  INVOICE_MIN_DUE_DAYS,
+  INVOICE_NOTICE_DAYS,
+  isInvoiceOut,
+  todayDate,
+  minDueDateOf,
   billOf,
+  dDayLabel,
+  daysUntil,
   invoiceKey,
-  settlementsOf,
+  billingSettlementsOf,
   useTradingPocStore,
   writtenDateOf,
   type Bill,
@@ -48,9 +55,9 @@ function useBilling(kind: Kind) {
   const invoices = useTradingPocStore((s) => s.invoices);
   const rows = useMemo(
     () =>
-      settlementsOf(role.contracts)
+      billingSettlementsOf(role.contracts)
         .map((s) => billOf(s, invoices[invoiceKey(s.contractId, s.period)]))
-        .filter((b) => role.isAdmin || kind === 'TAX' || b.billStatus !== 'DRAFT')
+        .filter((b) => role.isAdmin || kind === 'TAX' || isInvoiceOut(b)) // 기업은 청구일이 되어 나간 청구서부터
         .sort((a, b) => b.period.localeCompare(a.period) || b.total - a.total),
     [role.contracts, role.isAdmin, invoices, kind],
   );
@@ -90,8 +97,9 @@ function InvoiceEditor({ b }: { b: Bill }) {
   const setAdj = (patch: Partial<NonNullable<typeof adj>>) =>
     save(key, { adjust: { period: adj?.period ?? prevPeriods[0]!, kwh: adj?.kwh ?? 0, reason: adj?.reason ?? '', ...patch } });
   const adjInvalid = !!adj && adj.kwh !== 0 && (!adj.reason.trim() || !adj.period);
-  // 납부 기한은 청구일 이후
-  const dateInvalid = !b.issueDate || !b.dueDate || b.dueDate < b.issueDate;
+  // 납부 기한은 청구일 + 30일 이상(늘리는 것만, 2026-11-20 사용자)
+  const minDue = b.issueDate ? minDueDateOf(b.issueDate) : '';
+  const dateInvalid = !b.issueDate || b.issueDate < todayDate() || !b.dueDate || b.dueDate < minDue;
   return (
     <SectionCard
       title="청구서 작성"
@@ -118,13 +126,17 @@ function InvoiceEditor({ b }: { b: Bill }) {
         {/* 작성 중만 입력 칸 — 발행한 뒤(납부 대기 · 납부 완료)는 정해진 값이라 글자로 */}
         {draft ? (
           <>
-            <Input label="청구일" type="date" value={b.issueDate} onChange={(e) => save(key, { issueDate: e.target.value })} />
+            {/* 청구일 — 오늘부터(과거 못 고름). 미래면 [발행]해도 그날 기업에 나간다 */}
+            <div className="space-y-1.5">
+              <Input label="청구일" type="date" min={todayDate()} value={b.issueDate} error={b.issueDate && b.issueDate < todayDate() ? '오늘 이후' : undefined} onChange={(e) => save(key, { issueDate: e.target.value })} />
+              {b.issueDate > todayDate() && <p className="text-sm font-semibold text-white">{b.issueDate}에 발행됩니다</p>}
+            </div>
             <Input
               label="납부 기한"
               type="date"
-              min={b.issueDate}
+              min={minDue}
               value={b.dueDate}
-              error={b.dueDate && b.issueDate && b.dueDate < b.issueDate ? '청구일 이후' : undefined}
+              error={b.dueDate && minDue && b.dueDate < minDue ? `청구일 + ${INVOICE_MIN_DUE_DAYS}일 이후` : undefined}
               onChange={(e) => save(key, { dueDate: e.target.value })}
             />
             <div className="col-span-2">
@@ -139,7 +151,10 @@ function InvoiceEditor({ b }: { b: Bill }) {
           </>
         ) : (
           <>
-            <Info label="청구일" value={b.issueDate} />
+            <div className="space-y-1.5">
+              <Info label="청구일" value={b.issueDate} />
+              {b.issueDate > todayDate() && <p className="text-sm font-semibold text-white">{b.issueDate}에 발행됩니다</p>}
+            </div>
             <Info label="납부 기한" value={b.dueDate} />
             <Info label="결제 계좌" value={b.bankAccount || '-'} className="col-span-2" />
           </>
@@ -244,7 +259,7 @@ function InvoiceEditor({ b }: { b: Bill }) {
         message={
           confirm === 'pay'
             ? `${b.period} 청구서 ${fmtKrw(b.total)} 납부 완료로 바꿉니다.`
-            : `${b.period} 청구서 ${fmtKrw(b.total)}를 ${b.consumerCompanyName}에 발행합니다. 발행한 뒤에는 고칠 수 없습니다.`
+            : `${b.period} 청구서 ${fmtKrw(b.total)}를 ${b.issueDate > todayDate() ? `${b.issueDate}에 ` : ''}${b.consumerCompanyName}에 발행합니다. 발행한 뒤에는 고칠 수 없습니다.`
         }
         confirmLabel={confirm === 'pay' ? '납부 완료' : '발행'}
       />
@@ -256,6 +271,13 @@ function InvoiceEditor({ b }: { b: Bill }) {
 function OriginalCell({ s }: { s: Bill }) {
   const { original } = useTaxOriginal(s.contractId, s.period);
   return original ? <StatusPill tone="normal" label="등록" /> : <StatusPill tone="muted" label="미등록" />;
+}
+
+/** 남은 날 — D-5부터만 보인다(그 전은 빈 칸, 2026-11-20 사용자). D-5 ~ D-day 주황, 지나면 빨강 */
+function DdayPill({ date }: { date: string }) {
+  const n = daysUntil(date);
+  if (n > INVOICE_NOTICE_DAYS) return null;
+  return <StatusPill tone={n < 0 ? 'danger' : 'warning'} label={dDayLabel(n)} />;
 }
 
 const STATE_TONE = { DRAFT: 'muted', BILLED: 'warning', PAID: 'normal' } as const;
@@ -276,6 +298,14 @@ function BillingScreen({ kind }: { kind: Kind }) {
   const [month, setMonth] = useState('');
   const [q, setQ] = useState('');
   const [selId, setSelId] = useState<number | null>(null);
+  // 알림에서 들어오면(?contract=계약&period=달) 그 건을 고른다
+  const search = useLocationSearch();
+  useEffect(() => {
+    const p = new URLSearchParams(search);
+    const hit = rows.find((s) => s.contractId === Number(p.get('contract')) && s.period === p.get('period'));
+    if (hit) setSelId(hit.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
   useEffect(() => {
     if (!year && years.length) setYear(years[years.length - 1]!);
   }, [year, years]);
@@ -326,6 +356,13 @@ function BillingScreen({ kind }: { kind: Kind }) {
           },
         ];
 
+  // D-day — 작성 중 청구서의 청구일까지, D-5부터(관리자 표, 2026-11-20 사용자). 발행한 뒤(납부 대기 · 납부 완료)는 빈 칸
+  const dueDdayCol: Column<Bill> = {
+    key: 'dday',
+    header: 'D-day',
+    width: '100px',
+    render: (s) => (s.billStatus === 'DRAFT' ? <DdayPill date={s.issueDate} /> : null),
+  };
   // 세금계산서 원본 — 전자세금계산서 업체에서 발행한 파일을 올렸는지. 기업은 여기서 바로 올린다
   const originalCol: Column<Bill> = {
     key: 'original',
@@ -416,10 +453,10 @@ function BillingScreen({ kind }: { kind: Kind }) {
       render: (s) => cellNum(fmtKrw(s.total)),
     },
     // 세금계산서는 날짜 칸 없음 — 발행은 홈택스, 우리는 PDF 등록만(2026-11-19 사용자: 굳이 필요 없으면 뺌)
-    kind === 'TAX' ? originalCol : { key: 'status', header: '상태', width: '110px', render: (s) => <StatePill s={s} /> },
+    ...(kind === 'TAX' ? [originalCol] : [{ key: 'status', header: '상태', width: '110px', render: (s: Bill) => <StatePill s={s} /> }, dueDdayCol]),
   ];
   const columns = role.isAdmin ? sideColumns : fullColumns;
-  const sel = list.find((s) => s.id === selId) ?? list[0];
+  const sel = rows.find((s) => s.id === selId) ?? list[0];
   const selContract = sel ? role.contracts.find((c) => c.id === sel.contractId) : undefined;
 
   const arrowBtn =
@@ -478,7 +515,7 @@ function BillingScreen({ kind }: { kind: Kind }) {
         }
       >
         <SectionCard
-          title={`${NAME[kind]} (${list.length})`}
+          title={NAME[kind]}
           actions={
             role.isAdmin ? (
               <div className="relative w-64">

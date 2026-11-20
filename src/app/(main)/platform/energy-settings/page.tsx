@@ -237,8 +237,10 @@ export default function EnergySettingsPage() {
         </div>
       </div>
 
+      {/* 순서 — 감축량 계수 → 배출원 계수 → 전기 배출계수 → 가동일 → 한전 요금 가산 → 한전 요금표(2026-11-20 사용자) */}
       {/* 계수 — 전력배출계수만 [변경](적용년도별 팝업, 그 자리에서 저장 · 이력), 나머지는 칸에 바로 입력하고 상단 [저장] */}
       <BaseFactorCards
+        cards={['co2']}
         draft={factorDraft}
         onChange={(k, v) => {
           setFactorDraft((d) => ({ ...d, [k]: v }));
@@ -377,6 +379,15 @@ export default function EnergySettingsPage() {
           </div>
         </SectionCard>
       )}
+
+      <BaseFactorCards
+        cards={['adj']}
+        draft={factorDraft}
+        onChange={(k, v) => {
+          setFactorDraft((d) => ({ ...d, [k]: v }));
+          setFactorDirty(true);
+        }}
+      />
 
       {/* 한전 요금표 — 산업용(을) 고압A 하나. 경부하 · 중간부하 · 최대부하 */}
       {table && (

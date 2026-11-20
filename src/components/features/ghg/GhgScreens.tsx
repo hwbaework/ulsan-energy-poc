@@ -595,7 +595,7 @@ export function GhgFactorsScreen() {
       name: '전력배출계수',
       // 현재 값만 — 금일이 속한 해의 계수(연도별 목록은 관리 › 에너지 설정)
       value: `${fx.co2For(GHG_TODAY)} tCO₂eq/MWh`,
-      use: '감축량 = 발전량 (MWh) × 그 해 계수',
+      use: '감축량 = 발전량 (MWh) × 계수',
     },
     {
       key: 'pine',
