@@ -418,8 +418,8 @@ const myNotifications = () => {
       createdAt: g.createdAt,
     }));
   // 3. 기상특보 — 기상청 실시간. 울산동부 · 울산서부에 지금 발효 중인 태풍 · 강풍 경보만(없으면 0건)
+  // 재난 경보는 이동할 화면이 없어(notifPathOf null) allowed 로 거르지 않는다 — 발전소를 보는 회원 전체가 받는다
   const weather = activeWeatherWarnings()
-    .filter((w) => allowed(w.type))
     .map((w) => {
       const id = 900_000 + [...(w.type + w.since)].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 90_000, 0);
       const title = NOTIFICATION_CATALOG.find((e) => e.key === w.type)?.name ?? w.type;
@@ -427,7 +427,6 @@ const myNotifications = () => {
     });
   // 3-1. 특보 해제 — 발효 중이던 경보가 기상청 응답에서 빠지면
   const weatherOff = releasedWeatherWarnings()
-    .filter((w) => allowed(w.type))
     .map((w) => {
       const id = 990_000 + [...(w.type + w.at)].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 9_000, 0);
       return { id, type: w.type, title: notifResolveNameOf(w.type) ?? w.type, message: w.zones.join(', ') + ' — ' + w.wrn + '경보 해제', link: undefined as string | undefined, isRead: READ_GENERATED.has(id), createdAt: w.at, resolved: true };

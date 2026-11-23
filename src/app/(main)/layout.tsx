@@ -956,7 +956,7 @@ function getNotifLink(n: { type: string; link?: string }, persona: Persona): str
   const t = n.type;
   // 알림 항목표(2026-11-09, src/lib/notification-catalog.ts) — link 가 없을 때 종류 키로
   if (t === 'RTU_POWER_OFF' || t === 'TYPHOON_WARNING') return '/monitoring/anomalies'; // 이상 감지 목록으로 들어오는 사건
-  if (t.startsWith('SAFETY_')) return '/control/safety';
+  if (t.startsWith('SAFETY_') || t.startsWith('PREDICTIVE_')) return '/monitoring/anomalies'; // 통합관제 알림은 모두 이상감지 관리로(2026-11-23 사용자)
   if (t === 'SIGNUP_MEMBER') return isSpcLike ? '/platform/users' : null;
   if (t === 'SIGNUP_COMPANY' || t === 'COMPANY_CHANGE') return isSpcLike ? '/platform/companies' : null;
   if (t === 'DOCUMENT') return '/platform/ppa/documents';
