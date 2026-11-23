@@ -59,17 +59,17 @@ const PLANT = '관리자(메뉴 권한 있는 회원), 발전소 소유 발전�
 export const NOTIFICATION_CATALOG: NotifEvent[] = [
   // ── 통합관제 — 이상감지 관리 › 이상 감지 목록에 들어오는 종류 그대로(출력 저하는 자연히 생길 수 있어 알림 아님, 2026-11-09 사용자).
   //    RTU 전원 꺼짐 · 태풍경보(DT EV01 · EV04)도 DT 가 플랫폼 배경이 된 뒤로는 이 목록으로 들어온다 ──
-  { key: 'RTU_POWER_OFF', name: 'RTU 전원 꺼짐', label: '이상감지 관리 › 이상 감지 목록 › RTU 전원 꺼짐', domain: '통합관제', condition: 'RTU 전원 신호가 꺼짐', receivers: PLANT, go: '이상감지 관리', resolve: '보냄', emailDefault: true },
-  { key: 'ANOMALY_RTU_COMM', name: 'RTU 통신 끊김', label: '이상감지 관리 › 이상 감지 목록 › RTU 통신 끊김', domain: '통합관제', condition: 'RTU 폴링 응답 없음, 또는 전체 인버터 측정시각이 20분 이상 멈춤, 주간만 판정', receivers: PLANT, go: '이상감지 관리', resolve: '보냄' },
-  { key: 'ANOMALY_INVERTER_COMM', name: '인버터 통신 끊김', label: '이상감지 관리 › 이상 감지 목록 › 인버터 통신 끊김', domain: '통합관제', condition: '일부 인버터 응답 없음, 측정시각이 20분 이상 멈춤, 주간만 판정', receivers: PLANT, go: '이상감지 관리', resolve: '보냄' },
-  { key: 'TYPHOON_WARNING', name: '태풍경보', label: '이상감지 관리 › 이상 감지 목록 › 태풍경보', domain: '통합관제', condition: '울산동부, 울산서부에 태풍경보 이상 발효', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '이상감지 관리', resolve: '해제 보냄', emailDefault: true },
-  { key: 'WIND_WARNING', name: '강풍경보', label: '이상감지 관리 › 이상 감지 목록 › 강풍경보', domain: '통합관제', condition: '울산동부, 울산서부에 강풍경보 발효 — 모듈 탈락 · 구조물 피해(사업계획서 p134)', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '이상감지 관리', resolve: '해제 보냄', emailDefault: true },
+  { key: 'RTU_POWER_OFF', name: 'RTU 전원 꺼짐', label: '이상감지 관리 › 이상 감지 목록 › RTU 전원 꺼짐', domain: '통합관제', condition: 'S-Energy API-001 rtuPowerState 1(Off) — 시간 기준 없이 꺼짐 값으로 옴(2026-11-23 사용자)', receivers: PLANT, go: '이상감지 관리', resolve: '보냄', emailDefault: true },
+  { key: 'ANOMALY_RTU_COMM', name: 'RTU 통신 끊김', label: '이상감지 관리 › 이상 감지 목록 › RTU 통신 끊김', domain: '통합관제', condition: 'S-Energy API-001 rtuConnectionState 1(통신오류) — 끊김 값으로 옴, 20분 같은 시간 기준 없음(2026-11-23 사용자)', receivers: PLANT, go: '이상감지 관리', resolve: '보냄' },
+  { key: 'ANOMALY_INVERTER_COMM', name: '인버터 통신 끊김', label: '이상감지 관리 › 이상 감지 목록 › 인버터 통신 끊김', domain: '통합관제', condition: 'S-Energy API-001 inverters[].connectionState 1(통신오류) — 끊김 값으로 옴, 시간 기준 없음', receivers: PLANT, go: '이상감지 관리', resolve: '보냄' },
+  { key: 'TYPHOON_WARNING', name: '태풍경보', label: '통합관제 › 재난 경보 › 태풍경보', domain: '통합관제', condition: '울산동부, 울산서부에 태풍경보 이상 발효', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '이동 없음', resolve: '해제 보냄', emailDefault: true },
+  { key: 'WIND_WARNING', name: '강풍경보', label: '통합관제 › 재난 경보 › 강풍경보', domain: '통합관제', condition: '울산동부, 울산서부에 강풍경보 발효 — 모듈 탈락 · 구조물 피해(사업계획서 p134)', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '이동 없음', resolve: '해제 보냄', emailDefault: true },
   // 호우경보 · 대설경보는 알림 없음(2026-11-23 사용자) — 지붕 설비라 침수 가능성이 낮고 누전은 전기안전지수(누설)가 잡는다, 울산은 대설경보가 드물다. 기상청 응답에는 계속 들어온다
   { key: 'SAFETY_DANGER', name: '전기안전지수 위험', label: '안전 › 발전소별 안전 현황 › 전기안전지수 › 위험', domain: '통합관제', condition: 'ITS 전기안전지수 등급이 위험이거나 위험으로 상향', receivers: PLANT, go: '안전', resolve: '보냄, 등급이 내려가 30분 이어지면', emailDefault: true },
   { key: 'SAFETY_WARNING', name: '전기안전지수 경고', label: '안전 › 발전소별 안전 현황 › 전기안전지수 › 경고', domain: '통합관제', condition: 'ITS 전기안전지수 등급이 경고', receivers: PLANT, go: '안전', resolve: '보내지 않음' },
   // 주의는 알림 없음 — 위험 · 경고만(2026-11-23 사용자). 등급은 ITS 가 주는 riskLevel 그대로
   // 예지보전 — DX 센서 값이 들어오다가 끊기면 전기안전지수 등급도 멈춰 안전 알림이 조용히 죽는다. 화면의 '수집 중단' 판정(연계 대상 센서인데 값 없음, 연계 문서 8-4) 그대로(2026-11-23 사용자)
-  { key: 'PREDICTIVE_SENSOR_STOP', name: '센서 수집 중단', label: '예지보전 › 발전소별 예지보전 현황 › 수집 중단', domain: '통합관제', condition: '연계 대상 DX 센서의 값이 들어오다가 안 들어옴(수집 중단)', receivers: PLANT, go: '예지보전', resolve: '보냄' },
+  { key: 'PREDICTIVE_SENSOR_STOP', name: '센서 수집 중단', label: '예지보전 › 발전소별 예지보전 현황 › 수집 중단', domain: '통합관제', condition: '연계 대상 DX 센서의 receivedAt 이 5분 이상 멈춤, 또는 응답에서 빠짐(연계 문서 8-4)', receivers: PLANT, go: '예지보전', resolve: '보냄' },
   // ── RE100(전력거래) — 자가소비 · PPA 따로, 거래 4단계(신청 접수 → 미팅 조건 확정 → 전자서명 → 승인)마다 하나, 변경 · 해지도 단계마다 하나.
   //    승인은 끝났다는 알림이라 양측에 간다. RE100 설계서에서 확정 전 초안 ──
   { key: 'TRADING_SELF_RECEIVED', name: '자가소비 신청', label: '거래 신청 › 자가소비 › 신청', domain: 'RE100', condition: '기업이 자가소비 거래를 신청함', receivers: '관리자(메뉴 권한 있는 회원)', go: '거래 이력', resolve: '해당 없음', emailDefault: true, adminOnly: true },
@@ -142,6 +142,8 @@ export function notifPathOf(key: string, account: NotifAccount): string | null {
   const e = NOTIFICATION_CATALOG.find((x) => x.key === key);
   if (!e) return null;
   if (e.adminOnly && account !== 'admin') return null;
+  // 재난 경보는 지역 기상특보라 이상감지에 넣지 않고 알림만 — 누르면 읽음만, 이동 없음(2026-11-23 사용자)
+  if (/^(TYPHOON|WIND)_WARNING$/.test(key)) return null;
   if (e.domain === '통합관제') return key.startsWith('SAFETY_') ? '/control/safety' : key.startsWith('PREDICTIVE_') ? '/control/predictive' : '/monitoring/anomalies';
   if (e.domain === 'E-데이터마켓') {
     // 판매 동의 · 판매 종료는 같은 데이터 카드의 일 — 종료 예정일이 보이는 데이터 등록/신청으로(2026-11-16 사용자)

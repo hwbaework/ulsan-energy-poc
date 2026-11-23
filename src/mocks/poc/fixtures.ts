@@ -285,10 +285,10 @@ registerMock(/^\/notifications\/settings$/, ({ body }) => {
 // 종 알림 목업 — 알림 항목표의 모든 항목을 하나씩(항목표 순서), 제목은 짧은 이름(name). 누르면 그 항목의 화면으로 간다(notifPathOf).
 // 계정마다 받는 것만: 관리자는 전부, 기업 계정은 관리자 전용 항목과 그 계정에 화면이 없는 항목을 뺀다. 안 읽음은 앞 5건
 const NOTIFICATION_MESSAGE: Record<string, string> = {
-  // 통신 · 전원은 짧게 — 꺼짐 / 통신 몇 분 끊김(판정 기준 20분 이상), 풀어 쓴 설명 없이(2026-11-23 사용자)
+  // 통신 · 전원은 짧게 — 꺼짐 / 통신 끊김. 시간 기준 없이 Off · 통신오류 값으로 온다(S-Energy API-001, 2026-11-23 사용자)
   RTU_POWER_OFF: '용인금속 — RTU 꺼짐',
-  ANOMALY_RTU_COMM: '태성산업 — RTU 통신 20분 끊김',
-  ANOMALY_INVERTER_COMM: '한길 인버터 #3 — 통신 20분 끊김',
+  ANOMALY_RTU_COMM: '태성산업 — RTU 통신 끊김',
+  ANOMALY_INVERTER_COMM: '한길 인버터 #3 — 통신 끊김',
   // 내용 = 전기안전지수 + 가장 높은 위험 항목(값이 들어오는 항목만 — 전류 · 전압 · 누설 등, 아크는 제공 전이라 쓰지 않음, 2026-11-23 사용자)
   SAFETY_DANGER: '용인금속 인버터 #1 — 전기안전지수 48.0, 누설',
   SAFETY_WARNING: '한일튜브 인버터 #1 — 전기안전지수 56.5, 전류',
@@ -637,11 +637,11 @@ function anomaly(
  */
 export const ANOMALY_ROWS: MockAnomaly[] = [
   // 경고 · 통신오류 진행 중 — 건호이엔씨
-  // 통신 끊김은 20분 이상 멈춰야 이상(알림 조건과 같음) — 문구는 짧게 '통신 몇 분 끊김'
-  anomaly(4, 17513, '인버터 #2 통신 25분 끊김', '통신 25분 끊김', 'warning', 'COMM_ERROR', daysAgo(0, 8, 40), []),
+  // 통신 끊김은 S-Energy 가 통신오류(1)로 준 값 그대로 — 시간 기준 없음, 문구는 짧게
+  anomaly(4, 17513, '인버터 #2 통신 끊김', '통신 끊김', 'warning', 'COMM_ERROR', daysAgo(0, 8, 40), []),
   // 등급은 정상인데 통신만 오류 — 태성산업 (등급·통신은 별개 소스라 이런 건도 이상 목록에 뜬다)
   anomaly(8, 17511, 'RTU 전원 꺼짐', 'RTU 꺼짐', 'warning', 'COMM_ERROR', daysAgo(0, 7, 20), []),
-  anomaly(6, 17512, 'RTU 통신 20분 끊김', '통신 20분 끊김', 'normal', 'COMM_ERROR', daysAgo(0, 9, 55), []),
+  anomaly(6, 17512, 'RTU 통신 끊김', '통신 끊김', 'normal', 'COMM_ERROR', daysAgo(0, 9, 55), []),
   // 주의 — 용인금속
 ];
 
