@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
@@ -49,6 +50,7 @@ function getDeviceLabel(r: AnomalyRow): string {
 }
 
 export default function AnomaliesPage() {
+  const router = useRouter();
   const [status, setStatus] = useState('all');
   const [query, setQuery] = useState('');
   // 관리자는 전체를 한 번에, 발전사업자 · 전기사용자는 계약 유형(자가소비 / PPA)을 골라서 본다 — 계약마다 주체가 다르다
@@ -280,6 +282,17 @@ export default function AnomaliesPage() {
           columns={columns}
           data={filtered}
           rowKey={(r) => r.id}
+          // 줄을 누르면 그 이상을 자세히 보는 화면으로 — 통신 · 전원은 발전소 상세, 센서 수신 끊김은 예지보전, 전기안전지수 위험 · 경고는 안전의 그 기업 상세.
+          // 알림은 모두 이 화면으로 오고, 여기서 눌러 들어간다(2026-11-23 사용자)
+          onRowClick={(r) =>
+            router.push(
+              r.status === 'POWER_OFF' || r.status === 'COMM_ERROR'
+                ? `/monitoring/plant/${r.plantId}`
+                : r.status === SENSOR_STOP
+                  ? `/control/predictive/${r.plantId}`
+                  : `/control/safety/${r.plantId}`,
+            )
+          }
           emptyMessage={q || status !== 'all' ? '검색 결과가 없습니다' : '이상 감지 내역이 없습니다'}
         />
       </SectionCard>

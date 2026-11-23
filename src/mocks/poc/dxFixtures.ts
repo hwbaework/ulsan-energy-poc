@@ -25,8 +25,8 @@ const idx = (s: DxSensor) => DX_SENSORS.indexOf(s);
 
 /** 센서별 특성 — 관찰·주의·중단 경우를 하나씩 */
 const PROFILE: Record<string, { unbalance?: number; leakage?: number; health: number; staleMin?: number; risk?: { key: 'current' | 'leakage'; score: number } }> = {
-  // 임시(2026-11-23 사용자: 전기안전지수 위험 · 경고도 임시로 넣어 두자) — 경고: 한일튜브1 전류 43.5 → 지수 56.5, 위험: 용인금속01 누설 52.0 → 지수 48.0. 알림 · 이상 감지 목록의 그 건과 같은 값
-  '한일튜브1': { health: 96.5, risk: { key: 'current', score: 43.5 } },
+  // 임시(2026-11-23 사용자: 전기안전지수 위험 · 경고도 임시로 넣어 두자) — 경고: 태성산업 전류 43.5 → 지수 56.5, 위험: 용인금속01 누설 52.0 → 지수 48.0. 한일튜브 · 한길은 이상 없이 둔다(해소 알림의 '정상' 사업장). 알림 · 이상 감지 목록의 그 건과 같은 값
+  '한일튜브1': { health: 96.5 },
   '한일튜브2': { health: 98.2 },
   '한일튜브3': { health: 93.1, unbalance: 4.8 },
   '한일튜브4': { health: 97.0 },
@@ -34,7 +34,7 @@ const PROFILE: Record<string, { unbalance?: number; leakage?: number; health: nu
   '용인금속02': { health: 96.1 },
   '용인금속03': { health: 89.6, leakage: 0.17 },
   '용인금속04': { health: 95.0, staleMin: 132 },
-  태성산업: { health: 97.8 },
+  태성산업: { health: 97.8, risk: { key: 'current', score: 43.5 } },
   한길: { health: 96.9 },
   건호이엔씨: { health: 97.3 },
 };

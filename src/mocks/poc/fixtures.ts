@@ -291,7 +291,7 @@ const NOTIFICATION_MESSAGE: Record<string, string> = {
   ANOMALY_INVERTER_COMM: '건호이엔씨 인버터 #2 — 통신 끊김', // 이상 감지 목록의 그 건과 같게(발전소마다 인버터는 #1 · #2 — '한길 인버터 #3'은 없는 설비였다, 2026-11-23 사용자)
   // 내용 = 전기안전지수 + 가장 높은 위험 항목(값이 들어오는 항목만 — 전류 · 전압 · 누설 등, 아크는 제공 전이라 쓰지 않음, 2026-11-23 사용자)
   SAFETY_DANGER: '용인금속 인버터 #1 — 전기안전지수 48.0, 누설',
-  SAFETY_WARNING: '한일튜브 인버터 #1 — 전기안전지수 56.5, 전류',
+  SAFETY_WARNING: '태성산업 인버터 #1 — 전기안전지수 56.5, 전류',
   PREDICTIVE_SENSOR_STOP: '용인금속 인버터 #4 — 센서 수신 끊김', // 이상 감지 목록의 수신 끊김 건과 같게
   TRADING_SELF_RECEIVED: '한길 → 관리자 : 90.88 kW 신청, 확인',
   TRADING_SELF_TERMS: '관리자 → 태성산업 : 46.08 kW 조건 확정, 확인',
@@ -359,15 +359,15 @@ const NOTIFICATIONS = NOTIFICATION_CATALOG.filter((e) => !NOT_LIVE_KEYS.has(e.ke
 });
 /**
  * 해소 알림 — 통합관제 알림은 풀리면 '○○ 해소'가 온다(웹 알림만, 2026-11-23 사용자: 경고도 보냄). 같은 항목 설정을 따른다.
- * 샘플은 지금 이상 감지 목록에 걸려 있지 않은 설비로(목록에 떠 있는 건과 엇갈리지 않게)
+ * 샘플은 전체 상태가 '정상'인 사업장(한길 · 한일튜브)으로 — 해소됐다는데 그 사업장이 이상감지로 보이면 안 된다(2026-11-23 사용자). 전기안전지수 · 센서는 DX 센서가 있는 한일튜브
  */
 const RESOLVE_MESSAGE: Record<string, string> = {
   RTU_POWER_OFF: '한길 — RTU 켜짐',
   ANOMALY_RTU_COMM: '한일튜브 — RTU 통신 정상',
-  ANOMALY_INVERTER_COMM: '태성산업 인버터 #1 — 통신 정상',
-  SAFETY_DANGER: '태성산업 인버터 #1 — 전기안전지수 91.5',
+  ANOMALY_INVERTER_COMM: '한길 인버터 #1 — 통신 정상',
+  SAFETY_DANGER: '한일튜브 인버터 #2 — 전기안전지수 91.5',
   SAFETY_WARNING: '한일튜브 인버터 #4 — 전기안전지수 93.0',
-  PREDICTIVE_SENSOR_STOP: '한일튜브 인버터 #2 — 센서 수신 정상',
+  PREDICTIVE_SENSOR_STOP: '한일튜브 인버터 #1 — 센서 수신 정상',
 };
 const RESOLVE_NOTIFICATIONS = NOTIFICATION_CATALOG.filter((e) => RESOLVE_MESSAGE[e.key]).map((e, i) => {
   const at = new Date(Date.UTC(2026, 10, 16, 11, 0, 0) - i * 3 * 3_600_000).toISOString().slice(0, 19);
@@ -670,9 +670,9 @@ export const ANOMALY_ROWS: MockAnomaly[] = [
   // 등급은 정상인데 통신만 오류 — 태성산업 (등급·통신은 별개 소스라 이런 건도 이상 목록에 뜬다)
   anomaly(8, 17511, 'RTU 전원 꺼짐', 'RTU 꺼짐', 'warning', 'POWER_OFF', daysAgo(0, 7, 20), []),
   anomaly(6, 17512, 'RTU 통신 끊김', '통신 끊김', 'normal', 'COMM_ERROR', daysAgo(0, 9, 55), []),
-  // 전기안전지수 위험 · 경고 — 임시 데모(2026-11-23 사용자). 안전 화면 데모(dxFixtures PROFILE 용인금속01 · 한일튜브1) · 알림 문구와 같은 건. 한 사업장에 이상이 여럿일 수 있다(용인금속: RTU 전원 꺼짐 + 위험 + 수신 끊김)
+  // 전기안전지수 위험 · 경고 — 임시 데모(2026-11-23 사용자). 안전 화면 데모(dxFixtures PROFILE 용인금속01 · 태성산업) · 알림 문구와 같은 건. 한 사업장에 이상이 여럿일 수 있다(용인금속: RTU 전원 꺼짐 + 위험 + 수신 끊김)
   anomaly(9, 17511, '인버터 #1 전기안전지수 위험', '전기안전지수 48.0, 누설', 'danger', 'NORMAL', daysAgo(0, 11, 5), []),
-  anomaly(10, 17514, '인버터 #1 전기안전지수 경고', '전기안전지수 56.5, 전류', 'warning', 'NORMAL', daysAgo(0, 10, 30), [], null, 'SELF_CONSUMPTION'),
+  anomaly(10, 17512, '인버터 #1 전기안전지수 경고', '전기안전지수 56.5, 전류', 'warning', 'NORMAL', daysAgo(0, 10, 30), []),
 ];
 
 // 발전소 상세 — 이상감지 요약 포함
