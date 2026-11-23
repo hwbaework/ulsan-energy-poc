@@ -167,6 +167,7 @@ export default function ReportsClient() {
     const raw: any[] = anomalyData ? (Array.isArray(anomalyData) ? anomalyData : ((anomalyData as any)?.content ?? [])) : [];
     const mine = new Set(plants.map((p) => p.plantId));
     return raw
+      .filter((a: any) => !a.resolvedAt) // 보고서의 이상 건수는 진행 중인 것만
       .map((a: any) => ({
         id: a.id as number,
         plantId: (a.plantId ?? a.powerStationId ?? 0) as number,

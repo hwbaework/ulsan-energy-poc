@@ -10,7 +10,7 @@ import { SectionCard, StatCard, StatsGrid } from '@/components/features';
 
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { StatusPill } from '@/components/ui/Design';
-import { CONTRACT_KIND, CONTRACT_KIND_LABEL, CONTRACT_KIND_ORDER, SENSOR_STOP, anomalyStateOf, contractKindsOf, isAnomaly } from '@/lib/design';
+import { CONTRACT_KIND, CONTRACT_KIND_LABEL, CONTRACT_KIND_ORDER, SENSOR_STOP, anomalyRowStateOf, contractKindsOf, isAnomaly } from '@/lib/design';
 import { useDxLatestAll } from '@/hooks/control/useDx';
 import { dxSensorLabel, dxSensorsOf, isDxTarget, isStale, type DxLatest } from '@/lib/dx';
 import { getPersona } from '@/lib/persona';
@@ -31,6 +31,8 @@ interface AnomalyRow extends AnomalyEvent {
   description?: string;
   createdAt?: string;
   updatedAt?: string;
+  /** 해소 줄 — 풀린 때 생기는 줄(시간 = 풀린 때, 이상유형 뒤에 '해소') */
+  resolveRow?: boolean;
 }
 
 // 등급·상태 표기와 이상 포함 조건은 src/lib/design.ts (ANOMALY_GRADE · COMM_STATUS · isAnomaly) 한 곳에서 정의한다.
@@ -129,7 +131,15 @@ export default function AnomaliesPage() {
             return [row];
           }),
       );
-  const anomalies: AnomalyRow[] = [...apiAnomalies, ...sensorStops];
+  // 이력 — 발생 줄은 풀린 뒤에도 그대로 남고, 풀리면 해소 줄이 하나 더 생긴다(시간 = 풀린 때). 진행 중인 이상이 위, 지난 이력은 최근 것부터
+  const history: AnomalyRow[] = [...apiAnomalies, ...sensorStops].flatMap((a) =>
+    a.resolvedAt
+      ? [a, { ...a, id: -(1_000_000 + Math.abs(Number(a.id))), title: `${a.title} 해소`, detectedAt: String(a.resolvedAt), resolveRow: true }]
+      : [a],
+  );
+  const anomalies: AnomalyRow[] = history.sort(
+    (a, b) => Number(!!a.resolvedAt) - Number(!!b.resolvedAt) || (a.resolvedAt && b.resolvedAt ? String(b.detectedAt).localeCompare(String(a.detectedAt)) : 0),
+  );
   // 내 계약 유형 — 둘(자가소비 · PPA)일 때만 골라서 본다
   const myKinds = CONTRACT_KIND_ORDER.filter((k) => myPlants.some((pl) => contractKindsOf(pl).includes(k)));
   const pickKind = !isAdmin && myKinds.length > 1;
@@ -147,7 +157,7 @@ export default function AnomaliesPage() {
   const filtered = anomalies.filter((a) => {
     // 계약을 모르는 이상(발전소 단위 RTU 등)은 두 유형 모두에 보인다
     if (pickKind && a.contractKind && a.contractKind !== kindTab) return false;
-    if (status !== 'all' && anomalyStateOf(a.severity, a.status).code !== status) return false;
+    if (status !== 'all' && anomalyRowStateOf(a).code !== status) return false;
     if (q && !a.displayName.toLowerCase().includes(q) && !a.title.toLowerCase().includes(q)) return false;
     return true;
   });
@@ -155,7 +165,7 @@ export default function AnomaliesPage() {
   // 필터 항목 = 데이터에 실제 있는 값만 (하드코딩 금지)
   const statusOptions = useMemo(() => {
     const specs = new Map(anomalies.map((a) => {
-      const s = anomalyStateOf(a.severity, a.status);
+      const s = anomalyRowStateOf(a);
       return [s.code, s] as const;
     }));
     const codes = [...specs.values()].sort((x, y) => x.order - y.order);
@@ -163,14 +173,15 @@ export default function AnomaliesPage() {
   }, [anomalies]);
 
   // 활성 이상 = 목록 전체(등급 위험·경고, 통신오류, 센서 수신 끊김) · 경고 = 등급 경고 건
-  const inKind = anomalies.filter((a) => !pickKind || !a.contractKind || a.contractKind === kindTab);
+  // 해소된 줄은 세지 않는다 — 활성 이상 = 아직 풀리지 않은 이상
+  const inKind = anomalies.filter((a) => !a.resolvedAt && (!pickKind || !a.contractKind || a.contractKind === kindTab));
   const activeCount = inKind.length;
   const warningCount = inKind.filter((a) => a.severity === 'warning').length;
 
   const columns: Column<AnomalyRow>[] = [
     {
       key: 'detectedAt',
-      header: '시간',
+      header: '시간', // 발생한 때 하나만 — 해소 시간 칸은 두지 않는다(줄이 길어진다, 언제 풀렸는지는 해소 알림에. 2026-11-23 사용자)
       width: '180px',
       render: (r) => (
         <span className="text-sm text-slate-300 tabular-nums whitespace-nowrap">
@@ -222,7 +233,7 @@ export default function AnomaliesPage() {
       header: '상태',
       width: '80px',
       render: (r) => {
-        const s = anomalyStateOf(r.severity, r.status);
+        const s = anomalyRowStateOf(r);
         return <StatusPill tone={s.tone} label={s.label} />;
       },
     },

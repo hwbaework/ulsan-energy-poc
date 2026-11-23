@@ -17,7 +17,7 @@
  *  - 데이터 근거 없는 알림은 만들지 않는다(2026-11-09 사용자). 근거: 아이티공간 「울산에자자_예지보전_데이터_연계_정리_v1.1」(전류 · 전압 · 누설 · 고조파 · 온도 · 역률 · 아크 · 통신 품질, 등급 위험/경고/주의/관찰/정상),
  *    LASEE 통신 상태(NORMAL / COMM_ERROR), 기상청 기상특보, 전력거래 · 데이터 마켓 · 회원 스토어의 실제 상태값
  *  - 실제로 들어오는 데이터가 있는 알림만 둔다 — 화재 · 연기 센서가 없어 '화재 징후'는 뺐다(2026-11-23 사용자: 진짜 있는 걸 해야지). 아크 지수도 제공 전(null)이라 알림 · 문구에 쓰지 않는다. 지진은 사업계획서에 없음(0건).
- *  - 기상특보는 두 가지 — 태풍 · 강풍(2026-11-23 사용자: 호우 · 대설 뺌, 2026-11-11 에는 네 가지였다). 코드: 태풍 warnVar 7, 강풍 1, 호우 2, 대설 8. 경보(warnStress 1) 이상, cancel 0 인 행만.
+ *  - 기상특보는 두 가지 — 태풍 · 호우(2026-11-23 사용자 최종: 강풍 · 대설 뺌. 호우는 DT 시뮬레이션 침수와 이어진다. 2026-11-11 에는 네 가지였다). 코드: 태풍 warnVar 7, 강풍 1, 호우 2, 대설 8. 경보(warnStress 1) 이상, cancel 0 인 행만.
  *    사양 확인(2026-11-23, 공공데이터포털 기상청_기상특보 조회서비스 WthrWrnInfoService 특보코드조회 getPwnCd, https://www.data.go.kr/data/15000415/openapi.do):
  *    warnVar 1 강풍 · 2 호우 · 7 태풍 · 8 대설, warnStress 0 주의보 · 1 경보, command 1 발표 · 2 해제 · 3 연장 · 6 정정 · 7 변경발표 · 8 변경해제, cancel 0 정상 · 1 취소.
  *    울산 특보구역 = 울산동부(북구 · 중구 · 남구 · 동구) / 울산서부(울주군) — 기상청 특보구역 안내. 구역코드는 wrn_reg.php 로 확인: 울산동부 L1082800 · 울산서부 L1082900.
@@ -44,7 +44,7 @@ export interface NotifEvent {
   receivers: string;
   /** 클릭 시 이동 */
   go: string;
-  /** 해소 알림 — 보냄 / 해제 보냄(재난 경보) / 해당 없음. 통합관제는 전부 보낸다 — 웹 알림만(이메일 없음), 설정 줄은 따로 없고 발생 알림을 켜 두면 같이 온다(2026-11-23 사용자) */
+  /** 해소 알림 — 보냄 / 해당 없음. 통합관제는 재난 경보만 빼고 보낸다(재난 경보는 발효를 알려 주는 것까지 — 해제 알림 없음) — 웹 알림만(이메일 없음), 설정 줄은 따로 없고 발생 알림을 켜 두면 같이 온다(2026-11-23 사용자) */
   resolve: string;
   /** 이메일 기본 켬 */
   emailDefault?: boolean;
@@ -63,9 +63,10 @@ export const NOTIFICATION_CATALOG: NotifEvent[] = [
   { key: 'RTU_POWER_OFF', name: 'RTU 전원 꺼짐', label: '이상감지 관리 › 이상 감지 목록 › RTU 전원 꺼짐', domain: '통합관제', condition: 'S-Energy API-001 rtuPowerState 1(Off) — 시간 기준 없이 꺼짐 값으로 옴(2026-11-23 사용자)', receivers: PLANT, go: '이상감지 관리', resolve: '보냄', emailDefault: true },
   { key: 'ANOMALY_RTU_COMM', name: 'RTU 통신 끊김', label: '이상감지 관리 › 이상 감지 목록 › RTU 통신 끊김', domain: '통합관제', condition: 'S-Energy API-001 rtuConnectionState 1(통신오류) — 끊김 값으로 옴, 20분 같은 시간 기준 없음(2026-11-23 사용자)', receivers: PLANT, go: '이상감지 관리', resolve: '보냄' },
   { key: 'ANOMALY_INVERTER_COMM', name: '인버터 통신 끊김', label: '이상감지 관리 › 이상 감지 목록 › 인버터 통신 끊김', domain: '통합관제', condition: 'S-Energy API-001 inverters[].connectionState 1(통신오류) — 끊김 값으로 옴, 시간 기준 없음', receivers: PLANT, go: '이상감지 관리', resolve: '보냄' },
-  { key: 'TYPHOON_WARNING', name: '태풍경보', label: '통합관제 › 재난 경보 › 태풍경보', domain: '통합관제', condition: '울산동부, 울산서부에 태풍경보 이상 발효', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '이동 없음', resolve: '해제 보냄', emailDefault: true },
-  { key: 'WIND_WARNING', name: '강풍경보', label: '통합관제 › 재난 경보 › 강풍경보', domain: '통합관제', condition: '울산동부, 울산서부에 강풍경보 발효 — 모듈 탈락 · 구조물 피해(사업계획서 p134)', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '이동 없음', resolve: '해제 보냄', emailDefault: true },
-  // 호우경보 · 대설경보는 알림 없음(2026-11-23 사용자) — 지붕 설비라 침수 가능성이 낮고 누전은 전기안전지수(누설)가 잡는다, 울산은 대설경보가 드물다. 기상청 응답에는 계속 들어온다
+  { key: 'TYPHOON_WARNING', name: '태풍경보', label: '통합관제 › 재난 경보 › 태풍경보', domain: '통합관제', condition: '울산동부, 울산서부에 태풍경보 이상 발효', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '이동 없음', resolve: '해당 없음', emailDefault: true },
+  // 호우경보 — 침수. DT 시뮬레이션의 재난 시나리오(화재 · 지진 · 침수) 가운데 침수와 이어지는 알림(2026-11-23 사용자). 강풍경보는 뺐다 — 태풍 · 호우 둘만
+  { key: 'HEAVY_RAIN_WARNING', name: '호우경보', label: '통합관제 › 재난 경보 › 호우경보', domain: '통합관제', condition: '울산동부, 울산서부에 호우경보 발효 — 침수 · 누전', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '이동 없음', resolve: '해당 없음', emailDefault: true },
+  // 강풍경보 · 대설경보는 알림 없음(2026-11-23 사용자) — 강풍경보 수준 바람에 모듈이 날아갈지 의문, 울산은 대설경보가 드물다. 기상청 응답에는 계속 들어온다
   { key: 'SAFETY_DANGER', name: '전기안전지수 위험', label: '안전 › 발전소별 안전 현황 › 전기안전지수 › 위험', domain: '통합관제', condition: 'ITS 전기안전지수 등급이 위험이거나 위험으로 상향', receivers: PLANT, go: '이상감지 관리', resolve: '보냄', emailDefault: true },
   { key: 'SAFETY_WARNING', name: '전기안전지수 경고', label: '안전 › 발전소별 안전 현황 › 전기안전지수 › 경고', domain: '통합관제', condition: 'ITS 전기안전지수 등급이 경고', receivers: PLANT, go: '이상감지 관리', resolve: '보냄' },
   // 주의는 알림 없음 — 위험 · 경고만(2026-11-23 사용자). 등급은 ITS 가 주는 riskLevel 그대로
@@ -144,7 +145,7 @@ export function notifPathOf(key: string, account: NotifAccount): string | null {
   if (!e) return null;
   if (e.adminOnly && account !== 'admin') return null;
   // 재난 경보는 지역 기상특보라 이상감지에 넣지 않고 알림만 — 누르면 읽음만, 이동 없음(2026-11-23 사용자)
-  if (/^(TYPHOON|WIND)_WARNING$/.test(key)) return null;
+  if (/^(TYPHOON|HEAVY_RAIN)_WARNING$/.test(key)) return null;
   // 통합관제 알림은 모두 이상감지 관리로 — 알림마다 다른 화면으로 가지 않는다. 거기서 그 줄을 누르면 상세(안전 · 예지보전 · 발전소 상세)로(2026-11-23 사용자)
   if (e.domain === '통합관제') return '/monitoring/anomalies';
   if (e.domain === 'E-데이터마켓') {
@@ -181,7 +182,7 @@ export function notifGroupOf(key: string): string | null {
   if (key.startsWith('SAFETY_')) return '안전';
   if (key.startsWith('PREDICTIVE_')) return '예지보전';
   if (key === 'RTU_POWER_OFF' || key.startsWith('ANOMALY_')) return '통신 · 전원';
-  if (/^(TYPHOON|WIND)_WARNING$/.test(key)) return '재난 경보';
+  if (/^(TYPHOON|HEAVY_RAIN)_WARNING$/.test(key)) return '재난 경보';
   if (key.startsWith('TRADING_SELF_')) return '자가소비';
   if (key.startsWith('TRADING_PPA_')) return 'PPA';
   if (/^(SELF|PPA)_CONTRACT_CHANGE_/.test(key)) return '변경';

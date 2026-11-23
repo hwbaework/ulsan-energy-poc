@@ -177,7 +177,12 @@ export const gradeOf = (code: string): PillSpec => ANOMALY_GRADE[code] ?? { labe
 export const commStatusOf = (code: string): PillSpec => COMM_STATUS[code] ?? { label: code, tone: 'muted', order: 99 };
 /** 이상 목록 포함 조건 — 등급이 위험 · 경고이거나 전원 꺼짐 · 통신오류. 주의 · 관찰 · 정상은 이상이 아니다(2026-11-23 사용자) */
 export const isAnomaly = (severity: string, status: string): boolean =>
-  severity === 'danger' || severity === 'warning' || status === 'COMM_ERROR' || status === 'POWER_OFF';
+  severity === 'danger' || severity === 'warning' || status === 'COMM_ERROR' || status === 'POWER_OFF' || status === SENSOR_STOP;
+/** 해소 — 이상 감지 목록은 이력이라 발생 줄은 그대로 남고(그때 상태 그대로), 풀리면 '○○ 해소' 줄이 하나 더 생긴다(2026-11-23 사용자: 감지 목록이니까 히스토리) */
+export const RESOLVED_STATE: PillSpec & { code: string } = { code: 'RESOLVED', label: '해소', tone: 'muted', order: 9 };
+/** 목록 상태 칸 — 해소 줄이면 해소, 발생 줄이면 그 건의 이상(풀린 뒤에도 발생 줄은 그때 상태 그대로) */
+export const anomalyRowStateOf = (r: { severity: string; status: string; resolveRow?: boolean }) =>
+  r.resolveRow ? RESOLVED_STATE : anomalyStateOf(r.severity, r.status);
 
 /* ── 아이콘을 쓰는 지표 ────────────────────────────────── */
 /**

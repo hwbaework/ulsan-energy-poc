@@ -14,7 +14,7 @@ import type { ConsumerSite } from '@/types/consumer';
 import type { MarketPrice } from '@/types/trading';
 import { HOLIDAYS_SEED, type Holiday } from '@/lib/op-calendar';
 import { TARIFF_YEAR_SEED, cleanBook, type TariffYear, type TariffYearTable } from '@/lib/solar-sim';
-import { activeWeatherWarnings, releasedWeatherWarnings } from '@/lib/weather-warning';
+import { activeWeatherWarnings } from '@/lib/weather-warning';
 import { buildRe100Notifications } from './re100Notifications';
 import { canReadMenuPath } from './adminFixtures'; // 관리(ADMIN) 축 목업 + 역할별 메뉴 권한
 import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
@@ -288,6 +288,8 @@ const NOTIFICATION_MESSAGE: Record<string, string> = {
   // 통신 · 전원은 짧게 — 꺼짐 / 통신 끊김. 시간 기준 없이 Off · 통신오류 값으로 온다(S-Energy API-001, 2026-11-23 사용자)
   RTU_POWER_OFF: '용인금속 — RTU 꺼짐',
   ANOMALY_RTU_COMM: '태성산업 — RTU 통신 끊김',
+  TYPHOON_WARNING: '울산동부, 울산서부 — 태풍경보 발효',
+  HEAVY_RAIN_WARNING: '울산동부, 울산서부 — 호우경보 발효',
   ANOMALY_INVERTER_COMM: '건호이엔씨 인버터 #2 — 통신 끊김', // 이상 감지 목록의 그 건과 같게(발전소마다 인버터는 #1 · #2 — '한길 인버터 #3'은 없는 설비였다, 2026-11-23 사용자)
   // 내용 = 전기안전지수 + 가장 높은 위험 항목(값이 들어오는 항목만 — 전류 · 전압 · 누설 등, 아크는 제공 전이라 쓰지 않음, 2026-11-23 사용자)
   SAFETY_DANGER: '용인금속 인버터 #1 — 전기안전지수 48.0, 누설',
@@ -350,9 +352,10 @@ const NOTIFICATION_TARGET: Record<string, string> = {
   INVOICE: '/view?contract=1&period=2026-09',
   TAX_INVOICE: '/view?contract=1&period=2026-09',
 };
-/** 샘플을 만들지 않는 알림 — 기상특보는 기상청 실시간 값으로만(src/lib/weather-warning.ts). 지금 발효되지 않은 경보를 발효된 것처럼 보이지 않게(2026-11-23 사용자: 실시간이어야, 없는 건 없는 대로) */
-const NOT_LIVE_KEYS = new Set(['TYPHOON_WARNING', 'WIND_WARNING']);
-const NOTIFICATIONS = NOTIFICATION_CATALOG.filter((e) => !NOT_LIVE_KEYS.has(e.key)).map((e, i) => {
+/** 재난 경보 — 실제 발효 중인 경보는 기상청 실시간 값으로 만든다(src/lib/weather-warning.ts). 아래 샘플은 시나리오를 보여 주는 데모 문구로,
+ *  그 종류의 실제 경보가 발효 중일 때는 숨긴다(2026-11-23 사용자: 재난 시나리오 알림은 있어야 한다) */
+const WEATHER_KEYS = new Set(['TYPHOON_WARNING', 'HEAVY_RAIN_WARNING']);
+const NOTIFICATIONS = NOTIFICATION_CATALOG.map((e, i) => {
   // 항목표 순서대로 최근 것부터 — 2026-11-16 10:00 에서 3시간씩 앞으로
   const at = new Date(Date.UTC(2026, 10, 16, 10, 0, 0) - i * 3 * 3_600_000).toISOString().slice(0, 19);
   return { id: i + 1, type: e.key, title: e.name, message: NOTIFICATION_MESSAGE[e.key] ?? '', link: NOTIFICATION_TARGET[e.key], isRead: i >= 5, createdAt: at };
@@ -373,6 +376,7 @@ const RESOLVE_NOTIFICATIONS = NOTIFICATION_CATALOG.filter((e) => RESOLVE_MESSAGE
   const at = new Date(Date.UTC(2026, 10, 16, 11, 0, 0) - i * 3 * 3_600_000).toISOString().slice(0, 19);
   return { id: 500 + i, type: e.key, title: notifResolveNameOf(e.key) ?? e.name, message: RESOLVE_MESSAGE[e.key]!, link: undefined as string | undefined, isRead: true, createdAt: at, resolved: true };
 });
+// 알림은 종류마다 하나씩 — 발생 1개 + 해소 1개(2026-11-23 사용자). 해소된 건의 발생 알림을 따로 더 만들지 않는다(그 이력은 이상 감지 목록의 줄로)
 /** 데모 건에서 만드는 RE100 알림 종류 — 거래 · 변경 · 해지 · 청구서(발행 예정 · 발행) · 세금계산서 등록 */
 const GENERATED_KEYS = new Set(NOTIFICATION_CATALOG.filter((e) => /^(TRADING_|PPA_CONTRACT_|SELF_CONTRACT_|TAX_INVOICE$|INVOICE$|INVOICE_DUE$)/.test(e.key)).map((e) => e.key));
 const RE100_KEYS = new Set(NOTIFICATION_CATALOG.filter((e) => e.domain === 'RE100').map((e) => e.key));
@@ -389,6 +393,7 @@ const myNotifications = () => {
   const roles = useAuthStore.getState().user?.roles ?? [];
   // 관리자 쪽은 메뉴 권한 기준 — 관리자 소속이어도 그 화면의 메뉴 권한이 없는 회원은 받지 않는다(2026-11-16 사용자)
   const allowed = (type: string) => {
+    if (WEATHER_KEYS.has(type)) return true; // 재난 경보는 이동할 화면이 없어도 발전소를 보는 회원 전체가 받는다
     const path = notifPathOf(type, account);
     if (path === null) return false;
     return account !== 'admin' || canReadMenuPath(roles, path);
@@ -417,7 +422,7 @@ const myNotifications = () => {
       isRead: READ_GENERATED.has(g.id),
       createdAt: g.createdAt,
     }));
-  // 3. 기상특보 — 기상청 실시간. 울산동부 · 울산서부에 지금 발효 중인 태풍 · 강풍 경보만(없으면 0건)
+  // 3. 기상특보 — 기상청 실시간. 울산동부 · 울산서부에 지금 발효 중인 태풍 · 호우 경보만(없으면 0건)
   // 재난 경보는 이동할 화면이 없어(notifPathOf null) allowed 로 거르지 않는다 — 발전소를 보는 회원 전체가 받는다
   const weather = activeWeatherWarnings()
     .map((w) => {
@@ -425,15 +430,11 @@ const myNotifications = () => {
       const title = NOTIFICATION_CATALOG.find((e) => e.key === w.type)?.name ?? w.type;
       return { id, type: w.type, title, message: w.zones.join(', ') + ' — ' + w.wrn + '경보 발효', link: undefined as string | undefined, isRead: READ_GENERATED.has(id), createdAt: w.since };
     });
-  // 3-1. 특보 해제 — 발효 중이던 경보가 기상청 응답에서 빠지면
-  const weatherOff = releasedWeatherWarnings()
-    .map((w) => {
-      const id = 990_000 + [...(w.type + w.at)].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 9_000, 0);
-      return { id, type: w.type, title: notifResolveNameOf(w.type) ?? w.type, message: w.zones.join(', ') + ' — ' + w.wrn + '경보 해제', link: undefined as string | undefined, isRead: READ_GENERATED.has(id), createdAt: w.at, resolved: true };
-    });
+  // 재난 경보는 해제 알림이 없다 — 발효를 알려 주는 것까지(2026-11-23 사용자)
   // 항목표 순서(묶음)대로, 같은 종류 안에서는 최근 것부터
   const order = new Map(NOTIFICATION_CATALOG.map((e, i) => [e.key, i]));
-  return [...sample, ...generated, ...weather, ...weatherOff]
+  const liveTypes = new Set(weather.map((w) => w.type));
+  return [...sample.filter((n) => !(WEATHER_KEYS.has(n.type) && liveTypes.has(n.type))), ...generated, ...weather]
     // 항목표 샘플도 같은 규칙 — '보낸 → 받는' 이면 받는 쪽에만, '기업 · 관리자'(청구서 발행처럼 양측)면 그 둘에만(2026-11-19, 11-20)
     .filter((n) => {
       if (!n.message.includes(' : ')) return true; // 보낸 쪽 없는 알림(발행 예정 등)은 위에서 계정으로 걸렀다
@@ -672,13 +673,21 @@ export const ANOMALY_ROWS: MockAnomaly[] = [
   // 전기안전지수 위험 · 경고 — 임시 데모(2026-11-23 사용자). 안전 화면 데모(dxFixtures PROFILE 용인금속01 · 태성산업) · 알림 문구와 같은 건. 한 사업장에 이상이 여럿일 수 있다(용인금속: RTU 전원 꺼짐 + 위험 + 수신 끊김)
   anomaly(9, 17511, '인버터 #1 전기안전지수 위험', '전기안전지수 48.0, 누설', 'danger', 'NORMAL', daysAgo(0, 11, 5), []),
   anomaly(10, 17512, '인버터 #1 전기안전지수 경고', '전기안전지수 56.5, 전류', 'warning', 'NORMAL', daysAgo(0, 10, 30), []),
+  // 해소된 이상 — 줄은 남고 해소 시간이 찍힌다(2026-11-23 사용자). 해소 알림 샘플(한길 · 한일튜브)과 같은 건
+  anomaly(11, 17515, 'RTU 전원 꺼짐', 'RTU 꺼짐', 'normal', 'POWER_OFF', daysAgo(1, 14, 10), [], daysAgo(1, 15, 40)),
+  anomaly(12, 17514, 'RTU 통신 끊김', '통신 끊김', 'normal', 'COMM_ERROR', daysAgo(1, 9, 20), [], daysAgo(1, 9, 50), 'SELF_CONSUMPTION'),
+  anomaly(13, 17515, '인버터 #1 통신 끊김', '통신 끊김', 'normal', 'COMM_ERROR', daysAgo(2, 16, 5), [], daysAgo(2, 16, 30)),
+  anomaly(14, 17514, '인버터 #2 전기안전지수 위험', '전기안전지수 46.0, 전압', 'danger', 'NORMAL', daysAgo(2, 11, 0), [], daysAgo(2, 13, 25), 'SELF_CONSUMPTION'),
+  anomaly(15, 17514, '인버터 #4 전기안전지수 경고', '전기안전지수 57.0, 전류', 'warning', 'NORMAL', daysAgo(3, 10, 15), [], daysAgo(3, 11, 0), 'SELF_CONSUMPTION'),
+  anomaly(16, 17514, '인버터 #1 센서 수신 끊김', '센서 수신 끊김', 'normal', 'SENSOR_STOP', daysAgo(3, 8, 0), [], daysAgo(3, 8, 35), 'SELF_CONSUMPTION'),
 ];
 
 // 발전소 상세 — 이상감지 요약 포함
 registerMock(/^\/monitoring\/plants\/(\d+)$/, ({ match }) => {
   const id = Number(match[1]);
   const plant = PLANTS.find((p) => p.plantId === id) ?? PLANTS[0]!;
-  const anomalies: PlantAnomalySummary[] = ANOMALY_ROWS.filter((a) => a.plantId === plant.plantId).map((a) => ({
+  // 발전소 상세의 이상 요약은 진행 중인 것만(해소된 줄은 이상감지 관리 목록에 이력으로)
+  const anomalies: PlantAnomalySummary[] = ANOMALY_ROWS.filter((a) => a.plantId === plant.plantId && !a.resolvedAt).map((a) => ({
     id: a.id, title: a.title, severity: a.severity, detectedAt: a.detectedAt, status: a.status,
   }));
   return { ...plant, anomalies };

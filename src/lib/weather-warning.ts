@@ -1,5 +1,5 @@
 /**
- * 기상특보(실시간) — 울산동부 · 울산서부에 지금 발효 중인 태풍 · 강풍 "경보"(호우 · 대설은 알리지 않는다, 2026-11-23 사용자).
+ * 기상특보(실시간) — 울산동부 · 울산서부에 지금 발효 중인 태풍 · 호우 "경보"(강풍 · 대설은 알리지 않는다, 2026-11-23 사용자).
  * 기상청 API허브 특보현황 조회(wrn_now_data.php)를 로컬 서버(npm run toss 의 /weather/warnings) 또는 배포 워커(/api/weather/warnings)로 받는다.
  * 키가 없거나 서버가 꺼져 있으면 빈 목록 — 특보 알림을 만들지 않는다(없는 건 없는 대로, 2026-11-23 사용자). 샘플 문구를 지어내지 않는다.
  * 2026-11-23 실제 응답으로 확인한 값: WRN = 강풍 · 호우 · 태풍 · 대설 …, LVL = 예비 · 주의 · 경보.
@@ -20,8 +20,8 @@ export interface WeatherWarningRow {
   edTm: string;
 }
 
-/** 알림을 보내는 특보 — 태풍 · 강풍 둘(2026-11-23 사용자). 기상청 응답의 다른 종류(호우 · 대설 · 건조 …)는 버린다 */
-const KEY_OF: Record<string, string> = { 태풍: 'TYPHOON_WARNING', 강풍: 'WIND_WARNING' };
+/** 알림을 보내는 특보 — 태풍 · 호우 둘(2026-11-23 사용자). 기상청 응답의 다른 종류(강풍 · 대설 · 건조 …)는 버린다 */
+const KEY_OF: Record<string, string> = { 태풍: 'TYPHOON_WARNING', 호우: 'HEAVY_RAIN_WARNING' };
 
 const REFRESH_MS = 5 * 60_000;
 let rows: WeatherWarningRow[] = [];
@@ -53,11 +53,6 @@ export function refreshWeatherWarnings(): void {
   if (typeof window === 'undefined' || inflight || Date.now() - loadedAt < REFRESH_MS) return;
   inflight = load()
     .then((got) => {
-      // 발효 중이던 경보가 이번 응답에 없으면 해제된 것 — 해제 알림으로 남긴다
-      const before = pickWarnings(rows);
-      const now = pickWarnings(got);
-      const at = new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 19);
-      for (const b of before) if (!now.some((n) => n.type === b.type)) released.unshift({ ...b, at });
       rows = got;
     })
     .finally(() => {
@@ -82,10 +77,6 @@ export function pickWarnings(list: WeatherWarningRow[]): { type: string; wrn: st
   }
   return out;
 }
-
-/** 해제된 경보 — 이 화면을 열어 둔 동안 발효 중이다가 풀린 것(해제 알림) */
-const released: { type: string; wrn: string; zones: string[]; since: string; at: string }[] = [];
-export const releasedWeatherWarnings = () => released;
 
 /** 지금 울산에 발효 중인 경보 */
 export function activeWeatherWarnings() {
