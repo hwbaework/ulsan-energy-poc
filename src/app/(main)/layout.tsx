@@ -155,16 +155,9 @@ const GNB_ITEMS: GnbItem[] = [
         { to: '/dashboard', icon: LayoutDashboard, label: '대시보드', section: '실시간', end: true }, // 1.1.1 (발전사업자와 동일)
         { to: '/monitoring/plant', icon: Zap, label: '발전소 상세', section: '실시간' }, // 1.1.4
         { to: '/monitoring/anomalies', icon: AlertTriangle, label: '이상감지 관리', section: '실시간' }, // 1.1.5
-        {
-          to: '/control/predictive',
-          icon: ClipboardList,
-          label: 'DiSOP',
-          section: '안전·운영',
-          subChildren: [
-            { to: '/control/predictive', icon: Cpu, label: '예지보전' }, // 1.2.2
-            { to: '/control/safety', icon: ShieldCheck, label: '안전' }, // 1.2.3
-          ],
-        }, // 1.2.1
+        // 안전운영 — 예지보전 · 안전을 DiSOP 아래가 아니라 바로 둔다(2026-11-23 사용자)
+        { to: '/control/predictive', icon: Cpu, label: '예지보전', section: '안전운영' }, // 1.2.2
+        { to: '/control/safety', icon: ShieldCheck, label: '안전', section: '안전운영' }, // 1.2.3
         { to: 'https://terrawatt.pairworks.net/', icon: Globe, label: '디지털트윈', section: 'DT', external: true }, // 1.3.1 (외부 TerraWatt)
         { to: '/monitoring/reports', icon: BarChart3, label: '보고서', section: '보고' }, // 1.4.1
       ],
@@ -172,16 +165,9 @@ const GNB_ITEMS: GnbItem[] = [
         { to: '/dashboard', icon: LayoutDashboard, label: '대시보드', section: '실시간', end: true }, // 1.1.1
         { to: '/monitoring/plant', icon: Zap, label: '발전소 상세', section: '실시간' }, // 1.1.4
         { to: '/monitoring/anomalies', icon: AlertTriangle, label: '이상감지 관리', section: '실시간' }, // 1.1.5
-        {
-          to: '/control/predictive',
-          icon: ClipboardList,
-          label: 'DiSOP',
-          section: '안전·운영',
-          subChildren: [
-            { to: '/control/predictive', icon: Cpu, label: '예지보전' }, // 1.2.2
-            { to: '/control/safety', icon: ShieldCheck, label: '안전' }, // 1.2.3
-          ],
-        }, // 1.2.1
+        // 안전운영 — 예지보전 · 안전을 DiSOP 아래가 아니라 바로 둔다(2026-11-23 사용자)
+        { to: '/control/predictive', icon: Cpu, label: '예지보전', section: '안전운영' }, // 1.2.2
+        { to: '/control/safety', icon: ShieldCheck, label: '안전', section: '안전운영' }, // 1.2.3
         { to: 'https://terrawatt.pairworks.net/', icon: Globe, label: '디지털트윈', section: 'DT', external: true }, // 1.3.1 (외부 TerraWatt)
         { to: '/monitoring/reports', icon: BarChart3, label: '보고서', section: '보고' }, // 1.4.1
       ],
@@ -190,16 +176,9 @@ const GNB_ITEMS: GnbItem[] = [
         { to: '/monitoring', icon: Monitor, label: '관제 홈(지도)', section: '실시간', end: true }, // 1.1.2
         { to: '/monitoring/plant', icon: Zap, label: '발전소 상세', section: '실시간' }, // 1.1.4
         { to: '/monitoring/anomalies', icon: AlertTriangle, label: '이상감지 관리', section: '실시간' }, // 1.1.5
-        {
-          to: '/control/predictive',
-          icon: ClipboardList,
-          label: 'DiSOP',
-          section: '안전·운영',
-          subChildren: [
-            { to: '/control/predictive', icon: Cpu, label: '예지보전' }, // 1.2.2
-            { to: '/control/safety', icon: ShieldCheck, label: '안전' }, // 1.2.3
-          ],
-        }, // 1.2.1
+        // 안전운영 — 예지보전 · 안전을 DiSOP 아래가 아니라 바로 둔다(2026-11-23 사용자)
+        { to: '/control/predictive', icon: Cpu, label: '예지보전', section: '안전운영' }, // 1.2.2
+        { to: '/control/safety', icon: ShieldCheck, label: '안전', section: '안전운영' }, // 1.2.3
         { to: 'https://terrawatt.pairworks.net/', icon: Globe, label: '디지털트윈', section: 'DT', external: true }, // 1.3.1 (외부 TerraWatt)
         { to: '/monitoring/reports', icon: BarChart3, label: '보고서', section: '보고' }, // 1.4.1
       ],

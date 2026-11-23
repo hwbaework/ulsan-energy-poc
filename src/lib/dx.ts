@@ -35,6 +35,13 @@ export const DX_SENSORS: DxSensor[] = [
 /** 그 발전소(회사)의 DX 발전소 코드들 */
 export const dxCodesOf = (plantId: number) => [...new Set(DX_SENSORS.filter((s) => s.plantId === plantId).map((s) => s.plantCode))];
 export const dxSensorsOf = (plantId: number) => DX_SENSORS.filter((s) => s.plantId === plantId);
+/** 화면 · 알림에 쓰는 센서 이름 — 센서 = 인버터 1:1 이라 '인버터 #1'(그 발전소 안에서 장비 이름 번호 순, 2026-11-23 사용자). 장비 이름(한일튜브1)은 연계용 */
+export const dxSensorLabel = (mac: string) => {
+  const s = DX_SENSORS.find((x) => x.mac === mac);
+  if (!s) return '';
+  const order = DX_SENSORS.filter((x) => x.plantId === s.plantId).sort((a, b) => a.deviceName.localeCompare(b.deviceName, 'ko', { numeric: true }));
+  return `인버터 #${order.findIndex((x) => x.mac === mac) + 1}`;
+};
 export const hasDx = (plantId: number) => DX_SENSORS.some((s) => s.plantId === plantId);
 
 /* ── 응답 형식 ── */

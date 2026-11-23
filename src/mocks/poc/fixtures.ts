@@ -14,6 +14,7 @@ import type { ConsumerSite } from '@/types/consumer';
 import type { MarketPrice } from '@/types/trading';
 import { HOLIDAYS_SEED, type Holiday } from '@/lib/op-calendar';
 import { TARIFF_YEAR_SEED, cleanBook, type TariffYear, type TariffYearTable } from '@/lib/solar-sim';
+import { activeWeatherWarnings } from '@/lib/weather-warning';
 import { buildRe100Notifications } from './re100Notifications';
 import { canReadMenuPath } from './adminFixtures'; // 관리(ADMIN) 축 목업 + 역할별 메뉴 권한
 import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
@@ -284,17 +285,14 @@ registerMock(/^\/notifications\/settings$/, ({ body }) => {
 // 종 알림 목업 — 알림 항목표의 모든 항목을 하나씩(항목표 순서), 제목은 짧은 이름(name). 누르면 그 항목의 화면으로 간다(notifPathOf).
 // 계정마다 받는 것만: 관리자는 전부, 기업 계정은 관리자 전용 항목과 그 계정에 화면이 없는 항목을 뺀다. 안 읽음은 앞 5건
 const NOTIFICATION_MESSAGE: Record<string, string> = {
-  RTU_POWER_OFF: '용인금속 — RTU 전원 신호 꺼짐, 전체 인버터 계측 중단',
-  ANOMALY_RTU_COMM: '태성산업 — 전체 인버터 측정시각 20분 멈춤',
-  ANOMALY_INVERTER_COMM: '한길 인버터 #3 — 응답 없음',
-  TYPHOON_WARNING: '울산동부, 울산서부 — 태풍경보 발효',
-  WIND_WARNING: '울산동부, 울산서부 — 강풍경보 발효',
-  HEAVY_RAIN_WARNING: '울산동부, 울산서부 — 호우경보 발효',
-  HEAVY_SNOW_WARNING: '울산동부, 울산서부 — 대설경보 발효',
-  SAFETY_DANGER: '용인금속 인버터 #1 — 전기안전지수 48',
-  SAFETY_WARNING: '한일튜브 인버터 #1 — 전기안전지수 경고',
-  SAFETY_FIRE: '용인금속 인버터 #1 — 화재 징후',
-  SAFETY_CAUTION: '태성산업 인버터 #1 — 전기안전지수 주의',
+  // 통신 · 전원은 짧게 — 꺼짐 / 통신 몇 분 끊김(판정 기준 20분 이상), 풀어 쓴 설명 없이(2026-11-23 사용자)
+  RTU_POWER_OFF: '용인금속 — RTU 꺼짐',
+  ANOMALY_RTU_COMM: '태성산업 — RTU 통신 20분 끊김',
+  ANOMALY_INVERTER_COMM: '한길 인버터 #3 — 통신 20분 끊김',
+  // 내용 = 전기안전지수 + 가장 높은 위험 항목(값이 들어오는 항목만 — 전류 · 전압 · 누설 등, 아크는 제공 전이라 쓰지 않음, 2026-11-23 사용자)
+  SAFETY_DANGER: '용인금속 인버터 #1 — 전기안전지수 48.0, 누설',
+  SAFETY_WARNING: '한일튜브 인버터 #1 — 전기안전지수 56.5, 전류',
+  PREDICTIVE_SENSOR_STOP: '한일튜브 인버터 #1 — 센서 수집 중단',
   TRADING_SELF_RECEIVED: '한길 → 관리자 : 90.88 kW 신청, 확인',
   TRADING_SELF_TERMS: '관리자 → 태성산업 : 46.08 kW 조건 확정, 확인',
   TRADING_SELF_UNCONFIRMED: '용인금속 → 관리자 : 152.32 kW 조건 변경, 확인',
@@ -352,7 +350,9 @@ const NOTIFICATION_TARGET: Record<string, string> = {
   INVOICE: '/view?contract=1&period=2026-09',
   TAX_INVOICE: '/view?contract=1&period=2026-09',
 };
-const NOTIFICATIONS = NOTIFICATION_CATALOG.map((e, i) => {
+/** 샘플을 만들지 않는 알림 — 기상특보는 기상청 실시간 값으로만(src/lib/weather-warning.ts). 지금 발효되지 않은 경보를 발효된 것처럼 보이지 않게(2026-11-23 사용자: 실시간이어야, 없는 건 없는 대로) */
+const NOT_LIVE_KEYS = new Set(['TYPHOON_WARNING', 'WIND_WARNING']);
+const NOTIFICATIONS = NOTIFICATION_CATALOG.filter((e) => !NOT_LIVE_KEYS.has(e.key)).map((e, i) => {
   // 항목표 순서대로 최근 것부터 — 2026-11-16 10:00 에서 3시간씩 앞으로
   const at = new Date(Date.UTC(2026, 10, 16, 10, 0, 0) - i * 3 * 3_600_000).toISOString().slice(0, 19);
   return { id: i + 1, type: e.key, title: e.name, message: NOTIFICATION_MESSAGE[e.key] ?? '', link: NOTIFICATION_TARGET[e.key], isRead: i >= 5, createdAt: at };
@@ -401,9 +401,17 @@ const myNotifications = () => {
       isRead: READ_GENERATED.has(g.id),
       createdAt: g.createdAt,
     }));
+  // 3. 기상특보 — 기상청 실시간. 울산동부 · 울산서부에 지금 발효 중인 태풍 · 강풍 경보만(없으면 0건)
+  const weather = activeWeatherWarnings()
+    .filter((w) => allowed(w.type))
+    .map((w) => {
+      const id = 900_000 + [...(w.type + w.since)].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 90_000, 0);
+      const title = NOTIFICATION_CATALOG.find((e) => e.key === w.type)?.name ?? w.type;
+      return { id, type: w.type, title, message: w.zones.join(', ') + ' — ' + w.wrn + '경보 발효', link: undefined as string | undefined, isRead: READ_GENERATED.has(id), createdAt: w.since };
+    });
   // 항목표 순서(묶음)대로, 같은 종류 안에서는 최근 것부터
   const order = new Map(NOTIFICATION_CATALOG.map((e, i) => [e.key, i]));
-  return [...sample, ...generated]
+  return [...sample, ...generated, ...weather]
     // 항목표 샘플도 같은 규칙 — '보낸 → 받는' 이면 받는 쪽에만, '기업 · 관리자'(청구서 발행처럼 양측)면 그 둘에만(2026-11-19, 11-20)
     .filter((n) => {
       if (!n.message.includes(' : ')) return true; // 보낸 쪽 없는 알림(발행 예정 등)은 위에서 계정으로 걸렀다
@@ -623,16 +631,17 @@ function anomaly(
 }
 /**
  * 이상 목록 — 근거: ITS_울산_에자자_수집데이터_API_명세서_v1.2
- * severity = DX riskLevel(normal/caution/warning) · status = S-Energy 통신 상태(NORMAL=0 정상 / COMM_ERROR=1 통신오류)
+ * severity = DX riskLevel(danger/warning/caution/watch/normal — 이상은 위험 · 경고만) · status = S-Energy 통신 상태(NORMAL=0 정상 / COMM_ERROR=1 통신오류)
  * actions·resolvedAt 은 원본 프론트의 처리 워크플로 잔재 — 스펙에 없으며 목록 화면에서는 쓰지 않는다.
  * 수집 항목에 없는 이상(스택 온도 · 일사량 편차 · 통신 지연 · 출력 저하)은 넣지 않는다. 남은 건 통신 상태(COMM_ERROR) · RTU 전원뿐 — 2026-11-09 사용자가 지운 뒤 금지.
  */
 export const ANOMALY_ROWS: MockAnomaly[] = [
   // 경고 · 통신오류 진행 중 — 건호이엔씨
-  anomaly(4, 17513, '인버터 #2 통신 끊김 (8분)', '인버터 #2 RTU 응답 없음. 8분간 계측값 미수신.', 'warning', 'COMM_ERROR', daysAgo(0, 8, 40), []),
+  // 통신 끊김은 20분 이상 멈춰야 이상(알림 조건과 같음) — 문구는 짧게 '통신 몇 분 끊김'
+  anomaly(4, 17513, '인버터 #2 통신 25분 끊김', '통신 25분 끊김', 'warning', 'COMM_ERROR', daysAgo(0, 8, 40), []),
   // 등급은 정상인데 통신만 오류 — 태성산업 (등급·통신은 별개 소스라 이런 건도 이상 목록에 뜬다)
-  anomaly(8, 17511, 'RTU 전원 꺼짐', 'RTU 전원 신호 꺼짐. 전체 인버터 계측 중단. 현장 전원 확인.', 'warning', 'COMM_ERROR', daysAgo(0, 7, 20), []),
-  anomaly(6, 17512, 'RTU 통신 끊김 (3분)', 'RTU 폴링 응답 없음. 3분간 계측값 미수신. 전기안전지수는 정상.', 'normal', 'COMM_ERROR', daysAgo(0, 9, 55), []),
+  anomaly(8, 17511, 'RTU 전원 꺼짐', 'RTU 꺼짐', 'warning', 'COMM_ERROR', daysAgo(0, 7, 20), []),
+  anomaly(6, 17512, 'RTU 통신 20분 끊김', '통신 20분 끊김', 'normal', 'COMM_ERROR', daysAgo(0, 9, 55), []),
   // 주의 — 용인금속
 ];
 

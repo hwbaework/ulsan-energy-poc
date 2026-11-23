@@ -9,7 +9,9 @@ import { SectionCard, StatCard, StatsGrid } from '@/components/features';
 
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { StatusPill } from '@/components/ui/Design';
-import { CONTRACT_KIND, CONTRACT_KIND_LABEL, CONTRACT_KIND_ORDER, commStatusOf, contractKindsOf, isAnomaly } from '@/lib/design';
+import { CONTRACT_KIND, CONTRACT_KIND_LABEL, CONTRACT_KIND_ORDER, SENSOR_STOP, anomalyStateOf, contractKindsOf, isAnomaly } from '@/lib/design';
+import { useDxLatestAll } from '@/hooks/control/useDx';
+import { dxSensorLabel, dxSensorsOf, isDxTarget, isStale, type DxLatest } from '@/lib/dx';
 import { getPersona } from '@/lib/persona';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { contractDisplayName } from '@/lib/contract-plants';
@@ -17,7 +19,7 @@ import type { AnomalyEvent, PlantContractKind } from '@/types/monitoring';
 import { useAnomalies } from '@/hooks/monitoring/useAnomalies';
 import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
 import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
-import { PlantCommStatusTable, type CommOutage } from '@/components/features/monitoring/PlantCommStatusTable';
+import { PlantCommStatusTable, type SiteIssue } from '@/components/features/monitoring/PlantCommStatusTable';
 
 interface AnomalyRow extends AnomalyEvent {
   plantType?: string;
@@ -68,7 +70,7 @@ export default function AnomaliesPage() {
     myPlantMatcher,
   );
 
-  const anomalies: AnomalyRow[] = rawList
+  const apiAnomalies: AnomalyRow[] = rawList
     .filter((a: any) => isAnomaly(a.severity ?? 'normal', a.status ?? 'NORMAL'))
     .map((a: any) => {
       const plantId = a.plantId ?? a.powerStationId ?? 0;
@@ -83,7 +85,7 @@ export default function AnomaliesPage() {
     displayName: contractDisplayName(plantName, contractKind, kinds.length > 1),
     plantType: a.detectionType ?? 'SOLAR',
     contractKind,
-    severity: a.severity ?? 'caution',
+    severity: a.severity ?? 'normal', // 등급이 비어 오면 지어내지 않고 정상(목록 포함 판정과 같은 기준)
     status: a.status ?? 'NORMAL',
     title: a.title ?? '',
     description: a.description ?? '',
@@ -94,37 +96,71 @@ export default function AnomaliesPage() {
       };
     });
 
-  // 전체 상태 — 내 발전소 전부(정상 포함) + 통신오류 건
+  // 전체 상태 — 내 발전소 전부(정상 포함)
   const myPlants = filterPlantsByOwnership(plantList ?? [], myPlantMatcher);
+
+  // 예지보전 센서 수집 중단 — 연계 대상 DX 센서의 receivedAt 이 5분 넘게 멈췄거나 응답에 없음(연계 문서 8-4, 알림 '센서 수집 중단'과 같은 기준).
+  // 센서 목록에 없는 사업장(한길 · 건호이엔씨)은 대상이 아니라 넣지 않는다. 조회가 실패하면 판단할 수 없어 넣지 않는다
+  const dxQ = useDxLatestAll();
+  const sensorStops: AnomalyRow[] = !dxQ.isSuccess
+    ? []
+    : myPlants.flatMap((pl) =>
+        dxSensorsOf(pl.plantId)
+          .filter((sn) => isDxTarget(sn.mac))
+          .flatMap((sn) => {
+            const lt = (dxQ.data ?? []).find((x: DxLatest) => x.macAddress === sn.mac);
+            if (!isStale(lt)) return [];
+            const kinds = contractKindsOf(pl);
+            const row: AnomalyRow = {
+              id: -Math.abs([...sn.mac].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7)), // API 이상 id 와 겹치지 않게 음수
+              plantId: pl.plantId,
+              plantName: pl.name,
+              displayName: pl.name,
+              plantType: pl.type,
+              contractKind: kinds.length === 1 ? kinds[0] : undefined,
+              severity: 'normal',
+              status: SENSOR_STOP,
+              title: `${dxSensorLabel(sn.mac)} 센서 수집 중단`,
+              // 마지막으로 받은 시각(KST), 응답에 아예 없으면 모름
+              detectedAt: lt?.receivedAt ? lt.receivedAt.replace(' ', 'T') + '+09:00' : '',
+            };
+            return [row];
+          }),
+      );
+  const anomalies: AnomalyRow[] = [...apiAnomalies, ...sensorStops];
   // 내 계약 유형 — 둘(자가소비 · PPA)일 때만 골라서 본다
   const myKinds = CONTRACT_KIND_ORDER.filter((k) => myPlants.some((pl) => contractKindsOf(pl).includes(k)));
   const pickKind = !isAdmin && myKinds.length > 1;
-  const commOutages: CommOutage[] = rawList
-    .filter((a: any) => a.status === 'COMM_ERROR')
-    .map((a: any) => ({
-      plantId: a.plantId,
-      contractKind: a.contractKind,
-      title: a.title ?? '',
-      detectedAt: a.detectedAt ?? a.createdAt ?? '',
-      resolvedAt: a.resolvedAt,
-    }));
+  // 사업장 상태에 들어가는 이상 — 이상 감지 목록 전체(통신 · 전원, 전기안전지수 위험 · 경고, 센서 수집 중단)
+  const siteIssues: SiteIssue[] = anomalies.map((a) => ({
+    plantId: a.plantId,
+    contractKind: a.contractKind,
+    title: a.title,
+    detectedAt: a.detectedAt,
+    resolvedAt: a.resolvedAt,
+    comm: a.status === 'COMM_ERROR',
+  }));
 
   const q = query.trim().toLowerCase();
   const filtered = anomalies.filter((a) => {
     // 계약을 모르는 이상(발전소 단위 RTU 등)은 두 유형 모두에 보인다
     if (pickKind && a.contractKind && a.contractKind !== kindTab) return false;
-    if (status !== 'all' && a.status !== status) return false;
+    if (status !== 'all' && anomalyStateOf(a.severity, a.status).code !== status) return false;
     if (q && !a.displayName.toLowerCase().includes(q) && !a.title.toLowerCase().includes(q)) return false;
     return true;
   });
 
   // 필터 항목 = 데이터에 실제 있는 값만 (하드코딩 금지)
   const statusOptions = useMemo(() => {
-    const codes = [...new Set(anomalies.map((a) => a.status))].sort((x, y) => commStatusOf(x).order - commStatusOf(y).order);
-    return [{ value: 'all', label: '전체 상태' }, ...codes.map((c) => ({ value: c, label: commStatusOf(c).label }))];
+    const specs = new Map(anomalies.map((a) => {
+      const s = anomalyStateOf(a.severity, a.status);
+      return [s.code, s] as const;
+    }));
+    const codes = [...specs.values()].sort((x, y) => x.order - y.order);
+    return [{ value: 'all', label: '전체 상태' }, ...codes.map((c) => ({ value: c.code, label: c.label }))];
   }, [anomalies]);
 
-  // 활성 이상 = 목록 전체(등급 주의·경고 또는 통신오류) · 경고 = 등급 경고 건
+  // 활성 이상 = 목록 전체(등급 위험·경고, 통신오류, 센서 수집 중단) · 경고 = 등급 경고 건
   const inKind = anomalies.filter((a) => !pickKind || !a.contractKind || a.contractKind === kindTab);
   const activeCount = inKind.length;
   const warningCount = inKind.filter((a) => a.severity === 'warning').length;
@@ -136,7 +172,7 @@ export default function AnomaliesPage() {
       width: '180px',
       render: (r) => (
         <span className="text-sm text-slate-300 tabular-nums whitespace-nowrap">
-          {new Date(r.detectedAt).toLocaleString('ko-KR', {
+          {!r.detectedAt ? '-' : new Date(r.detectedAt).toLocaleString('ko-KR', {
             year: 'numeric',
             month: '2-digit',
             day: '2-digit',
@@ -184,7 +220,7 @@ export default function AnomaliesPage() {
       header: '상태',
       width: '80px',
       render: (r) => {
-        const s = commStatusOf(r.status);
+        const s = anomalyStateOf(r.severity, r.status);
         return <StatusPill tone={s.tone} label={s.label} />;
       },
     },
@@ -248,7 +284,7 @@ export default function AnomaliesPage() {
         />
       </SectionCard>
 
-      <PlantCommStatusTable plants={myPlants} outages={commOutages} kind={pickKind ? kindTab : undefined} />
+      <PlantCommStatusTable plants={myPlants} issues={siteIssues} kind={pickKind ? kindTab : undefined} />
     </div>
   );
 }

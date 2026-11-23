@@ -6,7 +6,7 @@ import { SectionCard } from '@/components/features';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { useMonitoringPlantHistory } from '@/hooks/monitoring/useMonitoring';
 import { useDxFeatureHistory, useDxForecast, useDxLatest } from '@/hooks/control/useDx';
-import { dxMetric, dxSensorsOf, firstNum, hhmm, isDxTarget, isStale, isThinWindow, kst, stopLabel, type DxLatest } from '@/lib/dx';
+import { dxMetric, dxSensorLabel, dxSensorsOf, firstNum, hhmm, isDxTarget, isStale, isThinWindow, kst, stopLabel, type DxLatest } from '@/lib/dx';
 
 /**
  * 예지보전 — 센서가 잰 값(아이티공간 연계 v1.1 API-003 · 005)과 발전량 예측만.
@@ -63,8 +63,8 @@ export function DxPredictiveBoard({ plantId }: { plantId: number }) {
   const [picked, setPicked] = useState<string | null>(null);
 
   const rows: Row[] = sensors
-    .map((s) => ({ mac: s.mac, name: s.deviceName, lt: latestQ.data?.find((x) => x.macAddress === s.mac) }))
-    // 센서 번호 순(한일튜브1 → 4)(2026-10-29 사용자 확정)
+    // 이름은 인버터 #1 … (센서 = 인버터, 2026-11-23 사용자), 번호 순
+    .map((s) => ({ mac: s.mac, name: dxSensorLabel(s.mac), lt: latestQ.data?.find((x) => x.macAddress === s.mac) }))
     .sort((a, b) => a.name.localeCompare(b.name, 'ko', { numeric: true }));
   const sel = rows.find((r) => r.mac === picked) ?? rows[0];
 

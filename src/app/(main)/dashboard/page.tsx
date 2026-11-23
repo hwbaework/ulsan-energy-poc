@@ -348,6 +348,8 @@ export default function DashboardPage() {
   const selfCards = isConsumer || viewKind === 'SELF_CONSUMPTION';
   // 관리자 PPA — 플랫폼(SPC)이 보유한 설비와 받는 PPA 요금(금년 · 금월 · 금일)
   const adminPpa = isAdmin && viewKind === 'ONSITE';
+  // 관리자 총 설비 용량 — 유형 셀렉트와 상관없이 5개소 전체 계약(자가소비 + PPA) 합
+  const adminTotalCapacity = allContractPlants.reduce((a, p) => a + p.capacity, 0);
   const ppaContracts = (multiKind ? pickedContracts : allContractPlants).filter((p) => p.contractKind === 'ONSITE');
   // PPA 시간 보기 — 그 발전소 그날 일정(주말 · 공휴일 · 매일 OFF 시간 · 수동)으로 시각마다 꺼졌는지. 없으면 에너지 설정 기준
   const ppaOffAtPlant = usePpaOffAt(isAdmin ? selectedCompany?.plantId : ppaContracts[0]?.plantId, genCtl.date);
@@ -698,15 +700,15 @@ export default function DashboardPage() {
             ) : null}
           </div>
 
-          {/* 카드 4개 — 자가소비 = 설비 용량 · 전년 · 금월 · 금일 발전량 / PPA = 설비 용량 · 금월 · 금일 발전량 · 금일 금액 / 관리자 PPA = 총 설비 용량 · 총 금년 · 총 금월 발전량 · 총 금일 금액(관리자는 전체 합계라 '총', 2026-10-29 사용자) */}
+          {/* 카드 4개 — 자가소비 = 설비 용량 · 전년 · 금월 · 금일 발전량 / PPA = 설비 용량 · 금월 · 금일 발전량 · 금일 금액 / 관리자 PPA = 총 설비 용량(5개소 전체 계약 합) · 금년 · 금월 발전량 · 금일 금액('총'은 설비 용량만, 2026-11-23 사용자) */}
           <StatsGrid columns={4}>
             {/* StatsGrid 는 자식 하나를 칸 하나로 감싼다 — Fragment 로 묶으면 한 칸에 몰리므로 배열로 */}
             {(adminPpa
               ? [
-                  <StatCard key="cap" label="총 설비 용량" value={fmtKw(kpiCapacity)} />,
-                  <StatCard key="y" label="총 금년 발전량" value={fmtKwh(yearKwh)} />,
-                  <StatCard key="m" label="총 금월 발전량" value={fmtKwh(monthKwh)} />,
-                  <StatCard key="d" label="총 금일 금액" value={fmtWon(todayAmount)} />,
+                  <StatCard key="cap" label="총 설비 용량" value={fmtKw(adminTotalCapacity)} />,
+                  <StatCard key="y" label="금년 발전량" value={fmtKwh(yearKwh)} />,
+                  <StatCard key="m" label="금월 발전량" value={fmtKwh(monthKwh)} />,
+                  <StatCard key="d" label="금일 금액" value={fmtWon(todayAmount)} />,
                 ]
               : [
                   <StatCard key="cap" label="설비 용량" value={fmtKw(kpiCapacity)} />,

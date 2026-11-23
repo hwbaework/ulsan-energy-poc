@@ -11,8 +11,8 @@
     "binding": "ASSETS",
     "not_found_handling": "404-page",
     "html_handling": "auto-trailing-slash",
-    // .txt 주소에만 앞단 코드가 돈다 — 나머지 파일은 지금처럼 바로 내려간다
-    "run_worker_first": ["/*.txt"]
+    // .txt 주소와 /api/*(기상특보)에만 앞단 코드가 돈다 — 나머지 파일은 지금처럼 바로 내려간다
+    "run_worker_first": ["/*.txt", "/api/*"]
   },
   "routes": [{ "pattern": "ulsan-energy.pairworks.net", "custom_domain": true }]
 }

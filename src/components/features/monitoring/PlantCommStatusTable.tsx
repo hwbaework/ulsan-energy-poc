@@ -7,22 +7,24 @@ import { Input } from '@/components/ui/Input';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features';
 import { StatusPill } from '@/components/ui/Design';
-import { CONTRACT_KIND, commStatusOf, sourceOf } from '@/lib/design';
+import { CONTRACT_KIND, siteStatusOf, sourceOf } from '@/lib/design';
 import { expandByContract } from '@/lib/contract-plants';
 import type { MonitoringPlant, PlantContractKind } from '@/types/monitoring';
 
 /**
  * 전체 상태 — 발전소(계약) 전부를 한 줄씩, 정상까지 보여준다.
- * 상태 = 통신 상태(정상/통신오류). 아직 복구되지 않은 통신오류 건이 있으면 통신오류.
- * RTU 끊김은 발전소 전체(계약 줄 전부), 인버터 끊김은 그 계약 줄에만.
- * 최근 수신 = 통신오류 중이면 끊긴 시각, 아니면 인버터 마지막 수신 시각 중 가장 늦은 것.
+ * 상태 = 정상 / 이상감지. 아직 복구되지 않은 이상(통신 · 전원, 전기안전지수 위험 · 경고, 센서 수집 중단)이 하나라도 있으면 이상감지(2026-11-23 사용자).
+ * RTU 이상은 발전소 전체(계약 줄 전부), 계약이 정해진 이상은 그 계약 줄에만, 계약을 모르는 이상은 계약 줄 전부.
+ * 최근 수신 = 통신이 끊긴 중이면 끊긴 시각, 아니면 인버터 마지막 수신 시각 중 가장 늦은 것.
  */
-export interface CommOutage {
+export interface SiteIssue {
   plantId: number;
   contractKind?: PlantContractKind;
   title: string;
   detectedAt: string;
   resolvedAt?: string | null;
+  /** 통신 · 전원 이상 — 최근 수신 칸을 끊긴 시각으로 */
+  comm?: boolean;
 }
 
 interface Row {
@@ -43,11 +45,11 @@ const fmt = (ms: number) => {
 /** kind 를 주면 그 계약 유형 줄만(발전사업자가 자가소비 / PPA 를 골라서 볼 때) */
 export function PlantCommStatusTable({
   plants,
-  outages,
+  issues,
   kind,
 }: {
   plants: MonitoringPlant[];
-  outages: CommOutage[];
+  issues: SiteIssue[];
   kind?: PlantContractKind;
 }) {
   const [status, setStatus] = useState('all');
@@ -58,9 +60,11 @@ export function PlantCommStatusTable({
       expandByContract(plants)
         .filter((p) => !kind || !p.contractKind || p.contractKind === kind)
         .map((p) => {
-        const ongoing = outages
+        const ongoing = issues
           .filter((o) => o.plantId === p.plantId && !o.resolvedAt)
-          .filter((o) => o.title.includes('RTU') || !o.contractKind || !p.contractKind || o.contractKind === p.contractKind)
+          .filter((o) => o.title.includes('RTU') || !o.contractKind || !p.contractKind || o.contractKind === p.contractKind);
+        const cut = ongoing
+          .filter((o) => o.comm)
           .map((o) => new Date(o.detectedAt).getTime())
           .filter(Number.isFinite);
         const received = (p.inverters ?? []).map((i) => new Date(i.lastDataAt).getTime()).filter(Number.isFinite);
@@ -69,17 +73,17 @@ export function PlantCommStatusTable({
           type: p.type,
           name: p.baseName, // 계약 유형은 옆 칸
           contractKind: p.contractKind,
-          status: ongoing.length ? 'COMM_ERROR' : 'NORMAL',
-          lastAt: ongoing.length ? Math.min(...ongoing) : received.length ? Math.max(...received) : null,
+          status: ongoing.length ? 'ANOMALY' : 'NORMAL',
+          lastAt: cut.length ? Math.min(...cut) : received.length ? Math.max(...received) : null,
         };
       }),
-    [plants, outages, kind],
+    [plants, issues, kind],
   );
 
   // 필터 항목 = 데이터에 실제 있는 값만
   const statusOptions = useMemo(() => {
-    const codes = [...new Set(rows.map((r) => r.status))].sort((x, y) => commStatusOf(x).order - commStatusOf(y).order);
-    return [{ value: 'all', label: '전체 상태' }, ...codes.map((c) => ({ value: c, label: commStatusOf(c).label }))];
+    const codes = [...new Set(rows.map((r) => r.status))].sort((x, y) => siteStatusOf(x).order - siteStatusOf(y).order);
+    return [{ value: 'all', label: '전체 상태' }, ...codes.map((c) => ({ value: c, label: siteStatusOf(c).label }))];
   }, [rows]);
 
   const q = query.trim().toLowerCase();
@@ -110,9 +114,9 @@ export function PlantCommStatusTable({
       header: '상태',
       width: '110px',
       sortable: true,
-      sortValue: (r) => commStatusOf(r.status).order,
+      sortValue: (r) => siteStatusOf(r.status).order,
       render: (r) => {
-        const s = commStatusOf(r.status);
+        const s = siteStatusOf(r.status);
         return <StatusPill tone={s.tone} label={s.label} />;
       },
     },

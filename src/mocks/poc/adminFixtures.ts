@@ -116,9 +116,9 @@ addMenu('대시보드', 'CONTROL_DASHBOARD', '/dashboard', M_CONTROL, 1);
 const M_MAP = addMenu('관제 홈(지도)', 'CONTROL_MAP', '/monitoring', M_CONTROL, 1);
 addMenu('발전소 상세', 'CONTROL_PLANT', '/monitoring/plant', M_CONTROL, 1);
 addMenu('이상감지 관리', 'CONTROL_ANOMALY', '/monitoring/anomalies', M_CONTROL, 1);
-const M_DISOP = addMenu('DiSOP', 'CONTROL_DISOP', null, M_CONTROL, 1);
-addMenu('예지보전', 'CONTROL_DISOP_PREDICTIVE', '/control/predictive', M_DISOP, 2);
-addMenu('안전', 'CONTROL_DISOP_SAFETY', '/control/safety', M_DISOP, 2);
+// 안전운영 — 예지보전 · 안전은 통합관제 바로 아래(DiSOP 묶음 없음, 2026-11-23 사용자)
+addMenu('예지보전', 'CONTROL_PREDICTIVE', '/control/predictive', M_CONTROL, 1);
+addMenu('안전', 'CONTROL_SAFETY', '/control/safety', M_CONTROL, 1);
 addMenu('디지털트윈', 'CONTROL_DT', 'https://terrawatt.pairworks.net/', M_CONTROL, 1);
 addMenu('보고서', 'CONTROL_REPORT', '/monitoring/reports', M_CONTROL, 1);
 // RE100

@@ -49,9 +49,9 @@ const usebReady = () => !!USEB_ID && !!USEB_SECRET;
 let usebJwt = '';
 let usebJwtAt = 0;
 
-// 토스 키 · 유스비 키 가운데 하나는 있어야 한다(둘 다 없으면 이 서버가 할 일이 없다)
-if (!SECRET && !usebReady()) {
-  console.error('[toss] .env.local 에 TOSS_SECRET_KEY=test_sk_... (결제) 또는 USEB_CLIENT_ID · USEB_CLIENT_SECRET (계좌실명조회)를 넣어 주세요.');
+// 토스 키 · 유스비 키 · 기상청 키 가운데 하나는 있어야 한다(다 없으면 이 서버가 할 일이 없다)
+if (!SECRET && !usebReady() && !envOf('KMA_AUTH_KEY')) {
+  console.error('[toss] .env.local 에 TOSS_SECRET_KEY=test_sk_... (결제), USEB_CLIENT_ID · USEB_CLIENT_SECRET (계좌실명조회), KMA_AUTH_KEY (기상특보) 가운데 하나를 넣어 주세요.');
   process.exit(1);
 }
 
@@ -100,6 +100,30 @@ async function usebRealname(b) {
     return { status: r.ok ? 502 : r.status, data: { code: d.error_code || 'USEB_ERROR', message: d.message || '유스비 조회 실패', detail: d.extra_message } };
   }
   return { status: 200, data: { holder: d.data?.account_holder_name ?? '', bankName: d.data?.bank_name ?? '' } };
+}
+
+/* ── 기상특보(기상청 API허브 특보현황 조회 wrn_now_data.php) — 울산동부 · 울산서부에 지금 발효 중인 특보 ──
+ *  키(KMA_AUTH_KEY)는 주소에 들어가므로 화면에서 직접 부르지 않고 여기(로컬) · 배포는 worker/index.js 를 거친다.
+ *  2026-11-23 실제 응답으로 확인: disp=1 이면 JSON(UTF-8), 칸은 REG_ID · REG_KO · TM_FC · TM_EF · WRN(강풍 · 호우 · 태풍 · 대설 …) · LVL(예비 · 주의 · 경보) · CMD · ED_TM, 글자 뒤에 빈칸이 붙어 온다.
+ *  울산 특보구역 코드(wrn_reg.php): 울산동부 L1082800 · 울산서부 L1082900. 기상청 응답이 느릴 때가 있어(504) 5분 동안 같은 답을 쓴다. */
+const KMA_KEY = envOf('KMA_AUTH_KEY');
+const KMA_ZONES = ['L1082800', 'L1082900'];
+let kmaCache = { at: 0, data: null };
+async function kmaWarnings() {
+  if (kmaCache.data && Date.now() - kmaCache.at < 5 * 60_000) return { status: 200, data: kmaCache.data };
+  const r = await fetch('https://apihub.kma.go.kr/api/typ01/url/wrn_now_data.php?fe=e&tm=&disp=1&help=0&authKey=' + encodeURIComponent(KMA_KEY));
+  if (!r.ok) return { status: 502, data: { code: 'KMA_ERROR', message: '기상청 응답 ' + r.status } };
+  const all = await r.json();
+  const t = (v) => String(v ?? '').trim();
+  const data = {
+    checkedAt: new Date().toISOString(),
+    total: all.length,
+    warnings: all
+      .filter((x) => KMA_ZONES.includes(t(x.REG_ID)))
+      .map((x) => ({ regId: t(x.REG_ID), regName: t(x.REG_KO), wrn: t(x.WRN), lvl: t(x.LVL), cmd: t(x.CMD), tmFc: t(x.TM_FC), tmEf: t(x.TM_EF), edTm: t(x.ED_TM) })),
+  };
+  kmaCache = { at: Date.now(), data };
+  return { status: 200, data };
 }
 
 /** 로컬 화면만 허용 — localhost · 127.0.0.1 의 아무 포트 */
@@ -154,22 +178,28 @@ const server = http.createServer(async (req, res) => {
         out = usebReady()
           ? await usebRealname(b)
           : { status: 501, data: { code: 'USEB_NOT_CONFIGURED', message: '.env.local 에 USEB_CLIENT_ID · USEB_CLIENT_SECRET 가 없습니다' } };
+      } else if (req.url === '/weather/warnings') {
+        // 울산 기상특보 현황 — 키가 없으면 501(화면은 특보 알림을 만들지 않는다)
+        out = KMA_KEY ? await kmaWarnings() : { status: 501, data: { code: 'KMA_NOT_CONFIGURED', message: '.env.local 에 KMA_AUTH_KEY 가 없습니다' } };
       } else {
         return res.writeHead(404).end();
       }
     } catch (e) {
       out =
-        req.url === '/account/holder'
+        req.url === '/weather/warnings'
+          ? { status: 502, data: { code: 'KMA_UNREACHABLE', message: '기상청에 연결하지 못했습니다: ' + e.message } }
+          : req.url === '/account/holder'
           ? { status: e.status || 502, data: { code: e.code || 'USEB_UNREACHABLE', message: e.code ? `유스비 토큰 발급 실패: ${e.message}` : `유스비에 연결하지 못했습니다: ${e.message}` } }
           : { status: 502, data: { message: `토스페이먼츠에 연결하지 못했습니다: ${e.message}` } };
     }
     // 계좌번호 · 예금주는 로그에 남기지 않는다
-    console.log(`[${req.url === '/account/holder' ? 'useb' : 'toss'}] ${req.url} → ${out.status}${out.data.code ? ` ${out.data.code}` : ''}`);
+    console.log(`[${req.url === '/weather/warnings' ? 'kma' : req.url === '/account/holder' ? 'useb' : 'toss'}] ${req.url} → ${out.status}${out.data.code ? ` ${out.data.code}` : ''}`);
     res.writeHead(out.status, { 'Content-Type': 'application/json' }).end(JSON.stringify(out.data));
   });
 });
 
 server.listen(PORT, () => {
   console.log(`[toss] 로컬 결제 서버 http://localhost:${PORT} (${SECRET ? `시크릿 키 ${SECRET.slice(0, 8)}…` : '토스 시크릿 키 없음 — 결제는 꺼짐'})`);
+  console.log(KMA_KEY ? '[kma] 기상특보 켜짐 (/weather/warnings, 울산동부 · 울산서부)' : '[kma] 기상특보 꺼짐 — .env.local 에 KMA_AUTH_KEY 를 넣으면 켜집니다(없으면 특보 알림 없음)');
   console.log(usebReady() ? '[useb] 계좌실명조회 켜짐 (/account/holder)' : '[useb] 계좌실명조회 꺼짐 — .env.local 에 USEB_CLIENT_ID · USEB_CLIENT_SECRET 를 넣으면 켜집니다(없으면 화면은 데모 조회)');
 });

@@ -16,8 +16,14 @@
  *  - 전력거래(RE100) 알림은 RE100 설계서에서 따로 확정한다 — 아래 RE100 항목은 지금 화면 흐름에서 뽑은 초안(자가소비 · PPA 따로, 단계마다 하나)
  *  - 데이터 근거 없는 알림은 만들지 않는다(2026-11-09 사용자). 근거: 아이티공간 「울산에자자_예지보전_데이터_연계_정리_v1.1」(전류 · 전압 · 누설 · 고조파 · 온도 · 역률 · 아크 · 통신 품질, 등급 위험/경고/주의/관찰/정상),
  *    LASEE 통신 상태(NORMAL / COMM_ERROR), 기상청 기상특보, 전력거래 · 데이터 마켓 · 회원 스토어의 실제 상태값
- *  - 사업계획서에 있는 알림은 데이터가 아직 없어도 항목으로 둔다(화재 징후). 지진은 사업계획서에 없음(0건).
- *  - 기상특보는 네 가지(2026-11-11 사용자 결정): 태풍 warnVar 7, 강풍 1, 호우 2, 대설 8. 경보(warnStress 1) 이상, cancel 0 인 행만.
+ *  - 실제로 들어오는 데이터가 있는 알림만 둔다 — 화재 · 연기 센서가 없어 '화재 징후'는 뺐다(2026-11-23 사용자: 진짜 있는 걸 해야지). 아크 지수도 제공 전(null)이라 알림 · 문구에 쓰지 않는다. 지진은 사업계획서에 없음(0건).
+ *  - 기상특보는 두 가지 — 태풍 · 강풍(2026-11-23 사용자: 호우 · 대설 뺌, 2026-11-11 에는 네 가지였다). 코드: 태풍 warnVar 7, 강풍 1, 호우 2, 대설 8. 경보(warnStress 1) 이상, cancel 0 인 행만.
+ *    사양 확인(2026-11-23, 공공데이터포털 기상청_기상특보 조회서비스 WthrWrnInfoService 특보코드조회 getPwnCd, https://www.data.go.kr/data/15000415/openapi.do):
+ *    warnVar 1 강풍 · 2 호우 · 7 태풍 · 8 대설, warnStress 0 주의보 · 1 경보, command 1 발표 · 2 해제 · 3 연장 · 6 정정 · 7 변경발표 · 8 변경해제, cancel 0 정상 · 1 취소.
+ *    울산 특보구역 = 울산동부(북구 · 중구 · 남구 · 동구) / 울산서부(울주군) — 기상청 특보구역 안내. 구역코드는 wrn_reg.php 로 확인: 울산동부 L1082800 · 울산서부 L1082900.
+ *    지금 발효 중인 특보를 구역별로 바로 주는 것은 기상청 API허브 wrn_now_data.php. 인증키가 쿼리에 들어가 정적 웹에서 직접 부르면 키가 드러난다 — 워커(서버)를 거쳐야 한다.
+ *    연동함(2026-11-23) — src/lib/weather-warning.ts 가 로컬 서버(/weather/warnings) · 배포 워커(/api/weather/warnings)로 받아 울산동부(L1082800) · 울산서부(L1082900)의 경보만 알림으로 만든다.
+ *    실제 응답 값: WRN 강풍 · 호우 · 태풍 · 대설, LVL 예비 · 주의 · 경보. 키(KMA_AUTH_KEY)가 없거나 서버가 꺼져 있으면 0건 — 특보 샘플은 만들지 않는다(fixtures NOT_LIVE_KEYS).
  *    침수 · 홍수는 특보 종류가 아니다 — 침수는 호우경보의 결과, 홍수는 환경부 홍수통제소 별도 경보. 한파 · 건조 · 폭풍해일 · 풍랑 · 황사 · 폭염은 공단 지붕 설비에 직접 영향이 적어 뺀다.
  *  - 알림 없는 것: 출력 저하(자연히 생길 수 있음), 일사량 대비 발전량 편차(일사량 데이터 · 기준 없음), RTU 통신 지연(어느 스펙에도 없음), 문서 관리 자료 등록(올리기 동작 없음), 자동결제 실패(결과 데이터 없음),
  *    API 허브 이용 취소(거래 현황 이용 취소와 같은 일), 보고서(들어가면 보인다), 컨설팅, 카드 등록 · API 토큰 재발급(본인이 한 일), 카본 마켓(문서만)
@@ -58,12 +64,12 @@ export const NOTIFICATION_CATALOG: NotifEvent[] = [
   { key: 'ANOMALY_INVERTER_COMM', name: '인버터 통신 끊김', label: '이상감지 관리 › 이상 감지 목록 › 인버터 통신 끊김', domain: '통합관제', condition: '일부 인버터 응답 없음, 측정시각이 20분 이상 멈춤, 주간만 판정', receivers: PLANT, go: '이상감지 관리', resolve: '보냄' },
   { key: 'TYPHOON_WARNING', name: '태풍경보', label: '이상감지 관리 › 이상 감지 목록 › 태풍경보', domain: '통합관제', condition: '울산동부, 울산서부에 태풍경보 이상 발효', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '이상감지 관리', resolve: '해제 보냄', emailDefault: true },
   { key: 'WIND_WARNING', name: '강풍경보', label: '이상감지 관리 › 이상 감지 목록 › 강풍경보', domain: '통합관제', condition: '울산동부, 울산서부에 강풍경보 발효 — 모듈 탈락 · 구조물 피해(사업계획서 p134)', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '이상감지 관리', resolve: '해제 보냄', emailDefault: true },
-  { key: 'HEAVY_RAIN_WARNING', name: '호우경보', label: '이상감지 관리 › 이상 감지 목록 › 호우경보', domain: '통합관제', condition: '울산동부, 울산서부에 호우경보 발효 — 침수 · 누전', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '이상감지 관리', resolve: '해제 보냄', emailDefault: true },
-  { key: 'HEAVY_SNOW_WARNING', name: '대설경보', label: '이상감지 관리 › 이상 감지 목록 › 대설경보', domain: '통합관제', condition: '울산동부, 울산서부에 대설경보 발효 — 적설 하중 · 발전 중단', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '이상감지 관리', resolve: '해제 보냄', emailDefault: true },
+  // 호우경보 · 대설경보는 알림 없음(2026-11-23 사용자) — 지붕 설비라 침수 가능성이 낮고 누전은 전기안전지수(누설)가 잡는다, 울산은 대설경보가 드물다. 기상청 응답에는 계속 들어온다
   { key: 'SAFETY_DANGER', name: '전기안전지수 위험', label: '안전 › 발전소별 안전 현황 › 전기안전지수 › 위험', domain: '통합관제', condition: 'ITS 전기안전지수 등급이 위험이거나 위험으로 상향', receivers: PLANT, go: '안전', resolve: '보냄, 등급이 내려가 30분 이어지면', emailDefault: true },
   { key: 'SAFETY_WARNING', name: '전기안전지수 경고', label: '안전 › 발전소별 안전 현황 › 전기안전지수 › 경고', domain: '통합관제', condition: 'ITS 전기안전지수 등급이 경고', receivers: PLANT, go: '안전', resolve: '보내지 않음' },
-  { key: 'SAFETY_FIRE', name: '화재 징후', label: '안전 › 발전소별 안전 현황 › 화재 징후', domain: '통합관제', condition: '사업계획서(3차년도) p81 · p160 · p161 · p167 — 화재 · 폭발 위험 감지, 화재 징후 예측, 연기 감지. 판정 데이터(온도 임계값 · 아크 지수 · 연기 센서)는 아이티공간 · 현장 연동 뒤 정한다', receivers: PLANT, go: '안전', resolve: '보냄', emailDefault: true },
-  { key: 'SAFETY_CAUTION', name: '전기안전지수 주의', label: '안전 › 발전소별 안전 현황 › 전기안전지수 › 주의', domain: '통합관제', condition: 'ITS 전기안전지수 등급이 주의, 주간만 판정', receivers: PLANT, go: '안전', resolve: '보내지 않음' },
+  // 주의는 알림 없음 — 위험 · 경고만(2026-11-23 사용자). 등급은 ITS 가 주는 riskLevel 그대로
+  // 예지보전 — DX 센서 값이 들어오다가 끊기면 전기안전지수 등급도 멈춰 안전 알림이 조용히 죽는다. 화면의 '수집 중단' 판정(연계 대상 센서인데 값 없음, 연계 문서 8-4) 그대로(2026-11-23 사용자)
+  { key: 'PREDICTIVE_SENSOR_STOP', name: '센서 수집 중단', label: '예지보전 › 발전소별 예지보전 현황 › 수집 중단', domain: '통합관제', condition: '연계 대상 DX 센서의 값이 들어오다가 안 들어옴(수집 중단)', receivers: PLANT, go: '예지보전', resolve: '보냄' },
   // ── RE100(전력거래) — 자가소비 · PPA 따로, 거래 4단계(신청 접수 → 미팅 조건 확정 → 전자서명 → 승인)마다 하나, 변경 · 해지도 단계마다 하나.
   //    승인은 끝났다는 알림이라 양측에 간다. RE100 설계서에서 확정 전 초안 ──
   { key: 'TRADING_SELF_RECEIVED', name: '자가소비 신청', label: '거래 신청 › 자가소비 › 신청', domain: 'RE100', condition: '기업이 자가소비 거래를 신청함', receivers: '관리자(메뉴 권한 있는 회원)', go: '거래 이력', resolve: '해당 없음', emailDefault: true, adminOnly: true },
@@ -136,7 +142,7 @@ export function notifPathOf(key: string, account: NotifAccount): string | null {
   const e = NOTIFICATION_CATALOG.find((x) => x.key === key);
   if (!e) return null;
   if (e.adminOnly && account !== 'admin') return null;
-  if (e.domain === '통합관제') return key.startsWith('SAFETY_') ? '/control/safety' : '/monitoring/anomalies';
+  if (e.domain === '통합관제') return key.startsWith('SAFETY_') ? '/control/safety' : key.startsWith('PREDICTIVE_') ? '/control/predictive' : '/monitoring/anomalies';
   if (e.domain === 'E-데이터마켓') {
     // 판매 동의 · 판매 종료는 같은 데이터 카드의 일 — 종료 예정일이 보이는 데이터 등록/신청으로(2026-11-16 사용자)
     if (key === 'EDATA_CONSENT' || key === 'EDATA_SALE_END') return '/e-data/catalog';
@@ -162,11 +168,16 @@ export function notifPathOf(key: string, account: NotifAccount): string | null {
 
 /**
  * 알림 설정의 묶음 — 거래 · 변경 · 해지는 한 줄로 이어지는 일이라 상태마다 따로 켜고 끄지 않고 대상 하나로 묶는다(2026-11-17 사용자).
- * 웹 알림의 제목은 상태 그대로(자가소비 조건 확정 등). 묶음이 없는 알림은 null
+ * 웹 알림의 제목은 상태 그대로(자가소비 조건 확정 등). 묶음이 없는 알림은 null. 통합관제도 같은 방식으로 네 줄
  */
 export function notifGroupOf(key: string): string | null {
   // 설정 줄은 자가소비 · PPA · 변경 · 해지 넷(2026-11-19 사용자: 하나로 하기로 했잖아) — 변경 · 해지는 계약 유형과 상관없이 한 줄,
   // 자가소비 / PPA 구분은 웹 알림 제목에서('변경 신청 (자가소비)')
+  // 통합관제 — 통신 · 전원 / 재난 경보 / 안전 / 예지보전 네 줄(2026-11-23 사용자). 웹 알림 제목은 그대로 구체적으로(RTU 전원 꺼짐, 태풍경보 …)
+  if (key.startsWith('SAFETY_')) return '안전';
+  if (key.startsWith('PREDICTIVE_')) return '예지보전';
+  if (key === 'RTU_POWER_OFF' || key.startsWith('ANOMALY_')) return '통신 · 전원';
+  if (/^(TYPHOON|WIND)_WARNING$/.test(key)) return '재난 경보';
   if (key.startsWith('TRADING_SELF_')) return '자가소비';
   if (key.startsWith('TRADING_PPA_')) return 'PPA';
   if (/^(SELF|PPA)_CONTRACT_CHANGE_/.test(key)) return '변경';

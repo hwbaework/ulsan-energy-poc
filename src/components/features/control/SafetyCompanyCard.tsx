@@ -6,7 +6,7 @@ import { SectionCard } from '@/components/features';
 import { StatusPill } from '@/components/ui/Design';
 import { Modal } from '@/components/ui/Modal';
 import { useDxSafety, useDxSafetyHistory } from '@/hooks/control/useDx';
-import { DX_LEVEL, DX_RISK_ITEMS, dxSensorsOf, hasDx, hhmm, isDxTarget, isSafetyLate, topRisk, worstSafety, type DxSafety } from '@/lib/dx';
+import { DX_LEVEL, DX_RISK_ITEMS, dxSensorLabel, dxSensorsOf, hasDx, hhmm, isDxTarget, isSafetyLate, topRisk, worstSafety, type DxSafety } from '@/lib/dx';
 import { TABLE, TABLE_HEAD_ROW, TABLE_ROW, TABLE_TD, TABLE_TH } from '@/components/features/DataList';
 import type { MonitoringPlant } from '@/types/monitoring';
 
@@ -117,7 +117,7 @@ export function SafetyCompanyCard({ plant }: { plant: MonitoringPlant }) {
                     onClick={() => isDxTarget(sn.mac) && setPicked(sn.mac)}
                     className={`${TABLE_ROW} ${isDxTarget(sn.mac) ? 'cursor-pointer' : ''} ${sel?.mac === sn.mac ? 'bg-white/[0.04]' : ''}`}
                   >
-                    <td className={`${TABLE_TD} whitespace-nowrap font-medium text-white`}>{sn.deviceName}</td>
+                    <td className={`${TABLE_TD} whitespace-nowrap font-medium text-white`}>{dxSensorLabel(sn.mac)}</td>
                     <td className={`${TABLE_TD} tabular-nums ${sf && !late ? 'font-semibold text-white' : 'text-slate-500'}`}>
                       {fx(sf?.safetyIndex) ?? (isDxTarget(sn.mac) ? NONE : '미수신')}
                     </td>
@@ -151,7 +151,7 @@ export function SafetyCompanyCard({ plant }: { plant: MonitoringPlant }) {
         </div>
       </SectionCard>
 
-      <SafetyTrend mac={sel?.mac} name={sel?.deviceName} />
+      <SafetyTrend mac={sel?.mac} name={sel ? dxSensorLabel(sel.mac) : undefined} />
 
       <Modal open={levelsOpen} onClose={() => setLevelsOpen(false)} title="전기안전지수 등급" size="sm">
         <table className={TABLE}>

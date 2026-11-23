@@ -249,12 +249,11 @@ export default function ReportsClient() {
             rows: [
               ['이상', `${anomalies.length} 건`],
               ['경고', `${warningTotal} 건`],
-              ['주의', `${anomalies.filter((a) => a.severity === 'caution').length} 건`],
               ['통신오류', `${commErrorTotal} 건`],
             ],
           },
         ],
-        note: '이상감지 관리에 기록된 이상(등급 주의·경고 또는 통신오류)을 전체 기간으로 집계한 보고서입니다.',
+        note: '이상감지 관리에 기록된 이상(등급 위험·경고 또는 통신오류)을 전체 기간으로 집계한 보고서입니다.',
       };
     }
 
