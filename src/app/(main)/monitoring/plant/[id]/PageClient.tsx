@@ -12,7 +12,7 @@ import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { ContractBadge, SourceBadge, StatusBadge, StatusPill } from '@/components/ui/Design';
-import { CONTRACT_KIND, commStatusOf, contractSplitOf, gradeOf } from '@/lib/design';
+import { CONTRACT_KIND, anomalyStateOf, contractSplitOf, gradeOf } from '@/lib/design';
 import { useEnergySettings } from '@/hooks/common/useSettings';
 import { Sun, Thermometer, Wind, Zap, TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -275,7 +275,7 @@ export default function PlantDetailPage() {
       header: '처리',
       width: '90px',
       render: (r) => {
-        const s = commStatusOf(r.status);
+        const s = anomalyStateOf(r.severity, r.status); // 전원 꺼짐 / 통신오류 / 수신 끊김 / 위험 / 경고 — 이상감지 관리 목록과 같은 칸
         return <StatusPill tone={s.tone} label={s.label} />;
       },
     },

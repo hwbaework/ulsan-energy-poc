@@ -50,7 +50,7 @@ const TRENDS: { code: string; label: string; unit: string; d: number; pick: (v: 
   { code: 'temperature', label: '온도', unit: '℃', d: 1, pick: firstNum },
 ];
 
-/** 숫자 칸 — 값이 없으면 미산출, 수집이 멈춘 센서는 '-'(측정 시각 칸에 수집 중단) */
+/** 숫자 칸 — 값이 없으면 미산출, 수집이 멈춘 센서는 '-'(측정 시각 칸에 수신 끊김) */
 function Num({ v, stale, d = 1 }: { v: number | null; stale: boolean; d?: number }) {
   const t = stale ? '-' : fx(v, d);
   return <span className={`whitespace-nowrap tabular-nums ${t && t !== '-' ? 'text-slate-200' : 'text-slate-500'}`}>{t ?? NONE}</span>;

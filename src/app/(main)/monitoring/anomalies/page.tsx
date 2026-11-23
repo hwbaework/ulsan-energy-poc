@@ -99,7 +99,7 @@ export default function AnomaliesPage() {
   // 전체 상태 — 내 발전소 전부(정상 포함)
   const myPlants = filterPlantsByOwnership(plantList ?? [], myPlantMatcher);
 
-  // 예지보전 센서 수집 중단 — 연계 대상 DX 센서의 receivedAt 이 5분 넘게 멈췄거나 응답에 없음(연계 문서 8-4, 알림 '센서 수집 중단'과 같은 기준).
+  // 예지보전 센서 수신 끊김 — 연계 대상 DX 센서의 receivedAt 이 5분 넘게 멈췄거나 응답에 없음(연계 문서 8-4, 알림 '센서 수신 끊김'과 같은 기준).
   // 센서 목록에 없는 사업장(한길 · 건호이엔씨)은 대상이 아니라 넣지 않는다. 조회가 실패하면 판단할 수 없어 넣지 않는다
   const dxQ = useDxLatestAll();
   const sensorStops: AnomalyRow[] = !dxQ.isSuccess
@@ -120,7 +120,7 @@ export default function AnomaliesPage() {
               contractKind: kinds.length === 1 ? kinds[0] : undefined,
               severity: 'normal',
               status: SENSOR_STOP,
-              title: `${dxSensorLabel(sn.mac)} 센서 수집 중단`,
+              title: `${dxSensorLabel(sn.mac)} 센서 수신 끊김`,
               // 마지막으로 받은 시각(KST), 응답에 아예 없으면 모름
               detectedAt: lt?.receivedAt ? lt.receivedAt.replace(' ', 'T') + '+09:00' : '',
             };
@@ -131,14 +131,14 @@ export default function AnomaliesPage() {
   // 내 계약 유형 — 둘(자가소비 · PPA)일 때만 골라서 본다
   const myKinds = CONTRACT_KIND_ORDER.filter((k) => myPlants.some((pl) => contractKindsOf(pl).includes(k)));
   const pickKind = !isAdmin && myKinds.length > 1;
-  // 사업장 상태에 들어가는 이상 — 이상 감지 목록 전체(통신 · 전원, 전기안전지수 위험 · 경고, 센서 수집 중단)
+  // 사업장 상태에 들어가는 이상 — 이상 감지 목록 전체(통신 · 전원, 전기안전지수 위험 · 경고, 센서 수신 끊김)
   const siteIssues: SiteIssue[] = anomalies.map((a) => ({
     plantId: a.plantId,
     contractKind: a.contractKind,
     title: a.title,
     detectedAt: a.detectedAt,
     resolvedAt: a.resolvedAt,
-    comm: a.status === 'COMM_ERROR',
+    comm: a.status === 'COMM_ERROR' || a.status === 'POWER_OFF', // 전원이 꺼져도 값이 끊긴다 — 최근 수신 칸은 끊긴 시각
   }));
 
   const q = query.trim().toLowerCase();
@@ -160,7 +160,7 @@ export default function AnomaliesPage() {
     return [{ value: 'all', label: '전체 상태' }, ...codes.map((c) => ({ value: c.code, label: c.label }))];
   }, [anomalies]);
 
-  // 활성 이상 = 목록 전체(등급 위험·경고, 통신오류, 센서 수집 중단) · 경고 = 등급 경고 건
+  // 활성 이상 = 목록 전체(등급 위험·경고, 통신오류, 센서 수신 끊김) · 경고 = 등급 경고 건
   const inKind = anomalies.filter((a) => !pickKind || !a.contractKind || a.contractKind === kindTab);
   const activeCount = inKind.length;
   const warningCount = inKind.filter((a) => a.severity === 'warning').length;

@@ -44,7 +44,7 @@ export interface NotifEvent {
   receivers: string;
   /** 클릭 시 이동 */
   go: string;
-  /** 해소 알림 — 보냄 / 보내지 않음 / 해당 없음 / 해제 보냄(태풍) */
+  /** 해소 알림 — 보냄 / 해제 보냄(재난 경보) / 해당 없음. 통합관제는 전부 보낸다 — 웹 알림만(이메일 없음), 설정 줄은 따로 없고 발생 알림을 켜 두면 같이 온다(2026-11-23 사용자) */
   resolve: string;
   /** 이메일 기본 켬 */
   emailDefault?: boolean;
@@ -54,7 +54,8 @@ export interface NotifEvent {
   companyOnly?: boolean;
 }
 
-const PLANT = '관리자(메뉴 권한 있는 회원), 발전소 소유 발전사업자, 계약 전기사용자';
+// 자가소비 · PPA 모두 지붕에 설비가 있는 기업이 그 전기를 쓴다 — 발전사업자 / 전기사용자로 나누지 않고 '그 발전소 기업' 하나(2026-11-23 사용자)
+const PLANT = '관리자(메뉴 권한 있는 회원), 그 발전소 기업';
 
 export const NOTIFICATION_CATALOG: NotifEvent[] = [
   // ── 통합관제 — 이상감지 관리 › 이상 감지 목록에 들어오는 종류 그대로(출력 저하는 자연히 생길 수 있어 알림 아님, 2026-11-09 사용자).
@@ -65,11 +66,11 @@ export const NOTIFICATION_CATALOG: NotifEvent[] = [
   { key: 'TYPHOON_WARNING', name: '태풍경보', label: '통합관제 › 재난 경보 › 태풍경보', domain: '통합관제', condition: '울산동부, 울산서부에 태풍경보 이상 발효', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '이동 없음', resolve: '해제 보냄', emailDefault: true },
   { key: 'WIND_WARNING', name: '강풍경보', label: '통합관제 › 재난 경보 › 강풍경보', domain: '통합관제', condition: '울산동부, 울산서부에 강풍경보 발효 — 모듈 탈락 · 구조물 피해(사업계획서 p134)', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '이동 없음', resolve: '해제 보냄', emailDefault: true },
   // 호우경보 · 대설경보는 알림 없음(2026-11-23 사용자) — 지붕 설비라 침수 가능성이 낮고 누전은 전기안전지수(누설)가 잡는다, 울산은 대설경보가 드물다. 기상청 응답에는 계속 들어온다
-  { key: 'SAFETY_DANGER', name: '전기안전지수 위험', label: '안전 › 발전소별 안전 현황 › 전기안전지수 › 위험', domain: '통합관제', condition: 'ITS 전기안전지수 등급이 위험이거나 위험으로 상향', receivers: PLANT, go: '안전', resolve: '보냄, 등급이 내려가 30분 이어지면', emailDefault: true },
-  { key: 'SAFETY_WARNING', name: '전기안전지수 경고', label: '안전 › 발전소별 안전 현황 › 전기안전지수 › 경고', domain: '통합관제', condition: 'ITS 전기안전지수 등급이 경고', receivers: PLANT, go: '안전', resolve: '보내지 않음' },
+  { key: 'SAFETY_DANGER', name: '전기안전지수 위험', label: '안전 › 발전소별 안전 현황 › 전기안전지수 › 위험', domain: '통합관제', condition: 'ITS 전기안전지수 등급이 위험이거나 위험으로 상향', receivers: PLANT, go: '안전', resolve: '보냄', emailDefault: true },
+  { key: 'SAFETY_WARNING', name: '전기안전지수 경고', label: '안전 › 발전소별 안전 현황 › 전기안전지수 › 경고', domain: '통합관제', condition: 'ITS 전기안전지수 등급이 경고', receivers: PLANT, go: '안전', resolve: '보냄' },
   // 주의는 알림 없음 — 위험 · 경고만(2026-11-23 사용자). 등급은 ITS 가 주는 riskLevel 그대로
-  // 예지보전 — DX 센서 값이 들어오다가 끊기면 전기안전지수 등급도 멈춰 안전 알림이 조용히 죽는다. 화면의 '수집 중단' 판정(연계 대상 센서인데 값 없음, 연계 문서 8-4) 그대로(2026-11-23 사용자)
-  { key: 'PREDICTIVE_SENSOR_STOP', name: '센서 수집 중단', label: '예지보전 › 발전소별 예지보전 현황 › 수집 중단', domain: '통합관제', condition: '연계 대상 DX 센서의 receivedAt 이 5분 이상 멈춤, 또는 응답에서 빠짐(연계 문서 8-4)', receivers: PLANT, go: '예지보전', resolve: '보냄' },
+  // 예지보전 — DX 센서 값이 들어오다가 끊기면 전기안전지수 등급도 멈춰 안전 알림이 조용히 죽는다. 화면의 '수신 끊김' 판정(연계 대상 센서인데 값 없음, 연계 문서 8-4) 그대로(2026-11-23 사용자)
+  { key: 'PREDICTIVE_SENSOR_STOP', name: '센서 수신 끊김', label: '예지보전 › 발전소별 예지보전 현황 › 수신 끊김', domain: '통합관제', condition: '연계 대상 DX 센서의 receivedAt 이 5분 이상 멈춤, 또는 응답에서 빠짐(연계 문서 8-4)', receivers: PLANT, go: '예지보전', resolve: '보냄' },
   // ── RE100(전력거래) — 자가소비 · PPA 따로, 거래 4단계(신청 접수 → 미팅 조건 확정 → 전자서명 → 승인)마다 하나, 변경 · 해지도 단계마다 하나.
   //    승인은 끝났다는 알림이라 양측에 간다. RE100 설계서에서 확정 전 초안 ──
   { key: 'TRADING_SELF_RECEIVED', name: '자가소비 신청', label: '거래 신청 › 자가소비 › 신청', domain: 'RE100', condition: '기업이 자가소비 거래를 신청함', receivers: '관리자(메뉴 권한 있는 회원)', go: '거래 이력', resolve: '해당 없음', emailDefault: true, adminOnly: true },
@@ -185,6 +186,13 @@ export function notifGroupOf(key: string): string | null {
   if (/^(SELF|PPA)_CONTRACT_CHANGE_/.test(key)) return '변경';
   if (/^(SELF|PPA)_CONTRACT_TERMINATION_/.test(key)) return '해지';
   return null;
+}
+
+/** 해소 알림 제목 — 발생 알림 이름 + 해소(재난 경보는 해제). 해소 알림이 없는 항목은 null */
+export function notifResolveNameOf(key: string): string | null {
+  const e = NOTIFICATION_CATALOG.find((x) => x.key === key);
+  if (!e || e.resolve === '해당 없음') return null;
+  return `${e.name} ${e.resolve.startsWith('해제') ? '해제' : '해소'}`;
 }
 
 export const notifLabelOf = (type: string) => NOTIFICATION_CATALOG.find((e) => e.key === type)?.label ?? type;

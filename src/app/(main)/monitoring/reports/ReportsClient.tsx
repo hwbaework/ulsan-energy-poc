@@ -222,6 +222,7 @@ export default function ReportsClient() {
   /* 이상감지 집계 — 요약 건수만 */
   const warningTotal = anomalies.filter((a) => a.severity === 'warning').length;
   const commErrorTotal = anomalies.filter((a) => a.status === 'COMM_ERROR').length;
+  const powerOffTotal = anomalies.filter((a) => a.status === 'POWER_OFF').length;
 
   /* 미리보기에 그릴 문서 — PDF 도 이 문서 그대로 */
   const previewDoc = useMemo<ReportPreviewDoc | null>(() => {
@@ -249,11 +250,12 @@ export default function ReportsClient() {
             rows: [
               ['이상', `${anomalies.length} 건`],
               ['경고', `${warningTotal} 건`],
+              ['전원 꺼짐', `${powerOffTotal} 건`],
               ['통신오류', `${commErrorTotal} 건`],
             ],
           },
         ],
-        note: '이상감지 관리에 기록된 이상(등급 위험·경고 또는 통신오류)을 전체 기간으로 집계한 보고서입니다.',
+        note: '이상감지 관리에 기록된 이상(등급 위험·경고, 전원 꺼짐, 통신오류)을 전체 기간으로 집계한 보고서입니다.',
       };
     }
 

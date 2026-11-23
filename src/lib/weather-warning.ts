@@ -53,6 +53,11 @@ export function refreshWeatherWarnings(): void {
   if (typeof window === 'undefined' || inflight || Date.now() - loadedAt < REFRESH_MS) return;
   inflight = load()
     .then((got) => {
+      // 발효 중이던 경보가 이번 응답에 없으면 해제된 것 — 해제 알림으로 남긴다
+      const before = pickWarnings(rows);
+      const now = pickWarnings(got);
+      const at = new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 19);
+      for (const b of before) if (!now.some((n) => n.type === b.type)) released.unshift({ ...b, at });
       rows = got;
     })
     .finally(() => {
@@ -77,6 +82,10 @@ export function pickWarnings(list: WeatherWarningRow[]): { type: string; wrn: st
   }
   return out;
 }
+
+/** 해제된 경보 — 이 화면을 열어 둔 동안 발효 중이다가 풀린 것(해제 알림) */
+const released: { type: string; wrn: string; zones: string[]; since: string; at: string }[] = [];
+export const releasedWeatherWarnings = () => released;
 
 /** 지금 울산에 발효 중인 경보 */
 export function activeWeatherWarnings() {

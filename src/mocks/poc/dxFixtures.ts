@@ -2,7 +2,7 @@
  * DX 스마트센서 목업 — 아이티공간 연계 문서 v1.1 의 응답 형식 그대로(API-003 · 006 · 007).
  * 실연동 때는 이 파일만 빠지고 같은 경로를 UMEI 로 넘긴다(키는 서버에서 붙임).
  * 값은 지금 시각의 해 높이로 만든다 — 낮에는 전류·전력이 오르고 밤엔 0, 역률은 무부하라 null(문서 5.4).
- * 경우의 수: 정상 / 관찰(한일튜브3 — 전류 불평형) / 주의(용인금속03 — 누설전류) / 수집 중단·갱신 지연(용인금속04).
+ * 경우의 수: 정상 / 관찰(한일튜브3 — 전류 불평형) / 주의(용인금속03 — 누설전류) / 수신 끊김·갱신 지연(용인금속04).
  */
 import { registerMock } from './registry';
 import { DX_SENSORS, DX_SAFETY_MODEL, isDxTarget, kst, type DxFeature, type DxLatest, type DxRiskLevel, type DxSafety, type DxSensor } from '@/lib/dx';
@@ -24,12 +24,13 @@ const RATED: Record<number, number> = { 17514: 429.44 / 4, 17511: 152.32 / 4, 17
 const idx = (s: DxSensor) => DX_SENSORS.indexOf(s);
 
 /** 센서별 특성 — 관찰·주의·중단 경우를 하나씩 */
-const PROFILE: Record<string, { unbalance?: number; leakage?: number; health: number; staleMin?: number }> = {
-  '한일튜브1': { health: 96.5 },
+const PROFILE: Record<string, { unbalance?: number; leakage?: number; health: number; staleMin?: number; risk?: { key: 'current' | 'leakage'; score: number } }> = {
+  // 임시(2026-11-23 사용자: 전기안전지수 위험 · 경고도 임시로 넣어 두자) — 경고: 한일튜브1 전류 43.5 → 지수 56.5, 위험: 용인금속01 누설 52.0 → 지수 48.0. 알림 · 이상 감지 목록의 그 건과 같은 값
+  '한일튜브1': { health: 96.5, risk: { key: 'current', score: 43.5 } },
   '한일튜브2': { health: 98.2 },
   '한일튜브3': { health: 93.1, unbalance: 4.8 },
   '한일튜브4': { health: 97.0 },
-  '용인금속01': { health: 97.4 },
+  '용인금속01': { health: 97.4, risk: { key: 'leakage', score: 52.0 } },
   '용인금속02': { health: 96.1 },
   '용인금속03': { health: 89.6, leakage: 0.17 },
   '용인금속04': { health: 95.0, staleMin: 132 },
@@ -104,10 +105,13 @@ function safetyAt(s: DxSensor, t: number, now: number): DxSafety {
   // 관찰(한일튜브3 — 전류 불평형) · 주의(용인금속03 — 누설전류) 는 최근 몇 시간에 그 항목 점수가 오른다
   if (p.unbalance && hoursAgo < 3) risks.current = r1(11 + wave * 0.6);
   if (p.leakage && hoursAgo < 6) risks.leakage = r1(28 + wave);
+  // 위험 · 경고 데모 — 최근 2시간에 그 항목 점수가 오른다(값은 고정해 알림 문구와 같게)
+  if (p.risk && hoursAgo < 2) risks[p.risk.key] = p.risk.score;
   // 전기안전지수 = 100 − 가장 높은 위험점수(문서 5.4 응답 예시: current 8.6 → 91.4), anomalyScore 도 그 점수
   const top = Math.max(...Object.entries(risks).filter(([k, v]) => k !== 'communication' && typeof v === 'number').map(([, v]) => v as number));
   const index = Math.round((100 - top) * 10) / 10;
-  const level: DxRiskLevel = index < 60 ? 'warning' : index < 80 ? 'caution' : index < 90 ? 'watch' : 'normal';
+  // 등급은 실제로는 ITS 가 riskLevel 로 준다 — 아래 구간(50 · 60 · 80 · 90)은 데모용 임시 기준
+  const level: DxRiskLevel = index < 50 ? 'danger' : index < 60 ? 'warning' : index < 80 ? 'caution' : index < 90 ? 'watch' : 'normal';
   const ws = Math.floor(t / 300_000) * 300_000;
   const plant = LASEE_PLANTS.find((x) => x.laseeId === s.plantId);
   return {

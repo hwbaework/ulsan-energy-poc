@@ -148,21 +148,25 @@ export const ANOMALY_GRADE: Record<string, PillSpec> = {
   watch: { label: '관찰', tone: 'muted', order: 3 },
   normal: { label: '정상', tone: 'normal', order: 4 },
 };
-/** S-Energy 통신 상태 (API-001): 0 정상 / 1 통신오류 */
+/** S-Energy 상태 (API-001): 통신 rtuConnectionState · inverters[].connectionState 0 정상 / 1 통신오류,
+ *  전원 rtuPowerState 0 On / 1 Off — 전원 꺼짐은 통신오류가 아니라 따로(2026-11-23 사용자) */
 export const COMM_STATUS: Record<string, PillSpec> = {
+  POWER_OFF: { label: '전원 꺼짐', tone: 'danger', order: -1 },
   COMM_ERROR: { label: '통신오류', tone: 'danger', order: 0 },
   NORMAL: { label: '정상', tone: 'normal', order: 1 },
 };
-/** 이상 건 하나의 상태 칸 — 통신오류(LASEE) · 수집 중단(DX 센서 값이 안 들어옴, 연계 문서 8-4) · 그 밖은 전기안전지수 등급(위험 · 경고).
+/** 이상 건 하나의 상태 칸 — 전원 꺼짐 · 통신오류(S-Energy) · 수신 끊김(DX 센서 값이 안 들어옴, 연계 문서 8-4) · 그 밖은 전기안전지수 등급(위험 · 경고).
  *  통신 상태만 찍으면 경고 건에 '정상'이 뜨므로 그 건이 무슨 이상인지를 보여 준다(2026-11-23 사용자) */
 export const SENSOR_STOP = 'SENSOR_STOP';
 export const anomalyStateOf = (severity: string, status: string): PillSpec & { code: string } =>
-  status === 'COMM_ERROR'
+  status === 'POWER_OFF'
+    ? { code: status, label: '전원 꺼짐', tone: 'danger', order: -3 }
+    : status === 'COMM_ERROR'
     ? { code: status, label: '통신오류', tone: 'danger', order: -2 }
     : status === SENSOR_STOP
-      ? { code: status, label: '수집 중단', tone: 'danger', order: -1 }
+      ? { code: status, label: '수신 끊김', tone: 'danger', order: -1 }
       : { code: severity, ...gradeOf(severity) };
-/** 이상감지 관리 › 전체 상태 — 사업장(계약) 한 줄. 진행 중인 이상(통신 · 전원, 전기안전지수 위험 · 경고, 센서 수집 중단)이 하나라도 있으면 이상감지.
+/** 이상감지 관리 › 전체 상태 — 사업장(계약) 한 줄. 진행 중인 이상(통신 · 전원, 전기안전지수 위험 · 경고, 센서 수신 끊김)이 하나라도 있으면 이상감지.
  *  재난 경보(태풍 · 강풍)는 지역 특보라 알림만 보내고 여기 세지 않는다(2026-11-23 사용자) */
 export const SITE_STATUS: Record<string, PillSpec> = {
   ANOMALY: { label: '이상감지', tone: 'danger', order: 0 },
@@ -171,9 +175,9 @@ export const SITE_STATUS: Record<string, PillSpec> = {
 export const siteStatusOf = (code: string): PillSpec => SITE_STATUS[code] ?? { label: code, tone: 'muted', order: 99 };
 export const gradeOf = (code: string): PillSpec => ANOMALY_GRADE[code] ?? { label: code, tone: 'muted', order: 99 };
 export const commStatusOf = (code: string): PillSpec => COMM_STATUS[code] ?? { label: code, tone: 'muted', order: 99 };
-/** 이상 목록 포함 조건 — 등급이 위험 · 경고이거나 통신오류. 주의 · 관찰 · 정상은 이상이 아니다(2026-11-23 사용자) */
+/** 이상 목록 포함 조건 — 등급이 위험 · 경고이거나 전원 꺼짐 · 통신오류. 주의 · 관찰 · 정상은 이상이 아니다(2026-11-23 사용자) */
 export const isAnomaly = (severity: string, status: string): boolean =>
-  severity === 'danger' || severity === 'warning' || status === 'COMM_ERROR';
+  severity === 'danger' || severity === 'warning' || status === 'COMM_ERROR' || status === 'POWER_OFF';
 
 /* ── 아이콘을 쓰는 지표 ────────────────────────────────── */
 /**

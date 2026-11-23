@@ -3,7 +3,7 @@
  * 나머지 엔드포인트는 라우터의 기본 빈 응답으로 처리된다.
  */
 import { registerMock, pageOf } from './registry';
-import { NOTIFICATION_CATALOG, notifPathOf, type NotifAccount } from '@/lib/notification-catalog';
+import { NOTIFICATION_CATALOG, notifPathOf, notifResolveNameOf, type NotifAccount } from '@/lib/notification-catalog';
 import { getPersona } from '@/lib/persona';
 import { LASEE_PLANTS } from '@/constants/plant-mapping';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -14,7 +14,7 @@ import type { ConsumerSite } from '@/types/consumer';
 import type { MarketPrice } from '@/types/trading';
 import { HOLIDAYS_SEED, type Holiday } from '@/lib/op-calendar';
 import { TARIFF_YEAR_SEED, cleanBook, type TariffYear, type TariffYearTable } from '@/lib/solar-sim';
-import { activeWeatherWarnings } from '@/lib/weather-warning';
+import { activeWeatherWarnings, releasedWeatherWarnings } from '@/lib/weather-warning';
 import { buildRe100Notifications } from './re100Notifications';
 import { canReadMenuPath } from './adminFixtures'; // 관리(ADMIN) 축 목업 + 역할별 메뉴 권한
 import { ELEC_FACTOR } from '@/lib/constants/emission-factor';
@@ -288,11 +288,11 @@ const NOTIFICATION_MESSAGE: Record<string, string> = {
   // 통신 · 전원은 짧게 — 꺼짐 / 통신 끊김. 시간 기준 없이 Off · 통신오류 값으로 온다(S-Energy API-001, 2026-11-23 사용자)
   RTU_POWER_OFF: '용인금속 — RTU 꺼짐',
   ANOMALY_RTU_COMM: '태성산업 — RTU 통신 끊김',
-  ANOMALY_INVERTER_COMM: '한길 인버터 #3 — 통신 끊김',
+  ANOMALY_INVERTER_COMM: '건호이엔씨 인버터 #2 — 통신 끊김', // 이상 감지 목록의 그 건과 같게(발전소마다 인버터는 #1 · #2 — '한길 인버터 #3'은 없는 설비였다, 2026-11-23 사용자)
   // 내용 = 전기안전지수 + 가장 높은 위험 항목(값이 들어오는 항목만 — 전류 · 전압 · 누설 등, 아크는 제공 전이라 쓰지 않음, 2026-11-23 사용자)
   SAFETY_DANGER: '용인금속 인버터 #1 — 전기안전지수 48.0, 누설',
   SAFETY_WARNING: '한일튜브 인버터 #1 — 전기안전지수 56.5, 전류',
-  PREDICTIVE_SENSOR_STOP: '한일튜브 인버터 #1 — 센서 수집 중단',
+  PREDICTIVE_SENSOR_STOP: '용인금속 인버터 #4 — 센서 수신 끊김', // 이상 감지 목록의 수신 끊김 건과 같게
   TRADING_SELF_RECEIVED: '한길 → 관리자 : 90.88 kW 신청, 확인',
   TRADING_SELF_TERMS: '관리자 → 태성산업 : 46.08 kW 조건 확정, 확인',
   TRADING_SELF_UNCONFIRMED: '용인금속 → 관리자 : 152.32 kW 조건 변경, 확인',
@@ -357,6 +357,22 @@ const NOTIFICATIONS = NOTIFICATION_CATALOG.filter((e) => !NOT_LIVE_KEYS.has(e.ke
   const at = new Date(Date.UTC(2026, 10, 16, 10, 0, 0) - i * 3 * 3_600_000).toISOString().slice(0, 19);
   return { id: i + 1, type: e.key, title: e.name, message: NOTIFICATION_MESSAGE[e.key] ?? '', link: NOTIFICATION_TARGET[e.key], isRead: i >= 5, createdAt: at };
 });
+/**
+ * 해소 알림 — 통합관제 알림은 풀리면 '○○ 해소'가 온다(웹 알림만, 2026-11-23 사용자: 경고도 보냄). 같은 항목 설정을 따른다.
+ * 샘플은 지금 이상 감지 목록에 걸려 있지 않은 설비로(목록에 떠 있는 건과 엇갈리지 않게)
+ */
+const RESOLVE_MESSAGE: Record<string, string> = {
+  RTU_POWER_OFF: '한길 — RTU 켜짐',
+  ANOMALY_RTU_COMM: '한일튜브 — RTU 통신 정상',
+  ANOMALY_INVERTER_COMM: '태성산업 인버터 #1 — 통신 정상',
+  SAFETY_DANGER: '태성산업 인버터 #1 — 전기안전지수 91.5',
+  SAFETY_WARNING: '한일튜브 인버터 #4 — 전기안전지수 93.0',
+  PREDICTIVE_SENSOR_STOP: '한일튜브 인버터 #2 — 센서 수신 정상',
+};
+const RESOLVE_NOTIFICATIONS = NOTIFICATION_CATALOG.filter((e) => RESOLVE_MESSAGE[e.key]).map((e, i) => {
+  const at = new Date(Date.UTC(2026, 10, 16, 11, 0, 0) - i * 3 * 3_600_000).toISOString().slice(0, 19);
+  return { id: 500 + i, type: e.key, title: notifResolveNameOf(e.key) ?? e.name, message: RESOLVE_MESSAGE[e.key]!, link: undefined as string | undefined, isRead: true, createdAt: at, resolved: true };
+});
 /** 데모 건에서 만드는 RE100 알림 종류 — 거래 · 변경 · 해지 · 청구서(발행 예정 · 발행) · 세금계산서 등록 */
 const GENERATED_KEYS = new Set(NOTIFICATION_CATALOG.filter((e) => /^(TRADING_|PPA_CONTRACT_|SELF_CONTRACT_|TAX_INVOICE$|INVOICE$|INVOICE_DUE$)/.test(e.key)).map((e) => e.key));
 const RE100_KEYS = new Set(NOTIFICATION_CATALOG.filter((e) => e.domain === 'RE100').map((e) => e.key));
@@ -378,7 +394,7 @@ const myNotifications = () => {
     return account !== 'admin' || canReadMenuPath(roles, path);
   };
   // 1. 항목표 샘플 — 거래 · 변경 · 해지는 빼고(아래 2에서 데모 건마다), 발전사업자는 한일튜브 정산 쪽만
-  const sample = NOTIFICATIONS.filter((n) => !GENERATED_KEYS.has(n.type) && allowed(n.type))
+  const sample = [...NOTIFICATIONS, ...RESOLVE_NOTIFICATIONS].filter((n) => !GENERATED_KEYS.has(n.type) && allowed(n.type))
     .filter((n) => account !== 'generator' || !RE100_KEYS.has(n.type) || !!GENERATOR_BILLING[n.type])
     .map((n) => (account === 'generator' && GENERATOR_BILLING[n.type] ? { ...n, ...GENERATOR_BILLING[n.type] } : n));
   // 2. 거래 · 변경 · 해지 — 데모 건마다 하나씩(목록의 줄과 1:1). 받는 쪽에만 — 내가 보낸 일은 내 알림에 오지 않는다(2026-11-19 사용자, 메일도 같음)
@@ -409,9 +425,16 @@ const myNotifications = () => {
       const title = NOTIFICATION_CATALOG.find((e) => e.key === w.type)?.name ?? w.type;
       return { id, type: w.type, title, message: w.zones.join(', ') + ' — ' + w.wrn + '경보 발효', link: undefined as string | undefined, isRead: READ_GENERATED.has(id), createdAt: w.since };
     });
+  // 3-1. 특보 해제 — 발효 중이던 경보가 기상청 응답에서 빠지면
+  const weatherOff = releasedWeatherWarnings()
+    .filter((w) => allowed(w.type))
+    .map((w) => {
+      const id = 990_000 + [...(w.type + w.at)].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 9_000, 0);
+      return { id, type: w.type, title: notifResolveNameOf(w.type) ?? w.type, message: w.zones.join(', ') + ' — ' + w.wrn + '경보 해제', link: undefined as string | undefined, isRead: READ_GENERATED.has(id), createdAt: w.at, resolved: true };
+    });
   // 항목표 순서(묶음)대로, 같은 종류 안에서는 최근 것부터
   const order = new Map(NOTIFICATION_CATALOG.map((e, i) => [e.key, i]));
-  return [...sample, ...generated, ...weather]
+  return [...sample, ...generated, ...weather, ...weatherOff]
     // 항목표 샘플도 같은 규칙 — '보낸 → 받는' 이면 받는 쪽에만, '기업 · 관리자'(청구서 발행처럼 양측)면 그 둘에만(2026-11-19, 11-20)
     .filter((n) => {
       if (!n.message.includes(' : ')) return true; // 보낸 쪽 없는 알림(발행 예정 등)은 위에서 계정으로 걸렀다
@@ -420,7 +443,12 @@ const myNotifications = () => {
       if (head.includes(' · ')) return head.split(' · ').includes(me);
       return true;
     })
-    .sort((x, y) => (order.get(x.type) ?? 0) - (order.get(y.type) ?? 0) || y.createdAt.localeCompare(x.createdAt));
+    // 같은 종류 안에서는 발생(꺼짐) 다음에 해소 — 한 쌍으로 읽히게(2026-11-23 사용자)
+    .sort((x, y) => {
+      const rx = 'resolved' in x && x.resolved ? 1 : 0;
+      const ry = 'resolved' in y && y.resolved ? 1 : 0;
+      return (order.get(x.type) ?? 0) - (order.get(y.type) ?? 0) || rx - ry || y.createdAt.localeCompare(x.createdAt);
+    });
 };
 registerMock(/^\/notifications\/unread-count$/, () => myNotifications().filter((n) => !n.isRead).length);
 registerMock(/^\/notifications\/read-all$/, () => {
@@ -631,7 +659,7 @@ function anomaly(
 }
 /**
  * 이상 목록 — 근거: ITS_울산_에자자_수집데이터_API_명세서_v1.2
- * severity = DX riskLevel(danger/warning/caution/watch/normal — 이상은 위험 · 경고만) · status = S-Energy 통신 상태(NORMAL=0 정상 / COMM_ERROR=1 통신오류)
+ * severity = DX riskLevel(danger/warning/caution/watch/normal — 이상은 위험 · 경고만) · status = S-Energy 상태(NORMAL 정상 / COMM_ERROR 통신오류 / POWER_OFF 전원 Off — 전원 꺼짐은 통신오류가 아니다)
  * actions·resolvedAt 은 원본 프론트의 처리 워크플로 잔재 — 스펙에 없으며 목록 화면에서는 쓰지 않는다.
  * 수집 항목에 없는 이상(스택 온도 · 일사량 편차 · 통신 지연 · 출력 저하)은 넣지 않는다. 남은 건 통신 상태(COMM_ERROR) · RTU 전원뿐 — 2026-11-09 사용자가 지운 뒤 금지.
  */
@@ -640,9 +668,11 @@ export const ANOMALY_ROWS: MockAnomaly[] = [
   // 통신 끊김은 S-Energy 가 통신오류(1)로 준 값 그대로 — 시간 기준 없음, 문구는 짧게
   anomaly(4, 17513, '인버터 #2 통신 끊김', '통신 끊김', 'warning', 'COMM_ERROR', daysAgo(0, 8, 40), []),
   // 등급은 정상인데 통신만 오류 — 태성산업 (등급·통신은 별개 소스라 이런 건도 이상 목록에 뜬다)
-  anomaly(8, 17511, 'RTU 전원 꺼짐', 'RTU 꺼짐', 'warning', 'COMM_ERROR', daysAgo(0, 7, 20), []),
+  anomaly(8, 17511, 'RTU 전원 꺼짐', 'RTU 꺼짐', 'warning', 'POWER_OFF', daysAgo(0, 7, 20), []),
   anomaly(6, 17512, 'RTU 통신 끊김', '통신 끊김', 'normal', 'COMM_ERROR', daysAgo(0, 9, 55), []),
-  // 주의 — 용인금속
+  // 전기안전지수 위험 · 경고 — 임시 데모(2026-11-23 사용자). 안전 화면 데모(dxFixtures PROFILE 용인금속01 · 한일튜브1) · 알림 문구와 같은 건. 한 사업장에 이상이 여럿일 수 있다(용인금속: RTU 전원 꺼짐 + 위험 + 수신 끊김)
+  anomaly(9, 17511, '인버터 #1 전기안전지수 위험', '전기안전지수 48.0, 누설', 'danger', 'NORMAL', daysAgo(0, 11, 5), []),
+  anomaly(10, 17514, '인버터 #1 전기안전지수 경고', '전기안전지수 56.5, 전류', 'warning', 'NORMAL', daysAgo(0, 10, 30), [], null, 'SELF_CONSUMPTION'),
 ];
 
 // 발전소 상세 — 이상감지 요약 포함

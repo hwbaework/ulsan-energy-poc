@@ -18,7 +18,7 @@ import type { MonitoringPlant } from '@/types/monitoring';
 // 예지보전 — 발전소(회사)마다 DX 스마트센서 상태(아이티공간 UMEI 연계 v1.1).
 // 센서가 잰 값(API-003)만 — 전기안전지수 · 등급 · 위험 항목은 안전 목록에 있다(2026-10-29 사용자 확정).
 // 줄을 누르면 그 발전소 상세(설비 상태 · 설비별 측정값 · 발전량 추이 · 센서 추이)로 들어간다.
-// 회사마다 센서가 있는 것이 전제 — 값이 없으면 '센서 없음'이 아니라 미수신 · 수집 중단 · 갱신 지연.
+// 회사마다 센서가 있는 것이 전제 — 값이 없으면 '센서 없음'이 아니라 미수신 · 수신 끊김 · 갱신 지연.
 const fx = (v: number | null | undefined) => (v == null ? null : v.toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 
 interface Row {
@@ -47,7 +47,7 @@ export default function PredictivePage() {
   if (directPlantId != null) return null;
 
   const rows: Row[] = plants.map((p) => {
-    // 연계 대상 센서만(아직 목록에 없는 장비는 미수신) — 응답에 없는 대상 센서는 수신 수에서 빠져 수집 중단으로 보인다
+    // 연계 대상 센서만(아직 목록에 없는 장비는 미수신) — 응답에 없는 대상 센서는 수신 수에서 빠져 수신 끊김으로 보인다
     const macs = dxSensorsOf(p.plantId).filter((s) => isDxTarget(s.mac)).map((s) => s.mac);
     const lt = (latestQ.data ?? []).filter((x: DxLatest) => macs.includes(x.macAddress));
     const live = lt.filter((x) => !isStale(x));
