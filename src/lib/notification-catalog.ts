@@ -63,9 +63,9 @@ export const NOTIFICATION_CATALOG: NotifEvent[] = [
   { key: 'RTU_POWER_OFF', name: 'RTU 전원 꺼짐', label: '이상감지 관리 › 이상 감지 목록 › RTU 전원 꺼짐', domain: '통합관제', condition: 'S-Energy API-001 rtuPowerState 1(Off) — 시간 기준 없이 꺼짐 값으로 옴(2026-11-23 사용자)', receivers: PLANT, go: '이상감지 관리', resolve: '보냄', emailDefault: true },
   { key: 'ANOMALY_RTU_COMM', name: 'RTU 통신 끊김', label: '이상감지 관리 › 이상 감지 목록 › RTU 통신 끊김', domain: '통합관제', condition: 'S-Energy API-001 rtuConnectionState 1(통신오류) — 끊김 값으로 옴, 20분 같은 시간 기준 없음(2026-11-23 사용자)', receivers: PLANT, go: '이상감지 관리', resolve: '보냄' },
   { key: 'ANOMALY_INVERTER_COMM', name: '인버터 통신 끊김', label: '이상감지 관리 › 이상 감지 목록 › 인버터 통신 끊김', domain: '통합관제', condition: 'S-Energy API-001 inverters[].connectionState 1(통신오류) — 끊김 값으로 옴, 시간 기준 없음', receivers: PLANT, go: '이상감지 관리', resolve: '보냄' },
-  { key: 'TYPHOON_WARNING', name: '태풍경보', label: '통합관제 › 재난 경보 › 태풍경보', domain: '통합관제', condition: '울산동부, 울산서부에 태풍경보 이상 발효', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '이동 없음', resolve: '해당 없음', emailDefault: true },
+  { key: 'TYPHOON_WARNING', name: '태풍경보', label: '통합관제 › 재난 경보 › 태풍경보', domain: '통합관제', condition: '울산동부, 울산서부에 태풍경보 이상 발효', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '관제 홈(지도), 기업 계정은 발전소 상세', resolve: '해당 없음', emailDefault: true },
   // 호우경보 — 침수. DT 시뮬레이션의 재난 시나리오(화재 · 지진 · 침수) 가운데 침수와 이어지는 알림(2026-11-23 사용자). 강풍경보는 뺐다 — 태풍 · 호우 둘만
-  { key: 'HEAVY_RAIN_WARNING', name: '호우경보', label: '통합관제 › 재난 경보 › 호우경보', domain: '통합관제', condition: '울산동부, 울산서부에 호우경보 발효 — 침수 · 누전', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '이동 없음', resolve: '해당 없음', emailDefault: true },
+  { key: 'HEAVY_RAIN_WARNING', name: '호우경보', label: '통합관제 › 재난 경보 › 호우경보', domain: '통합관제', condition: '울산동부, 울산서부에 호우경보 발효 — 침수 · 누전', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '관제 홈(지도), 기업 계정은 발전소 상세', resolve: '해당 없음', emailDefault: true },
   // 강풍경보 · 대설경보는 알림 없음(2026-11-23 사용자) — 강풍경보 수준 바람에 모듈이 날아갈지 의문, 울산은 대설경보가 드물다. 기상청 응답에는 계속 들어온다
   { key: 'SAFETY_DANGER', name: '전기안전지수 위험', label: '안전 › 발전소별 안전 현황 › 전기안전지수 › 위험', domain: '통합관제', condition: 'ITS 전기안전지수 등급이 위험이거나 위험으로 상향', receivers: PLANT, go: '이상감지 관리', resolve: '보냄', emailDefault: true },
   { key: 'SAFETY_WARNING', name: '전기안전지수 경고', label: '안전 › 발전소별 안전 현황 › 전기안전지수 › 경고', domain: '통합관제', condition: 'ITS 전기안전지수 등급이 경고', receivers: PLANT, go: '이상감지 관리', resolve: '보냄' },
@@ -145,7 +145,8 @@ export function notifPathOf(key: string, account: NotifAccount): string | null {
   if (!e) return null;
   if (e.adminOnly && account !== 'admin') return null;
   // 재난 경보는 지역 기상특보라 이상감지에 넣지 않고 알림만 — 누르면 읽음만, 이동 없음(2026-11-23 사용자)
-  if (/^(TYPHOON|HEAVY_RAIN)_WARNING$/.test(key)) return null;
+  // 재난 경보는 기온 · 풍향/풍속이 보이는 화면으로 — 관리자는 관제 홈(지도), 기업 계정은 관제 홈 메뉴가 없어 발전소 상세(거기에도 기온 · 풍속이 있다, 2026-11-23 사용자)
+  if (/^(TYPHOON|HEAVY_RAIN)_WARNING$/.test(key)) return account === 'admin' ? '/monitoring' : '/monitoring/plant';
   // 통합관제 알림은 모두 이상감지 관리로 — 알림마다 다른 화면으로 가지 않는다. 거기서 그 줄을 누르면 상세(안전 · 예지보전 · 발전소 상세)로(2026-11-23 사용자)
   if (e.domain === '통합관제') return '/monitoring/anomalies';
   if (e.domain === 'E-데이터마켓') {
