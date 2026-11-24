@@ -14,6 +14,7 @@ import { DataTable, type Column, TABLE, TABLE_HEAD_ROW, TABLE_TH, TABLE_ROW, TAB
 import { SectionCard } from '@/components/features/SectionCard';
 import { useCompanies, useCreateCompany, useUpdateCompany, useDeleteCompany } from '@/hooks/platform/useCompanies';
 import { useUsers } from '@/hooks/platform/useUsers';
+import { AddressInput } from '@/components/ui/AddressInput';
 import { useToastStore } from '@/stores/useToastStore';
 import { useCompanyChangeStore, useHydrateCompanyChange, type CompanyChangeRequest } from '@/stores/useCompanyChangeStore';
 import { CompanyChangeReviewModal } from '@/components/features/org/CompanyChangeApprovals';
@@ -390,14 +391,7 @@ export default function CompaniesPage() {
               onChange={(e) => setFormPhone(e.target.value)}
             />
           </div>
-          <Input maxLength={LIMIT.address}
-            label="기업 주소"
-            placeholder="서울특별시 강남구"
-            required
-            value={formAddress}
-            onChange={(e) => setFormAddress(e.target.value)}
-            error={addErrors.address}
-          />
+          <AddressInput required value={formAddress} onChange={setFormAddress} error={addErrors.address} onSearchFail={() => addToast('error', '주소 검색 창을 열지 못했습니다')} />
           <div>
             <p className="text-sm font-medium text-accent mb-1.5">
               사업자등록증<span className="ml-0.5 text-semantic-red">*</span>
@@ -619,7 +613,7 @@ export default function CompaniesPage() {
             <div className="grid grid-cols-2 gap-3">
               <Input maxLength={LIMIT.phone} label="기업 연락처" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
             </div>
-            <Input maxLength={LIMIT.address} label="기업 주소" required value={editAddress} onChange={(e) => setEditAddress(e.target.value)} error={editErrors.address} />
+            <AddressInput required value={editAddress} onChange={setEditAddress} error={editErrors.address} onSearchFail={() => addToast('error', '주소 검색 창을 열지 못했습니다')} />
             <div>
               {/* 필수 항목 — 이미 올라온 등록증이 들어 있고, 등록증 업데이트로 바꾼다(2026-11-09) */}
               <p className="text-sm font-medium text-accent mb-1.5">

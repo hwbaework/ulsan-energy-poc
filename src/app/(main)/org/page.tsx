@@ -23,6 +23,7 @@ import { localNow } from '@/stores/useBillingStore';
 import { useHydrateTradingPoc, useTradingPocStore } from '@/stores/useTradingPocStore';
 
 import { LIMIT } from '@/lib/field-limits';
+import { AddressInput } from '@/components/ui/AddressInput';
 const REQUIRED_FIELDS: (keyof CompanyFields)[] = ['name', 'representativeName', 'bizType', 'bizCategory', 'address'];
 
 export default function OrgInfoPage() {
@@ -289,7 +290,7 @@ export default function OrgInfoPage() {
           </InfoField>
           <InfoField label="주소" required>
             {editing ? (
-              <Input maxLength={LIMIT.address} value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
+              <AddressInput label="" value={form.address} onChange={(v) => setForm((f) => ({ ...f, address: v }))} onSearchFail={() => addToast('error', '주소 검색 창을 열지 못했습니다')} />
             ) : (
               <p className="text-sm text-white">{company?.address ?? '-'}</p>
             )}

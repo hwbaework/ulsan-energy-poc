@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,6 +19,7 @@ import { FileUpload } from '@/components/ui/FileUpload';
 import { useCompanies } from '@/hooks/platform/useCompanies';
 
 import { LIMIT } from '@/lib/field-limits';
+import { AddressInput } from '@/components/ui/AddressInput';
 type SignupType = 'enterprise' | 'consultant';
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -116,6 +117,46 @@ export default function SignupPage() {
   });
 
   const companyType = watch('companyType');
+
+  // Alt + 1 — 지금 단계의 칸을 샘플 값으로 채운다(화면설계서 캡처용, 2026-11-24 사용자). 값은 입력 칸의 안내 글자와 같은 샘플이고 실제 기업이 아니다
+  const stepRef = useRef(step);
+  stepRef.current = step;
+  useEffect(() => {
+    const fill = () => {
+      const st = stepRef.current;
+      if (st === 2) {
+        setValue('companyType', 'new');
+        setValue('companyName', '(주)그린에너지');
+        setValue('businessNumber', '123-45-67890');
+        setValue('representative', '홍길동');
+        setValue('companyAddress', '울산 남구 중앙로 201 3층');
+        setValue('companyPhone', '052-000-0000');
+        setValue('bizType', '제조업');
+        setValue('bizCategory', '금속 가공');
+      } else if (st === 3) {
+        setValue('email', 'hong@greenenergy.co.kr');
+        setValue('name', '홍길동');
+        setValue('password', 'sample1234');
+        setValue('passwordConfirm', 'sample1234');
+        setValue('department', '발전운영팀');
+        setValue('phone', '010-0000-0000');
+      } else if (st === 4) {
+        setValue('termsService', true);
+        setValue('termsPrivacy', true);
+        setValue('termsMarketing', true);
+      }
+      setServerError('');
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey && !e.ctrlKey && !e.metaKey && (e.code === 'Digit1' || e.code === 'Numpad1')) {
+        e.preventDefault();
+        fill();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const termsService = watch('termsService');
   const termsPrivacy = watch('termsPrivacy');
   const termsMarketing = watch('termsMarketing');
@@ -294,16 +335,19 @@ export default function SignupPage() {
                 </div>
                 {/* 설립일(개업연월일) 칸은 뺐다 — 첨부한 사업자등록증 원본에 적혀 있고 쓰는 곳이 없다(2026-11-24 사용자) */}
                 <div className="grid grid-cols-4 items-start gap-3">
-                  <div className="col-span-3">
-                    <Input maxLength={LIMIT.address}
-                      label="기업 주소"
-                      placeholder="서울특별시 강남구"
+                  {/* 기업 주소 — 주소 검색으로 고르고 상세 주소를 쓴다. 기업 주소 2칸 · 기업 연락처 2칸(2026-11-24 사용자) */}
+                  <div className="col-span-2">
+                    <AddressInput
                       required
+                      value={watch('companyAddress')}
+                      onChange={(v) => setValue('companyAddress', v, { shouldValidate: true })}
                       error={errors.companyAddress?.message}
-                      {...register('companyAddress')}
+                      onSearchFail={() => setServerError('주소 검색 창을 열지 못했습니다. 인터넷 연결을 확인해 주세요.')}
                     />
                   </div>
-                  <Input maxLength={LIMIT.phone} label="기업 연락처" placeholder="02-0000-0000" {...register('companyPhone')} />
+                  <div className="col-span-2">
+                    <Input maxLength={LIMIT.phone} label="기업 연락처" placeholder="02-0000-0000" {...register('companyPhone')} />
+                  </div>
                 </div>
                 {/* 업태·종목 — 사업자등록증 '사업의 종류'. 세금계산서에 들어간다 */}
                 <div className="grid grid-cols-4 items-start gap-3">
