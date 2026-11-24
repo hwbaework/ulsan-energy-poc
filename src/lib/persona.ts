@@ -24,6 +24,7 @@ export const PERSONA_LABELS: Record<Persona, string> = {
 
 const ROLE_TO_PERSONA: Record<string, Persona> = {
   SYSTEM_ADMIN: 'admin',
+  PLATFORM_ADMIN: 'admin',
   COMPANY_ADMIN: 'admin',
   POWER_OPERATOR: 'generator',
   CONSUMER_MANAGER: 'consumer',

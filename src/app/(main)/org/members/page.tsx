@@ -32,7 +32,7 @@ const MEMBERS_BY_PERSONA: Record<Persona, Member[]> = {
       id: 1,
       name: '박에너지',
       email: 'park@greenenergy.co.kr',
-      role: '기업관리자',
+      role: '기업 관리자',
       status: 'active',
       joinedAt: '2025-12-01',
     },
@@ -67,7 +67,7 @@ const MEMBERS_BY_PERSONA: Record<Persona, Member[]> = {
       id: 1,
       name: '이수요',
       email: 'lee@ecoindustry.co.kr',
-      role: '기업관리자',
+      role: '기업 관리자',
       status: 'active',
       joinedAt: '2025-11-15',
     },
@@ -119,7 +119,7 @@ const MEMBERS_BY_PERSONA: Record<Persona, Member[]> = {
       id: 1,
       name: '김컨설',
       email: 'kim@energyconsulting.co.kr',
-      role: '기업관리자',
+      role: '기업 관리자',
       status: 'active',
       joinedAt: '2025-10-01',
     },
@@ -145,7 +145,7 @@ const MEMBERS_BY_PERSONA: Record<Persona, Member[]> = {
       id: 1,
       name: '최운영',
       email: 'choi@greenspc.co.kr',
-      role: '기업관리자',
+      role: '기업 관리자',
       status: 'active',
       joinedAt: '2025-09-01',
     },
@@ -174,7 +174,7 @@ const MEMBERS_BY_PERSONA: Record<Persona, Member[]> = {
       id: 1,
       name: '관리자',
       email: 'admin@energy-platform.co.kr',
-      role: '기업관리자',
+      role: '기업 관리자',
       status: 'active' as const,
       joinedAt: '2025-06-01',
     },
@@ -226,7 +226,7 @@ const MEMBERS_BY_PERSONA: Record<Persona, Member[]> = {
       id: 1,
       name: '정용역',
       email: 'jung@energysolution.co.kr',
-      role: '기업관리자',
+      role: '기업 관리자',
       status: 'active' as const,
       joinedAt: '2025-11-01',
     },
@@ -370,7 +370,7 @@ export default function MembersPage() {
       width: '50px',
       align: 'right',
       render: (row) =>
-        row.role === '기업관리자' ? null : (
+        row.role === '기업 관리자' ? null : (
           <Dropdown
             trigger={
               <button className="rounded p-1 text-slate-500 hover:text-white hover:bg-white/[0.06] transition-colors">
@@ -451,7 +451,7 @@ export default function MembersPage() {
         <div className="space-y-4">
           <div className="flex items-center gap-2 rounded-lg bg-blue-500/10 px-3 py-2 ring-1 ring-blue-500/20">
             <Mail size={14} className="text-blue-400" />
-            <p className="text-xs text-blue-300">초대 메일이 발송되며, 기업관리자 권한으로 즉시 승인됩니다.</p>
+            <p className="text-xs text-blue-300">초대 메일이 발송되며, 기업 관리자 권한으로 즉시 승인됩니다.</p>
           </div>
           <Input
             label="이메일"

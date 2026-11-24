@@ -22,7 +22,8 @@ export type AccountType = 'COMPANY_ADMIN' | 'COMPANY_MEMBER';
 const TYPE_LABEL: Record<AccountType, string> = { COMPANY_ADMIN: '기업 관리자', COMPANY_MEMBER: '기업 회원' };
 
 function roleOfCompany(businessTypes: string[] = []): { code: string; label: string } {
-  if (businessTypes.some((t) => t.includes('SPC') || t.includes('운영사'))) return { code: 'SYSTEM_ADMIN', label: '관리자' };
+  // 가입으로 받는 것은 관리자까지 — 최고 관리자는 가입으로 생기지 않는다
+  if (businessTypes.some((t) => t.includes('SPC') || t.includes('운영사'))) return { code: 'PLATFORM_ADMIN', label: '관리자' };
   if (businessTypes.some((t) => t.includes('발전'))) return { code: 'POWER_OPERATOR', label: '발전사업자' };
   return { code: 'CONSUMER_MANAGER', label: '전기사용자' };
 }
@@ -176,7 +177,6 @@ export function SignupReviewModal({ applicant, companies, onClose }: { applicant
               {row('대표자', c.representativeName)}
               {row('업태', c.bizType)}
               {row('종목', c.bizCategory)}
-              {row('설립일', c.foundedAt)}
               {row('기업 연락처', c.phone)}
               {row('기업 주소', c.address)}
               {row('기업 상태', c.status === 'ACTIVE' ? '활성' : c.status === 'PENDING' ? '대기' : c.status === 'SUSPENDED' ? '정지' : c.status)}

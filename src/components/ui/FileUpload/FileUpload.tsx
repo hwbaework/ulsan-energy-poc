@@ -11,6 +11,8 @@ interface FileUploadProps {
   className?: string;
   /** false로 설정하면 내부 파일 목록을 숨깁니다. 부모가 직접 파일 목록을 관리할 때 사용하세요. */
   showList?: boolean;
+  /** 입력 칸 한 줄 높이로 — 칸이 많은 화면(회원가입)에서 쓴다 */
+  compact?: boolean;
 }
 
 export function FileUpload({
@@ -21,6 +23,7 @@ export function FileUpload({
   error,
   className,
   showList = true,
+  compact = false,
 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
@@ -98,7 +101,8 @@ export function FileUpload({
         tabIndex={0}
         aria-label={`파일 업로드. 최대 ${maxSizeMB}MB`}
         className={cn(
-          'flex flex-col items-center justify-center gap-2 rounded border-2 border-dashed px-4 py-8 cursor-pointer transition-colors',
+          'flex items-center justify-center gap-2 rounded border-2 border-dashed cursor-pointer transition-colors',
+          compact ? 'flex-row px-3 py-2' : 'flex-col px-4 py-8',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
           dragOver ? 'border-primary bg-primary/5' : 'border-accent/30 hover:border-accent/50',
           error && 'border-semantic-red',
@@ -110,7 +114,7 @@ export function FileUpload({
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        <Upload size={24} className="text-accent/40" aria-hidden="true" />
+        <Upload size={compact ? 16 : 24} className="shrink-0 text-accent/40" aria-hidden="true" />
         <p className="text-sm text-accent">클릭하거나 파일을 드래그하세요</p>
         <p className="text-xs text-accent/40">최대 {maxSizeMB}MB</p>
       </div>

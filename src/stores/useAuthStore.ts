@@ -55,9 +55,39 @@ export const POC_USERS: Record<PocRole, User> = {
   } as User,
 };
 
+/**
+ * 계정 유형이 다른 데모 계정 — 관리자(최고 관리자 아래) · 기업 회원. 회원 목록(adminFixtures USERS)의 같은 이메일과 짝(2026-11-24)
+ * 기업 회원 — 한길 최한길, 한일튜브 김한일
+ */
+export const POC_EXTRA_ACCOUNTS: { role: PocRole; user: User }[] = [
+  {
+    role: 'admin',
+    user: { ...POC_USERS.admin, id: 7, email: 'manager@test.com', name: '정관리', phone: '010-1000-0007', roles: ['PLATFORM_ADMIN'] } as User,
+  },
+  {
+    role: 'consumer',
+    user: { ...POC_USERS.consumer, id: 8, email: 'choi@hangil.co.kr', name: '최한길', phone: '010-3000-0008' } as User,
+  },
+  {
+    role: 'generator',
+    user: { ...POC_USERS.generator, id: 4, email: 'kim@hanil.co.kr', name: '김한일', phone: '010-4000-0004', department: '설비팀' } as User,
+  },
+];
+
+/** 이메일이 데모 계정과 정확히 같으면 그 계정, 아니면 역할의 기본 계정 */
+export function accountFromEmail(email: string): { role: PocRole; user: User } {
+  const e = email.trim().toLowerCase();
+  const extra = POC_EXTRA_ACCOUNTS.find((a) => a.user.email === e);
+  if (extra) return extra;
+  const role = roleFromEmail(e);
+  return { role, user: POC_USERS[role] };
+}
+
 /** 로그인 폼에 입력한 이메일을 역할로 해석 (모르는 이메일은 전기사용자) */
 export function roleFromEmail(email: string): PocRole {
   const e = email.trim().toLowerCase();
+  const extra = POC_EXTRA_ACCOUNTS.find((a) => a.user.email === e);
+  if (extra) return extra.role;
   if (e.startsWith('admin')) return 'admin';
   if (e.startsWith('operator') || e.startsWith('generator')) return 'generator';
   return 'consumer';
@@ -68,7 +98,7 @@ interface AuthState {
   role: PocRole | null;
   isAuthenticated: boolean;
   hydrated: boolean;
-  loginAs: (role: PocRole) => void;
+  loginAs: (role: PocRole, email?: string) => void;
   setUser: (user: User) => void;
   markAuthenticated: () => void;
   logout: () => void;
@@ -81,7 +111,7 @@ export const useAuthStore = create<AuthState>()(
       role: null,
       isAuthenticated: false,
       hydrated: false,
-      loginAs: (role) => set({ role, user: POC_USERS[role], isAuthenticated: true }),
+      loginAs: (role, email) => set({ role, user: email ? accountFromEmail(email).user : POC_USERS[role], isAuthenticated: true }),
       setUser: (user) => set({ user }),
       markAuthenticated: () => set({ isAuthenticated: true }),
       logout: () => set({ user: null, role: null, isAuthenticated: false }),
@@ -94,7 +124,7 @@ export const useAuthStore = create<AuthState>()(
       merge: (persisted, current) => {
         const p = persisted as Partial<AuthState> | undefined;
         if (!p) return current;
-        const fresh = p.role ? POC_USERS[p.role] : undefined;
+        const fresh = POC_EXTRA_ACCOUNTS.find((a) => a.user.email === p.user?.email)?.user ?? (p.role ? POC_USERS[p.role] : undefined);
         const user = p.user && fresh ? { ...p.user, companyId: fresh.companyId, companyName: fresh.companyName, companyAddress: fresh.companyAddress } : (p.user ?? null);
         return { ...current, ...p, user };
       },

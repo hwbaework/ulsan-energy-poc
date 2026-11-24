@@ -43,7 +43,8 @@ interface UserRow {
 const ROLE_OPTIONS = [
   { value: 'CONSUMER_MANAGER', label: '전기사용자' },
   { value: 'POWER_OPERATOR', label: '발전사업자' },
-  { value: 'SYSTEM_ADMIN', label: '관리자' },
+  { value: 'SYSTEM_ADMIN', label: '최고 관리자' },
+  { value: 'PLATFORM_ADMIN', label: '관리자' },
 ];
 
 const ROLE_LABEL_MAP: Record<string, string> = Object.fromEntries(ROLE_OPTIONS.map((r) => [r.value, r.label]));

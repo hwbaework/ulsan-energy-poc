@@ -28,7 +28,7 @@ const nextPayDate = () => {
 };
 
 /**
- * 기업 정보 › 결제 수단 — 기업 카드 여러 장, 기본 카드가 매달 자동결제. 기업관리자만 등록 · 기본 지정 · 삭제, 소속 멤버는 보기만.
+ * 기업 정보 › 결제 수단 — 기업 카드 여러 장, 기본 카드가 매달 자동결제. 기업 관리자만 등록 · 기본 지정 · 삭제, 소속 멤버는 보기만.
  * 카드 등록 = 토스페이먼츠 결제창(우리 화면엔 카드 입력 칸이 없다). 아래는 '결제 항목' — 이용 중인 서비스 · 월 금액 · 다음 결제일
  */
 export function PaymentMethodCard({ companyId, canEdit }: { companyId: number; canEdit: boolean }) {
@@ -169,7 +169,7 @@ export function PaymentMethodCard({ companyId, canEdit }: { companyId: number; c
           columns={cardCols}
           data={cards}
           rowKey={(c) => c.id}
-          emptyMessage={canEdit ? '등록된 카드 없음' : '등록된 카드 없음 · 기업관리자가 등록합니다'}
+          emptyMessage={canEdit ? '등록된 카드 없음' : '등록된 카드 없음 · 기업 관리자가 등록합니다'}
         />
 
         {/* 결제 항목 — 서비스마다 다음 결제일 */}

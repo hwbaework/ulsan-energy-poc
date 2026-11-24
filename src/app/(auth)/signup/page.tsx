@@ -20,27 +20,19 @@ import { useCompanies } from '@/hooks/platform/useCompanies';
 
 import { LIMIT } from '@/lib/field-limits';
 type SignupType = 'enterprise' | 'consultant';
-type EnterpriseRole = 'POWER_OPERATOR' | 'CONSUMER_MANAGER' | 'AGENCY_ADMIN' | 'SPC_OPERATOR';
 type Step = 1 | 2 | 3 | 4 | 5;
-
-const ENTERPRISE_ROLE_OPTIONS: { value: EnterpriseRole; label: string }[] = [
-  { value: 'CONSUMER_MANAGER', label: '전기사용자' },
-  { value: 'POWER_OPERATOR', label: '발전사업자' },
-  { value: 'SPC_OPERATOR', label: '관리자' },
-];
 
 const STEP_LABELS = ['기업 정보', '계정 생성', '약관 동의', '완료'];
 
 const signupSchema = z
   .object({
     companyType: z.enum(['existing', 'new']),
-    // 신규 기업 — 사업자등록증에 적힌 값은 빠짐없이 받는다(2026-11-06 사용자). 설립일 · 연락처만 선택
+    // 신규 기업 — 사업자등록증에 적힌 값은 빠짐없이 받는다(2026-11-06 사용자). 연락처만 선택
     companyName: z.string().trim().min(1, '기업명을 입력해주세요.'),
     businessNumber: z.string().trim().min(1, '사업자등록번호를 입력해주세요.'),
     representative: z.string().trim().min(1, '대표자명을 입력해주세요.'),
     bizType: z.string().trim().min(1, '업태를 입력해주세요.'),
     bizCategory: z.string().trim().min(1, '종목을 입력해주세요.'),
-    foundedAt: z.string(),
     companyPhone: z.string(),
     companyAddress: z.string().trim().min(1, '기업 주소를 입력해주세요.'),
 
@@ -78,7 +70,6 @@ export default function SignupPage() {
   const [serverError, setServerError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [signupType] = useState<SignupType>('enterprise');
-  const [enterpriseRole, setEnterpriseRole] = useState<EnterpriseRole | null>(null);
   // 사업자등록증 — 신규 기업은 필수. 관리자가 검토 창에서 그대로 열어 본다
   const [license, setLicense] = useState<{ name: string; url: string } | null>(null);
   // 기존 기업 — 실제 기업 목록에서 고른다
@@ -104,7 +95,6 @@ export default function SignupPage() {
       representative: '',
       bizType: '',
       bizCategory: '',
-      foundedAt: '',
       companyPhone: '',
       companyAddress: '',
       consultantName: '',
@@ -139,10 +129,6 @@ export default function SignupPage() {
       }
       setStep(2);
     } else if (step === 2) {
-      if (!enterpriseRole) {
-        setServerError('유형을 선택해주세요.');
-        return;
-      }
       if (companyType === 'existing') {
         if (!existingCompanyId) {
           setServerError('소속 기업을 선택해주세요.');
@@ -154,7 +140,7 @@ export default function SignupPage() {
       const valid = await trigger(STEP2_ENTERPRISE_FIELDS);
       if (!valid) return;
       if (!license) {
-        setServerError('사업자등록증을 올려주세요.');
+        setServerError('사업자등록증을 업로드해주세요.');
         return;
       }
       setStep(3);
@@ -181,7 +167,6 @@ export default function SignupPage() {
         signupType: signupType ?? undefined,
         ...(signupType === 'enterprise'
           ? {
-              enterpriseRole: enterpriseRole ?? undefined,
               ...(vals.companyType === 'existing' ? { existingCompanyId: Number(existingCompanyId) } : {}),
               ...(vals.companyType === 'new'
                 ? {
@@ -192,7 +177,6 @@ export default function SignupPage() {
                     representative: vals.representative || undefined,
                     bizType: vals.bizType || undefined,
                     bizCategory: vals.bizCategory || undefined,
-                    foundedAt: vals.foundedAt || undefined,
                     companyPhone: vals.companyPhone || undefined,
                     companyAddress: vals.companyAddress || undefined,
                   }
@@ -254,14 +238,8 @@ export default function SignupPage() {
           <div className="space-y-4 animate-[fadeIn_300ms_ease-out]">
             <h3 className="text-md font-semibold text-white mb-4">기업 정보</h3>
 
-            <Select
-              label="유형"
-              placeholder="유형을 선택하세요"
-              value={enterpriseRole ?? ''}
-              onChange={(e) => setEnterpriseRole(e.target.value as EnterpriseRole)}
-              options={ENTERPRISE_ROLE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-            />
-
+            {/* 칸을 옆으로 놓는다 — 스크롤 없이 한 화면에 들어오게(2026-11-24 사용자) */}
+            {/* 유형(전기사용자 / 발전사업자)은 묻지 않는다 — 그냥 가입하고, 새 기업은 전기사용자로 시작(2026-11-24 사용자) */}
             <div className="flex gap-4">
               <Radio
                 name="companyType"
@@ -289,14 +267,16 @@ export default function SignupPage() {
               />
             ) : (
               <>
-                <Input maxLength={LIMIT.companyName}
-                  label="기업명"
-                  placeholder="(주)그린에너지"
-                  required
-                  error={errors.companyName?.message}
-                  {...register('companyName')}
-                />
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-4 items-start gap-3">
+                  <div className="col-span-2">
+                    <Input maxLength={LIMIT.companyName}
+                      label="기업명"
+                      placeholder="(주)그린에너지"
+                      required
+                      error={errors.companyName?.message}
+                      {...register('companyName')}
+                    />
+                  </div>
                   <Input maxLength={LIMIT.bizNumber}
                     label="사업자등록번호"
                     placeholder="000-00-00000"
@@ -312,28 +292,29 @@ export default function SignupPage() {
                     {...register('representative')}
                   />
                 </div>
-                {/* 설립일 — 사업자등록증 '개업연월일' */}
-                <div className="grid grid-cols-2 gap-3">
-                  <Input label="설립일" type="date" {...register('foundedAt')} />
+                {/* 설립일(개업연월일) 칸은 뺐다 — 첨부한 사업자등록증 원본에 적혀 있고 쓰는 곳이 없다(2026-11-24 사용자) */}
+                <div className="grid grid-cols-4 items-start gap-3">
+                  <div className="col-span-3">
+                    <Input maxLength={LIMIT.address}
+                      label="기업 주소"
+                      placeholder="서울특별시 강남구"
+                      required
+                      error={errors.companyAddress?.message}
+                      {...register('companyAddress')}
+                    />
+                  </div>
                   <Input maxLength={LIMIT.phone} label="기업 연락처" placeholder="02-0000-0000" {...register('companyPhone')} />
                 </div>
-                <Input maxLength={LIMIT.address}
-                  label="기업 주소"
-                  placeholder="서울특별시 강남구"
-                  required
-                  error={errors.companyAddress?.message}
-                  {...register('companyAddress')}
-                />
                 {/* 업태·종목 — 사업자등록증 '사업의 종류'. 세금계산서에 들어간다 */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-4 items-start gap-3">
                   <Input maxLength={LIMIT.bizType} label="업태" placeholder="제조업" required error={errors.bizType?.message} {...register('bizType')} />
                   <Input maxLength={LIMIT.bizCategory} label="종목" placeholder="금속 가공" required error={errors.bizCategory?.message} {...register('bizCategory')} />
-                </div>
-                <div>
+                <div className="col-span-2">
                   <p className="text-sm font-medium text-accent mb-1.5">
                     사업자등록증<span className="ml-0.5 text-semantic-red">*</span>
                   </p>
                   <FileUpload
+                    compact
                     accept=".pdf,.jpg,.jpeg,.png"
                     maxSizeMB={3}
                     onChange={(files) => {
@@ -347,6 +328,7 @@ export default function SignupPage() {
                       r.readAsDataURL(f);
                     }}
                   />
+                </div>
                 </div>
               </>
             )}
@@ -367,40 +349,44 @@ export default function SignupPage() {
         {step === 3 && (
           <div className="space-y-4 animate-[fadeIn_300ms_ease-out]">
             <h3 className="text-md font-semibold text-white mb-4">계정 생성</h3>
-            <Input maxLength={LIMIT.email}
-              label="아이디 (이메일)"
-              type="email"
-              placeholder="name@company.com"
-              autoComplete="off"
-              error={errors.email?.message}
-              {...register('email')}
-            />
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-accent">비밀번호</label>
-              <PasswordInput
-                placeholder="8자 이상"
-                autoComplete="new-password"
-                error={errors.password?.message}
-                {...register('password')}
+            <div className="grid grid-cols-2 items-start gap-3">
+              <Input maxLength={LIMIT.email}
+                label="아이디 (이메일)"
+                type="email"
+                placeholder="name@company.com"
+                autoComplete="off"
+                error={errors.email?.message}
+                {...register('email')}
               />
+              {signupType !== 'consultant' && (
+                <Input maxLength={LIMIT.personName} label="이름" placeholder="홍길동" error={errors.name?.message} {...register('name')} />
+              )}
             </div>
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-accent">비밀번호 확인</label>
-              <PasswordInput
-                placeholder="비밀번호를 다시 입력하세요"
-                autoComplete="new-password"
-                error={errors.passwordConfirm?.message}
-                {...register('passwordConfirm')}
-              />
+            <div className="grid grid-cols-2 items-start gap-3">
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-accent">비밀번호</label>
+                <PasswordInput
+                  placeholder="8자 이상"
+                  autoComplete="new-password"
+                  error={errors.password?.message}
+                  {...register('password')}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-accent">비밀번호 확인</label>
+                <PasswordInput
+                  placeholder="비밀번호를 다시 입력하세요"
+                  autoComplete="new-password"
+                  error={errors.passwordConfirm?.message}
+                  {...register('passwordConfirm')}
+                />
+              </div>
             </div>
             {signupType !== 'consultant' && (
-              <>
-                <Input maxLength={LIMIT.personName} label="이름" placeholder="홍길동" error={errors.name?.message} {...register('name')} />
-                <div className="grid grid-cols-2 gap-3">
-                  <Input maxLength={LIMIT.department} label="부서" placeholder="발전운영팀" {...register('department')} />
-                  <Input maxLength={LIMIT.phone} label="연락처" placeholder="010-0000-0000" {...register('phone')} />
-                </div>
-              </>
+              <div className="grid grid-cols-2 gap-3">
+                <Input maxLength={LIMIT.department} label="부서" placeholder="발전운영팀" {...register('department')} />
+                <Input maxLength={LIMIT.phone} label="연락처" placeholder="010-0000-0000" {...register('phone')} />
+              </div>
             )}
 
             <div className="flex gap-3 pt-2">

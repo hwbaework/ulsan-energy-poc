@@ -2,7 +2,7 @@
 
 import { BackButton } from '@/components/layout/PageTitle';
 import { useParams, useRouter } from 'next/navigation';
-import { Shield, Mail, Phone, Building2, Calendar } from 'lucide-react';
+import { Shield, Mail, Phone, Building2, Calendar, User as UserIcon } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Badge } from '@/components/ui/Badge';
@@ -11,7 +11,8 @@ import { useUser, useSuspendUser, useActivateUser } from '@/hooks/platform/useUs
 import { useToastStore } from '@/stores/useToastStore';
 
 const ROLE_LABEL_MAP: Record<string, string> = {
-  SYSTEM_ADMIN: '시스템 관리자',
+  SYSTEM_ADMIN: '최고 관리자',
+  PLATFORM_ADMIN: '관리자',
   COMPANY_ADMIN: '기업 관리자',
   POWER_OPERATOR: '발전사업자',
   CONSUMER_MANAGER: '전기사용자 담당자',
@@ -78,8 +79,8 @@ export default function UserDetailPage() {
         <div className="space-y-4">
           <SectionCard title="상태">
             <div className="flex flex-col items-center gap-3 py-2">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/[0.06] text-2xl font-bold text-slate-300">
-                {user.name[0]}
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/[0.06] text-white">
+                <UserIcon size={28} />
               </div>
               <Badge variant={user.status === 'ACTIVE' ? 'success' : user.status === 'PENDING' ? 'warning' : 'danger'}>
                 {user.status === 'ACTIVE' ? '활성' : user.status === 'PENDING' ? '대기' : '정지'}

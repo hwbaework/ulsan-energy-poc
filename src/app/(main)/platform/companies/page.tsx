@@ -52,7 +52,7 @@ interface FormErrors {
   license?: string;
 }
 
-/** 사업자등록증에 적힌 칸은 필수(회원가입과 같음), 설립일 · 연락처만 선택 */
+/** 사업자등록증에 적힌 칸은 필수(회원가입과 같음), 연락처만 선택 */
 function validateCompanyForm(
   name: string,
   bizNum: string,
@@ -80,7 +80,6 @@ interface CompanyRow {
   businessNumber: string;
   bizType: string;
   bizCategory: string;
-  foundedAt: string;
   phone: string;
   address: string;
   type: string;
@@ -113,7 +112,6 @@ export default function CompaniesPage() {
   const [formRep, setFormRep] = useState('');
   const [formBizType, setFormBizType] = useState('');
   const [formBizCategory, setFormBizCategory] = useState('');
-  const [formFoundedAt, setFormFoundedAt] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formAddress, setFormAddress] = useState('');
   const [detailRow, setDetailRow] = useState<CompanyRow | null>(null);
@@ -125,7 +123,6 @@ export default function CompaniesPage() {
   const [editRep, setEditRep] = useState('');
   const [editBizType, setEditBizType] = useState('');
   const [editBizCategory, setEditBizCategory] = useState('');
-  const [editFoundedAt, setEditFoundedAt] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
   const [addLicenseName, setAddLicenseName] = useState<string | null>(null);
@@ -146,7 +143,6 @@ export default function CompaniesPage() {
     setEditRep(row.representative);
     setEditBizType(row.bizType);
     setEditBizCategory(row.bizCategory);
-    setEditFoundedAt(row.foundedAt);
     setEditPhone(row.phone);
     setEditAddress(row.address);
     setEditLicenseName(null);
@@ -163,7 +159,6 @@ export default function CompaniesPage() {
           businessNumber: c.businessNumber,
           bizType: c.bizType ?? '',
           bizCategory: c.bizCategory ?? '',
-          foundedAt: c.foundedAt ?? '',
           phone: c.phone ?? '',
           address: c.address ?? '',
           type: companyType(c.businessTypes),
@@ -388,12 +383,6 @@ export default function CompaniesPage() {
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="설립일"
-              type="date"
-              value={formFoundedAt}
-              onChange={(e) => setFormFoundedAt(e.target.value)}
-            />
             <Input maxLength={LIMIT.phone}
               label="기업 연락처"
               placeholder="02-0000-0000"
@@ -465,7 +454,6 @@ export default function CompaniesPage() {
                     representativeName: formRep.trim(),
                     bizType: formBizType.trim() || undefined,
                     bizCategory: formBizCategory.trim() || undefined,
-                    foundedAt: formFoundedAt || undefined,
                     phone: formPhone.trim() || undefined,
                     address: formAddress.trim() || undefined,
                   },
@@ -479,7 +467,6 @@ export default function CompaniesPage() {
                       setFormRep('');
                       setFormBizType('');
                       setFormBizCategory('');
-                      setFormFoundedAt('');
                       setFormPhone('');
                       setFormAddress('');
                       setAddLicenseName(null);
@@ -532,12 +519,6 @@ export default function CompaniesPage() {
               <div>
                 <p className="mb-1 text-sm font-medium text-accent">기업 연락처</p>
                 <p className="text-sm text-slate-300 tabular-nums">{detailRow.phone || '-'}</p>
-              </div>
-              <div>
-                <p className="mb-1 text-sm font-medium text-accent">
-                  설립일
-                </p>
-                <p className="text-sm text-slate-300 tabular-nums">{detailRow.foundedAt || '-'}</p>
               </div>
               <div>
                 <p className="mb-1 text-sm font-medium text-accent">등록일</p>
@@ -636,7 +617,6 @@ export default function CompaniesPage() {
               <Input maxLength={LIMIT.bizCategory} label="종목" required value={editBizCategory} onChange={(e) => setEditBizCategory(e.target.value)} error={editErrors.bizCategory} />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Input label="설립일" type="date" value={editFoundedAt} onChange={(e) => setEditFoundedAt(e.target.value)} />
               <Input maxLength={LIMIT.phone} label="기업 연락처" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
             </div>
             <Input maxLength={LIMIT.address} label="기업 주소" required value={editAddress} onChange={(e) => setEditAddress(e.target.value)} error={editErrors.address} />
@@ -700,7 +680,6 @@ export default function CompaniesPage() {
                         representativeName: editRep.trim(),
                         bizType: editBizType.trim(),
                         bizCategory: editBizCategory.trim(),
-                        foundedAt: editFoundedAt,
                         phone: editPhone.trim() || undefined,
                         address: editAddress.trim() || undefined,
                       },

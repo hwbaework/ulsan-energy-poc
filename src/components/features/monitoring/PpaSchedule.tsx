@@ -201,7 +201,7 @@ function OpCalendar({
 }
 
 /** 운전 일정 카드(설정 › 설정) — 요일별 운전 시간 · 공휴일 OFF · 해 요약 · 달력(누르면 그날 지정) */
-/** readOnly — 소속 멤버(기업관리자 아님)는 보기만 */
+/** readOnly — 소속 멤버(기업 관리자 아님)는 보기만 */
 export function PpaScheduleCard({ companyId: fixed, readOnly }: { companyId?: number; readOnly?: boolean }) {
   useHydrateOpSchedule();
   // 바로 반영하지 않는다 — 요일표 저장 · 공휴일 · 날짜 지정 전부 확인을 거친다

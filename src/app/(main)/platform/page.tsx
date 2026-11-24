@@ -16,7 +16,8 @@ import { useUsers } from '@/hooks/platform/useUsers';
 import { usePpaContracts } from '@/hooks/ppa/usePpa';
 
 const ROLE_LABEL: Record<string, string> = {
-  SYSTEM_ADMIN: '시스템 관리자',
+  SYSTEM_ADMIN: '최고 관리자',
+  PLATFORM_ADMIN: '관리자',
   COMPANY_ADMIN: '기업 관리자',
   POWER_OPERATOR: '발전소 운영자',
   PPA_MANAGER: 'PPA 관리자',

@@ -67,7 +67,11 @@ export const USERS: MockUser[] = [
   { id: 1, email: 'admin@test.com', name: '김관리', phone: '010-1000-0001', status: 'ACTIVE', companyId: 1, companyName: '울산 에너지 플랫폼', roles: ['SYSTEM_ADMIN'], isActive: true, department: '운영팀', position: '팀장', accountType: 'COMPANY_ADMIN', lastLoginAt: daysAgo(0), createdAt: daysAgo(400), updatedAt: daysAgo(0) },
   { id: 2, email: 'operator@test.com', name: '박발전', phone: '010-2000-0002', status: 'ACTIVE', companyId: 4, companyName: '한일튜브', roles: ['POWER_OPERATOR'], isActive: true, department: '발전운영팀', position: '과장', accountType: 'COMPANY_ADMIN', lastLoginAt: daysAgo(1), createdAt: daysAgo(320), updatedAt: daysAgo(1) },
   { id: 3, email: 'consumer@test.com', name: '이수용', phone: '010-3000-0003', status: 'ACTIVE', companyId: 3, companyName: '한길', roles: ['CONSUMER_MANAGER'], isActive: true, department: '시설관리팀', position: '대리', accountType: 'COMPANY_ADMIN', lastLoginAt: daysAgo(2), createdAt: daysAgo(300), updatedAt: daysAgo(2) },
-  { id: 4, email: 'kim@hanil.co.kr', name: '김한일', phone: '010-4000-0004', status: 'ACTIVE', companyId: 4, companyName: '한일튜브', roles: ['CONSUMER_MANAGER'], isActive: true, department: '설비팀', position: '차장', accountType: 'COMPANY_MEMBER', lastLoginAt: daysAgo(3), createdAt: daysAgo(90), updatedAt: daysAgo(3) },
+  { id: 4, email: 'kim@hanil.co.kr', name: '김한일', phone: '010-4000-0004', status: 'ACTIVE', companyId: 4, companyName: '한일튜브', roles: ['POWER_OPERATOR'], isActive: true, department: '설비팀', position: '차장', accountType: 'COMPANY_MEMBER', lastLoginAt: daysAgo(3), createdAt: daysAgo(90), updatedAt: daysAgo(3) },
+  // 관리자(최고 관리자 아래) — 역할 · 권한, 에너지 설정 메뉴 없음(2026-11-24)
+  { id: 7, email: 'manager@test.com', name: '정관리', phone: '010-1000-0007', status: 'ACTIVE', companyId: 1, companyName: '울산 에너지 플랫폼', roles: ['PLATFORM_ADMIN'], isActive: true, department: '운영팀', position: '대리', accountType: 'COMPANY_MEMBER', lastLoginAt: daysAgo(1), createdAt: daysAgo(200), updatedAt: daysAgo(1) },
+  // 한길 기업 회원 — 기업 관리자(이수용)와 달리 운전 일정 · 결제 수단 · 정산 계좌는 보기만(2026-11-24)
+  { id: 8, email: 'choi@hangil.co.kr', name: '최한길', phone: '010-3000-0008', status: 'ACTIVE', companyId: 3, companyName: '한길', roles: ['CONSUMER_MANAGER'], isActive: true, department: '시설관리팀', position: '사원', accountType: 'COMPANY_MEMBER', lastLoginAt: daysAgo(4), createdAt: daysAgo(60), updatedAt: daysAgo(4) },
   // 승인 대기 — 기업 관리자(용인금속 첫 가입) · 기업 회원(한일튜브 소속 추가 가입)
   { id: 5, email: 'park@yongin.co.kr', name: '박용인', phone: '010-5000-0005', status: 'PENDING', companyId: 5, companyName: '용인금속', roles: ['CONSUMER_MANAGER'], isActive: false, department: '관리부', position: '과장', accountType: 'COMPANY_ADMIN', lastLoginAt: null, createdAt: daysAgo(1), updatedAt: daysAgo(1) },
   { id: 6, email: 'lee@hanil.co.kr', name: '이설비', phone: '010-6000-0006', status: 'PENDING', companyId: 4, companyName: '한일튜브', roles: ['CONSUMER_MANAGER'], isActive: false, department: '설비팀', position: '사원', accountType: 'COMPANY_MEMBER', lastLoginAt: null, createdAt: daysAgo(0), updatedAt: daysAgo(0) },
@@ -83,7 +87,8 @@ interface MockRole {
   system: boolean;
 }
 export const ROLES: MockRole[] = [
-  { id: 1, name: '관리자', code: 'SYSTEM_ADMIN', description: '플랫폼 전체 관리', defaultPath: '/dashboard', system: true },
+  { id: 1, name: '최고 관리자', code: 'SYSTEM_ADMIN', description: '플랫폼 전체 관리', defaultPath: '/dashboard', system: true },
+  { id: 5, name: '관리자', code: 'PLATFORM_ADMIN', description: '플랫폼 운영(역할 · 권한, 에너지 설정 제외)', defaultPath: '/dashboard', system: true },
   { id: 2, name: '발전사업자', code: 'POWER_OPERATOR', description: '발전소 운영·거래', defaultPath: '/dashboard', system: true },
   { id: 3, name: '전기사용자', code: 'CONSUMER_MANAGER', description: '전기사용자 에너지·거래', defaultPath: '/dashboard', system: true },
   // 추가한 역할 예시 — 수정·삭제 가능
@@ -161,10 +166,10 @@ addMenu('설정', 'ADMIN_ORG_SETTINGS', '/org/settings', M_ADMIN, 1);
 addMenu('내 계정', 'ADMIN_PROFILE', '/org/profile', M_ADMIN, 1);
 addMenu('기업 관리', 'ADMIN_COMPANIES', '/platform/companies', M_ADMIN, 1);
 addMenu('회원 관리', 'ADMIN_USERS', '/platform/users', M_ADMIN, 1);
-addMenu('역할·권한', 'ADMIN_ROLES', '/platform/roles', M_ADMIN, 1);
+const M_ROLES = addMenu('역할·권한', 'ADMIN_ROLES', '/platform/roles', M_ADMIN, 1);
 // 승인 관리 · 거래 승인(운영)은 2026-11-09 제거 — 거래 승인은 RE100 › 거래 승인 하나, 가입 · 기업 정보 변경 검토는 기업 관리 · 회원 관리에서
 addMenu('알림 설정', 'ADMIN_NOTIFICATIONS', '/platform/notification-settings', M_ADMIN, 1);
-addMenu('에너지 설정', 'ADMIN_ENERGY_SETTINGS', '/platform/energy-settings', M_ADMIN, 1);
+const M_ENERGY = addMenu('에너지 설정', 'ADMIN_ENERGY_SETTINGS', '/platform/energy-settings', M_ADMIN, 1);
 
 function isUnder(menu: MockMenu, rootId: number): boolean {
   let cur: MockMenu | undefined = menu;
@@ -176,9 +181,11 @@ function isUnder(menu: MockMenu, rootId: number): boolean {
 }
 // 역할별 메뉴 권한 — 관리자=전체 쓰기 · 발전사업자/전기사용자=관리 트리와 관제 홈(지도) 제외 조회. 화면에서 저장하면 여기에 반영된다
 interface MenuPerm { canRead: boolean; canWrite: boolean }
-const ROLE_MENU_PERMS: Record<number, Record<number, MenuPerm>> = { 1: {}, 2: {}, 3: {}, 4: {} };
+const ROLE_MENU_PERMS: Record<number, Record<number, MenuPerm>> = { 1: {}, 2: {}, 3: {}, 4: {}, 5: {} };
 for (const m of MENUS) {
   ROLE_MENU_PERMS[1]![m.id] = { canRead: true, canWrite: true };
+  // 관리자 — 최고 관리자와 같되 역할 · 권한, 에너지 설정만 없음
+  if (m.id !== M_ROLES && m.id !== M_ENERGY) ROLE_MENU_PERMS[5]![m.id] = { canRead: true, canWrite: true };
   if (!isUnder(m, M_ADMIN) && m.id !== M_MAP) {
     ROLE_MENU_PERMS[2]![m.id] = { canRead: true, canWrite: false };
     ROLE_MENU_PERMS[3]![m.id] = { canRead: true, canWrite: false };

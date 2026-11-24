@@ -41,6 +41,8 @@ import {
 } from 'lucide-react';
 import { ToastContainer } from '@/components/ui/Toast';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useMyAccount } from '@/hooks/org/useCompanyRole';
+import { canReadMenuPath } from '@/mocks/poc/adminFixtures';
 import { getPersona, usePersonaOverride, PERSONA_HOME, type Persona } from '@/lib/persona';
 import { cn } from '@/lib/utils';
 import { useMe, useMyMenus, useSignOut } from '@/hooks/auth/useAuth';
@@ -374,6 +376,7 @@ function GnbBar({
   const user = useAuthStore((s) => s.user);
   const router = useRouter();
   const signOut = useSignOut();
+  const { line: accountLine, Icon: AccountIcon } = useMyAccount();
 
   const [gnbVisible, setGnbVisible] = useState(!isMapMode);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -479,11 +482,15 @@ function GnbBar({
           aria-label="내 계정"
           title="내 계정"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs font-medium text-white">
-            {user?.name?.charAt(0) ?? <User size={14} />}
+          {/* 이름 첫 글자 대신 계정 아이콘(동그라미) — 로그인 화면의 그 계정 버튼과 같은 아이콘(2026-11-24 사용자) */}
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-white">
+            <AccountIcon size={16} />
           </div>
-          {/* 이름만 — 아래 작은 회사 이름은 안 보여서 뺐다(회사는 기업 정보에서, 2026-10-15) */}
-          <span className="hidden text-sm font-medium text-white lg:inline">{user?.name ?? '회원'}</span>
+          {/* 두 줄 — 이름 + 아랫줄(계정 유형 · 역할 이름). 아랫줄은 같은 헤더의 상단 메뉴 글자와 같은 11px(14px 는 이름만큼 커 보였고, 옆 테두리 칸은 버튼처럼 보였다, 2026-11-24 사용자) */}
+          <span className="hidden flex-col items-start gap-1 lg:flex">
+            <span className="text-sm font-medium leading-none text-white">{user?.name ?? '회원'}</span>
+            {accountLine && <span className="text-[11px] font-normal leading-none tracking-wide text-white/80">{accountLine}</span>}
+          </span>
         </button>
 
         <button
@@ -853,11 +860,16 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         c.to === '/consulting/consulting-requests' ? { ...c, badge: pendingRequestCount } : c,
       );
     }
+    // 관리자 쪽은 역할 · 권한의 메뉴 권한(조회)이 없는 메뉴를 숨긴다 — 최고 관리자는 전부, 관리자는 역할 · 권한 · 에너지 설정 없음(2026-11-24)
+    if (persona === 'admin') {
+      const roles = user?.roles ?? [];
+      children = children.filter((c) => canReadMenuPath(roles, c.to));
+    }
     if (pendingChangeCount > 0) {
       children = children.map((c) => (c.to === '/platform/trading/approvals' ? { ...c, badge: pendingChangeCount } : c));
     }
     return children;
-  }, [resolvedChildren, activeGnb, hasLease, hasDirect, persona, pendingRequestCount, pendingChangeCount]);
+  }, [resolvedChildren, activeGnb, hasLease, hasDirect, persona, pendingRequestCount, pendingChangeCount, user?.roles]);
   const hasSidebar = !!activeChildren && activeChildren.length > 0;
   const isFullscreenMap = FULLSCREEN_MAP_PATHS.includes(pathname);
   const isIframe = IFRAME_PATHS.includes(pathname);

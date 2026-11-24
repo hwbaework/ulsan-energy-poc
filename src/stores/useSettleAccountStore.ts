@@ -5,7 +5,7 @@ import { ssrSafeStorage } from '@/lib/ssr-storage';
 
 /**
  * 정산 계좌 — E-데이터마켓에서 내 데이터를 쓴 금액이 매달 15일에 들어오는 기업 계좌.
- * 기업관리자만 등록 · 수정, 소속 멤버는 보기만. POC 는 브라우저에 저장(실서비스는 서버 DB · 예금주 확인)
+ * 기업 관리자만 등록 · 수정, 소속 멤버는 보기만. POC 는 브라우저에 저장(실서비스는 서버 DB · 예금주 확인)
  */
 export interface SettleAccount {
   bank: string;

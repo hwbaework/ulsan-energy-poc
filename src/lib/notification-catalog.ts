@@ -121,7 +121,7 @@ export const NOTIFICATION_CATALOG: NotifEvent[] = [
   // ── 관리 ──
   { key: 'SIGNUP_COMPANY', name: '기업 가입 신청', label: '기업 관리 › 기업 목록 › 가입 신청', domain: '관리', condition: '새 기업이 기업 관리자 계정으로 가입을 신청함, 상태 대기', receivers: '관리자(메뉴 권한 있는 회원)', go: '기업 관리', resolve: '해당 없음', emailDefault: true, adminOnly: true },
   { key: 'SIGNUP_MEMBER', name: '회원 가입 신청', label: '회원 관리 › 회원 목록 › 가입 신청', domain: '관리', condition: '기존 기업에 회원이 가입을 신청함, 상태 대기', receivers: '관리자(메뉴 권한 있는 회원)', go: '회원 관리', resolve: '해당 없음', emailDefault: true, adminOnly: true },
-  { key: 'COMPANY_CHANGE', name: '기업 정보 변경 요청', label: '기업 관리 › 기업 목록 › 기업 정보 변경 요청', domain: '관리', condition: '기업관리자가 새 등록증과 함께 변경을 요청함', receivers: '관리자(메뉴 권한 있는 회원)', go: '기업 관리', resolve: '해당 없음', adminOnly: true },
+  { key: 'COMPANY_CHANGE', name: '기업 정보 변경 요청', label: '기업 관리 › 기업 목록 › 기업 정보 변경 요청', domain: '관리', condition: '기업 관리자가 새 등록증과 함께 변경을 요청함', receivers: '관리자(메뉴 권한 있는 회원)', go: '기업 관리', resolve: '해당 없음', adminOnly: true },
 ];
 
 export const NOTIFICATION_DOMAINS: NotifDomain[] = ['통합관제', 'RE100', 'E-데이터마켓', '관리'];

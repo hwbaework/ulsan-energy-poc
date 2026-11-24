@@ -2,7 +2,7 @@
  * 토스페이먼츠 자동결제(빌링) — 카드 등록 창 띄우기.
  *
  * 흐름(토스페이먼츠 v2 SDK · API 개별 연동):
- *  1. 기업관리자가 [카드 등록] → 토스페이먼츠 결제창(requestBillingAuth). 카드 번호 · 유효기간 · CVC 등은 토스 창에서만 입력한다
+ *  1. 기업 관리자가 [카드 등록] → 토스페이먼츠 결제창(requestBillingAuth). 카드 번호 · 유효기간 · CVC 등은 토스 창에서만 입력한다
  *     — 우리 화면 · 서버는 카드 번호를 받지 않는다(PCI-DSS). CVC 는 토스도 저장하지 않는다.
  *  2. 성공하면 토스가 successUrl 로 돌려보낸다(?authKey=...&customerKey=...).
  *  3. 우리 서버가 시크릿 키로 authKey → 빌링키 발급(POST /v1/billing/authorizations/issue). 빌링키 · 카드사 · 끝자리만 저장.

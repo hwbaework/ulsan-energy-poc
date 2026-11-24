@@ -8,7 +8,7 @@ export const useSignIn = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: LoginRequest) => {
-      useAuthStore.getState().loginAs(roleFromEmail(data.email));
+      useAuthStore.getState().loginAs(roleFromEmail(data.email), data.email);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: authKeys.all });

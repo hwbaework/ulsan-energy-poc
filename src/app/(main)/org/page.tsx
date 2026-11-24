@@ -32,7 +32,6 @@ export default function OrgInfoPage() {
     representativeName: '',
     bizType: '',
     bizCategory: '',
-    foundedAt: '',
     phone: '',
     address: '',
   });
@@ -40,13 +39,13 @@ export default function OrgInfoPage() {
   const overrideVal = usePersonaOverride((s) => s.override);
   const persona = overrideVal ?? getPersona(user);
   const addToast = useToastStore((s) => s.add);
-  // 사업자 등록증 — 플랫폼 관리자와 그 기업의 기업관리자만 열람 · 다운로드 · 새로 올리기
+  // 사업자 등록증 — 플랫폼 관리자와 그 기업의 기업 관리자만 열람 · 다운로드 · 새로 올리기
   const isCompanyAdminForLicense = useIsCompanyAdmin();
   const canViewLicense = persona === 'admin' || isCompanyAdminForLicense;
 
   const companyId = user?.companyId ?? 0;
   const { data: company, isLoading } = useCompany(companyId);
-  // 기업 것은 기업 정보에서 — PPA 운전 일정 · 결제 수단. 고치는 건 기업관리자만, 소속 멤버는 보기(2026-10-15)
+  // 기업 것은 기업 정보에서 — PPA 운전 일정 · 결제 수단. 고치는 건 기업 관리자만, 소속 멤버는 보기(2026-10-15)
   useHydrateTradingPoc();
   const isCompanyAdmin = useIsCompanyAdmin();
   const hasPpa = useTradingPocStore((s) =>
@@ -89,7 +88,6 @@ export default function OrgInfoPage() {
         representativeName: company.representativeName ?? '',
         bizType: company.bizType ?? '',
         bizCategory: company.bizCategory ?? '',
-        foundedAt: company.foundedAt ?? '',
         phone: company.phone ?? '',
         address: company.address ?? '',
       });
@@ -104,7 +102,7 @@ export default function OrgInfoPage() {
   const sendChange = useCompanyChangeStore((s) => s.request);
   const lastChange = useCompanyChangeStore((s) => s.requests.find((r) => r.companyId === companyId));
   const changePending = lastChange?.status === 'PENDING';
-  // 등록증에 적힌 칸(상호 · 대표자 · 업태 · 종목 · 설립일 · 주소)도 바로 입력할 수 있다. 바꾼 채로 저장하면 새 등록증을 올려야 하고(handleSave), 관리자 확인 뒤 반영
+  // 등록증에 적힌 칸(상호 · 대표자 · 업태 · 종목 · 주소)도 바로 입력할 수 있다. 바꾼 채로 저장하면 새 등록증을 올려야 하고(handleSave), 관리자 확인 뒤 반영
   const fileRef = useRef<HTMLInputElement>(null);
   const handleDownloadLicense = () => {
     // POC — 실제 업로드 파일이 없어 데모용 파일을 내려받는다. 실연동 시 저장된 원본 파일로 교체.
@@ -129,7 +127,7 @@ export default function OrgInfoPage() {
 
   const handleSave = () => {
     if (!companyId || !company) return;
-    // 등록증 칸은 비울 수 없다(회원가입과 같은 필수값), 설립일 · 연락처만 선택
+    // 등록증 칸은 비울 수 없다(회원가입과 같은 필수값), 연락처만 선택
     const missing = REQUIRED_FIELDS.filter((k) => !form[k].trim());
     if (missing.length) {
       addToast('error', `${missing.map((k) => FIELD_LABEL[k]).join(', ')}을(를) 입력해 주세요`);
@@ -145,11 +143,11 @@ export default function OrgInfoPage() {
         setEditing(false);
         return;
       }
-      // 등록증 항목(상호 · 대표자 · 업태 · 종목 · 설립일 · 주소)만 새 등록증 + 관리자 검토, 연락처는 바로 반영
+      // 등록증 항목(상호 · 대표자 · 업태 · 종목 · 주소)만 새 등록증 + 관리자 검토, 연락처는 바로 반영
       const licenseChanges = changes.filter((c) => LICENSE_FIELDS.includes(c.key));
       const directChanges = changes.filter((c) => !LICENSE_FIELDS.includes(c.key));
       if (licenseChanges.length > 0 && !pendingLicense) {
-        addToast('error', '상호 · 대표자 · 업태 · 종목 · 설립일 · 주소가 바뀌면 새 사업자 등록증을 올려 주세요');
+        addToast('error', '상호 · 대표자 · 업태 · 종목 · 주소가 바뀌면 새 사업자 등록증을 올려 주세요');
         return;
       }
       if (directChanges.length > 0) {
@@ -185,7 +183,6 @@ export default function OrgInfoPage() {
         representativeName: company.representativeName ?? '',
         bizType: company.bizType ?? '',
         bizCategory: company.bizCategory ?? '',
-        foundedAt: company.foundedAt ?? '',
         phone: company.phone ?? '',
         address: company.address ?? '',
       });
@@ -295,14 +292,6 @@ export default function OrgInfoPage() {
               <Input maxLength={LIMIT.address} value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
             ) : (
               <p className="text-sm text-white">{company?.address ?? '-'}</p>
-            )}
-          </InfoField>
-          {/* 설립일 — 등록증 '개업연월일'(가입일 아님). 등록증 칸이라 새 등록증을 올려야 고친다 */}
-          <InfoField label="설립일">
-            {editing ? (
-              <Input type="date" value={form.foundedAt} onChange={(e) => setForm((f) => ({ ...f, foundedAt: e.target.value }))} />
-            ) : (
-              <p className="text-sm text-white tabular-nums">{company?.foundedAt || '-'}</p>
             )}
           </InfoField>
         </div>
