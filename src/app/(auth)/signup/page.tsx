@@ -85,6 +85,7 @@ export default function SignupPage() {
     trigger,
     getValues,
     setValue,
+    setError,
     watch,
     formState: { errors },
   } = useForm<SignupFormData>({
@@ -187,7 +188,13 @@ export default function SignupPage() {
       setStep(3);
     } else if (step === 3) {
       const valid = await trigger(STEP3_FIELDS);
-      if (valid) setStep(4);
+      if (!valid) return;
+      // 비밀번호 확인 — 스키마의 일치 검사는 약관(아직 체크 전)이 걸려 있으면 돌지 않아 여기서 직접 본다. 안 보면 서로 다른 비밀번호로 넘어간다
+      if (getValues('password') !== getValues('passwordConfirm')) {
+        setError('passwordConfirm', { type: 'validate', message: '비밀번호가 일치하지 않습니다.' });
+        return;
+      }
+      setStep(4);
     }
   }
 
@@ -396,6 +403,7 @@ export default function SignupPage() {
             <div className="grid grid-cols-2 items-start gap-3">
               <Input maxLength={LIMIT.email}
                 label="아이디 (이메일)"
+                required
                 type="email"
                 placeholder="name@company.com"
                 autoComplete="off"
@@ -403,13 +411,16 @@ export default function SignupPage() {
                 {...register('email')}
               />
               {signupType !== 'consultant' && (
-                <Input maxLength={LIMIT.personName} label="이름" placeholder="홍길동" error={errors.name?.message} {...register('name')} />
+                <Input maxLength={LIMIT.personName} label="이름" required placeholder="홍길동" error={errors.name?.message} {...register('name')} />
               )}
             </div>
             <div className="grid grid-cols-2 items-start gap-3">
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-accent">비밀번호</label>
+                <label className="block text-sm font-medium text-accent">
+                  비밀번호<span className="ml-0.5 text-semantic-red">*</span>
+                </label>
                 <PasswordInput
+                  maxLength={LIMIT.password}
                   placeholder="8자 이상"
                   autoComplete="new-password"
                   error={errors.password?.message}
@@ -417,8 +428,11 @@ export default function SignupPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-accent">비밀번호 확인</label>
+                <label className="block text-sm font-medium text-accent">
+                  비밀번호 확인<span className="ml-0.5 text-semantic-red">*</span>
+                </label>
                 <PasswordInput
+                  maxLength={LIMIT.password}
                   placeholder="비밀번호를 다시 입력하세요"
                   autoComplete="new-password"
                   error={errors.passwordConfirm?.message}
