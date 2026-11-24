@@ -31,6 +31,8 @@ interface EventRow {
   group: string | null;
   inApp: boolean;
   email: boolean;
+  /** 웹 알림만 — 이메일 스위치를 두지 않는다(재난 경보) */
+  webOnly: boolean;
 }
 
 function Toggle({ on, onChange, label }: { on: boolean; onChange: () => void; label: string }) {
@@ -76,7 +78,8 @@ export default function NotificationSettingsPage() {
             domain: e.domain,
             group: notifGroupOf(e.eventKey),
             inApp: map.get(e.eventKey)?.inAppEnabled ?? true,
-            email: map.get(e.eventKey)?.emailEnabled ?? false,
+            email: e.webOnly ? false : (map.get(e.eventKey)?.emailEnabled ?? false),
+            webOnly: !!e.webOnly,
         }));
         setRows(loaded);
         setSavedRows(loaded);
@@ -89,8 +92,10 @@ export default function NotificationSettingsPage() {
 
   // 묶음 줄의 토글은 그 묶음 항목 전부를 켜고 끈다
   const toggleDomain = (domain: string, ch: 'inApp' | 'email') => {
-    const allOn = rows.filter((r) => r.domain === domain).every((r) => r[ch]);
-    setRows((prev) => prev.map((r) => (r.domain === domain ? { ...r, [ch]: !allOn } : r)));
+    // 이메일은 웹 알림만인 줄(재난 경보)을 빼고 센다 · 바꾼다
+    const can = (r: EventRow) => r.domain === domain && !(ch === 'email' && r.webOnly);
+    const allOn = rows.filter(can).every((r) => r[ch]);
+    setRows((prev) => prev.map((r) => (can(r) ? { ...r, [ch]: !allOn } : r)));
     setDirty(true);
   };
   // 묶음 줄(자가소비 등)의 토글 — 그 묶음의 상태 알림 전부
@@ -172,7 +177,7 @@ export default function NotificationSettingsPage() {
                 // 화면에 보이는 줄 — 묶음은 첫 항목 자리에 한 줄
                 const lines = items.filter((r, i) => !r.group || items.findIndex((x) => x.group === r.group) === i);
                 const allInApp = items.every((r) => r.inApp);
-                const allEmail = items.every((r) => r.email);
+                const allEmail = items.filter((r) => !r.webOnly).every((r) => r.email); // 웹 알림만인 줄(재난 경보)은 빼고
                 const open = !collapsed.has(domain);
                 return [
                   <tr key={domain} className={cn(TABLE_ROW, 'bg-white/[0.02]')}>
@@ -208,7 +213,7 @@ export default function NotificationSettingsPage() {
                               </span>
                             </td>
                             <td className={TABLE_TD}><Toggle on={onOf('inApp')} onChange={() => flip('inApp')} label={`${name} 웹 알림`} /></td>
-                            <td className={TABLE_TD}><Toggle on={onOf('email')} onChange={() => flip('email')} label={`${name} 이메일`} /></td>
+                            <td className={TABLE_TD}>{members.every((m) => m.webOnly) ? null : <Toggle on={onOf('email')} onChange={() => flip('email')} label={`${name} 이메일`} />}</td>
                           </tr>
                         );
                       })

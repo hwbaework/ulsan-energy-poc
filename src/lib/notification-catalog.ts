@@ -52,6 +52,8 @@ export interface NotifEvent {
   adminOnly?: boolean;
   /** 기업만 받는 알림 — 관리자는 보내는 쪽이라 받지 않아 관리자 알림 설정에 안 보인다(2026-11-20 사용자) */
   companyOnly?: boolean;
+  /** 웹 알림만 — 이메일을 보내지 않는다. 알림 설정에 이메일 스위치가 없다(재난 경보: 알려 주는 것까지, 2026-11-23 사용자) */
+  webOnly?: boolean;
 }
 
 // 자가소비 · PPA 모두 지붕에 설비가 있는 기업이 그 전기를 쓴다 — 발전사업자 / 전기사용자로 나누지 않고 '그 발전소 기업' 하나(2026-11-23 사용자)
@@ -63,9 +65,9 @@ export const NOTIFICATION_CATALOG: NotifEvent[] = [
   { key: 'RTU_POWER_OFF', name: 'RTU 전원 꺼짐', label: '이상감지 관리 › 이상 감지 목록 › RTU 전원 꺼짐', domain: '통합관제', condition: 'S-Energy API-001 rtuPowerState 1(Off) — 시간 기준 없이 꺼짐 값으로 옴(2026-11-23 사용자)', receivers: PLANT, go: '이상감지 관리', resolve: '보냄', emailDefault: true },
   { key: 'ANOMALY_RTU_COMM', name: 'RTU 통신 끊김', label: '이상감지 관리 › 이상 감지 목록 › RTU 통신 끊김', domain: '통합관제', condition: 'S-Energy API-001 rtuConnectionState 1(통신오류) — 끊김 값으로 옴, 20분 같은 시간 기준 없음(2026-11-23 사용자)', receivers: PLANT, go: '이상감지 관리', resolve: '보냄' },
   { key: 'ANOMALY_INVERTER_COMM', name: '인버터 통신 끊김', label: '이상감지 관리 › 이상 감지 목록 › 인버터 통신 끊김', domain: '통합관제', condition: 'S-Energy API-001 inverters[].connectionState 1(통신오류) — 끊김 값으로 옴, 시간 기준 없음', receivers: PLANT, go: '이상감지 관리', resolve: '보냄' },
-  { key: 'TYPHOON_WARNING', name: '태풍경보', label: '통합관제 › 재난 경보 › 태풍경보', domain: '통합관제', condition: '울산동부, 울산서부에 태풍경보 이상 발효', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '관제 홈(지도), 기업 계정은 발전소 상세', resolve: '해당 없음', emailDefault: true },
+  { key: 'TYPHOON_WARNING', name: '태풍경보', label: '통합관제 › 재난 경보 › 태풍경보', domain: '통합관제', condition: '울산동부, 울산서부에 태풍경보 이상 발효', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '관제 홈(지도), 기업 계정은 발전소 상세', resolve: '해당 없음', webOnly: true },
   // 호우경보 — 침수. DT 시뮬레이션의 재난 시나리오(화재 · 지진 · 침수) 가운데 침수와 이어지는 알림(2026-11-23 사용자). 강풍경보는 뺐다 — 태풍 · 호우 둘만
-  { key: 'HEAVY_RAIN_WARNING', name: '호우경보', label: '통합관제 › 재난 경보 › 호우경보', domain: '통합관제', condition: '울산동부, 울산서부에 호우경보 발효 — 침수 · 누전', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '관제 홈(지도), 기업 계정은 발전소 상세', resolve: '해당 없음', emailDefault: true },
+  { key: 'HEAVY_RAIN_WARNING', name: '호우경보', label: '통합관제 › 재난 경보 › 호우경보', domain: '통합관제', condition: '울산동부, 울산서부에 호우경보 발효 — 침수 · 누전', receivers: '발전소를 볼 수 있는 활성 회원 전체', go: '관제 홈(지도), 기업 계정은 발전소 상세', resolve: '해당 없음', webOnly: true },
   // 강풍경보 · 대설경보는 알림 없음(2026-11-23 사용자) — 강풍경보 수준 바람에 모듈이 날아갈지 의문, 울산은 대설경보가 드물다. 기상청 응답에는 계속 들어온다
   { key: 'SAFETY_DANGER', name: '전기안전지수 위험', label: '안전 › 발전소별 안전 현황 › 전기안전지수 › 위험', domain: '통합관제', condition: 'ITS 전기안전지수 등급이 위험이거나 위험으로 상향', receivers: PLANT, go: '이상감지 관리', resolve: '보냄', emailDefault: true },
   { key: 'SAFETY_WARNING', name: '전기안전지수 경고', label: '안전 › 발전소별 안전 현황 › 전기안전지수 › 경고', domain: '통합관제', condition: 'ITS 전기안전지수 등급이 경고', receivers: PLANT, go: '이상감지 관리', resolve: '보냄' },
