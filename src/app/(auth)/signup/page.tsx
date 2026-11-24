@@ -49,7 +49,12 @@ const signupSchema = z
     passwordConfirm: z.string().min(1, '비밀번호 확인을 입력해주세요.'),
     name: z.string().min(1, '이름을 입력해주세요.'),
     department: z.string(),
-    phone: z.string(),
+    // 연락처는 필수 — 가입 검토 · 미팅 일정에 관리자가 전화한다(2026-11-24 사용자). 인증은 없고 형식만(숫자 · 하이픈, 숫자 9~11자리)
+    phone: z
+      .string()
+      .trim()
+      .min(1, '연락처를 입력해주세요.')
+      .refine((v) => /^[0-9-]+$/.test(v) && /^\d{9,11}$/.test(v.replace(/-/g, '')), '올바른 연락처 형식이 아닙니다.'),
 
     termsService: z.literal(true, { error: '서비스 이용약관에 동의해주세요.' }),
     termsPrivacy: z.literal(true, { error: '개인정보 처리방침에 동의해주세요.' }),
@@ -63,7 +68,7 @@ const signupSchema = z
 type SignupFormData = z.infer<typeof signupSchema>;
 
 const STEP2_ENTERPRISE_FIELDS: (keyof SignupFormData)[] = ['companyName', 'businessNumber', 'representative', 'bizType', 'bizCategory', 'companyAddress'];
-const STEP3_FIELDS: (keyof SignupFormData)[] = ['email', 'password', 'passwordConfirm', 'name'];
+const STEP3_FIELDS: (keyof SignupFormData)[] = ['email', 'password', 'passwordConfirm', 'name', 'phone'];
 const STEP4_FIELDS: (keyof SignupFormData)[] = ['termsService', 'termsPrivacy'];
 
 export default function SignupPage() {
@@ -441,9 +446,9 @@ export default function SignupPage() {
               </div>
             </div>
             {signupType !== 'consultant' && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 items-start gap-3">
                 <Input maxLength={LIMIT.department} label="부서" placeholder="발전운영팀" {...register('department')} />
-                <Input maxLength={LIMIT.phone} label="연락처" placeholder="010-0000-0000" {...register('phone')} />
+                <Input maxLength={LIMIT.phone} label="연락처" required placeholder="010-0000-0000" error={errors.phone?.message} {...register('phone')} />
               </div>
             )}
 
