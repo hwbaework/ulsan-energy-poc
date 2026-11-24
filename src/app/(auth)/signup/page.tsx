@@ -20,6 +20,8 @@ import { useCompanies } from '@/hooks/platform/useCompanies';
 
 import { LIMIT } from '@/lib/field-limits';
 import { AddressInput } from '@/components/ui/AddressInput';
+import { Modal } from '@/components/ui/Modal';
+import { PRIVACY_POLICY, SIGNUP_TERMS, type TermsDoc } from '@/lib/terms';
 type SignupType = 'enterprise' | 'consultant';
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -57,8 +59,7 @@ const signupSchema = z
       .refine((v) => /^[0-9-]+$/.test(v) && /^\d{9,11}$/.test(v.replace(/-/g, '')), '올바른 연락처 형식이 아닙니다.'),
 
     termsService: z.literal(true, { error: '서비스 이용약관에 동의해주세요.' }),
-    termsPrivacy: z.literal(true, { error: '개인정보 처리방침에 동의해주세요.' }),
-    termsMarketing: z.boolean(),
+    termsPrivacy: z.literal(true, { error: '개인정보 수집 · 이용에 동의해주세요.' }),
   })
   .refine((d) => d.password === d.passwordConfirm, {
     message: '비밀번호가 일치하지 않습니다.',
@@ -118,7 +119,6 @@ export default function SignupPage() {
       phone: '',
       termsService: false as unknown as true,
       termsPrivacy: false as unknown as true,
-      termsMarketing: false,
     },
   });
 
@@ -149,7 +149,6 @@ export default function SignupPage() {
       } else if (st === 4) {
         setValue('termsService', true);
         setValue('termsPrivacy', true);
-        setValue('termsMarketing', true);
       }
       setServerError('');
     };
@@ -165,7 +164,8 @@ export default function SignupPage() {
   }, []);
   const termsService = watch('termsService');
   const termsPrivacy = watch('termsPrivacy');
-  const termsMarketing = watch('termsMarketing');
+  // 약관 보기 팝업 — 어느 약관을 열었는지
+  const [termsOpen, setTermsOpen] = useState<TermsDoc | null>(null);
 
   async function handleNext() {
     setServerError('');
@@ -467,42 +467,89 @@ export default function SignupPage() {
           <div className="space-y-4 animate-[fadeIn_300ms_ease-out]">
             <h3 className="text-md font-semibold text-white mb-4">약관 동의</h3>
 
+            {/* 약관은 둘 — 서비스 이용약관 · 개인정보 수집 · 이용 동의(둘 다 필수). 마케팅 수신 동의는 없다(광고를 보내는 기능이 없다, 2026-11-24 사용자).
+                [보기]를 누르면 전문 팝업, 팝업의 [동의]를 누르면 그 줄이 체크된다 */}
             <div className="space-y-3 rounded-xl bg-white/[0.03] p-4 ring-1 ring-white/[0.06]">
-              <Checkbox
-                label="서비스 이용약관 동의 (필수)"
-                checked={!!termsService}
-                onChange={(e) =>
-                  setValue('termsService', e.target.checked as unknown as true, { shouldValidate: true })
-                }
-              />
-              <div className="border-t border-white/[0.06]" />
-              <Checkbox
-                label="개인정보 처리방침 동의 (필수)"
-                checked={!!termsPrivacy}
-                onChange={(e) =>
-                  setValue('termsPrivacy', e.target.checked as unknown as true, { shouldValidate: true })
-                }
-              />
-              <div className="border-t border-white/[0.06]" />
-              <Checkbox
-                label="마케팅 정보 수신 동의 (선택)"
-                checked={termsMarketing}
-                onChange={(e) => setValue('termsMarketing', e.target.checked)}
-              />
+              {SIGNUP_TERMS.map((t, idx) => {
+                const field = t.key === 'service' ? 'termsService' : 'termsPrivacy';
+                const checked = t.key === 'service' ? !!termsService : !!termsPrivacy;
+                return (
+                  <div key={t.key}>
+                    {idx > 0 && <div className="mb-3 border-t border-white/[0.06]" />}
+                    <div className="flex items-center justify-between gap-3">
+                      <Checkbox
+                        label={`${t.name} (필수)`}
+                        checked={checked}
+                        onChange={(e) => setValue(field, e.target.checked as unknown as true, { shouldValidate: true })}
+                      />
+                      <Button size="sm" variant="secondary" className="shrink-0" onClick={() => setTermsOpen(t)}>
+                        보기
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <button
               type="button"
-              className="text-xs text-slate-300 hover:text-slate-300 transition-colors"
+              className="text-sm font-medium text-white hover:text-sky-200 transition-colors"
               onClick={() => {
-                const allChecked = !!termsService && !!termsPrivacy && termsMarketing;
+                const allChecked = !!termsService && !!termsPrivacy;
                 setValue('termsService', !allChecked as unknown as true);
                 setValue('termsPrivacy', !allChecked as unknown as true);
-                setValue('termsMarketing', !allChecked);
               }}
             >
-              {!!termsService && !!termsPrivacy && termsMarketing ? '전체 해제' : '전체 동의'}
+              {!!termsService && !!termsPrivacy ? '전체 해제' : '전체 동의'}
             </button>
+
+            {/* 개인정보 처리방침 — 동의받는 항목이 아니라 보는 문서. 누르면 전문 팝업([동의] 없음) */}
+            <p className="text-sm text-white">
+              개인정보를 처리하는 기준은{' '}
+              <button type="button" className="font-semibold text-sky-300 underline underline-offset-4 hover:text-sky-200" onClick={() => setTermsOpen(PRIVACY_POLICY)}>
+                개인정보 처리방침
+              </button>
+              에서 볼 수 있습니다.
+            </p>
+
+            <Modal
+              open={!!termsOpen}
+              onClose={() => setTermsOpen(null)}
+              title={termsOpen?.name}
+              size="lg"
+              footer={
+                <div className="flex justify-end gap-2">
+                  <Button variant="cancel" onClick={() => setTermsOpen(null)}>
+                    닫기
+                  </Button>
+                  {termsOpen?.key !== 'policy' && (
+                    <Button
+                      onClick={() => {
+                        if (termsOpen) setValue(termsOpen.key === 'service' ? 'termsService' : 'termsPrivacy', true, { shouldValidate: true });
+                        setTermsOpen(null);
+                      }}
+                    >
+                      동의
+                    </Button>
+                  )}
+                </div>
+              }
+            >
+              <div className="max-h-[60vh] space-y-5 overflow-y-auto pr-2">
+                {termsOpen?.sections.map((sec) => (
+                  <section key={sec.title}>
+                    <h4 className="mb-1.5 text-sm font-semibold text-white">{sec.title}</h4>
+                    <div className="space-y-1.5">
+                      {sec.body.map((line) => (
+                        <p key={line} className="text-sm leading-relaxed text-slate-200">
+                          {line}
+                        </p>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            </Modal>
 
             <div className="flex gap-3 pt-2">
               <Button variant="secondary" className="flex-1" onClick={() => setStep(3)}>
@@ -530,14 +577,13 @@ export default function SignupPage() {
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">가입 신청 완료</h3>
-            <p className="text-sm text-slate-400 leading-relaxed mb-6">
-              <span className="text-white font-medium">{getValues('email')}</span>으로
+            {/* 가입은 신청이고, 확인 · 승인은 관리자가 한다 — 이메일 인증 단계는 없다. '인증 메일을 보냈다'는 예전 문구는 없는 기능을 말해서 고쳤다(2026-11-24 사용자) */}
+            <p className="text-sm text-white leading-relaxed mb-6">
+              가입 신청이 접수되었습니다.
               <br />
-              인증 메일을 발송했습니다.
+              관리자가 사업자등록증과 입력한 내용을 확인한 뒤 승인합니다.
               <br />
-              이메일을 확인하여 인증을 완료해주세요.
-              <br />
-              <span className="text-slate-500">메일이 오지 않으면 스팸함을 확인해주세요.</span>
+              승인되면 <span className="font-semibold">{getValues('email')}</span>로 로그인할 수 있습니다.
             </p>
             <Link href="/login">
               <Button variant="secondary" size="lg" className="w-full">
