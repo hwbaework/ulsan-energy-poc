@@ -348,8 +348,9 @@ export default function DashboardPage() {
   const selfCards = isConsumer || viewKind === 'SELF_CONSUMPTION';
   // 관리자 PPA — 플랫폼(SPC)이 보유한 설비와 받는 PPA 요금(금년 · 금월 · 금일)
   const adminPpa = isAdmin && viewKind === 'ONSITE';
-  // 관리자 총 설비 용량 — 유형 셀렉트와 상관없이 5개소 전체 계약(자가소비 + PPA) 합
-  const adminTotalCapacity = allContractPlants.reduce((a, p) => a + p.capacity, 0);
+  // 관리자 총 설비 용량 — 유형 셀렉트와 상관없이 5개소 전체 계약(자가소비 + PPA) 합 = 752.64 kW(실제 설치 용량).
+  // 계약이 없는 연료전지(39.6 MW) · ORC(2.16 MW)는 세지 않는다 — 넣으면 42.51 MW 가 되는데 그 둘은 사업계획서의 계획 용량이고, 옆 카드(발전량 · 금액)도 태양광 계약 기준이다(2026-11-24 사용자: 실제를 바탕으로)
+  const adminTotalCapacity = allContractPlants.filter((p) => p.contractKind).reduce((a, p) => a + p.capacity, 0);
   const ppaContracts = (multiKind ? pickedContracts : allContractPlants).filter((p) => p.contractKind === 'ONSITE');
   // PPA 시간 보기 — 그 발전소 그날 일정(주말 · 공휴일 · 매일 OFF 시간 · 수동)으로 시각마다 꺼졌는지. 없으면 에너지 설정 기준
   const ppaOffAtPlant = usePpaOffAt(isAdmin ? selectedCompany?.plantId : ppaContracts[0]?.plantId, genCtl.date);
@@ -726,7 +727,8 @@ export default function DashboardPage() {
             <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between flex-wrap gap-2">
               <div>
                 <div className="flex items-center gap-3">
-                  <h3 className="text-md font-semibold text-white">발전소 발전·공급</h3>
+                  {/* 관리자는 제목 앞에 고른 기업 이름 — 캡처 한 장만 봐도 어느 기업인지 알게(2026-11-24 사용자). 기업 계정은 자기 기업뿐이라 이름 없이 */}
+                  <h3 className="text-md font-semibold text-white">{isAdmin && selectedCompany ? `${selectedCompany.displayName} 발전소 발전·공급` : '발전소 발전·공급'}</h3>
                   {/* PPA 인버터 지금 ON/OFF · 수동/설정 — 글자 한 줄(관리자 · 발전사업자) */}
                   {viewKind === 'ONSITE' && (isAdmin ? selectedCompany?.plantId : ppaContracts[0]?.plantId) !== undefined && (
                     <PpaOpInline plantId={(isAdmin ? selectedCompany?.plantId : ppaContracts[0]?.plantId) as number} />
@@ -799,7 +801,11 @@ export default function DashboardPage() {
                         options={companyOptions}
                         value={selectedCompany?.key ?? ''}
                         placeholder="기업 선택"
-                        onChange={(e) => setSelectedCompanyKey(e.target.value)}
+                        // 위에서 기업을 바꾸면 아래 CO₂ 저감량도 그 기업으로 따라간다(아래 셀렉트로 따로 바꿀 수도 있다, 2026-11-24 사용자)
+                        onChange={(e) => {
+                          setSelectedCompanyKey(e.target.value);
+                          setCo2CompanyKey(e.target.value);
+                        }}
                         className="h-7 text-xs"
                       />
                     </div>
@@ -990,7 +996,7 @@ export default function DashboardPage() {
           <div className="rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] overflow-hidden">
             <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between flex-wrap gap-2">
               <div>
-                <h3 className="text-md font-semibold text-white">CO₂ 저감량</h3>
+                <h3 className="text-md font-semibold text-white">{isAdmin && co2Company ? `${co2Company.displayName} CO₂ 저감량` : 'CO₂ 저감량'}</h3>
                 <p className="mt-0.5 text-xs text-slate-400">
                   {co2Unit === 'day' ? `${co2Year}-${String(co2Month).padStart(2, '0')} 일별 CO₂ 저감 (tCO₂)` : `${co2Year} 월별 CO₂ 저감 (tCO₂)`}
                 </p>
