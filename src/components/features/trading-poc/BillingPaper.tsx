@@ -17,7 +17,7 @@ export const PAPER = { height: '80vh', minHeight: 640, border: 'none' } as const
 
 /**
  * 세금계산서 원본 — 플랫폼이 만들어 주지 않는다. 전자세금계산서 업체(ASP)에서 발행해 내려받은 PDF 를
- * 발전사업자(기업 계정)가 그 달에 올린다. 관리자는 조회만. (ASP API 로 바로 가져오는 건 고도화)
+ * 관리자가 그 달에 올린다(발행한 쪽). 기업은 보고 받기만 — 올리면 기업에 '세금계산서 등록' 알림. (ASP API 로 바로 가져오는 건 고도화)
  */
 export function useTaxOriginal(contractId: number, period: string) {
   const addToast = useToastStore((s) => s.add);

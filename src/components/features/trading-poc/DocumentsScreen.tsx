@@ -87,13 +87,14 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
   const base = docsBase(role.isAdmin);
 
   const [category, setCategory] = useState<'all' | Category>('all');
-  // 기업 — '전체' 없이 항상 하나(처음엔 첫 기업). 여러 기업을 섞으면 줄마다 기업 칸이 필요해진다(2026-11-25 사용자)
-  const [companyPick, setCompany] = useState<string>(''); // '기업 번호:계약 유형'(주소로 들어오면 기업 번호만)
+  // 기업 셀렉트 없이 모든 문서를 한 표에 — 기업 · 계약 유형 칸과 검색으로 본다(수익·정산과 같게, 2026-11-25 사용자).
+  // ?company=기업 번호 로 들어오면 그 기업 이름으로 검색해 둔 채 연다
   const [query, setQuery] = useState('');
   const [selId, setSelId] = useState<number | null>(null);
+  const [entryCompany, setEntryCompany] = useState<number | null>(null);
   useEffect(() => {
     const id = initialCompany ?? Number(new URLSearchParams(window.location.search).get('company'));
-    if (id) setCompany(String(id));
+    if (id) setEntryCompany(id);
   }, [initialCompany]);
 
   const docs = useMemo<Row[]>(
@@ -124,35 +125,18 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
   );
   // 기업 선택지 — 계약 하나가 선택지 하나. 자가소비와 PPA 계약이 모두 있는 기업은 {기업}(자가소비) · {기업}(PPA)로 따로
   // (대시보드 · 보고서의 기업 셀렉트와 같은 꼴, 2026-11-25 사용자). id 는 '기업 번호:계약 유형'
-  // 문서가 하나도 없는 기업도 고를 수 있어야 한다 — 선택지는 문서가 아니라 계약(지금 유효한 계약 + 문서가 남아 있는 옛 계약)에서 만든다(2026-11-25 사용자)
-  const companies = useMemo(() => {
-    const items = [
-      ...role.contracts.filter((c) => c.status === 'ACTIVE').map((c) => ({ companyId: c.consumerCompanyId, company: c.consumerCompanyName, kind: c.kind })),
-      ...docs.flatMap((d) => (d.contract ? [{ companyId: d.companyId, company: d.company, kind: d.contract.kind }] : [])),
-    ];
-    const kindsOf = new Map<number, Set<string>>();
-    for (const x of items) kindsOf.set(x.companyId, (kindsOf.get(x.companyId) ?? new Set()).add(x.kind));
-    const m = new Map<string, string>();
-    for (const x of items) {
-      const many = (kindsOf.get(x.companyId)?.size ?? 0) > 1;
-      m.set(`${x.companyId}:${x.kind}`, many ? `${x.company}(${kindLabel(x.kind)})` : x.company);
-    }
-    return [...m.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-  }, [docs, role.contracts]);
-  // 고른 값이 '기업 번호'만이면(?company= 로 들어온 경우) 그 기업의 첫 계약
-  const company = (companies.find((c) => c.id === companyPick) ?? companies.find((c) => c.id.startsWith(`${companyPick}:`)) ?? companies[0])?.id ?? '';
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return docs
-      .filter((d) => (category === 'all' || d.category === category) && (!company || `${d.companyId}:${d.contract?.kind}` === company))
+      .filter((d) => category === 'all' || d.category === category)
+      .filter((d) => entryCompany == null || q || d.companyId === entryCompany)
       .filter(
         (d) => !q || [d.name, d.company, CATEGORY_META[d.category].label].some((v) => v.toLowerCase().includes(q)),
       )
       .sort((a, b) => b.issuedAt.localeCompare(a.issuedAt) || b.id - a.id);
-  }, [docs, category, company, query]);
+  }, [docs, category, query, entryCompany]);
   // 처음부터 맨 위 문서가 열려 있고, 다른 줄을 누르면 오른쪽이 그 문서로 바뀐다(보고서 화면과 같다)
   const sel = visible.find((d) => d.id === selId) ?? visible[0] ?? null;
-  const companyName = companies.find((c) => c.id === company)?.name ?? '';
 
   const view = (d: TradeDocument, pdf = false) => router.push(`${base}/view?id=${d.id}${pdf ? '&pdf=1' : ''}`);
   const columns: Column<Row>[] = [
@@ -168,6 +152,8 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
     },
     // 계약 유형 — 파일 이름 아래 둘째 줄이 아니라 칸 하나(칸 하나에 값 하나, 2026-11-19 사용자)
     // 계약 유형 칸은 없다 — 기업 셀렉트가 계약 하나를 고르므로 줄마다 같은 값(제목 · 셀렉트에 보인다)
+    { key: 'company', header: '기업', width: '110px', render: (d) => cell(d.company) },
+    { key: 'kind', header: '계약 유형', width: '90px', render: (d) => cell(d.contract ? kindLabel(d.contract.kind) : '') },
     { key: 'cat', header: '카테고리', width: '100px', render: (d) => cell(CATEGORY_META[d.category].label) },
     // 기업 칸은 없다 — 항상 기업 하나만 보므로 전부 같은 값(어느 기업인지는 제목 · 오른쪽 셀렉트)
     {
@@ -193,9 +179,8 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
     }))
     .sort((a, b) => a.label.localeCompare(b.label, 'ko'));
   const openUpload = () => {
-    const [cid, kind] = company.split(':');
     setUpCat(category === 'all' ? '' : category);
-    setUpContract(String(liveContracts.find((c) => String(c.consumerCompanyId) === cid && c.kind === kind)?.id ?? ''));
+    setUpContract('');
     setUpFile(null);
     setUpOpen(true);
   };
@@ -221,7 +206,8 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
         original: { name: f.name, url: String(r.result), sizeKb: Math.round(f.size / 1024), by: role.companyName, at },
       });
       addToast('success', `${f.name}을(를) 업로드했습니다`);
-      setCompany(`${c.consumerCompanyId}:${c.kind}`);
+      setEntryCompany(null);
+      setQuery('');
       setCategory('all');
       setSelId(null);
       setUpOpen(false);
@@ -239,7 +225,7 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
   return (
     <div className="space-y-6">
       {/* 제목은 메뉴 이름 · 지금 보는 기업 이름(보고서 화면과 같은 꼴). 경로 표시는 메뉴 이름 그대로 */}
-      <PageHeader title={companyName ? `문서 관리 · ${companyName}` : '문서 관리'} crumb="문서 관리" />
+      <PageHeader title="문서 관리" />
 
       {/* 조건 줄 — 카테고리, 오른쪽 끝 기업(관리자) */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl bg-[#0d1520] px-5 py-3 ring-1 ring-white/[0.06]">
@@ -251,18 +237,6 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
             onChange={(e) => setCategory(e.target.value as 'all' | Category)}
           />
         </div>
-        {(role.isAdmin ? companies.length > 0 : companies.length > 1) && (
-          <div className="ml-auto flex items-center gap-3">
-            <span className="text-sm text-slate-400">기업</span>
-            <div className="w-52">
-              <Select
-                options={companies.map((c) => ({ value: c.id, label: c.name }))}
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 목록 왼쪽 · 미리보기 오른쪽 */}
@@ -273,7 +247,7 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
             <div className="flex items-center gap-3">
               <div className="relative w-64">
                 <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="문서 검색" maxLength={LIMIT.companyName} className="pl-8" />
+                <Input value={query} onChange={(e) => { setQuery(e.target.value); setEntryCompany(null); }} placeholder="기업 · 문서 검색" maxLength={LIMIT.companyName} className="pl-8" />
               </div>
               {/* 업로드 — 관리자만. 검색 오른쪽(필터 → 검색 → 등록 순서) */}
               {role.isAdmin && (
