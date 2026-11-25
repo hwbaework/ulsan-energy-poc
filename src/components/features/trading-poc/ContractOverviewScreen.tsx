@@ -10,8 +10,8 @@ import { Input } from '@/components/ui/Input';
 import { PpaMonthlyCard } from './PpaMonthlyCard';
 import type { Contract } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
-import { estimateMonthlyKwh, fmtKrw, fmtKw } from './meta';
-import { PageHeader, cellMuted, cellNum, cellStrong } from './Bits';
+import { estimateMonthlyKwh, fmtKrw, fmtKw, kindLabel } from './meta';
+import { PageHeader, cell, cellMuted, cellNum, cellStrong } from './Bits';
 
 const kw = (xs: Contract[]) => xs.reduce((s, c) => s + c.capacityKw, 0);
 /** 월 사용료 — onsite 만(예상 월 사용량 × 1구간 단가). 자가소비는 매달 내는 돈이 없다 */
@@ -20,7 +20,7 @@ const returnOf = (c: Contract) => (c.kind === 'ONSITE' ? estimateMonthlyKwh(c.ca
 
 /**
  * 계약 현황 — 체결된(서명이 끝난) 계약만. 서명 대기는 거래 승인에서. 통합관제처럼 위 KPI(용량) · 그래프 · 표.
- *  - 관리자: 전체. 기업별 용량(자가소비 · onsite 쌓은 막대) + 기업별 계약 표(기업마다 한 줄, 누르면 내 계약에서 그 기업)
+ *  - 관리자: 전체. 계약 표는 계약마다 한 줄(기업마다 한 줄로 합치면 계약이 둘인 기업은 한쪽 계약으로만 갔다, 2026-11-25 사용자) — 누르면 내 계약에서 그 계약
  *  - 기업: 내 계약만. 계약마다 한 줄
  */
 export function ContractOverviewScreen() {
@@ -33,38 +33,28 @@ export function ContractOverviewScreen() {
   const onsite = active.filter((c) => c.kind === 'ONSITE');
   const monthly = active.reduce((s, c) => s + returnOf(c), 0);
 
-  /** 기업별 — 기업마다 한 줄 */
-  const companies = useMemo(() => {
-    const ids = [...new Set(active.map((c) => c.consumerCompanyId))];
-    return ids
-      .map((id) => {
-        const cs = active.filter((c) => c.consumerCompanyId === id);
-        return {
-          id,
-          name: cs[0]!.consumerCompanyName,
-          selfKw: kw(cs.filter((c) => c.kind === 'SELF_CONSUMPTION')),
-          onsiteKw: kw(cs.filter((c) => c.kind === 'ONSITE')),
-          start: cs.map((c) => c.startDate).sort()[0] ?? '',
-          monthly: cs.reduce((s, c) => s + returnOf(c), 0),
-        };
-      })
-      .sort((a, b) => b.selfKw + b.onsiteKw - (a.selfKw + a.onsiteKw));
-  }, [active]);
-  type Co = (typeof companies)[number];
-  const shownCos = companies.filter((c) => !q.trim() || c.name.includes(q.trim()));
-  /* 관리자 — 기업마다 한 줄 */
-  const coCols: Column<Co>[] = [
-    { key: 'name', header: '기업', render: (c) => cellStrong(c.name) },
-    { key: 'self', header: '자가소비', width: '130px', render: (c) => cellNum(c.selfKw ? fmtKw(c.selfKw) : '-') },
-    { key: 'onsite', header: 'PPA', width: '130px', render: (c) => cellNum(c.onsiteKw ? fmtKw(c.onsiteKw) : '-') },
-    { key: 'start', header: '첫 시작일', width: '130px', render: (c) => cellMuted(c.start || '-') },
+  /** 계약마다 한 줄 — 기업 검색. 기업 이름순, 같은 기업이면 PPA 먼저 */
+  const rows = useMemo(
+    () =>
+      [...active]
+        .filter((c) => !q.trim() || c.consumerCompanyName.includes(q.trim()))
+        .sort((a, b) => a.consumerCompanyName.localeCompare(b.consumerCompanyName, 'ko') || Number(b.kind === 'ONSITE') - Number(a.kind === 'ONSITE')),
+    [active, q],
+  );
+  const cols: Column<Contract>[] = [
+    { key: 'no', header: '계약번호', width: '160px', render: (c) => cellStrong(c.no) },
+    { key: 'name', header: '기업', render: (c) => cell(c.consumerCompanyName, 'text-white') },
+    { key: 'kind', header: '계약 유형', width: '100px', render: (c) => cell(kindLabel(c.kind)) },
+    { key: 'capacity', header: '용량', width: '120px', sortable: true, sortValue: (c) => c.capacityKw, render: (c) => cellNum(fmtKw(c.capacityKw)) },
+    { key: 'term', header: '계약 기간', width: '100px', render: (c) => cellNum(`${c.termYears}년`) },
+    { key: 'start', header: '시작일', width: '120px', render: (c) => cellMuted(c.startDate) },
     {
       key: 'monthly',
       header: '월 사용료',
       width: '140px',
       sortable: true,
-      sortValue: (c) => c.monthly,
-      render: (c) => cellNum(c.monthly ? fmtKrw(c.monthly) : '-'),
+      sortValue: (c) => returnOf(c),
+      render: (c) => cellNum(c.kind === 'ONSITE' ? fmtKrw(returnOf(c)) : '-'),
     },
   ];
 
@@ -84,7 +74,7 @@ export function ContractOverviewScreen() {
         {/* PPA — 달마다 얼마 들어왔는지(정산 실적) */}
         <PpaMonthlyCard contracts={onsite} mode="income" label="전체" />
         <SectionCard
-          title={`기업별 계약 (${shownCos.length})`}
+          title={`계약 (${rows.length})`}
           actions={
             <div className="relative w-64">
               <Search
@@ -97,11 +87,11 @@ export function ContractOverviewScreen() {
           noPadding
         >
           <DataTable
-            columns={coCols}
-            data={shownCos}
+            columns={cols}
+            data={rows}
             rowKey={(c) => c.id}
             emptyMessage="계약 없음"
-            onRowClick={(c) => router.push(`${contractsBase}?company=${c.id}`)}
+            onRowClick={(c) => router.push(`${contractsBase}?contract=${c.id}`)}
             rowLink
           />
         </SectionCard>

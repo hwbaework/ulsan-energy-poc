@@ -193,10 +193,10 @@ export function TradeStepper({
 
 /**
  * 진행 이력 카드 — 거래 이력 · 거래 승인 · 변경 · 해지 상세가 모두 이 카드를 쓴다.
- * 제목 줄 오른쪽 버튼으로 접고 편다(이력이 길어지면 화면이 너무 길어진다, 2026-11-25 사용자). 처음에는 펼친 상태
+ * 제목 줄 오른쪽 버튼으로 접고 편다(이력이 길어지면 화면이 너무 길어진다, 2026-11-25 사용자). 처음에는 접힌 상태
  */
 export function HistoryCard({ children, className }: { children: ReactNode; className?: string }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   return (
     <SectionCard
       title="진행 이력"
