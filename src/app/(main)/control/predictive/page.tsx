@@ -6,7 +6,7 @@ import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features';
 import { Breadcrumb } from '@/components/layout';
 import { StatusPill } from '@/components/ui/Design';
-import { PlantNameCell } from '@/components/features/monitoring/PlantNameCell';
+import { PlantNameCell, SourceLabelCell } from '@/components/features/monitoring/PlantNameCell';
 import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
 import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
 import { useDxLatestAll } from '@/hooks/control/useDx';
@@ -58,6 +58,7 @@ export default function PredictivePage() {
 
   const columns: Column<Row>[] = [
     { key: 'name', header: '발전소', render: (r) => <PlantNameCell type={r.plant.type} name={r.plant.name} /> },
+    { key: 'source', header: '발전원', width: '120px', render: (r) => <SourceLabelCell type={r.plant.type} /> },
     {
       key: 'recv',
       header: '센서 수신',

@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
+import { Pagination } from '@/components/ui/Pagination/Pagination';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { DataTable, type Column } from '@/components/features/DataList';
@@ -55,6 +56,7 @@ export default function AnomaliesPage() {
   const router = useRouter();
   const [status, setStatus] = useState('all');
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
   // 관리자는 전체를 한 번에, 발전사업자 · 전기사용자는 계약 유형(자가소비 / PPA)을 골라서 본다 — 계약마다 주체가 다르다
   const isAdmin = getPersona(useAuthStore((st) => st.user)) === 'admin';
   const [kindTab, setKindTab] = useState<PlantContractKind>('SELF_CONSUMPTION');
@@ -163,6 +165,12 @@ export default function AnomaliesPage() {
   });
 
   // 필터 항목 = 데이터에 실제 있는 값만 (하드코딩 금지)
+  // 한 쪽에 10건 — 넘으면 아래 페이지 넘김(2026-11-25 사용자). 조건을 바꿔 건수가 줄면 마지막 쪽으로 당긴다
+  const PAGE_SIZE = 10;
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageNow = Math.min(page, pages - 1);
+  const paged = filtered.slice(pageNow * PAGE_SIZE, (pageNow + 1) * PAGE_SIZE);
+
   const statusOptions = useMemo(() => {
     const specs = new Map(anomalies.map((a) => {
       const s = anomalyRowStateOf(a);
@@ -275,13 +283,13 @@ export default function AnomaliesPage() {
           /* /guide 표기 규칙: 필터 → 검색 */
           <div className="flex items-center gap-3">
             <div className="w-32">
-              <Select options={statusOptions} value={status} onChange={(e) => setStatus(e.target.value)} />
+              <Select options={statusOptions} value={status} onChange={(e) => { setStatus(e.target.value); setPage(0); }} />
             </div>
             <div className="relative w-64">
               <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
               <Input
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => { setQuery(e.target.value); setPage(0); }}
                 placeholder="발전소 · 이상유형 검색"
                 className="pl-8"
               />
@@ -291,7 +299,7 @@ export default function AnomaliesPage() {
       >
         <DataTable
           columns={columns}
-          data={filtered}
+          data={paged}
           rowKey={(r) => r.id}
           // 줄을 누르면 그 이상을 자세히 보는 화면으로 — 통신 · 전원은 발전소 상세, 센서 수신 끊김은 예지보전, 전기안전지수 위험 · 경고는 안전의 그 기업 상세.
           // 알림은 모두 이 화면으로 오고, 여기서 눌러 들어간다(2026-11-23 사용자)
@@ -307,6 +315,7 @@ export default function AnomaliesPage() {
           rowLink
           emptyMessage={q || status !== 'all' ? '검색 결과가 없습니다' : '이상 감지 내역이 없습니다'}
         />
+        <Pagination page={pageNow} totalPages={pages} totalElements={filtered.length} onPageChange={setPage} className="px-5 py-3" />
       </SectionCard>
 
       <PlantCommStatusTable plants={myPlants} issues={siteIssues} kind={pickKind ? kindTab : undefined} />

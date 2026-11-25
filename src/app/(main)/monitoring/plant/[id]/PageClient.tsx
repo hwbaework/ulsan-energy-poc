@@ -175,6 +175,18 @@ export default function PlantDetailPage() {
     historyRange.to,
   );
 
+  // 그래프 가로축은 24시간제 'HH:00' — 오전 · 오후를 쓰지 않는다(2026-11-25 사용자)
+  const hhmm = (t: string) => `${t.slice(11, 13)}:${t.slice(14, 16)}`;
+  // 최근 24시간 — 지금부터 24시간 전까지만. 이력은 날짜 단위로 통째로 와서(어제 0~23시 + 오늘 0~23시) 그대로 그리면 이틀 치가 이어 붙고 아직 오지 않은 시간까지 나온다
+  const last24 = useMemo(() => {
+    const to = Date.now();
+    const from = to - 24 * 60 * 60 * 1000;
+    return (historyData ?? []).filter((pt) => {
+      const t = new Date(pt.time).getTime();
+      return t > from && t <= to;
+    });
+  }, [historyData]);
+
   const plant: MockPlantDetail =
     !isError && apiPlant
       ? {
@@ -353,7 +365,7 @@ export default function PlantDetailPage() {
                   {/* 계약 유형은 헤더 배지로 보인다. 두 계약을 한 화면에 같이 볼 때만 행을 구분하는 제목을 둔다 */}
                   {rows.length > 1 && meta && <h2 className="text-base font-bold text-white">{meta.label}</h2>}
                   {/* 자가소비: 설비 용량 · 현재 출력 · 금일 발전량 · 누적 발전량 · 년 발전량 · 월 발전량
-                      onsite:  설비 용량 · 현재 출력 · 금일 발전량 · 누적 발전량 · 월 발전량 · SPC 납부액 */}
+                      PPA:  설비 용량 · 현재 출력 · 금일 발전량 · 누적 발전량 · 월 발전량 · 금월 금액(대시보드와 같은 이름, 2026-11-25 사용자) */}
                   {/* 3 + 3 두 줄 */}
                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                     {card('설비 용량', `${c.capacityKw.toLocaleString()} kW`)}
@@ -363,7 +375,7 @@ export default function PlantDetailPage() {
                     {isOnsite
                       ? [
                           card('월 발전량', `${month.toLocaleString()} kWh`),
-                          card('관리자 납부액', `${payment.toLocaleString()} 원`, `금월 ${month.toLocaleString()} kWh × ₩${ppaPrice.toLocaleString()}/kWh`),
+                          card('금월 금액', `${payment.toLocaleString()} 원`, `금월 ${month.toLocaleString()} kWh × ₩${ppaPrice.toLocaleString()}/kWh`),
                         ]
                       : [card('년 발전량', `${year.toLocaleString()} kWh`), card('월 발전량', `${month.toLocaleString()} kWh`)]}
                   </div>
@@ -496,10 +508,7 @@ export default function PlantDetailPage() {
         <div className={hasLasee ? 'lg:col-span-3' : 'lg:col-span-2'}>
           {hasLasee && historyData && historyData.length > 0 ? (
             <RmsAreaChart
-              data={historyData.map((p) => ({
-                time: new Date(p.time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
-                energy: +p.dailyEnergy.toFixed(1),
-              }))}
+              data={last24.map((p) => ({ time: hhmm(p.time), energy: +p.dailyEnergy.toFixed(1) }))}
               xKey="time"
               areas={[{ key: 'energy', name: '누적 발전량 (kWh)', color: '#10B981' }]}
               title="금일 발전량 추이"
@@ -542,10 +551,7 @@ export default function PlantDetailPage() {
             height={220}
           />
           <RmsAreaChart
-            data={historyData.map((p) => ({
-              time: new Date(p.time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
-              output: +p.acPower.toFixed(1),
-            }))}
+            data={last24.map((p) => ({ time: hhmm(p.time), output: +p.acPower.toFixed(1) }))}
             xKey="time"
             areas={[{ key: 'output', name: 'AC 출력 (kW)', color: '#2563EB' }]}
             title="24시간 출력 추이"

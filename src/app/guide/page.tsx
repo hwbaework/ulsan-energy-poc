@@ -261,7 +261,7 @@ export default function DesignGuidePage() {
             <li>상태·통신·전원 칩은 StatusPill(동그라미 + 라벨) 한 형태로 통일한다. 새 배지 모양을 만들지 않는다.</li>
             <li>배지 글자는 모두 12px. 상태는 네모 + 점 + 글자(StatusPill), 분류(초안·출처·구분)는 네모 + 글자(Badge). 화면에서 글자 크기를 덮어쓰지 않는다.</li>
             <li>표 셀 안의 배지는 박스 없이 점 + 글자, 글자 크기는 옆 셀과 같게(공통 컴포넌트가 자동 처리).</li>
-            <li>표에서 발전소는 PlantNameCell(아이콘 + 이름 + 발전원 라벨)로 표기한다. 순번은 시스템 ID가 아니라 별도 'No.' 컬럼(1,2,3…)으로 매긴다.</li>
+            <li>표에서 발전소는 PlantNameCell(아이콘 + 이름), 발전원은 옆 칸 SourceLabelCell(글자만)로 표기한다. 순번은 시스템 ID가 아니라 별도 'No.' 컬럼(1,2,3…)으로 매긴다.</li>
             <li>숫자 KPI 카드(StatCard)에는 sub 설명을 넣지 않는다. 라벨 + 수치만.</li>
             <li>
               목록 표는 SectionCard로 감싸고 제목(예: &lsquo;기업 목록&rsquo;)을 단다. 검색창·필터(Select)·등록 버튼은 위에 따로 줄로 두지 않고 카드 헤더의 actions(제목 오른쪽)에 한 줄로 붙인다. 순서는 필터(Select, 기본값 전체) → 검색 → 등록(맨 오른쪽). 검색창 폭은 w-64.
