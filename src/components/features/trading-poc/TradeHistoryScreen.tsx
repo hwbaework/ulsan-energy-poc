@@ -510,7 +510,7 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
             ) : (
               stageLabel && <Info label="진행" value={stageLabel} className="col-span-3" />
             )}
-            <TermsInfo x={editing ? { ...r, ...termsOfDraft(draft, r) } : r} edit={edit} showChanges={toAgree} />
+            <TermsInfo x={editing ? { ...r, ...termsOfDraft(draft, r) } : r} edit={edit} showChanges={agreeOpen && !editing} />
             {/* 반려 — 누가(보낸 쪽인지 받은 쪽인지) · 언제 · 사유 */}
             {r.status === 'REJECTED' && (() => {
               const e = [...r.events].reverse().find((x) => x.label === '반려');

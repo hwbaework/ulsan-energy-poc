@@ -16,7 +16,7 @@ export type TermsEdit = Partial<Record<'capacity' | 'term' | 'price' | 'installU
  * 미팅 뒤 관리자가 넣는 조건(설치 용량 · 계약 기간 · 단가). 거래 이력 · 거래 승인 · 내 계약이 같은 칸.
  *  - 두 유형 모두 설치 단가 · 추가 설치비용 → 예상 설치비(자가소비 기업 부담 · PPA EPC 부담), 연간 O&M(설치비 대비 %). PPA 는 단가(₩/kWh)도. 요금제 · 요금 기준은 없다(2026-10-12)
  */
-export function TermsInfo({ x, edit, showChanges }: { x: TradeRequest | Contract; edit?: TermsEdit; /** 상대가 바꿔 보낸 칸을 '기존 → 새 값'으로 — 고친 쪽(관리자) 화면에서는 끈다 */ showChanges?: boolean }) {
+export function TermsInfo({ x, edit, showChanges }: { x: TradeRequest | Contract; edit?: TermsEdit; /** 조건 변경으로 바뀐 칸을 '기존 → 새 값'으로 — 고친 쪽 · 받는 쪽 둘 다 같은 화면을 본다(2026-11-25 사용자) */ showChanges?: boolean }) {
   const self = x.kind === 'SELF_CONSUMPTION';
   const total = totalCostOf(x);
   const hasTerms = !!x.installUnit || !!x.omAnnual || !!x.tariffPlan || x.unitPrice > 0;

@@ -369,7 +369,7 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
  * 변경 조건 — 항목 · 현재 · 변경. 거래 미팅과 같은 흐름(2026-11-18 사용자):
  *  - 받은 쪽: 동의(→ 전자서명) / 조건 변경 / 반려. 보낸 쪽: 조건 변경 / 반려
  *  - 조건 변경 → 확인창 → 누른 쪽 화면의 변경 칸이 입력으로 바뀜 → 취소 / 조건 확정 → 상대 차례
- *  - 받은 쪽 화면에만 바뀐 칸 '기존 → 새 값'(새 값 노란색), 고친 쪽 화면엔 없음
+ *  - 바뀐 칸 '기존 → 새 값'(새 값 노란색)은 고친 쪽 · 받은 쪽 둘 다 같은 화면(2026-11-25 사용자)
  */
 type TermKey = 'termYears' | 'unitPrice' | 'omAnnual';
 const TERM_LIM_OF: Record<TermKey, readonly [number, number, number]> = { termYears: TERM_LIM.termYears, unitPrice: TERM_LIM.price, omAnnual: TERM_LIM.omAnnual };
