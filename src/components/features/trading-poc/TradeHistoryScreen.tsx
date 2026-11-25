@@ -134,12 +134,11 @@ export function TradeHistoryScreen() {
         ),
     [mine, filter, kind, turnFor],
   );
-  // 들어온 신청 — 아직 미팅일을 잡지 않은 신청 접수 건만. 유형별로 따로
-  const received = mine.filter((r) => r.status === 'SUBMITTED');
+  // 위 카드 — 아래 표에 있는 건수 그대로(전체 · 자가소비 · PPA). 전에는 상태가 '신청'인 건만 세어서 표는 12줄인데 카드는 2건으로 나왔다(2026-11-25 사용자)
   const stats = {
-    all: received.length,
-    self: received.filter((r) => r.kind === 'SELF_CONSUMPTION').length,
-    onsite: received.filter((r) => r.kind === 'ONSITE').length,
+    all: mine.length,
+    self: mine.filter((r) => r.kind === 'SELF_CONSUMPTION').length,
+    onsite: mine.filter((r) => r.kind === 'ONSITE').length,
   };
 
   const columns: Column<TradeRequest>[] = [
