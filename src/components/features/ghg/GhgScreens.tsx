@@ -890,13 +890,11 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const active = role.facilities.filter((f) => f.status === 'ACTIVE');
-  // 기업(발전소) — '전체' 없이 항상 하나(처음엔 첫 기업, ?id= 로 들어오면 그 발전소). 기업은 조건 줄 오른쪽 셀렉트(2026-11-25 사용자)
+  // 기업 — 셀렉트로 고르지 않고 모든 기업의 보고서를 한 목록에, 기업 칸으로 구분(2026-11-25 사용자). ?id= 로 들어오면 그 발전소만
   // ?plant= 는 감축 설비가 아닌 발전소(연료전지 · ORC) — 보고서 항목이 아직 없다
-  const [pick, setPick] = useState('');
   const noReport = plantId != null && facilityId == null;
-  const current = noReport ? undefined : (active.find((x) => String(x.id) === pick) ?? active.find((x) => x.id === facilityId) ?? active[0]);
-  const pickKey = noReport ? `p-${plantId}` : `f-${current?.id ?? ''}`;
-  const inScope = current ? [current] : [];
+  const pickKey = noReport ? `p-${plantId}` : facilityId != null ? `f-${facilityId}` : 'all';
+  const inScope = noReport ? [] : facilityId != null ? active.filter((x) => x.id === facilityId) : active;
 
   const docs = useMemo(
     () =>
@@ -904,7 +902,7 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
         ghgDocsOfYear(year)
           .filter((d) => monthFilter === 'all' || d.period.endsWith(`-${monthFilter}`))
           .map((d) => ({ ...d, id: `${x.id}-${d.id}`, f: x, name: plantName(x, active) }))
-          .filter((d) => !q.trim() || `${d.period} ${GHG_KIND_LABEL[d.kind]} 보고서`.includes(q.trim())),
+          .filter((d) => !q.trim() || `${d.name} ${d.period} ${GHG_KIND_LABEL[d.kind]} 보고서`.includes(q.trim())),
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [pickKey, active.length, year, monthFilter, q],
@@ -983,7 +981,7 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
   return (
     <div className="space-y-6">
       {/* 제목은 메뉴 이름 · 지금 보는 기업 이름(통합관제 보고서와 같은 꼴). 경로 표시는 메뉴 이름 그대로 */}
-      <GhgHeader title={current ? `보고서 · ${plantName(current, active)}` : '보고서'} crumb="보고서" />
+      <GhgHeader title="보고서" />
 
       {/* 연도 · 월 · 오른쪽 끝 기업 */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl bg-[#0d1520] px-5 py-3 ring-1 ring-white/[0.06]">
@@ -1011,14 +1009,6 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
         <div className="w-28">
           <Select options={REPORT_MONTH_OPTIONS} value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} />
         </div>
-        {!noReport && active.length > 1 && (
-          <div className="ml-auto flex items-center gap-3">
-            <span className="text-sm text-slate-400">기업</span>
-            <div className="w-52">
-              <Select options={active.map((x) => ({ value: String(x.id), label: plantName(x, active) }))} value={String(current?.id ?? '')} onChange={(e) => setPick(e.target.value)} />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 목록 왼쪽 · 미리보기 문서 오른쪽 */}
@@ -1028,7 +1018,7 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
           actions={
             <div className="relative w-64">
               <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="문서 검색" maxLength={50} className="pl-8" />
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="기업 · 문서 검색" maxLength={50} className="pl-8" />
             </div>
           }
           noPadding
@@ -1040,6 +1030,7 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
                 <tr>
                   <th className={th}>기간</th>
                   <th className={th}>문서</th>
+                  <th className={th}>기업</th>
                   <th className={th}>생성일</th>
                 </tr>
               </thead>
@@ -1052,13 +1043,14 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
                   >
                     <td className={`${td} whitespace-nowrap font-medium tabular-nums text-white`}>{d.period}</td>
                     <td className={`${td} whitespace-nowrap text-slate-200`}>{GHG_KIND_LABEL[d.kind]} 보고서</td>
+                    <td className={`${td} whitespace-nowrap text-slate-200`}>{d.name}</td>
                     <td className={`${td} whitespace-nowrap tabular-nums text-slate-400`}>{d.createdAt}</td>
                     {/* PDF 칸은 없다 — 받기는 오른쪽 미리보기 위 [PDF] 하나(명세서와 같다, 2026-11-25 사용자) */}
                   </tr>
                 ))}
                 {docs.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="px-4 py-10 text-center text-sm text-slate-500">
+                    <td colSpan={4} className="px-4 py-10 text-center text-sm text-slate-500">
                       {pickKey.startsWith('p-') ? '보고서 항목이 아직 정해지지 않았습니다' : '보고서가 없습니다'}
                     </td>
                   </tr>
@@ -1074,7 +1066,7 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
             <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-3">
               <div className="min-w-0">
                 <p className="text-xs text-slate-400">미리보기</p>
-                <p className="truncate text-sm font-semibold text-white">{selected.title}</p>
+                <p className="truncate text-sm font-semibold text-white">{selected.title} · {selected.name}</p>
               </div>
               <div className="flex shrink-0 gap-2">
                 <Button size="sm" variant="secondary" onClick={() => onPdf(selected)}>
