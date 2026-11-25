@@ -17,7 +17,7 @@ import { CO, changeSummary, changeTermsOf, useTradingPocStore } from '@/stores/u
 import type { ChangeSign, ChangeTerms, Contract, ContractChange, TradeDocument } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
 import { TERM_LIM, changeLabel, fmtDateTime, inLim, kindLabel, numIn, termRows } from './meta';
-import { EventTimeline, Info, ModalFooter, StepBar, TEXT_MAX } from './Bits';
+import { EventTimeline, HistoryCard, Info, ModalFooter, StepBar, TEXT_MAX } from './Bits';
 import { DocumentSheet, printSheet } from './DocumentSheet';
 import { useLocationSearch } from '@/lib/use-location-search';
 
@@ -315,17 +315,17 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
 
         {/* 진행 이력 — 전자서명 전에는 아래 */}
         {!showSign && (
-          <SectionCard title="진행 이력">
+          <HistoryCard>
             <EventTimeline events={ch.events ?? []} companyName={c.consumerCompanyName} signs={{ spc: ch.spcSign, company: ch.companySign }} />
-          </SectionCard>
+          </HistoryCard>
         )}
       </div>
 
       {/* 오른쪽 — 거래와 같게: 신청 · 조건 단계는 협의 채팅, 전자서명부터는 채팅 없이 진행 이력(2026-10-14) */}
       {showSign ? (
-        <SectionCard title="진행 이력" className="lg:sticky lg:top-6">
+        <HistoryCard className="lg:sticky lg:top-6">
           <EventTimeline events={ch.events ?? []} companyName={c.consumerCompanyName} signs={{ spc: ch.spcSign, company: ch.companySign }} />
-        </SectionCard>
+        </HistoryCard>
       ) : (
         <ChangeChat ch={ch} canSend={open && (role.isAdmin || isCompany)} />
       )}

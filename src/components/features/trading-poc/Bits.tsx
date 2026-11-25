@@ -1,7 +1,8 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { CheckCircle2, ChevronDown, ChevronUp, XCircle } from 'lucide-react';
+import { SectionCard } from '@/components/features/SectionCard';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { StatusPill } from '@/components/ui/Design';
 import { cn } from '@/lib/utils';
@@ -189,6 +190,36 @@ export function TradeStepper({
 }
 
 /* ── 진행 이력 ── */
+
+/**
+ * 진행 이력 카드 — 거래 이력 · 거래 승인 · 변경 · 해지 상세가 모두 이 카드를 쓴다.
+ * 제목 줄 오른쪽 버튼으로 접고 편다(이력이 길어지면 화면이 너무 길어진다, 2026-11-25 사용자). 처음에는 펼친 상태
+ */
+export function HistoryCard({ children, className }: { children: ReactNode; className?: string }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <SectionCard
+      title="진행 이력"
+      className={cn(className, !open && '!h-auto')}
+      noPadding={!open}
+      actions={
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-label={open ? '진행 이력 접기' : '진행 이력 펼치기'}
+          title={open ? '접기' : '펼치기'}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.06] text-slate-200 ring-1 ring-white/[0.12] hover:bg-white/[0.12] hover:text-white"
+        >
+          {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+      }
+    >
+      {open ? children : null}
+    </SectionCard>
+  );
+}
+
 /**
  * 진행 이력 — 누가 했는지는 관리자 / 기업명(companyName 을 주면, 2026-11-19 사용자: '· 기업' 대신 '· 용인금속').
  * 전자서명 줄은 글자('김관리 서명') 대신 서명 그 자체(그린 서명 이미지 또는 서명체 이름) + 이름 (회사) — signs 를 주면

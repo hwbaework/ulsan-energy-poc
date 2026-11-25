@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { KIND_OPTIONS, fmtKw, kindLabel } from './meta';
 import {
   EventTimeline,
+  HistoryCard,
   signsOfContract,
   Info,
   PageHeader,
@@ -368,9 +369,9 @@ export function TradeApprovalDetailScreen({ section = 'approvals' }: { section?:
             )}
           </div>
 
-          <SectionCard title="진행 이력" className="lg:sticky lg:top-6">
+          <HistoryCard className="lg:sticky lg:top-6">
             <EventTimeline events={r.events} companyName={r.consumerCompanyName} signs={signsOfContract(c)} />
-          </SectionCard>
+          </HistoryCard>
         </div>
       ) : null}
 

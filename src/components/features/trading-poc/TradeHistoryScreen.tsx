@@ -25,6 +25,7 @@ import { TradeApprovalDetailScreen } from './TradeApprovalsScreen';
 import { KIND_OPTIONS, PARTY_LABEL, TERM_LIM, fmtDate, fmtDateTime, fmtKw, fmtNum, inLim, kindLabel, numIn } from './meta';
 import {
   EventTimeline,
+  HistoryCard,
   signsOfContract,
   Info,
   ModalFooter,
@@ -528,9 +529,9 @@ function TradeWorkspace({ r, list }: { r: TradeRequest; list: string }) {
           </div>
         </SectionCard>
 
-        <SectionCard title="진행 이력">
+        <HistoryCard>
           <EventTimeline events={r.events} companyName={r.consumerCompanyName} signs={signsOfContract(contractOfReq)} />
-        </SectionCard>
+        </HistoryCard>
       </div>
 
       <ChatPanel r={r} canSend={active && (role.isAdmin || isMine)} />
