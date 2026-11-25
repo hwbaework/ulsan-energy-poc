@@ -471,8 +471,8 @@ function BillingScreen({ kind }: { kind: Kind }) {
 
   return (
     <div className="space-y-6">
-      {/* 기업을 고르면 제목 앞에 그 기업 이름. 경로 표시는 메뉴 이름 그대로 */}
-      <PageHeader title={companyName ? `${companyName} ${NAME[kind]}` : NAME[kind]} parent="수익·정산" crumb={NAME[kind]} />
+      {/* 기업을 고르면 제목 뒤에 '· 기업 이름'. 경로 표시는 메뉴 이름 그대로 */}
+      <PageHeader title={companyName ? `${NAME[kind]} · ${companyName}` : NAME[kind]} parent="수익·정산" crumb={NAME[kind]} />
 
       {/* 위 — 연도 · 월 */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl bg-[#0d1520] px-4 py-3 ring-1 ring-white/[0.06]">

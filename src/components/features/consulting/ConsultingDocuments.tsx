@@ -102,8 +102,8 @@ export function ConsultingDocuments() {
   return (
     <div className="space-y-6">
       <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '문서 관리' }]} />
-      {/* 기업을 고르면 제목 앞에 그 기업 이름(보고서 화면과 같은 꼴) */}
-      <h1 className="text-2xl font-bold text-white">{company ? `${company} 문서 관리` : '문서 관리'}</h1>
+      {/* 기업을 고르면 제목 뒤에 '· 기업 이름'(보고서 화면과 같은 꼴) */}
+      <h1 className="text-2xl font-bold text-white">{company ? `문서 관리 · ${company}` : '문서 관리'}</h1>
 
       {/* 조건 줄 — 오른쪽 끝 기업(관리자) */}
       {isAdmin && companies.length > 0 && (

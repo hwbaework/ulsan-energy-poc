@@ -344,8 +344,8 @@ export default function ReportsClient() {
   return (
     <div className="space-y-6">
       <Breadcrumb items={[{ label: '통합관제', path: '/dashboard' }, { label: '보고서' }]} />
-      {/* 제목 앞에 지금 보는 기업 이름 — 캡처 한 장만 봐도 어느 기업인지 알게(대시보드 카드 제목과 같은 꼴, 2026-11-25 사용자) */}
-      <h1 className="text-2xl font-bold text-white">{scopeName ? `${scopeName} 보고서` : '보고서'}</h1>
+      {/* 제목은 메뉴 이름 · 지금 보는 기업 이름 — 캡처 한 장만 봐도 어느 기업인지 알게(대시보드 카드 제목과 같은 꼴, 2026-11-25 사용자) */}
+      <h1 className="text-2xl font-bold text-white">{scopeName ? `보고서 · ${scopeName}` : '보고서'}</h1>
 
       {/* 연도 · 월 · 종류 */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] px-5 py-3">

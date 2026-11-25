@@ -238,8 +238,8 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
 
   return (
     <div className="space-y-6">
-      {/* 제목 앞에 지금 보는 기업 이름(보고서 화면과 같은 꼴). 경로 표시는 메뉴 이름 그대로 */}
-      <PageHeader title={companyName ? `${companyName} 문서 관리` : '문서 관리'} crumb="문서 관리" />
+      {/* 제목은 메뉴 이름 · 지금 보는 기업 이름(보고서 화면과 같은 꼴). 경로 표시는 메뉴 이름 그대로 */}
+      <PageHeader title={companyName ? `문서 관리 · ${companyName}` : '문서 관리'} crumb="문서 관리" />
 
       {/* 조건 줄 — 카테고리, 오른쪽 끝 기업(관리자) */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl bg-[#0d1520] px-5 py-3 ring-1 ring-white/[0.06]">

@@ -982,8 +982,8 @@ function GhgReportDocs({ facilityId, plantId }: { facilityId?: number; plantId?:
 
   return (
     <div className="space-y-6">
-      {/* 제목 앞에 지금 보는 기업 이름(통합관제 보고서와 같은 꼴). 경로 표시는 메뉴 이름 그대로 */}
-      <GhgHeader title={current ? `${plantName(current, active)} 보고서` : '보고서'} crumb="보고서" />
+      {/* 제목은 메뉴 이름 · 지금 보는 기업 이름(통합관제 보고서와 같은 꼴). 경로 표시는 메뉴 이름 그대로 */}
+      <GhgHeader title={current ? `보고서 · ${plantName(current, active)}` : '보고서'} crumb="보고서" />
 
       {/* 연도 · 월 · 오른쪽 끝 기업 */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl bg-[#0d1520] px-5 py-3 ring-1 ring-white/[0.06]">
