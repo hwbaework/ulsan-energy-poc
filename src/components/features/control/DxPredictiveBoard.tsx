@@ -1,17 +1,16 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
-import { Area, CartesianGrid, ComposedChart, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useState, type ReactNode } from 'react';
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { SectionCard } from '@/components/features';
 import { DataTable, type Column } from '@/components/features/DataList';
-import { useMonitoringPlantHistory } from '@/hooks/monitoring/useMonitoring';
-import { useDxFeatureHistory, useDxForecast, useDxLatest } from '@/hooks/control/useDx';
-import { dxMetric, dxSensorLabel, dxSensorsOf, firstNum, hhmm, isDxTarget, isStale, isThinWindow, kst, stopLabel, type DxLatest } from '@/lib/dx';
+import { useDxFeatureHistory, useDxLatest } from '@/hooks/control/useDx';
+import { dxMetric, dxSensorLabel, dxSensorsOf, firstNum, hhmm, isDxTarget, isStale, isThinWindow, stopLabel, type DxLatest } from '@/lib/dx';
 
 /**
- * 예지보전 — 센서가 잰 값(아이티공간 연계 v1.1 API-003 · 005)과 발전량 예측만.
+ * 예지보전 — 센서가 잰 값(아이티공간 연계 v1.1 API-003 · 005)만. 발전량 예측은 아이티공간이 주지 않아 뺐다(2026-11-25 사용자).
  * 전기안전지수 · 등급 · 항목별 위험점수(API-006 · 007)는 0~100 점수라 안전 페이지에 있다(2026-10-29 사용자 확정).
- *   요약 카드(설비 상태 Health Index · 발전량 예측) → 설비별 측정값 표 → 발전량 실측·예측 추이 · 선택 센서 측정값 추이
+ *   요약 카드(설비 상태 Health Index) → 설비별 측정값 표 → 선택 센서 측정값 추이(한 줄 전폭)
  * 온도 · 고조파 THD 도 들어온다고 보고 칸 · 추이에 둔다(2026-10-29 사용자) — 응답이 null 이면 '미산출'.
  */
 const NONE = '미산출';
@@ -59,7 +58,6 @@ function Num({ v, stale, d = 1 }: { v: number | null; stale: boolean; d?: number
 export function DxPredictiveBoard({ plantId }: { plantId: number }) {
   const sensors = dxSensorsOf(plantId);
   const latestQ = useDxLatest(plantId);
-  const forecastQ = useDxForecast(plantId);
   const [picked, setPicked] = useState<string | null>(null);
 
   const rows: Row[] = sensors
@@ -72,40 +70,6 @@ export function DxPredictiveBoard({ plantId }: { plantId: number }) {
     .filter((r) => !isStale(r.lt) && r.lt?.health?.healthIndex != null)
     .map((r) => r.lt!.health!)
     .sort((a, b) => (a.healthIndex as number) - (b.healthIndex as number))[0];
-
-  /* 발전량 — 지난 24시간 실측(발전 이력) + 향후 36시간 예측 */
-  const now = Date.now();
-  const today = kst(now).slice(0, 10);
-  const yesterday = kst(now - 86_400_000).slice(0, 10);
-  // 끝 날짜를 하루 늘려 조회 — 금일 시간대까지 확실히 받도록(이력 API 의 날짜 경계 보정)
-  const tomorrow = kst(now + 86_400_000).slice(0, 10);
-  const histQ = useMonitoringPlantHistory(plantId, yesterday, tomorrow);
-  const series = useMemo(() => {
-    const nowKey = kst(now).slice(0, 13);
-    const from = kst(now - 24 * 3600_000).slice(0, 13);
-    const actual = (histQ.data ?? [])
-      .map((p) => ({ key: p.time.replace('T', ' ').slice(0, 13), kwh: p.acPower }))
-      .filter((p) => p.key >= from && p.key <= nowKey);
-    // 예측은 다음 정시부터 36시간까지만(문서 6.3) — 지난 24시간 실측 + 향후 36시간
-    const until = kst(now + 36 * 3600_000).slice(0, 13);
-    const fc = (forecastQ.data ?? [])
-      .map((f) => ({ key: f.start.slice(0, 13), p50: f.p50, band: [f.p10, f.p90] as [number, number] }))
-      .filter((f) => f.key > nowKey && f.key <= until);
-    const keys = [...new Set([...actual.map((a) => a.key), ...fc.map((f) => f.key)])].sort();
-    return keys.map((k) => {
-      const a = actual.find((x) => x.key === k);
-      const f = fc.find((x) => x.key === k);
-      // 가로축 — 어제 · 오늘 · 내일 · 모레 + 시(문서 6.3 표시안처럼)
-      const rel = ['어제', '오늘', '내일', '모레'][Math.round((Date.parse(k.slice(0, 10)) - Date.parse(today)) / 86_400_000) + 1] ?? k.slice(5, 10);
-      return { key: k, label: `${rel} ${Number(k.slice(11, 13))}시`, 실측: a?.kwh, 예측: f?.p50, band: f?.band };
-    });
-  }, [histQ.data, forecastQ.data]); // eslint-disable-line react-hooks/exhaustive-deps
-  const nextHour = forecastQ.data?.[0];
-  const todayActual = (histQ.data ?? []).filter((p) => p.time.startsWith(today) && p.time.replace('T', ' ').slice(0, 13) <= kst(now).slice(0, 13)).reduce((a, p) => a + p.acPower, 0);
-  const todayForecastRest = (forecastQ.data ?? []).filter((f) => f.start.startsWith(today)).reduce((a, f) => a + f.p50, 0);
-  const nowLabel = series.find((s) => s.key === kst(now).slice(0, 13))?.label;
-  // 눈금 — 처음(24시간 전) · 매일 0시 · 끝(36시간 뒤)만
-  const ticks = series.filter((x, i) => i === 0 || i === series.length - 1 || x.key.endsWith(' 00')).map((x) => x.label);
 
   const m = (r: Row, code: string) => firstNum(dxMetric(r.lt, code));
   const cols: Column<Row>[] = [
@@ -142,22 +106,13 @@ export function DxPredictiveBoard({ plantId }: { plantId: number }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {/* 발전량 예측 카드 · 발전량 실측 · 예측 추이는 뺐다 — 아이티공간이 발전량 예측을 주지 않는다(2026-11-25 사용자). 센서가 잰 값만 남긴다 */}
+      <div className="grid grid-cols-1 gap-4">
         <Kpi
           label="설비 상태 (Health Index)"
           value={fx(lowHealth?.healthIndex)}
           unit="/ 100"
           lines={['설비 상태 점수 0~100, 높을수록 양호', `1시간 갱신${lowHealth ? ` · ${hhmm(lowHealth.windowStartedAt)}~${hhmm(lowHealth.windowEndedAt)}` : ''}`]}
-        />
-        <Kpi
-          label="발전량 예측"
-          value={fx(nextHour?.p50)}
-          unit="kWh · 다음 1시간"
-          lines={[
-            `금일 실측 누적 ${Math.round(todayActual).toLocaleString('ko-KR')} kWh`,
-            `금일 예측 누적 ${Math.round(todayActual + todayForecastRest).toLocaleString('ko-KR')} kWh`,
-            ...(nextHour ? [`발행 ${hhmm(nextHour.issuedAt)}`] : []),
-          ]}
         />
       </div>
 
@@ -173,30 +128,7 @@ export function DxPredictiveBoard({ plantId }: { plantId: number }) {
         />
       </SectionCard>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <SectionCard title="발전량 실측 · 예측 추이">
-          <div className="h-[260px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={series} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="label" ticks={ticks} interval={0} tick={{ fontSize: 12, fill: '#cbd5e1' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: '#cbd5e1' }} axisLine={false} tickLine={false} width={48} unit="" />
-                <Tooltip
-                  contentStyle={{ background: '#0d1520', border: '1px solid rgba(255,255,255,.1)', borderRadius: 8, fontSize: 13 }}
-                  formatter={(v: unknown, n?: unknown) => (Array.isArray(v) ? [`${v[0]} ~ ${v[1]} kWh`, '예상 범위'] : [`${v} kWh`, String(n ?? '')])}
-                />
-                <Area dataKey="band" stroke="none" fill="#3B82F6" fillOpacity={0.18} isAnimationActive={false} name="예상 범위" />
-                <Line dataKey="실측" stroke="#e2e8f0" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls={false} />
-                <Line dataKey="예측" stroke="#3B82F6" strokeWidth={2} strokeDasharray="5 4" dot={false} isAnimationActive={false} name="예측값" />
-                {nowLabel && <ReferenceLine x={nowLabel} stroke="#94a3b8" strokeDasharray="3 3" label={{ value: `현재 ${hhmm(kst(now))}`, fill: '#cbd5e1', fontSize: 12, position: 'top' }} />}
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-          <p className="mt-2 text-sm text-slate-400">— 실측 · ┅ 예측값 · ▒ 예상 범위{nextHour ? ` · 발행 ${hhmm(nextHour.issuedAt)}` : ''}</p>
-        </SectionCard>
-
-        <MeasureTrend row={sel} />
-      </div>
+      <MeasureTrend row={sel} />
     </div>
   );
 }

@@ -17,15 +17,11 @@ import type { MonitoringPlant } from '@/types/monitoring';
 
 // 안전 — 회사(발전소)마다 한 줄, 줄을 누르면 그 회사 한 곳의 안전 상세로(예지보전과 같은 방식).
 // 기업 스코프: 각 기업은 자기 발전소만(바로 상세로), 관리자는 전체.
-// 안전 = 전기안전지수(API-006) 값만 — '산출 n/m' 도 측정 수신(API-003)이 아니라 15분 안에 지수가 나온 센서 수(2026-10-29 사용자).
+// 안전 = 전기안전지수(API-006) 값만 — 지수 · 등급 · 가장 높은 위험 항목.
 const fx = (v: number | null | undefined) => (v == null ? null : v.toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 
 interface Row {
   plant: MonitoringPlant;
-  /** 연계 대상 센서 수(한길 · 건호이엔씨는 아직 목록에 없어 0 → 미수신) */
-  sensors: number;
-  /** 그중 전기안전지수가 15분 안에 산출된 센서 수(문서 6.2) */
-  computed: number;
   worst?: DxSafety;
   /** 센서 결과가 모두 15분 넘게 멈춤 — '갱신 지연'(연계 문서 6.2) */
   late: boolean;
@@ -54,7 +50,7 @@ export default function SafetyPage() {
     const macs = dxSensorsOf(p.plantId).filter((s) => isDxTarget(s.mac)).map((s) => s.mac);
     const sf = (safetyQ.data ?? []).filter((x: DxSafety) => macs.includes(x.macAddress));
     const worst = worstSafety(sf);
-    return { plant: p, sensors: macs.length, computed: sf.filter((x) => !isSafetyLate(x)).length, worst, late: !worst && sf.length > 0 && sf.every((x) => isSafetyLate(x)) };
+    return { plant: p, worst, late: !worst && sf.length > 0 && sf.every((x) => isSafetyLate(x)) };
   });
   const order = (r: Row) => (r.worst ? DX_LEVEL[r.worst.riskLevel].order : 9);
   rows.sort((a, b) => order(a) - order(b) || (a.worst?.safetyIndex ?? 101) - (b.worst?.safetyIndex ?? 101));
@@ -63,18 +59,7 @@ export default function SafetyPage() {
   const columns: Column<Row>[] = [
     { key: 'name', header: '발전소', render: (r) => <PlantNameCell type={r.plant.type} name={r.plant.name} /> },
     { key: 'source', header: '발전원', width: '120px', render: (r) => <SourceLabelCell type={r.plant.type} /> },
-    {
-      key: 'computed',
-      header: '산출',
-      width: '110px',
-      align: 'center',
-      render: (r) =>
-        r.sensors === 0 ? (
-          <StatusPill tone="muted" label="미수신" />
-        ) : (
-          <StatusPill tone={r.computed === r.sensors ? 'normal' : r.computed > 0 ? 'warning' : 'danger'} label={`${r.computed}/${r.sensors}`} />
-        ),
-    },
+    // '산출 n/m' 칸은 뺐다 — 글자만으로 무엇을 센 것인지 읽히지 않고, 센서가 끊긴 것은 예지보전(센서 수신) · 이상 감지 목록에서 이미 보인다(2026-11-25 사용자)
     {
       key: 'si',
       header: '전기안전지수',

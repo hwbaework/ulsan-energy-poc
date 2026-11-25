@@ -6,7 +6,6 @@
  * - 종류 2가지: 발전 실적 · 이상감지. 매월 1건씩 자동 생성
  * - 외부 제출 양식은 없다(내부 보고·검증용)
  */
-import { BackButton } from '@/components/layout/PageTitle';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useQueries } from '@tanstack/react-query';
@@ -25,7 +24,7 @@ import { monitoringKeys } from '@/api/queryKeys';
 import { useMonitoringPlants } from '@/hooks/monitoring/useMonitoring';
 import { useAnomalies } from '@/hooks/monitoring/useAnomalies';
 import { useMyPlantMatcher, filterPlantsByOwnership } from '@/hooks/monitoring/useMyPlantFilter';
-import { expandByContract } from '@/lib/contract-plants';
+import { contractHref, expandByContract } from '@/lib/contract-plants';
 import type { PlantContractKind } from '@/types/monitoring';
 
 /* ── 문서 정의 ── */
@@ -116,7 +115,8 @@ const KIND_OPTIONS = [
 
 export default function ReportsClient() {
   const router = useRouter();
-  const { plantId: scope } = useParams<{ plantId: string }>(); // 'all' 또는 발전소 ID
+  // 발전소 목록 화면은 없다 — 보고서 메뉴를 누르면 바로 이 화면(전체)이고, 기업은 오른쪽 셀렉트로 바꾼다(2026-11-25 사용자)
+  const scope = useParams<{ plantId?: string }>().plantId ?? 'all'; // 'all'(주소에 발전소가 없을 때) 또는 발전소 ID
   const contract = useSearchParams().get('contract') as PlantContractKind | null; // 계약 하나만 볼 때
   const [year, setYear] = useState(THIS_YEAR);
   const [monthFilter, setMonthFilter] = useState('all');
@@ -128,7 +128,8 @@ export default function ReportsClient() {
   const myPlants = useMemo(() => filterPlantsByOwnership(allPlants ?? [], myPlantMatcher), [allPlants, myPlantMatcher]);
   // 계약 하나 = 항목 하나 — 이름은 "한일튜브(onsite)", 값은 계약 용량 몫(share)
   const plants = useMemo(() => {
-    const items = expandByContract(scope === 'all' ? myPlants : myPlants.filter((p) => String(p.plantId) === scope));
+    // 전체는 보고서가 있는 태양광만(연료전지 · ORC 는 보고서 항목이 아직 없다)
+    const items = expandByContract(scope === 'all' ? myPlants.filter((p) => p.type === 'SOLAR') : myPlants.filter((p) => String(p.plantId) === scope));
     const picked = items.filter((c) => c.contractKind === contract);
     return picked.length > 0 ? picked : items;
   }, [myPlants, scope, contract]);
@@ -142,6 +143,9 @@ export default function ReportsClient() {
         : [],
     [hasReport, year, monthFilter, kindFilter],
   );
+  // 기업 셀렉트 — 보고서가 있는 계약(태양광)만
+  const companyChoices = useMemo(() => expandByContract(myPlants.filter((p) => p.type === 'SOLAR')), [myPlants]);
+  const companyValue = scope === 'all' ? 'all' : (companyChoices.find((c) => String(c.plantId) === scope && (!contract || c.contractKind === contract))?.key ?? 'all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // 처음부터 맨 위 문서가 열려 있고, 다른 행을 누르면 오른쪽이 그 문서로 바뀐다
   const selected = docs.find((d) => d.id === selectedId) ?? docs[0] ?? null;
@@ -328,13 +332,8 @@ export default function ReportsClient() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb items={[{ label: '통합관제', path: '/dashboard' }, { label: '보고서', path: '/monitoring/reports' }, { label: scopeName }]} />
-      <div className="flex items-center gap-3">
-        {myPlants.length > 1 && (
-          <BackButton href="/monitoring/reports" label="발전소 목록으로" />
-        )}
-        <h1 className="text-2xl font-bold text-white">보고서 · {scopeName}</h1>
-      </div>
+      <Breadcrumb items={[{ label: '통합관제', path: '/dashboard' }, { label: '보고서' }]} />
+      <h1 className="text-2xl font-bold text-white">보고서</h1>
 
       {/* 연도 · 월 · 종류 */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] px-5 py-3">
@@ -359,18 +358,18 @@ export default function ReportsClient() {
         <div className="w-36">
           <Select options={KIND_OPTIONS} value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} />
         </div>
-        {/* 기업(발전소) — 목록으로 돌아가지 않고 바로 바꾼다 */}
-        {myPlants.length > 1 && (
+        {/* 기업 — 계약 하나가 선택지 하나(자가소비 · PPA 가 모두 있으면 따로). 고를 것이 둘 이상일 때만 */}
+        {companyChoices.length > 1 && (
           <div className="ml-auto flex items-center gap-3">
             <span className="text-sm text-slate-400">기업</span>
             <div className="w-52">
               <Select
-                options={[
-                  { value: 'all', label: '전체' },
-                  ...myPlants.map((p) => ({ value: String(p.plantId), label: p.name })),
-                ]}
-                value={scope}
-                onChange={(e) => router.push(`/monitoring/reports/${e.target.value}`)}
+                options={[{ value: 'all', label: '전체' }, ...companyChoices.map((c) => ({ value: c.key, label: c.displayName }))]}
+                value={companyValue}
+                onChange={(e) => {
+                  const c = companyChoices.find((x) => x.key === e.target.value);
+                  router.push(c ? contractHref(`/monitoring/reports/${c.plantId}`, c.contractKind) : '/monitoring/reports');
+                }}
               />
             </div>
           </div>

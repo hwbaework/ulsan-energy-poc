@@ -67,7 +67,8 @@ export default function PredictivePage() {
         r.sensors === 0 ? (
           <StatusPill tone="muted" label="미수신" />
         ) : (
-          <StatusPill tone={r.receiving === r.sensors ? 'normal' : r.receiving > 0 ? 'warning' : 'danger'} label={`${r.receiving}/${r.sensors}`} />
+          // 색은 둘 — 전부 수신이면 초록, 하나라도 끊기면 빨강. 이상 감지 목록의 '센서 수신 끊김'(빨강)과 같은 기준이라 주황을 두지 않는다(2026-11-25 사용자)
+          <StatusPill tone={r.receiving === r.sensors ? 'normal' : 'danger'} label={`${r.receiving}/${r.sensors}`} />
         ),
     },
     {

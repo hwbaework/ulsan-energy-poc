@@ -59,7 +59,7 @@ export function ConnectionBanner({ status, plantId }: { status: PlantConnectionS
         {invOff ? (
           <StatusPill tone="muted" label={`꺼짐 · ${op!.manual ? '수동' : '설정'}`} />
         ) : (
-          <StatusPill tone={invAllNormal ? 'normal' : 'warning'} label={`${normalCount}/${totalCount} 정상`} />
+          <StatusPill tone={invAllNormal ? 'normal' : 'danger'} label={`${normalCount}/${totalCount} 정상`} />
         )}
       </div>
 
