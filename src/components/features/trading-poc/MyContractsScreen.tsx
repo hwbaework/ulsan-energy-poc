@@ -1,25 +1,19 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { StatCard, StatsGrid } from '@/components/features/StatCard';
 import { SectionCard } from '@/components/features/SectionCard';
-import { RmsPaybackChart } from '@/components/ui/Chart';
 import { Select } from '@/components/ui/Select';
-import type { ChangeType, Contract } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
-import { KEPCO_UNIT_PRICE, fmtKw, kindLabel, totalCostOf } from './meta';
+import { fmtKw, kindLabel } from './meta';
 import { PageHeader } from './Bits';
-import { ContractDetailCard, monthOfContract } from './ContractDetailModal';
-import { ChangeRequestModal } from './ChangeRequestModal';
+import { ContractDetailCard } from './ContractDetailModal';
 import { PpaMonthlyCard } from './PpaMonthlyCard';
 import { useLocationSearch } from '@/lib/use-location-search';
 
 /** 내 계약 — 용량 요약 · 월별 사용료 그래프(onsite 있을 때) · 계약마다 상세 카드(팝업 없음). 관리자는 기업을 골라 보고, 전체일 때만 표(줄 → 그 기업) */
 export function MyContractsScreen() {
-  const router = useRouter();
   const role = useTradingRole();
-  const [change, setChange] = useState<{ open: boolean; contractId?: number; type?: ChangeType }>({ open: false });
   // 계약 하나씩 본다 — '전체'도, 자가소비 · PPA 를 한 화면에 섞는 것도 없다. 여러 계약을 한눈에 보는 것은 계약 현황(관리자)이 한다(2026-11-25 사용자)
   // 선택지 = 지금 유효한 계약. 한 기업에 계약이 둘이면 {기업}(자가소비) · {기업}(PPA), 하나면 기업 이름(관리자). 기업 계정은 계약 유형만
   const live = useMemo(() => role.contracts.filter((c) => c.status === 'ACTIVE'), [role.contracts]);
@@ -49,50 +43,8 @@ export function MyContractsScreen() {
   const one = active[0];
 
   // 요약 — 고른 계약 하나(용량 · 기간 · 시작일)
-  /**
-   * 누적 금액 — 기업 입장에서 언제부터 이득인지. 계약 시작부터 지난 해(0년 = 투자 시점, 1년, 2년 …)마다 값, 만원 단위.
-   * 자가소비: −설치비에서 시작해 매달 절감액(한전에 안 낸 요금)만큼, onsite: 0에서 매달 (한전 요금 − 사용료)만큼. 계약 기간이 끝나면 그대로.
-   * 발전량은 울산 연 1,385 kWh/kW, 한전 단가는 에너지 설정 값으로 계약 기간 내내 같다고 본다.
-   */
-  /** 단가 — 계약 기간 한 단가 */
-  const priceIn = (c: Contract, _k: number) => c.unitPrice;
-  /** k년 동안 쌓인 금액 — fn(그 해 1년치) 을 계약 기간까지만 더한다 */
-  const upTo = (c: Contract, k: number, perYear: (year: number) => number) =>
-    Array.from({ length: Math.min(k, c.termYears) }, (_, i) => perYear(i + 1)).reduce((a, x) => a + x, 0);
-  const kwhYear = (c: Contract) => monthOfContract(c).kwh * 12;
-
-  const payback = useMemo(() => {
-    if (active.length === 0) return { data: [] as Record<string, string | number>[], breakEven: '', total: 0 };
-    // 계약 기간에 맞춘다 — 10년 계약이면 10년까지, 20년이면 20년까지. 유형별 선도 그 유형 계약 기간에서 끝난다
-    const years = Math.max(...active.map((c) => c.termYears));
-    // 자가소비: −설치비 + 해마다 한전에 안 낸 요금 / PPA: 해마다 (한전 단가 − PPA 단가) × 연 사용량
-    const valueAt = (c: Contract, k: number) =>
-      c.kind === 'SELF_CONSUMPTION'
-        ? upTo(c, k, () => kwhYear(c) * KEPCO_UNIT_PRICE) - totalCostOf(c)
-        : upTo(c, k, (y) => kwhYear(c) * (KEPCO_UNIT_PRICE - priceIn(c, y)));
-    const self = active.filter((c) => c.kind === 'SELF_CONSUMPTION');
-    const onsite = active.filter((c) => c.kind === 'ONSITE');
-    const sum = (xs: Contract[], k: number) => Math.round(xs.reduce((a, c) => a + valueAt(c, k), 0) / 10_000);
-    const lastOf = (xs: Contract[]) => Math.max(0, ...xs.map((c) => c.termYears));
-    const data = Array.from({ length: years + 1 }, (_, k) => ({
-      year: k === 0 ? '0년(투자)' : `${k}년`,
-      ...(self.length && k <= lastOf(self) ? { 자가소비: sum(self, k) } : {}),
-      ...(onsite.length && k <= lastOf(onsite) ? { onsite: sum(onsite, k) } : {}),
-    }));
-    // 흑자 전환 — 자가소비 설치비를 절감액으로 다 갚는 때(몇 년 몇 개월 · 그 달)
-    const cost = self.reduce((a, c) => a + totalCostOf(c), 0);
-    const perMonth = self.reduce((a, c) => a + monthOfContract(c).saving, 0);
-    const first = self.map((c) => c.startDate).sort()[0];
-    let breakEven = '';
-    if (first && perMonth > 0) {
-      const m = Math.ceil(cost / perMonth);
-      const d = new Date(`${first.slice(0, 7)}-01T00:00:00`);
-      d.setMonth(d.getMonth() + m);
-      breakEven = `${Math.floor(m / 12)}년 ${m % 12}개월 · ${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    }
-    const total = active.reduce((a, c) => a + valueAt(c, c.termYears), 0);
-    return { data, breakEven, total };
-  }, [active]);
+  // ROI(누적 금액 · 흑자 전환)는 뺐다 — 사업계획서 · 기능 WBS 에 근거가 없고, PPA 는 기업 투자가 없어 ROI 가 맞지 않는다.
+  // 근거가 있는 절감액(사업계획서 쪽 41, 자가소비 내부 정산)은 계약 상세 카드의 예상 월 절감액으로 보인다(2026-11-25 사용자)
 
   return (
     <div className="space-y-6">
@@ -117,36 +69,8 @@ export function MyContractsScreen() {
           <StatCard label="시작일" value={one.startDate} />
         </StatsGrid>
       )}
-      {role.isAdmin ? (
-        // 관리자 — 달마다 얼마 들어와야 하는지(회사 골랐으면 그 회사만). ROI 는 기업 쪽에서만
-        <PpaMonthlyCard contracts={active} mode="income" label={current?.label ?? ''} />
-      ) : (
-        active.length > 0 && (
-          // 기업 — 언제부터 이득인지(ROI = 누적 금액)
-          <SectionCard
-            title="ROI · 누적 금액 (만원)"
-            actions={
-              <div className="flex items-center gap-4 text-sm">
-                {payback.breakEven && (
-                  <span className="text-slate-400">
-                    흑자 전환 <span className="font-semibold tabular-nums text-white">{payback.breakEven}</span>
-                  </span>
-                )}
-              </div>
-            }
-          >
-            <RmsPaybackChart
-              data={payback.data}
-              xKey="year"
-              lines={[
-                ...(active.some((c) => c.kind === 'SELF_CONSUMPTION') ? [{ key: '자가소비', name: '자가소비' }] : []),
-                ...(active.some((c) => c.kind === 'ONSITE') ? [{ key: 'onsite', name: 'PPA' }] : []),
-              ]}
-              height={260}
-            />
-          </SectionCard>
-        )
-      )}
+      {/* 관리자 — PPA 달마다 얼마 들어왔는지 */}
+      {role.isAdmin && <PpaMonthlyCard contracts={active} mode="income" label={current?.label ?? ''} />}
       {/* 기업 — PPA 달마다 얼마 냈는지(계약 현황은 관리자만) */}
       {!role.isAdmin && <PpaMonthlyCard contracts={active} mode="pay" />}
 
@@ -157,24 +81,10 @@ export function MyContractsScreen() {
       ) : (
         // 고른 계약 하나의 상세
         active.map((c) => (
-            <ContractDetailCard
-              key={c.id}
-              contract={c}
-              canRequestChange={!role.isAdmin}
-              onRequestChange={(ct) => setChange({ open: true, contractId: ct.id })}
-            />
+            // 변경 · 해지 신청 버튼은 두지 않는다 — 신청은 관리자 · 기업 모두 변경·해지 메뉴에서 한 곳으로(2026-11-25 사용자)
+            <ContractDetailCard key={c.id} contract={c} canRequestChange={false} />
         ))
       )}
-      <ChangeRequestModal
-        open={change.open}
-        onClose={() => setChange({ open: false })}
-        contracts={active}
-        contractId={change.contractId}
-        type={change.type}
-        requestedBy={role.party}
-        requestedByName={role.companyName}
-        onSubmitted={(id) => router.push(`${role.isAdmin ? '/platform' : '/generator'}/trading/changes/view?id=${id}`)}
-      />
     </div>
   );
 }
