@@ -19,9 +19,13 @@ import type { CreateUserRequest } from '@/types';
 import { useToastStore } from '@/stores/useToastStore';
 
 import { LIMIT } from '@/lib/field-limits';
-type AccountType = 'COMPANY_ADMIN' | 'COMPANY_MEMBER';
-const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = { COMPANY_ADMIN: '기업 관리자', COMPANY_MEMBER: '기업 회원' };
-const ACCOUNT_TYPE_OPTIONS = [
+// 계정 유형 셋 — 관리자 · 기업 관리자 · 기업 회원. 관리자는 관리자 소속 회원의 유형이다(기업 관리자가 아니다, 2026-11-25 사용자)
+type AccountType = 'ADMIN' | 'COMPANY_ADMIN' | 'COMPANY_MEMBER';
+const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = { ADMIN: '관리자', COMPANY_ADMIN: '기업 관리자', COMPANY_MEMBER: '기업 회원' };
+/** 관리자 소속(플랫폼을 운영하는 곳)의 기업 번호 — 소속이 여기면 계정 유형 · 역할이 관리자로 따라간다 */
+const ADMIN_COMPANY_ID = '1';
+const ADMIN_TYPE_OPTIONS = [{ value: 'ADMIN', label: '관리자' }];
+const COMPANY_TYPE_OPTIONS = [
   { value: 'COMPANY_MEMBER', label: '기업 회원' },
   { value: 'COMPANY_ADMIN', label: '기업 관리자' },
 ];
@@ -39,11 +43,10 @@ interface UserRow {
   department: string;
 }
 
-// 기본 3개(회원가입 유형과 동일) — 실제 선택지는 역할 · 권한 관리 목록(useRoles)에서 읽고, 목록이 비었을 때만 이 값(2026-11-09)
+// 기본 2개(관리자 · 기업, 2026-11-25 사용자: 발전사업자 · 전기사용자는 역할에서 뺌) — 실제 선택지는 역할 · 권한 관리 목록(useRoles)에서 읽고, 목록이 비었을 때만 이 값(2026-11-09)
 const ROLE_OPTIONS = [
-  { value: 'CONSUMER_MANAGER', label: '전기사용자' },
-  { value: 'POWER_OPERATOR', label: '발전사업자' },
-  { value: 'SYSTEM_ADMIN', label: '관리자' },
+  { value: 'COMPANY', label: '일반' },
+  { value: 'SYSTEM_ADMIN', label: '운영' },
 ];
 
 const ROLE_LABEL_MAP: Record<string, string> = Object.fromEntries(ROLE_OPTIONS.map((r) => [r.value, r.label]));
@@ -98,6 +101,7 @@ export default function UsersPage() {
   const { data: rolesData } = useRoles();
   const liveRoles = (rolesData ?? []).filter((r) => !!r.code).map((r) => ({ value: r.code as string, label: r.name }));
   const roleOptions = liveRoles.length > 0 ? liveRoles : ROLE_OPTIONS.map((r) => ({ value: r.value, label: r.label }));
+  // 역할 이름은 역할 · 권한의 목록과 같은 글자 그대로(운영 · 일반 · 추가한 역할) — 화면마다 다르게 줄여 쓰지 않는다(2026-11-25 사용자)
   const roleLabel = (code: string) => roleOptions.find((r) => r.value === code)?.label ?? ROLE_LABEL_MAP[code] ?? code;
   // 가입 대기 회원 — 줄에서 바로 가입 검토(승인 관리 메뉴를 없애고 옮김, 2026-11-09)
   const signup = useSignupApplicants();
@@ -111,7 +115,7 @@ export default function UsersPage() {
           email: u.email,
           company: u.companyName ?? '',
           accountType: ((u as any).accountType ?? 'COMPANY_MEMBER') as AccountType,
-          role: u.roles?.[0] ?? 'CONSUMER_MANAGER',
+          role: u.roles?.[0] ?? 'COMPANY',
           status: (u.status as UserRow['status']) ?? 'ACTIVE',
           lastLogin: u.lastLoginAt?.replace('T', ' ').slice(5, 16) ?? '-',
           phone: u.phone ?? '',
@@ -162,7 +166,7 @@ export default function UsersPage() {
     },
     {
       key: 'accountType',
-      header: '구분',
+      header: '계정 유형',
       width: '110px',
       render: (row) => <span className="text-sm text-slate-300">{ACCOUNT_TYPE_LABEL[row.accountType]}</span>,
     },
@@ -323,7 +327,7 @@ export default function UsersPage() {
                 <p className="text-sm text-white">{detailRow.company || '-'}</p>
               </div>
               <div>
-                <p className="mb-1 text-sm font-medium text-accent">구분</p>
+                <p className="mb-1 text-sm font-medium text-accent">계정 유형</p>
                 <p className="text-sm text-white">{ACCOUNT_TYPE_LABEL[detailRow.accountType]}</p>
               </div>
               <div>
@@ -441,11 +445,28 @@ export default function UsersPage() {
             label="소속"
             required
             value={cCompanyId}
-            onChange={(e) => setCCompanyId(e.target.value)}
+            // 소속을 고르면 계정 유형 · 역할이 따라간다 — 관리자 소속이면 관리자 · 관리자, 기업이면 기업 회원 · 기업(역할은 바꿀 수 있다)
+            onChange={(e) => {
+              const id = e.target.value;
+              setCCompanyId(id);
+              if (id === ADMIN_COMPANY_ID) {
+                setCAccountType('ADMIN');
+                setCRole('SYSTEM_ADMIN');
+              } else if (id) {
+                setCAccountType((t) => (t === 'ADMIN' ? 'COMPANY_MEMBER' : t));
+                setCRole((r) => (!r || r === 'SYSTEM_ADMIN' ? 'COMPANY' : r));
+              }
+            }}
             options={[{ value: '', label: '선택' }, ...companies.map((c) => ({ value: String(c.id), label: c.name }))]}
           />
           <div className="grid grid-cols-2 gap-3">
-            <Select label="구분" required value={cAccountType} onChange={(e) => setCAccountType(e.target.value as AccountType)} options={ACCOUNT_TYPE_OPTIONS} />
+            <Select
+              label="계정 유형"
+              required
+              value={cAccountType}
+              onChange={(e) => setCAccountType(e.target.value as AccountType)}
+              options={cCompanyId === ADMIN_COMPANY_ID ? ADMIN_TYPE_OPTIONS : COMPANY_TYPE_OPTIONS}
+            />
             <Select
               label="역할"
               required
@@ -465,12 +486,12 @@ export default function UsersPage() {
             <Button
               disabled={createUserMut.isPending || assignRoleByCodeMut.isPending}
               onClick={async () => {
-                // 필수 — 아이디 · 이름 · 소속 · 구분 · 역할(2026-11-09). 연락처 · 부서만 선택
+                // 필수 — 아이디 · 이름 · 소속 · 계정 유형 · 역할(2026-11-09). 연락처 · 부서만 선택
                 const missing = [
                   !cEmail.trim() && '아이디 (이메일)',
                   !cName.trim() && '이름',
                   !cCompanyId && '소속',
-                  !cAccountType && '구분',
+                  !cAccountType && '계정 유형',
                   !cRole && '역할',
                 ].filter(Boolean) as string[];
                 if (missing.length) {

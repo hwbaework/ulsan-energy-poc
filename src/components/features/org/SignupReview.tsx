@@ -14,17 +14,16 @@ import { useToastStore } from '@/stores/useToastStore';
 /**
  * 가입 검토 — 가입 신청(대기) 계정을 등록증 · 신청 내용과 함께 보고 승인 / 반려.
  * 2026-11-09 승인 관리 메뉴를 없애면서 기업 관리(대기 기업) · 회원 관리(대기 회원)로 옮김. 상세 화면 없음.
- * 구분: 기업 관리자(기업의 첫 계정, 기업도 함께 승인) / 기업 회원(기존 기업 소속, 기업이 승인돼 있어야 함)
- * 역할은 소속 기업 유형으로 정해진다: 전기사용자 → 전기사용자, 발전사업자 → 발전사업자, SPC·운영사 → 관리자
+ * 계정 유형: 기업 관리자(기업의 첫 계정, 기업도 함께 승인) / 기업 회원(기존 기업 소속, 기업이 승인돼 있어야 함)
+ * 역할: 기업 계정은 '기업' 하나(발전사업자 · 전기사용자로 나누지 않는다, 2026-11-25 사용자), SPC·운영사 소속만 관리자
  */
 
 export type AccountType = 'COMPANY_ADMIN' | 'COMPANY_MEMBER';
 const TYPE_LABEL: Record<AccountType, string> = { COMPANY_ADMIN: '기업 관리자', COMPANY_MEMBER: '기업 회원' };
 
 function roleOfCompany(businessTypes: string[] = []): { code: string; label: string } {
-  if (businessTypes.some((t) => t.includes('SPC') || t.includes('운영사'))) return { code: 'SYSTEM_ADMIN', label: '관리자' };
-  if (businessTypes.some((t) => t.includes('발전'))) return { code: 'POWER_OPERATOR', label: '발전사업자' };
-  return { code: 'CONSUMER_MANAGER', label: '전기사용자' };
+  if (businessTypes.some((t) => t.includes('SPC') || t.includes('운영사'))) return { code: 'SYSTEM_ADMIN', label: '운영' };
+  return { code: 'COMPANY', label: '일반' };
 }
 
 export interface Applicant {
@@ -96,7 +95,7 @@ export function SignupReviewModal({ applicant, companies, onClose }: { applicant
       if (applicant.type === 'COMPANY_ADMIN' && applicant.companyId && applicant.companyStatus !== 'ACTIVE') await activateCompany.mutateAsync(applicant.companyId);
       await activateUser.mutateAsync(applicant.id);
       await assignRole.mutateAsync({ userId: applicant.id, roleCode: applicant.role.code });
-      addToast('success', `${applicant.name}님 가입을 승인했습니다 · ${applicant.role.label}`);
+      addToast('success', `${applicant.name}님 가입을 승인했습니다`);
       onClose();
     } catch {
       addToast('error', '승인에 실패했습니다');
@@ -163,7 +162,7 @@ export function SignupReviewModal({ applicant, companies, onClose }: { applicant
               {row('아이디 (이메일)', applicant.email)}
               {row('연락처', applicant.phone)}
               {row('부서', applicant.department ?? '')}
-              {row('구분', TYPE_LABEL[applicant.type])}
+              {row('계정 유형', TYPE_LABEL[applicant.type])}
               {row('역할', applicant.role.label)}
               {row('신청일', applicant.date)}
             </dl>

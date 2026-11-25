@@ -11,10 +11,11 @@ import { useUser, useSuspendUser, useActivateUser } from '@/hooks/platform/useUs
 import { useToastStore } from '@/stores/useToastStore';
 
 const ROLE_LABEL_MAP: Record<string, string> = {
-  SYSTEM_ADMIN: '관리자',
+  SYSTEM_ADMIN: '운영',
   COMPANY_ADMIN: '기업 관리자',
-  POWER_OPERATOR: '발전사업자',
-  CONSUMER_MANAGER: '전기사용자 담당자',
+  COMPANY: '일반',
+  POWER_OPERATOR: '일반',
+  CONSUMER_MANAGER: '일반',
   CONSULTANT: '컨설턴트',
   SPC_OPERATOR: '관리자',
   FIELD_OPERATOR: '현장 운영자',

@@ -18,11 +18,12 @@ import { usePpaContracts } from '@/hooks/ppa/usePpa';
 const ROLE_LABEL: Record<string, string> = {
   SYSTEM_ADMIN: '관리자',
   COMPANY_ADMIN: '기업 관리자',
-  POWER_OPERATOR: '발전소 운영자',
+  COMPANY: '기업',
+  POWER_OPERATOR: '기업',
   PPA_MANAGER: 'PPA 관리자',
   VPP_TRADER: 'VPP 거래자',
   CONSULTANT: '컨설턴트',
-  CONSUMER_MANAGER: '전기사용자 관리자',
+  CONSUMER_MANAGER: '기업',
   SPC_OPERATOR: 'SPC 운영자',
   VIEWER: '조회자',
 };

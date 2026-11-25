@@ -27,6 +27,7 @@ const ROLE_TO_PERSONA: Record<string, Persona> = {
   COMPANY_ADMIN: 'admin',
   POWER_OPERATOR: 'generator',
   CONSUMER_MANAGER: 'consumer',
+  COMPANY: 'consumer', // '기업' 역할 — 화면을 계약 유형으로 가르기 전까지는 전기사용자 화면이 기본(로그인 데모 계정은 위 두 코드를 그대로 쓴다)
   CONSULTANT: 'consultant',
   SPC_OPERATOR: 'spc',
   FIELD_OPERATOR: 'operator',

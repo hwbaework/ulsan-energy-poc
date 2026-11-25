@@ -29,7 +29,7 @@ import { useMe } from '@/hooks/auth';
 import { useToastStore } from '@/stores/useToastStore';
 
 // 역할·권한 — 역할 목록 + 역할별 메뉴 접근 권한(트리). 메뉴를 볼 수 있는지만 관리한다(버튼 단위 권한 없음).
-// 기본 역할(관리자·발전사업자·전기사용자)은 이름·설명 수정·삭제 불가, 추가한 역할만 가능.
+// 기본 역할(운영·일반)은 이름·설명 수정·삭제 불가, 추가한 역할만 가능.
 // 본인이 보유한 역할의 접근 권한은 회수 불가(관리자 잠금 방지).
 
 export default function PlatformRolesPage() {
@@ -107,7 +107,7 @@ export default function PlatformRolesPage() {
   };
 
   const isOwnRole = !!active?.code && myRoleCodes.includes(active.code);
-  // 접근 권한 잠금은 관리자 역할만(2026-11-09 사용자: "권한 바꿀 수 있게 해야지 관리자 빼고는") — 발전사업자 · 전기사용자 · 추가한 역할은 편집
+  // 접근 권한 잠금은 관리자 역할만(2026-11-09 사용자: "권한 바꿀 수 있게 해야지 관리자 빼고는") — 기업 · 추가한 역할은 편집
   const locked = active?.code === 'SYSTEM_ADMIN';
 
   /* ── 메뉴 트리 ── */
@@ -147,6 +147,25 @@ export default function PlatformRolesPage() {
     return rows;
   }, [childrenOf, collapsed]);
 
+  /* ── 고정 메뉴 — 역할로 바꿀 수 없는 칸(2026-11-25 사용자) ──
+     · 대시보드(와 그 위 통합관제): 로그인하면 처음 가는 화면이라 모든 역할에서 항상 접근
+     · 관리 아래 전부: 일반(기업 계정의 기본 역할)에서는 항상 접근 없음 — 관리 메뉴는 관리자 계정의 것
+     운영(관리자 계정의 기본 역할)은 아래 locked 로 전부 고정 */
+  const fixed = useMemo(() => {
+    const m = new Map<number, boolean>();
+    const dash = allMenus.find((x) => x.menuCode === 'CONTROL_DASHBOARD');
+    if (dash) {
+      m.set(dash.id, true);
+      if (dash.parentId != null) m.set(dash.parentId, true);
+    }
+    if (active?.code === 'COMPANY') {
+      const admin = allMenus.find((x) => x.menuCode === 'ADMIN');
+      if (admin) for (const id of [admin.id, ...descendantIds(admin.id)]) m.set(id, false);
+    }
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allMenus, active?.code, childrenOf]);
+
   /* ── 접근 권한 편집 ── */
   // 원본: menuId → { canRead, canWrite }. canWrite 는 화면에서 다루지 않고 저장 시 원본 값을 그대로 넘긴다
   const original = useMemo(() => {
@@ -164,16 +183,17 @@ export default function PlatformRolesPage() {
   // 역할을 바꾸면 그 역할의 저장된 값으로 다시 채운다
   useEffect(() => {
     const next = new Map<number, boolean>();
-    allMenus.forEach((menu) => next.set(menu.id, original.get(menu.id)?.canRead ?? false));
+    allMenus.forEach((menu) => next.set(menu.id, fixed.get(menu.id) ?? original.get(menu.id)?.canRead ?? false));
     setDraft(next);
-  }, [allMenus, original, activeId]);
+  }, [allMenus, original, activeId, fixed]);
 
   // 상위 메뉴를 켜고 끄면 하위 메뉴도 같이 바뀐다
   const toggle = (menuId: number) => {
     setDraft((prev) => {
       const next = new Map(prev);
       const value = !(next.get(menuId) ?? false);
-      for (const id of [menuId, ...descendantIds(menuId)]) next.set(id, value);
+      // 고정 메뉴는 상위를 켜고 꺼도 따라 바뀌지 않는다
+      for (const id of [menuId, ...descendantIds(menuId)]) if (!fixed.has(id)) next.set(id, value);
       return next;
     });
   };
@@ -259,7 +279,7 @@ export default function PlatformRolesPage() {
                       </div>
                       {r.description && <p className="mt-0.5 text-xs text-slate-300 truncate">{r.description}</p>}
                     </div>
-                    {/* 기본 역할(관리자·발전사업자·전기사용자)은 수정·삭제 없음 — 추가한 역할만 */}
+                    {/* 기본 역할(운영·일반)은 수정·삭제 없음 — 추가한 역할만 */}
                     {!r.system && (
                       <div className="flex shrink-0 items-center gap-0.5">
                         <button
@@ -304,7 +324,7 @@ export default function PlatformRolesPage() {
             noPadding
             actions={
               locked ? (
-                <span className="text-sm text-slate-400">관리자 · 접근 고정</span>
+                <span className="text-sm text-slate-300">운영 · 접근 고정</span>
               ) : (
                 /* 취소 · 저장 — 항상 보이고 바꾼 값 없으면 둘 다 비활성(에너지 설정과 같은 규칙). 취소는 저장된 값으로 */
                 <div className="flex items-center gap-2">
@@ -361,7 +381,7 @@ export default function PlatformRolesPage() {
                         <input
                           type="checkbox"
                           checked={on}
-                          disabled={locked || (lock && on)}
+                          disabled={locked || fixed.has(menu.id) || (lock && on)}
                           onChange={() => toggle(menu.id)}
                           className="h-4 w-4 accent-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                           aria-label={`${menu.name} 접근`}

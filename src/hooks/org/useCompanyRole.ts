@@ -23,7 +23,7 @@ export function useMyAccount(): { line: string; Icon: LucideIcon } {
   const { data } = useUsers({});
   const me = (data?.content ?? []).find((u) => u.email === user?.email) as { accountType?: string; roles?: string[] } | undefined;
   const codes = me?.roles ?? (user as { roles?: string[] } | null)?.roles ?? [];
-  if (codes.includes('SYSTEM_ADMIN')) return { line: '관리자', Icon: ACCOUNT_ICON.admin };
+  if (me?.accountType === 'ADMIN' || codes.includes('SYSTEM_ADMIN')) return { line: '관리자', Icon: ACCOUNT_ICON.admin };
   if (me?.accountType === 'COMPANY_ADMIN') return { line: '기업 관리자', Icon: ACCOUNT_ICON.companyAdmin };
   if (me?.accountType === 'COMPANY_MEMBER') return { line: '기업 회원', Icon: ACCOUNT_ICON.companyMember };
   return { line: '', Icon: UserIcon };

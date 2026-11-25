@@ -15,10 +15,11 @@ import { useMe } from '@/hooks/auth/useAuth';
 
 import { LIMIT } from '@/lib/field-limits';
 const ROLE_LABEL: Record<string, string> = {
-  SYSTEM_ADMIN: '관리자',
-  POWER_OPERATOR: '발전사업자',
-  CONSUMER_MANAGER: '전기사용자',
-  SPC_OPERATOR: '관리자',
+  SYSTEM_ADMIN: '운영',
+  COMPANY: '일반',
+  POWER_OPERATOR: '일반',
+  CONSUMER_MANAGER: '일반',
+  SPC_OPERATOR: '운영',
 };
 
 export default function OrgProfilePage() {
