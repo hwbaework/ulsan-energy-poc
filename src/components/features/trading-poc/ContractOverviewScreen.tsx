@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { StatCard, StatsGrid } from '@/components/features/StatCard';
 import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
@@ -16,12 +16,7 @@ import { PageHeader, cellMuted, cellNum, cellStrong } from './Bits';
 const kw = (xs: Contract[]) => xs.reduce((s, c) => s + c.capacityKw, 0);
 /** 월 사용료 — onsite 만(예상 월 사용량 × 1구간 단가). 자가소비는 매달 내는 돈이 없다 */
 const returnOf = (c: Contract) => (c.kind === 'ONSITE' ? estimateMonthlyKwh(c.capacityKw) * c.unitPrice : 0);
-const arrow = {
-  key: 'go',
-  header: '',
-  width: '40px',
-  render: () => <ChevronRight size={15} className="text-slate-600" />,
-};
+// 손으로 그리던 화살표 칸은 뺐다 — 끝의 > 는 DataTable 의 rowLink 가 그린다(같이 두면 화살표가 둘, 2026-11-25 사용자)
 
 /**
  * 계약 현황 — 체결된(서명이 끝난) 계약만. 서명 대기는 거래 승인에서. 통합관제처럼 위 KPI(용량) · 그래프 · 표.
@@ -71,7 +66,6 @@ export function ContractOverviewScreen() {
       sortValue: (c) => c.monthly,
       render: (c) => cellNum(c.monthly ? fmtKrw(c.monthly) : '-'),
     },
-    arrow,
   ];
 
   const contractsBase = role.isAdmin ? '/platform/ppa/contracts' : '/generator/ppa/contracts';

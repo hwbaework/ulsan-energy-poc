@@ -100,12 +100,7 @@ const num = (v: ReactNode) => <span className="whitespace-nowrap text-sm tabular
 const strong = (v: ReactNode) => (
   <span className="whitespace-nowrap text-sm font-medium tabular-nums text-white">{v}</span>
 );
-const arrow = {
-  key: 'go',
-  header: '',
-  width: '40px',
-  render: () => <ChevronRight size={15} className="text-slate-600" />,
-};
+// 손으로 그리던 화살표 칸은 뺐다 — 끝의 > 는 DataTable 의 rowLink 가 그린다(같이 두면 화살표가 둘, 2026-11-25 사용자)
 const CATALOG = '/e-data/catalog';
 const CONSENT = `${CATALOG}/consent`;
 const API_HUB = '/e-data/api-hub';
@@ -1066,14 +1061,12 @@ function DataTradesCompany() {
     { key: 'data', header: '내 데이터', render: (r) => cell(r.d.name, 'font-medium text-white') },
     { key: 'users', header: '이용 중', width: '120px', render: (r) => strong(`${r.users}건`) },
     { key: 'amt', header: '금월 정산 금액', width: '160px', align: 'right', render: (r) => num(won(r.amount)) },
-    arrow,
   ];
   const boughtCols: Column<DataTrade>[] = [
     { key: 'data', header: '데이터', render: (t) => cell(t.datasetName, 'font-medium text-white') },
     { key: 'seller', header: '제공 기업', width: '150px', render: (t) => cell(t.sellerCompanyName, 'text-white') },
     { key: 'start', header: '시작일', width: '130px', render: (t) => num(day(t.startedAt)) },
     { key: 'amt', header: '월 금액', width: '110px', align: 'right', render: (t) => num(won(t.price)) },
-    arrow,
   ];
   return (
     <div className="space-y-6">
@@ -1169,7 +1162,6 @@ function DataTradesAdmin() {
           },
         ]
       : []),
-    arrow,
   ];
 
   return (
@@ -1320,7 +1312,6 @@ export function DataSettlementScreen() {
       sortValue: (c) => c.getAmt,
       render: (c) => cell(won(c.getAmt), 'tabular-nums text-emerald-400'),
     },
-    arrow,
   ];
 
   /* 표 2 · 3 — 기업 하나: 제공(내 데이터를 쓴 곳에서 받을 돈) · 사용(내가 쓴 데이터에 낸 돈) */
@@ -1343,7 +1334,6 @@ export function DataSettlementScreen() {
     { key: 'n', header: '이용 건수', width: '110px', render: (g) => num(`${g.n}건`) },
     { key: 'amt', header: '금액', width: '120px', render: (g) => cell(won(g.amount), 'tabular-nums text-white') },
     { key: 'date', header: '정산일', width: '130px', render: (g) => num(g.payDate) },
-    arrow,
   ];
   const payCols: Column<SettleRow>[] = [
     { key: 'name', header: '데이터', render: (r) => cell(r.trade.datasetName, 'font-medium text-white') },

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, Download } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { StatCard, StatsGrid } from '@/components/features/StatCard';
 import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
@@ -74,12 +74,7 @@ import { fitPdf } from '@/lib/utils/fitPdf';
 import { useLocationSearch } from '@/lib/use-location-search';
 
 
-const arrow = {
-  key: 'go',
-  header: '',
-  width: '40px',
-  render: () => <ChevronRight size={15} className="text-slate-600" />,
-};
+// 손으로 그리던 화살표 칸은 뺐다 — 끝의 > 는 DataTable 의 rowLink 가 그린다(같이 두면 화살표가 둘, 2026-11-25 사용자)
 
 /**
  * 거래 승인 — 거래 이력에서 승인된 거래만: 전자서명 → 체결. 행을 누르면 거래 한 건 화면(계약서 · 서명).
@@ -130,7 +125,6 @@ export function TradeApprovalsScreen() {
       width: '190px',
       render: (r) => <StatusPill tone="normal" label={`${stepLabel('승인', TRADE_STEPS.length - 1)}${isNew(r) ? ' · 신규' : ''}`} />,
     },
-    arrow,
   ];
 
   return (

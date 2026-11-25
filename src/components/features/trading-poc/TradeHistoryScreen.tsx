@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, Send } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { StatCard, StatsGrid } from '@/components/features/StatCard';
 import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
@@ -97,12 +97,7 @@ function isMineOf(role: ReturnType<typeof useTradingRole>, r: TradeRequest) {
   return !role.isAdmin && [r.applicantCompanyId, r.generatorCompanyId, r.consumerCompanyId].includes(role.companyId);
 }
 
-const arrow = {
-  key: 'go',
-  header: '',
-  width: '40px',
-  render: () => <ChevronRight size={15} className="text-slate-600" />,
-};
+// 손으로 그리던 화살표 칸은 뺐다 — 끝의 > 는 DataTable 의 rowLink 가 그린다(같이 두면 화살표가 둘, 2026-11-25 사용자)
 const base = (admin: boolean) => (admin ? '/platform/trading/history' : '/generator/trading/history');
 
 /**
@@ -163,7 +158,6 @@ export function TradeHistoryScreen() {
     },
     // 상태도 머리글을 눌러 정렬 — 단계 순서(신청 → 미팅 → 조건 확정 → 전자서명 → 반려)
     { key: 'status', header: '상태', width: '230px', sortable: true, sortValue: (r) => statusOrder(r), render: (r) => <HistoryPill r={r} turn={turnFor(r)} /> },
-    arrow,
   ];
 
   return (

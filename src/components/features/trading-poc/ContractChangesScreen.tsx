@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, FileEdit } from 'lucide-react';
+import { FileEdit } from 'lucide-react';
 import { StatCard, StatsGrid } from '@/components/features/StatCard';
 import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column } from '@/components/features/DataList';
@@ -112,7 +112,6 @@ export function ContractChangesScreen() {
         return <StatusPill tone={CHANGE_STATE_TONE[st]} label={turn ? `${st} · ${turn}` : st} />;
       },
     },
-    { key: 'go', header: '', width: '40px', render: () => <ChevronRight size={15} className="text-slate-600" /> },
   ];
 
   return (
