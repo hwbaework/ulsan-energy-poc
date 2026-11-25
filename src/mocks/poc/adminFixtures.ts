@@ -42,6 +42,10 @@ export const COMPANIES: MockCompany[] = [
   // 실제 대상 기업 나머지 둘 — 전력거래 데모(CO.TAESUNG · CO.GUNHO)와 같은 번호, 주소는 통합관제 발전소 주소
   { id: 6, name: '태성산업', businessNumber: '610-81-60006', representativeName: '강태성', bizType: '제조업', bizCategory: '산업용 기계 부품', address: '울산 남구 여천동 358-8', phone: '052-600-6000', email: 'info@taesung.co.kr', status: 'ACTIVE', businessTypes: ['전기사용자'], employeeCount: 45, createdAt: daysAgo(280), updatedAt: daysAgo(6) },
   { id: 7, name: '건호이엔씨', businessNumber: '610-81-70007', representativeName: '윤건호', bizType: '건설업', bizCategory: '전기공사', address: '울산 남구 부곡동 22-5', phone: '052-700-7000', email: 'info@gunho.co.kr', status: 'ACTIVE', businessTypes: ['전기사용자'], employeeCount: 36, createdAt: daysAgo(260), updatedAt: daysAgo(5) },
+  // 가입만 한 기업 — 계약 없음. 거래 신청의 기업 선택(CO.TEST)과 같은 번호(2026-11-24 사용자)
+  { id: 8, name: '테스트 기업', businessNumber: '610-81-80008', representativeName: '김테스트', bizType: '제조업', bizCategory: '테스트', address: '울산 남구 처용로 8', phone: '052-800-8000', email: 'test@test.com', status: 'ACTIVE', businessTypes: ['전기사용자'], employeeCount: 10, createdAt: daysAgo(3), updatedAt: daysAgo(3) },
+  // PPA 계약만 있는 기업 — 거래 계약 CT-2026-0016(CO.MIPO)과 같은 번호(데모 기업, 2026-11-24 사용자)
+  { id: 9, name: '미포테크', businessNumber: '610-81-90009', representativeName: '오세진', bizType: '제조업', bizCategory: '금속 가공', address: '울산 남구 여천로 120', phone: '052-900-9000', email: 'info@mipotech.co.kr', status: 'ACTIVE', businessTypes: ['발전사업자'], employeeCount: 48, createdAt: daysAgo(170), updatedAt: daysAgo(6) },
 ];
 
 /* ── 회원 ─────────────────────────────────────────────── */
@@ -68,10 +72,14 @@ export const USERS: MockUser[] = [
   { id: 2, email: 'operator@test.com', name: '박발전', phone: '010-2000-0002', status: 'ACTIVE', companyId: 4, companyName: '한일튜브', roles: ['POWER_OPERATOR'], isActive: true, department: '발전운영팀', position: '과장', accountType: 'COMPANY_ADMIN', lastLoginAt: daysAgo(1), createdAt: daysAgo(320), updatedAt: daysAgo(1) },
   { id: 3, email: 'consumer@test.com', name: '이수용', phone: '010-3000-0003', status: 'ACTIVE', companyId: 3, companyName: '한길', roles: ['CONSUMER_MANAGER'], isActive: true, department: '시설관리팀', position: '대리', accountType: 'COMPANY_ADMIN', lastLoginAt: daysAgo(2), createdAt: daysAgo(300), updatedAt: daysAgo(2) },
   { id: 4, email: 'kim@hanil.co.kr', name: '김한일', phone: '010-4000-0004', status: 'ACTIVE', companyId: 4, companyName: '한일튜브', roles: ['POWER_OPERATOR'], isActive: true, department: '설비팀', position: '차장', accountType: 'COMPANY_MEMBER', lastLoginAt: daysAgo(3), createdAt: daysAgo(90), updatedAt: daysAgo(3) },
-  // 관리자(최고 관리자 아래) — 역할 · 권한, 에너지 설정 메뉴 없음(2026-11-24)
-  { id: 7, email: 'manager@test.com', name: '정관리', phone: '010-1000-0007', status: 'ACTIVE', companyId: 1, companyName: '울산 에너지 플랫폼', roles: ['PLATFORM_ADMIN'], isActive: true, department: '운영팀', position: '대리', accountType: 'COMPANY_MEMBER', lastLoginAt: daysAgo(1), createdAt: daysAgo(200), updatedAt: daysAgo(1) },
+  // 관리자 소속 회원 — 관리자는 역할 하나(최고 관리자 따로 없음, 2026-11-24)
+  { id: 7, email: 'manager@test.com', name: '정관리', phone: '010-1000-0007', status: 'ACTIVE', companyId: 1, companyName: '울산 에너지 플랫폼', roles: ['SYSTEM_ADMIN'], isActive: true, department: '운영팀', position: '대리', accountType: 'COMPANY_MEMBER', lastLoginAt: daysAgo(1), createdAt: daysAgo(200), updatedAt: daysAgo(1) },
   // 한길 기업 회원 — 기업 관리자(이수용)와 달리 운전 일정 · 결제 수단 · 정산 계좌는 보기만(2026-11-24)
   { id: 8, email: 'choi@hangil.co.kr', name: '최한길', phone: '010-3000-0008', status: 'ACTIVE', companyId: 3, companyName: '한길', roles: ['CONSUMER_MANAGER'], isActive: true, department: '시설관리팀', position: '사원', accountType: 'COMPANY_MEMBER', lastLoginAt: daysAgo(4), createdAt: daysAgo(60), updatedAt: daysAgo(4) },
+  // 테스트 기업의 기업 관리자 — 가입 승인까지 끝났고 계약은 없다
+  { id: 9, email: 'test@test.com', name: '김테스트', phone: '010-8000-0009', status: 'ACTIVE', companyId: 8, companyName: '테스트 기업', roles: ['CONSUMER_MANAGER'], isActive: true, department: '관리부', position: '과장', accountType: 'COMPANY_ADMIN', lastLoginAt: null, createdAt: daysAgo(3), updatedAt: daysAgo(3) },
+  // 미포테크의 기업 관리자 — PPA 계약만 있는 기업
+  { id: 10, email: 'ppa@test.com', name: '오세진', phone: '010-9000-0010', status: 'ACTIVE', companyId: 9, companyName: '미포테크', roles: ['POWER_OPERATOR'], isActive: true, department: '설비팀', position: '부장', accountType: 'COMPANY_ADMIN', lastLoginAt: daysAgo(1), createdAt: daysAgo(170), updatedAt: daysAgo(6) },
   // 승인 대기 — 기업 관리자(용인금속 첫 가입) · 기업 회원(한일튜브 소속 추가 가입)
   { id: 5, email: 'park@yongin.co.kr', name: '박용인', phone: '010-5000-0005', status: 'PENDING', companyId: 5, companyName: '용인금속', roles: ['CONSUMER_MANAGER'], isActive: false, department: '관리부', position: '과장', accountType: 'COMPANY_ADMIN', lastLoginAt: null, createdAt: daysAgo(1), updatedAt: daysAgo(1) },
   { id: 6, email: 'lee@hanil.co.kr', name: '이설비', phone: '010-6000-0006', status: 'PENDING', companyId: 4, companyName: '한일튜브', roles: ['CONSUMER_MANAGER'], isActive: false, department: '설비팀', position: '사원', accountType: 'COMPANY_MEMBER', lastLoginAt: null, createdAt: daysAgo(0), updatedAt: daysAgo(0) },
@@ -87,8 +95,7 @@ interface MockRole {
   system: boolean;
 }
 export const ROLES: MockRole[] = [
-  { id: 1, name: '최고 관리자', code: 'SYSTEM_ADMIN', description: '플랫폼 전체 관리', defaultPath: '/dashboard', system: true },
-  { id: 5, name: '관리자', code: 'PLATFORM_ADMIN', description: '플랫폼 운영(역할 · 권한, 에너지 설정 제외)', defaultPath: '/dashboard', system: true },
+  { id: 1, name: '관리자', code: 'SYSTEM_ADMIN', description: '플랫폼 전체 관리', defaultPath: '/dashboard', system: true },
   { id: 2, name: '발전사업자', code: 'POWER_OPERATOR', description: '발전소 운영·거래', defaultPath: '/dashboard', system: true },
   { id: 3, name: '전기사용자', code: 'CONSUMER_MANAGER', description: '전기사용자 에너지·거래', defaultPath: '/dashboard', system: true },
   // 추가한 역할 예시 — 수정·삭제 가능
@@ -124,7 +131,7 @@ addMenu('이상감지 관리', 'CONTROL_ANOMALY', '/monitoring/anomalies', M_CON
 // 안전운영 — 예지보전 · 안전은 통합관제 바로 아래(DiSOP 묶음 없음, 2026-11-23 사용자)
 addMenu('예지보전', 'CONTROL_PREDICTIVE', '/control/predictive', M_CONTROL, 1);
 addMenu('안전', 'CONTROL_SAFETY', '/control/safety', M_CONTROL, 1);
-addMenu('디지털트윈', 'CONTROL_DT', 'https://terrawatt.pairworks.net/', M_CONTROL, 1);
+addMenu('AI통합 모니터링', 'CONTROL_DT', 'https://terrawatt.pairworks.net/', M_CONTROL, 1);
 addMenu('보고서', 'CONTROL_REPORT', '/monitoring/reports', M_CONTROL, 1);
 // RE100
 const M_RE100 = addMenu('RE100', 'RE100', '/platform/trading', null, 0);
@@ -166,10 +173,10 @@ addMenu('설정', 'ADMIN_ORG_SETTINGS', '/org/settings', M_ADMIN, 1);
 addMenu('내 계정', 'ADMIN_PROFILE', '/org/profile', M_ADMIN, 1);
 addMenu('기업 관리', 'ADMIN_COMPANIES', '/platform/companies', M_ADMIN, 1);
 addMenu('회원 관리', 'ADMIN_USERS', '/platform/users', M_ADMIN, 1);
-const M_ROLES = addMenu('역할·권한', 'ADMIN_ROLES', '/platform/roles', M_ADMIN, 1);
+addMenu('역할·권한', 'ADMIN_ROLES', '/platform/roles', M_ADMIN, 1);
 // 승인 관리 · 거래 승인(운영)은 2026-11-09 제거 — 거래 승인은 RE100 › 거래 승인 하나, 가입 · 기업 정보 변경 검토는 기업 관리 · 회원 관리에서
 addMenu('알림 설정', 'ADMIN_NOTIFICATIONS', '/platform/notification-settings', M_ADMIN, 1);
-const M_ENERGY = addMenu('에너지 설정', 'ADMIN_ENERGY_SETTINGS', '/platform/energy-settings', M_ADMIN, 1);
+addMenu('에너지 설정', 'ADMIN_ENERGY_SETTINGS', '/platform/energy-settings', M_ADMIN, 1);
 
 function isUnder(menu: MockMenu, rootId: number): boolean {
   let cur: MockMenu | undefined = menu;
@@ -181,11 +188,9 @@ function isUnder(menu: MockMenu, rootId: number): boolean {
 }
 // 역할별 메뉴 권한 — 관리자=전체 쓰기 · 발전사업자/전기사용자=관리 트리와 관제 홈(지도) 제외 조회. 화면에서 저장하면 여기에 반영된다
 interface MenuPerm { canRead: boolean; canWrite: boolean }
-const ROLE_MENU_PERMS: Record<number, Record<number, MenuPerm>> = { 1: {}, 2: {}, 3: {}, 4: {}, 5: {} };
+const ROLE_MENU_PERMS: Record<number, Record<number, MenuPerm>> = { 1: {}, 2: {}, 3: {}, 4: {} };
 for (const m of MENUS) {
   ROLE_MENU_PERMS[1]![m.id] = { canRead: true, canWrite: true };
-  // 관리자 — 최고 관리자와 같되 역할 · 권한, 에너지 설정만 없음
-  if (m.id !== M_ROLES && m.id !== M_ENERGY) ROLE_MENU_PERMS[5]![m.id] = { canRead: true, canWrite: true };
   if (!isUnder(m, M_ADMIN) && m.id !== M_MAP) {
     ROLE_MENU_PERMS[2]![m.id] = { canRead: true, canWrite: false };
     ROLE_MENU_PERMS[3]![m.id] = { canRead: true, canWrite: false };

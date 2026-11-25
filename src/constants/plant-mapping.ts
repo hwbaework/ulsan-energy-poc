@@ -15,6 +15,7 @@ export const LASEE_PLANTS: LaseePlantInfo[] = [
   { laseeId: 17513, name: '건호이엔씨', latitude: 35.505049, longitude: 129.330609 }, // 남구 부곡동 22-5 · 33.92kW
   { laseeId: 17514, name: '한일튜브', latitude: 35.5062, longitude: 129.3321 }, // 남구 부곡동 273-6 · 429.44kW
   { laseeId: 17515, name: '한길', latitude: 35.475747, longitude: 129.360551 }, // 남구 용연동 490-11 · 90.88kW
+  { laseeId: 17516, name: '미포테크', latitude: 35.5108, longitude: 129.3415 }, // 남구 여천로 120 · 100kW — PPA 계약만 있는 기업을 보려고 넣은 데모 기업(실제 대상 5곳 아님, 2026-11-24 사용자)
   { laseeId: 17601, name: '연료전지', latitude: 35.50376, longitude: 129.31617 }, // 남구 상개동 427-5 (근사)
   { laseeId: 17602, name: 'ORC', latitude: 35.502657, longitude: 129.329262 }, // 남구 사평로 119 (근사)
 ];

@@ -646,6 +646,7 @@ export function DataConsentScreen() {
           rowKey={(d) => d.id}
           emptyMessage="판매할 데이터 없음"
           onRowClick={(d) => router.push(`${CATALOG}/view?id=${d.id}`)}
+          rowLink
         />
       </SectionCard>
       {flow && <ConsentFlow d={flow} onClose={() => setFlow(null)} />}
@@ -1090,6 +1091,7 @@ function DataTradesCompany() {
           rowKey={(r) => r.d.id}
           emptyMessage="제공 중인 데이터 없음"
           onRowClick={(r) => router.push(`${TRADING}/view?id=${r.d.id}`)}
+          rowLink
         />
       </SectionCard>
       <SectionCard title="이용 중" noPadding>
@@ -1099,6 +1101,7 @@ function DataTradesCompany() {
           rowKey={(t) => t.id}
           emptyMessage="이용 중인 데이터 없음"
           onRowClick={(t) => router.push(`${CATALOG}/view?id=${t.datasetId}`)}
+          rowLink
         />
       </SectionCard>
     </div>
@@ -1198,6 +1201,7 @@ function DataTradesAdmin() {
           rowKey={(r) => r.d.id}
           emptyMessage="판매 중인 데이터 없음"
           onRowClick={(r) => router.push(`${TRADING}/view?id=${r.d.id}`)}
+          rowLink
         />
       </SectionCard>
     </div>
@@ -1456,6 +1460,7 @@ export function DataSettlementScreen() {
               rowKey={(g) => g.id}
               emptyMessage="제공 없음"
               onRowClick={(g) => router.push(`${TRADING}/view?id=${g.id}`)}
+              rowLink
             />
           </SectionCard>
           <SectionCard title="이용" noPadding>

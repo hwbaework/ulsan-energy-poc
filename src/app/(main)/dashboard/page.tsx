@@ -348,7 +348,11 @@ export default function DashboardPage() {
   const selfCards = isConsumer || viewKind === 'SELF_CONSUMPTION';
   // 관리자 PPA — 플랫폼(SPC)이 보유한 설비와 받는 PPA 요금(금년 · 금월 · 금일)
   const adminPpa = isAdmin && viewKind === 'ONSITE';
-  // 관리자 총 설비 용량 — 유형 셀렉트와 상관없이 5개소 전체 계약(자가소비 + PPA) 합 = 752.64 kW(실제 설치 용량).
+  // 계약이 둘(자가소비 + PPA)인 기업 — 관리자와 같은 구조: 맨 위는 두 계약 합(총 설비 용량 · 금년 · 금월 발전량 · 금일 금액(PPA 몫)),
+  // 유형은 발전·공급 카드 안 셀렉트로 골라 각각 본다. 오른쪽 위 계약 유형 셀렉트 · 전년 발전량 칸은 없다(2026-11-24 사용자)
+  const combo = !isAdmin && multiKind;
+  const comboCapacity = allContractPlants.reduce((a, p) => a + p.capacity, 0);
+  // 관리자 총 설비 용량 — 유형 셀렉트와 상관없이 전체 계약(자가소비 + PPA) 합 = 852.64 kW(실제 대상 5곳 752.64 + 데모 기업 미포테크 PPA 100).
   // 계약이 없는 연료전지(39.6 MW) · ORC(2.16 MW)는 세지 않는다 — 넣으면 42.51 MW 가 되는데 그 둘은 사업계획서의 계획 용량이고, 옆 카드(발전량 · 금액)도 태양광 계약 기준이다(2026-11-24 사용자: 실제를 바탕으로)
   const adminTotalCapacity = allContractPlants.filter((p) => p.contractKind).reduce((a, p) => a + p.capacity, 0);
   const ppaContracts = (multiKind ? pickedContracts : allContractPlants).filter((p) => p.contractKind === 'ONSITE');
@@ -373,6 +377,9 @@ export default function DashboardPage() {
   // 관리자 PPA — 금년 · 금월 발전량(PPA 몫), 금액은 금일만
   const yearKwh = ppaContracts.reduce((a, p) => a + (kpiByPlant[p.plantId]?.[todayYear]?.total ?? 0) * p.share, 0);
   // 금일 금액 — PPA 몫의 금일 발전량 × PPA 단가
+  const comboYearKwh = allContractPlants.reduce((a, p) => a + (kpiByPlant[p.plantId]?.[todayYear]?.total ?? 0) * p.share, 0);
+  const comboMonthKwh = allContractPlants.reduce((a, p) => a + (kpiByPlant[p.plantId]?.[todayYear]?.months[monthNo - 1] ?? 0) * p.share, 0);
+  const comboTodayAmount = allContractPlants.filter((p) => p.contractKind === 'ONSITE').reduce((sum, p) => sum + (p.dailyEnergy ?? 0) * ppaUnitPrice, 0);
   const todayAmount = (multiKind ? pickedContracts : allContractPlants)
     .filter((p) => p.contractKind === 'ONSITE')
     .reduce((sum, p) => sum + (p.dailyEnergy ?? 0) * ppaUnitPrice, 0);
@@ -681,30 +688,25 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2.5">
               <h1 className="text-xl font-bold text-white">대시보드</h1>
               {/* 지금 보는 계약 유형 — 색이 아니라 글자로(design.ts 규칙) */}
-              {viewKind && !isAdmin && (
+              {viewKind && !isAdmin && !combo && (
                 <span className="rounded-md bg-white/[0.08] px-2.5 py-1 text-sm font-semibold text-white ring-1 ring-white/[0.16]">
                   {CONTRACT_KIND_LABEL[viewKind]}
                 </span>
               )}
             </div>
-            {multiKind && !isAdmin ? (
-              <div className="w-52">
-                <Select
-                  options={kindChoices.map((k) => ({
-                    value: k,
-                    label: `${CONTRACT_KIND_LABEL[k]} · ${fmtKw(allContractPlants.filter((p) => p.contractKind === k).reduce((a, p) => a + p.capacity, 0))}`,
-                  }))}
-                  value={kindSel}
-                  onChange={(e) => setKindSel(e.target.value as PlantContractKind)}
-                />
-              </div>
-            ) : null}
           </div>
 
           {/* 카드 4개 — 자가소비 = 설비 용량 · 전년 · 금월 · 금일 발전량 / PPA = 설비 용량 · 금월 · 금일 발전량 · 금일 금액 / 관리자 PPA = 총 설비 용량(5개소 전체 계약 합) · 금년 · 금월 발전량 · 금일 금액('총'은 설비 용량만, 2026-11-23 사용자) */}
           <StatsGrid columns={4}>
             {/* StatsGrid 는 자식 하나를 칸 하나로 감싼다 — Fragment 로 묶으면 한 칸에 몰리므로 배열로 */}
-            {(adminPpa
+            {(combo
+              ? [
+                  <StatCard key="cap" label="총 설비 용량" value={fmtKw(comboCapacity)} />,
+                  <StatCard key="y" label="금년 발전량" value={fmtKwh(comboYearKwh)} />,
+                  <StatCard key="m" label="금월 발전량" value={fmtKwh(comboMonthKwh)} />,
+                  <StatCard key="d" label="금일 금액" value={fmtWon(comboTodayAmount)} />,
+                ]
+              : adminPpa
               ? [
                   <StatCard key="cap" label="총 설비 용량" value={fmtKw(adminTotalCapacity)} />,
                   <StatCard key="y" label="금년 발전량" value={fmtKwh(yearKwh)} />,
@@ -735,9 +737,10 @@ export default function DashboardPage() {
                   )}
                 </div>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  {genCtl.tu === 'hour' && '금일 시간대별 발전량 (kW)'}
-                  {genCtl.tu === 'day' && '최근 30일 일별 발전량 (kWh)'}
-                  {genCtl.tu === 'month' && '최근 12개월 월별 발전량 (kWh)'}
+                  {/* 부제는 실제로 보이는 기간 그대로 — 고른 날 · 고른 달(1일~말일) · 고른 해(1~12월). '최근 30일 · 최근 12개월'은 틀린 글자였다(2026-11-24 사용자). CO₂ 저감량 카드와 같은 꼴 */}
+                  {genCtl.tu === 'hour' && `${genCtl.date} 시간대별 발전량 (kW)`}
+                  {genCtl.tu === 'day' && `${genCtl.month} 일별 발전량 (kWh)`}
+                  {genCtl.tu === 'month' && `${genCtl.year} 월별 발전량 (kWh)`}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -764,7 +767,7 @@ export default function DashboardPage() {
               {/* 관리자 — 고른 회사(고른 계약): 설비 용량 | 발전량(초록) | 금액. 기간은 시간(금일) · 일(금월) · 월(금년) */}
               {/* 관리자 — 고른 계약. PPA: 설비 용량 | 기간 발전량 | 기간 금액(SPC 가 받는 요금)
                   자가소비: 금액 없음(기업이 쓴 만큼 아낀 것, 내는 곳이 없다) — 설비 용량 | 기간 발전량. 기간은 시간 · 일 · 월 선택을 따른다 */}
-              {isAdmin && selectedCompany && selectedCompany.contractKind === 'SELF_CONSUMPTION' && (
+              {(isAdmin || combo) && selectedCompany && selectedCompany.contractKind === 'SELF_CONSUMPTION' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                   <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.06] p-3">
                     <p className="text-sm text-slate-300">설비 용량</p>
@@ -776,7 +779,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
               )}
-              {isAdmin && selectedCompany && selectedCompany.contractKind !== 'SELF_CONSUMPTION' && (
+              {(isAdmin || combo) && selectedCompany && selectedCompany.contractKind !== 'SELF_CONSUMPTION' && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                   <div className="rounded-lg bg-white/[0.03] ring-1 ring-white/[0.06] p-3">
                     <p className="text-sm text-slate-300">설비 용량</p>
@@ -806,6 +809,17 @@ export default function DashboardPage() {
                           setSelectedCompanyKey(e.target.value);
                           setCo2CompanyKey(e.target.value);
                         }}
+                        className="h-7 text-xs"
+                      />
+                    </div>
+                  )}
+                  {/* 계약이 둘인 기업 — 관리자의 기업 셀렉트 자리에 계약 유형 셀렉트(자가소비 / PPA) */}
+                  {combo && (
+                    <div className="mr-2 w-48">
+                      <Select
+                        options={kindChoices.map((k) => ({ value: k, label: CONTRACT_KIND_LABEL[k] }))}
+                        value={kindSel}
+                        onChange={(e) => setKindSel(e.target.value as PlantContractKind)}
                         className="h-7 text-xs"
                       />
                     </div>

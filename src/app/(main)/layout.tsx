@@ -143,6 +143,31 @@ const EDATA_CHILDREN: GnbChild[] = [
   { to: '/e-data/api-hub', icon: KeyRound, label: 'API 허브', section: '데이터 마켓플레이스' }, // 3.3.4
 ];
 
+// WBS 2.x RE100 — 기업 계정(기업 관리자 · 기업 회원) 공통. 전력거래는 모든 기업 계정에 연다 —
+// 새로 가입한 기업이 가장 먼저 할 일이 거래 신청인데 전기사용자 역할에는 메뉴가 없었다(2026-11-24 사용자)
+const RE100_COMPANY_CHILDREN: GnbChild[] = [
+  // 2.1 전력거래 — 흐름 순서: 거래 신청 · 거래 이력 · 거래 승인 · 계약 현황 · 내 계약 · 변경·해지 · 수익·정산(세금계산서·청구서) · 문서 관리
+  { to: '/generator/trading', icon: ArrowRightLeft, label: '거래 신청', section: '전력거래', end: true }, // 2.1.1
+  { to: '/generator/trading/history', icon: History, label: '거래 이력', section: '전력거래' }, // 2.1.4
+  { to: '/generator/trading/approvals', icon: ShieldCheck, label: '거래 승인', section: '전력거래' }, // 2.1.7
+  { to: '/generator/ppa/contracts', icon: Handshake, label: '내 계약', section: '전력거래' }, // 2.1.2
+  { to: '/generator/trading/changes', icon: ClipboardList, label: '변경·해지', section: '전력거래' }, // 2.1.3
+  {
+    to: '/generator/ppa/direct/revenue/tax-invoice',
+    icon: Receipt,
+    label: '수익·정산',
+    section: '전력거래',
+    subChildren: [
+      { to: '/generator/ppa/direct/revenue/tax-invoice', icon: FileText, label: '세금계산서' },
+      { to: '/generator/ppa/direct/revenue/invoices', icon: CreditCard, label: '청구서' },
+    ],
+  }, // 2.1.5
+  { to: '/generator/ppa/documents', icon: FileText, label: '문서 관리', section: '전력거래' }, // 2.1.8
+  // 2.2 컨설팅 — 순서: 전력거래 → 컨설팅 (2026-10-13 다시)
+  ...RE100_CONSULTING_CHILDREN,
+  RE100_EDU(false),
+];
+
 const GNB_ITEMS: GnbItem[] = [
   /* ══ ① 통합관제 CONTROL — WBS 1.x ══ */
   {
@@ -160,7 +185,7 @@ const GNB_ITEMS: GnbItem[] = [
         // 안전운영 — 예지보전 · 안전을 DiSOP 아래가 아니라 바로 둔다(2026-11-23 사용자)
         { to: '/control/predictive', icon: Cpu, label: '예지보전', section: '안전운영' }, // 1.2.2
         { to: '/control/safety', icon: ShieldCheck, label: '안전', section: '안전운영' }, // 1.2.3
-        { to: 'https://terrawatt.pairworks.net/', icon: Globe, label: '디지털트윈', section: 'DT', external: true }, // 1.3.1 (외부 TerraWatt)
+        { to: 'https://terrawatt.pairworks.net/', icon: Globe, label: 'AI통합 모니터링', section: 'AI', external: true }, // 1.3.1 (외부 TerraWatt)
         { to: '/monitoring/reports', icon: BarChart3, label: '보고서', section: '보고' }, // 1.4.1
       ],
       generator: [
@@ -170,7 +195,7 @@ const GNB_ITEMS: GnbItem[] = [
         // 안전운영 — 예지보전 · 안전을 DiSOP 아래가 아니라 바로 둔다(2026-11-23 사용자)
         { to: '/control/predictive', icon: Cpu, label: '예지보전', section: '안전운영' }, // 1.2.2
         { to: '/control/safety', icon: ShieldCheck, label: '안전', section: '안전운영' }, // 1.2.3
-        { to: 'https://terrawatt.pairworks.net/', icon: Globe, label: '디지털트윈', section: 'DT', external: true }, // 1.3.1 (외부 TerraWatt)
+        { to: 'https://terrawatt.pairworks.net/', icon: Globe, label: 'AI통합 모니터링', section: 'AI', external: true }, // 1.3.1 (외부 TerraWatt)
         { to: '/monitoring/reports', icon: BarChart3, label: '보고서', section: '보고' }, // 1.4.1
       ],
       admin: [
@@ -181,7 +206,7 @@ const GNB_ITEMS: GnbItem[] = [
         // 안전운영 — 예지보전 · 안전을 DiSOP 아래가 아니라 바로 둔다(2026-11-23 사용자)
         { to: '/control/predictive', icon: Cpu, label: '예지보전', section: '안전운영' }, // 1.2.2
         { to: '/control/safety', icon: ShieldCheck, label: '안전', section: '안전운영' }, // 1.2.3
-        { to: 'https://terrawatt.pairworks.net/', icon: Globe, label: '디지털트윈', section: 'DT', external: true }, // 1.3.1 (외부 TerraWatt)
+        { to: 'https://terrawatt.pairworks.net/', icon: Globe, label: 'AI통합 모니터링', section: 'AI', external: true }, // 1.3.1 (외부 TerraWatt)
         { to: '/monitoring/reports', icon: BarChart3, label: '보고서', section: '보고' }, // 1.4.1
       ],
     },
@@ -195,30 +220,8 @@ const GNB_ITEMS: GnbItem[] = [
     personas: ['generator', 'consumer', 'admin'],
     toByPersona: { consumer: '/consulting', generator: '/consulting', admin: '/consulting' },
     childrenByPersona: {
-      // 전기사용자: 2.2 컨설팅만
-      consumer: [...RE100_CONSULTING_CHILDREN, RE100_EDU(false)],
-      generator: [
-        // 2.1 전력거래 — 흐름 순서: 거래 신청 · 거래 이력 · 거래 승인 · 계약 현황 · 내 계약 · 변경·해지 · 수익·정산(세금계산서·청구서) · 문서 관리
-        { to: '/generator/trading', icon: ArrowRightLeft, label: '거래 신청', section: '전력거래', end: true }, // 2.1.1
-        { to: '/generator/trading/history', icon: History, label: '거래 이력', section: '전력거래' }, // 2.1.4
-        { to: '/generator/trading/approvals', icon: ShieldCheck, label: '거래 승인', section: '전력거래' }, // 2.1.7
-        { to: '/generator/ppa/contracts', icon: Handshake, label: '내 계약', section: '전력거래' }, // 2.1.2
-        { to: '/generator/trading/changes', icon: ClipboardList, label: '변경·해지', section: '전력거래' }, // 2.1.3
-        {
-          to: '/generator/ppa/direct/revenue/tax-invoice',
-          icon: Receipt,
-          label: '수익·정산',
-          section: '전력거래',
-          subChildren: [
-            { to: '/generator/ppa/direct/revenue/tax-invoice', icon: FileText, label: '세금계산서' },
-            { to: '/generator/ppa/direct/revenue/invoices', icon: CreditCard, label: '청구서' },
-          ],
-        }, // 2.1.5
-        { to: '/generator/ppa/documents', icon: FileText, label: '문서 관리', section: '전력거래' }, // 2.1.8
-        // 2.2 컨설팅 — 순서: 전력거래 → 컨설팅 (2026-10-13 다시)
-        ...RE100_CONSULTING_CHILDREN,
-        RE100_EDU(false),
-      ],
+      consumer: RE100_COMPANY_CHILDREN,
+      generator: RE100_COMPANY_CHILDREN,
       admin: [
         // 2.1 전력거래 — 흐름 순서: 거래 신청 · 거래 이력 · 거래 승인 · 계약 현황 · 내 계약 · 변경·해지 · 수익·정산(세금계산서·청구서) · 문서 관리
         { to: '/platform/trading', icon: ArrowRightLeft, label: '거래 신청', section: '전력거래', end: true }, // 2.1.1
@@ -860,7 +863,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         c.to === '/consulting/consulting-requests' ? { ...c, badge: pendingRequestCount } : c,
       );
     }
-    // 관리자 쪽은 역할 · 권한의 메뉴 권한(조회)이 없는 메뉴를 숨긴다 — 최고 관리자는 전부, 관리자는 역할 · 권한 · 에너지 설정 없음(2026-11-24)
+    // 관리자 쪽은 역할 · 권한의 메뉴 권한(조회)이 없는 메뉴를 숨긴다 — 관리자 역할은 전부(최고 관리자 따로 없음, 2026-11-24)
     if (persona === 'admin') {
       const roles = user?.roles ?? [];
       children = children.filter((c) => canReadMenuPath(roles, c.to));
@@ -913,7 +916,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 // (백엔드 link 포맷 "/{linkType}/{linkId}" — trading-request/trading-match/ppa-contract/ppa-contract-change 등)
 function getNotifLink(n: { type: string; link?: string }, persona: Persona): string | null {
   const isSpcLike = persona === 'spc' || persona === 'admin';
-  const isGen = persona === 'generator';
+  const isGen = persona === 'generator' || persona === 'consumer'; // 기업 계정은 같은 전력거래 메뉴
   // 페르소나별 거래/계약 목적지
   const tradeList = isSpcLike ? '/platform/trading/history' : isGen ? '/generator/trading/history' : '/ppa/trading';
   const dealOrTrading = (_id: string) => tradeList;

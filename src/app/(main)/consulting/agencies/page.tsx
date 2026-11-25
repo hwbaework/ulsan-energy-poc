@@ -196,6 +196,7 @@ export default function AgenciesPage() {
           data={filtered}
           rowKey={(row) => row.id}
           onRowClick={(row) => router.push(`/consulting/agencies/${row.id}`)}
+          rowLink
           emptyMessage="등록된 용역사가 없습니다"
         />
       </SectionCard>

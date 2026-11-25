@@ -165,6 +165,7 @@ export function TradeApprovalsScreen() {
           rowKey={(r) => r.id}
           emptyMessage="승인된 거래 없음"
           onRowClick={(r) => router.push(`${approvalsBase(role.isAdmin)}/view?id=${r.id}`)}
+          rowLink
         />
       </SectionCard>
     </div>

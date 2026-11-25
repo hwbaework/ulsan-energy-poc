@@ -43,8 +43,7 @@ interface UserRow {
 const ROLE_OPTIONS = [
   { value: 'CONSUMER_MANAGER', label: '전기사용자' },
   { value: 'POWER_OPERATOR', label: '발전사업자' },
-  { value: 'SYSTEM_ADMIN', label: '최고 관리자' },
-  { value: 'PLATFORM_ADMIN', label: '관리자' },
+  { value: 'SYSTEM_ADMIN', label: '관리자' },
 ];
 
 const ROLE_LABEL_MAP: Record<string, string> = Object.fromEntries(ROLE_OPTIONS.map((r) => [r.value, r.label]));
@@ -248,7 +247,7 @@ export default function UsersPage() {
           >
             <KeyRound size={14} />
           </button>
-          {/* 관리자(SPC) 회원은 삭제 불가 — 버튼 자체를 두지 않는다 */}
+          {/* 관리자 회원은 삭제 불가 — 버튼 자체를 두지 않는다 */}
           {row.role !== 'SYSTEM_ADMIN' && (
             <button
               type="button"

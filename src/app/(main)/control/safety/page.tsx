@@ -118,6 +118,7 @@ export default function SafetyPage() {
           data={rows}
           rowKey={(r) => r.plant.plantId}
           onRowClick={(r) => router.push(`/control/safety/${r.plant.plantId}`)}
+          rowLink
           emptyMessage="표시할 발전소가 없습니다"
         />
       </SectionCard>

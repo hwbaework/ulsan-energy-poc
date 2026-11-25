@@ -264,6 +264,7 @@ export default function ConsultingProjectsPage() {
           data={filtered}
           rowKey={(row) => row.id}
           onRowClick={(row) => router.push(`/consulting/project/${row.id}?origin=outsource`)}
+          rowLink
           emptyMessage="등록된 용역 프로젝트가 없습니다"
         />
       </SectionCard>

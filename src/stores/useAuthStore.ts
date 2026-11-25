@@ -56,14 +56,11 @@ export const POC_USERS: Record<PocRole, User> = {
 };
 
 /**
- * 계정 유형이 다른 데모 계정 — 관리자(최고 관리자 아래) · 기업 회원. 회원 목록(adminFixtures USERS)의 같은 이메일과 짝(2026-11-24)
+ * 계정 유형이 다른 데모 계정 — 기업 회원(관리자는 하나라 따로 없음). 회원 목록(adminFixtures USERS)의 같은 이메일과 짝(2026-11-24)
  * 기업 회원 — 한길 최한길, 한일튜브 김한일
+ * 테스트 기업 — 가입만 하고 계약이 없는 기업의 기업 관리자(김테스트). 새로 가입한 기업이 보는 화면 확인용
  */
 export const POC_EXTRA_ACCOUNTS: { role: PocRole; user: User }[] = [
-  {
-    role: 'admin',
-    user: { ...POC_USERS.admin, id: 7, email: 'manager@test.com', name: '정관리', phone: '010-1000-0007', roles: ['PLATFORM_ADMIN'] } as User,
-  },
   {
     role: 'consumer',
     user: { ...POC_USERS.consumer, id: 8, email: 'choi@hangil.co.kr', name: '최한길', phone: '010-3000-0008' } as User,
@@ -71,6 +68,35 @@ export const POC_EXTRA_ACCOUNTS: { role: PocRole; user: User }[] = [
   {
     role: 'generator',
     user: { ...POC_USERS.generator, id: 4, email: 'kim@hanil.co.kr', name: '김한일', phone: '010-4000-0004', department: '설비팀' } as User,
+  },
+  {
+    role: 'consumer',
+    user: {
+      ...POC_USERS.consumer,
+      id: 9,
+      email: 'test@test.com',
+      name: '김테스트',
+      phone: '010-8000-0009',
+      department: '관리부',
+      companyId: 8,
+      companyName: '테스트 기업',
+      companyAddress: '울산 남구 처용로 8',
+    } as User,
+  },
+  // 미포테크 — PPA 계약만 있는 기업의 기업 관리자(오세진). 계약이 하나(PPA)뿐인 기업이 보는 화면 확인용(2026-11-24 사용자)
+  {
+    role: 'generator',
+    user: {
+      ...POC_USERS.generator,
+      id: 10,
+      email: 'ppa@test.com',
+      name: '오세진',
+      phone: '010-9000-0010',
+      department: '설비팀',
+      companyId: 9,
+      companyName: '미포테크',
+      companyAddress: '울산 남구 여천로 120',
+    } as User,
   },
 ];
 

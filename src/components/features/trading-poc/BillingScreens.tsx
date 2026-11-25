@@ -540,6 +540,8 @@ function BillingScreen({ kind }: { kind: Kind }) {
                 ? setSelId(s.id)
                 : router.push(`${baseOf(kind, false)}/view?contract=${s.contractId}&period=${s.period}`)
             }
+            // 기업은 줄을 누르면 상세로 간다(>), 관리자는 같은 화면에서 줄을 고르기만 한다
+            rowLink={!role.isAdmin}
             rowClassName={(s) => (role.isAdmin && s.id === sel?.id ? '!bg-primary/10' : '')}
           />
         </SectionCard>

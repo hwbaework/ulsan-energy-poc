@@ -32,6 +32,7 @@ const PLANT_SPECS: Record<
   17513: { type: 'SOLAR', capacity: 33.92, status: 'ANOMALY', contract: 'SELF_CONSUMPTION' }, // 건호이엔씨 · 자가소비 (미조치 이상감지 1건)
   17514: { type: 'SOLAR', capacity: 429.44, status: 'NORMAL', contract: 'ONSITE', contracts: ['SELF_CONSUMPTION', 'ONSITE'], split: [{ kind: 'SELF_CONSUMPTION', capacityKw: 99.84 }, { kind: 'ONSITE', capacityKw: 329.6 }] }, // 한일튜브 · 자가소비(99.84)+PPA(329.6)
   17515: { type: 'SOLAR', capacity: 90.88, status: 'NORMAL', contract: 'SELF_CONSUMPTION' }, // 한길 · 자가소비
+  17516: { type: 'SOLAR', capacity: 100, status: 'NORMAL', contract: 'ONSITE' }, // 미포테크 · PPA 만(데모 기업, 2026-11-24 사용자)
   17601: { type: 'FUEL_CELL', capacity: FC_CAPACITY_KW, status: 'NORMAL' }, // 연료전지 — 계약 유형 없음 · 39.6MW(사업계획서)
   17602: { type: 'ORC', capacity: ORC_CAPACITY_KW, status: 'NORMAL' }, // ORC — 계약 유형 없음 · 180kW × 12대(사업계획서 p.45, 수령 태그 ORC#1~#12)
 };
@@ -59,6 +60,7 @@ const PLANT_ADDRESS: Record<number, string> = {
   17513: '울산 남구 부곡동 22-5',
   17514: '울산 남구 부곡동 273-6',
   17515: '울산 남구 용연동 490-11',
+  17516: '울산 남구 여천로 120',
   17601: '울산 남구 상개동 427-5',
   17602: '울산 남구 사평로 119',
 };
@@ -226,10 +228,14 @@ const HANGIL = PLANTS.find((p) => p.plantId === 17515) ?? PLANTS[0]!;
 export const POWER_STATIONS: PowerStation[] = [stationOf(HANIL, 1, 4, '한일튜브')];
 /** 전기사용자(회사 2) 자가소비 발전소 — 한길 1개 */
 export const CONSUMER_STATIONS: PowerStation[] = [stationOf(HANGIL, 101, 2, '한길')];
+/** 미포테크(회사 9) 발전소 — PPA 계약만 있는 기업 */
+const MIPO = PLANTS.find((p) => p.plantId === 17516) ?? PLANTS[0]!;
+export const MIPO_STATIONS: PowerStation[] = [stationOf(MIPO, 2, 9, '미포테크')];
 registerMock(/^\/power-stations\/by-company\/(\d+)$/, ({ match }) => {
   const companyId = Number(match[1]);
   if (companyId === 4) return POWER_STATIONS;
   if (companyId === 2) return CONSUMER_STATIONS;
+  if (companyId === 9) return MIPO_STATIONS;
   return [];
 });
 registerMock(/^\/power-stations$/, () => pageOf(POWER_STATIONS));

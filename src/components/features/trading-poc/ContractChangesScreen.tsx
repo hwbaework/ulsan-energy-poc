@@ -159,6 +159,7 @@ export function ContractChangesScreen() {
           rowKey={(c) => c.id}
           emptyMessage="변경·해지 신청 없음"
           onRowClick={(c) => router.push(`${base}/view?id=${c.id}`)}
+          rowLink
         />
       </SectionCard>
       <ChangeRequestModal

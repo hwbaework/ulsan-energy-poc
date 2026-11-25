@@ -304,6 +304,7 @@ export default function AnomaliesPage() {
                   : `/control/safety/${r.plantId}`,
             )
           }
+          rowLink
           emptyMessage={q || status !== 'all' ? '검색 결과가 없습니다' : '이상 감지 내역이 없습니다'}
         />
       </SectionCard>

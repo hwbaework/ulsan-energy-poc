@@ -108,6 +108,7 @@ export function ContractOverviewScreen() {
             rowKey={(c) => c.id}
             emptyMessage="계약 없음"
             onRowClick={(c) => router.push(`${contractsBase}?company=${c.id}`)}
+            rowLink
           />
         </SectionCard>
       </>

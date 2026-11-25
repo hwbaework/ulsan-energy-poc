@@ -15,7 +15,7 @@ export function useIsCompanyAdmin(): boolean {
 }
 
 /**
- * 오른쪽 위 내 계정의 아이콘(로그인 버튼과 같은 것)과 이름 아랫줄 — 계정 유형 하나만: 최고 관리자 / 관리자 / 기업 관리자 / 기업 회원.
+ * 오른쪽 위 내 계정의 아이콘(로그인 버튼과 같은 것)과 이름 아랫줄 — 계정 유형 하나만: 관리자 / 기업 관리자 / 기업 회원.
  * 역할 이름(전기사용자 등)은 같이 쓰지 않는다 — 두 가지가 나란히 있으면 헷갈린다(2026-11-24 사용자)
  */
 export function useMyAccount(): { line: string; Icon: LucideIcon } {
@@ -23,8 +23,7 @@ export function useMyAccount(): { line: string; Icon: LucideIcon } {
   const { data } = useUsers({});
   const me = (data?.content ?? []).find((u) => u.email === user?.email) as { accountType?: string; roles?: string[] } | undefined;
   const codes = me?.roles ?? (user as { roles?: string[] } | null)?.roles ?? [];
-  if (codes.includes('SYSTEM_ADMIN')) return { line: '최고 관리자', Icon: ACCOUNT_ICON.superAdmin };
-  if (codes.includes('PLATFORM_ADMIN')) return { line: '관리자', Icon: ACCOUNT_ICON.admin };
+  if (codes.includes('SYSTEM_ADMIN')) return { line: '관리자', Icon: ACCOUNT_ICON.admin };
   if (me?.accountType === 'COMPANY_ADMIN') return { line: '기업 관리자', Icon: ACCOUNT_ICON.companyAdmin };
   if (me?.accountType === 'COMPANY_MEMBER') return { line: '기업 회원', Icon: ACCOUNT_ICON.companyMember };
   return { line: '', Icon: UserIcon };

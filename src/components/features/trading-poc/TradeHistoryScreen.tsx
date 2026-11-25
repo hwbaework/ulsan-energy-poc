@@ -208,6 +208,7 @@ export function TradeHistoryScreen() {
           rowKey={(r) => r.id}
           emptyMessage="신청 없음"
           onRowClick={(r) => router.push(`${base(role.isAdmin)}/view?id=${r.id}`)}
+          rowLink
         />
       </SectionCard>
     </div>

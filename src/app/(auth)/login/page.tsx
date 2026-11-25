@@ -25,21 +25,25 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 /**
  * POC 계정 버튼 — 누르면 그 계정의 이메일이 이메일 칸에 들어간다. 들어가는 것은 [로그인]을 눌러야(2026-11-16 사용자). 이메일 글자는 버튼에 보이지 않는다
- * 3 × 2(2026-11-24 사용자) — 왼쪽 전기사용자 · 가운데 발전사업자 · 오른쪽 관리자, 윗줄 기업 관리자 · 최고 관리자, 아랫줄 기업 회원 · 관리자.
+ * 3 칸 두 줄(2026-11-24 사용자) — 윗줄 한길 · 한일튜브 기업 관리자 · 관리자, 아랫줄 한길 · 한일튜브 기업 회원 · 테스트 기업(계약 없는 기업). 관리자는 하나(최고 관리자 없음).
  * 아이콘은 들어간 뒤 오른쪽 위 내 계정에도 같은 것(lib/account-icon)
  */
 const TEST_OPEN_KEY = 'login-test-accounts-open';
 const EMERALD = 'hover:border-emerald-400/60 hover:bg-emerald-500/10 text-emerald-300';
 const AMBER = 'hover:border-amber-400/60 hover:bg-amber-500/10 text-amber-300';
 const SKY = 'hover:border-sky-400/60 hover:bg-sky-500/10 text-sky-300';
+const VIOLET = 'hover:border-violet-400/60 hover:bg-violet-500/10 text-violet-300';
 const ROLE_BUTTONS: { label: string; sub?: string; email: string; kind: AccountKind; tone: string }[] = [
-  // 이름은 기업명 — '전기사용자 / 발전사업자'는 계정 종류가 아니다(기업은 그렇게 가입하지 않는다, 계약 유형은 계약에 붙는 값). 계정 종류는 최고 관리자 · 관리자 · 기업 관리자 · 기업 회원 넷(2026-11-24 사용자)
+  // 이름은 기업명 — '전기사용자 / 발전사업자'는 계정 종류가 아니다(기업은 그렇게 가입하지 않는다, 계약 유형은 계약에 붙는 값). 계정 종류는 관리자 · 기업 관리자 · 기업 회원 셋(2026-11-24 사용자)
   { label: '한길', sub: '기업 관리자', email: 'consumer@test.com', kind: 'companyAdmin', tone: EMERALD },
   { label: '한일튜브', sub: '기업 관리자', email: 'operator@test.com', kind: 'companyAdmin', tone: AMBER },
-  { label: '최고 관리자', email: 'admin@test.com', kind: 'superAdmin', tone: SKY },
+  { label: '관리자', email: 'admin@test.com', kind: 'admin', tone: SKY },
   { label: '한길', sub: '기업 회원', email: 'choi@hangil.co.kr', kind: 'companyMember', tone: EMERALD },
   { label: '한일튜브', sub: '기업 회원', email: 'kim@hanil.co.kr', kind: 'companyMember', tone: AMBER },
-  { label: '관리자', email: 'manager@test.com', kind: 'admin', tone: SKY },
+  // 가입만 하고 계약이 없는 기업 — 새로 가입한 기업이 보는 화면(2026-11-24 사용자)
+  { label: '테스트 기업', sub: '기업 관리자', email: 'test@test.com', kind: 'companyAdmin', tone: VIOLET },
+  // PPA 계약만 있는 기업 — 한길(자가소비만) 아래 칸(2026-11-24 사용자)
+  { label: '미포테크', sub: '기업 관리자', email: 'ppa@test.com', kind: 'companyAdmin', tone: AMBER },
 ];
 
 export default function LoginPage() {

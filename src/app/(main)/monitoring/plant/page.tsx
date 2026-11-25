@@ -6,10 +6,9 @@ import { Search } from 'lucide-react';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard, StatCard, StatsGrid } from '@/components/features';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { StatusBadge } from '@/components/ui/Design';
+import { SourceIcon, StatusBadge } from '@/components/ui/Design';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { PlantNameCell } from '@/components/features/monitoring/PlantNameCell';
 import type { EnergySource } from '@/types/monitoring';
 import { CONTRACT_KIND, SOURCE, SOURCE_ORDER, sourceOf } from '@/lib/design';
 import { contractHref, expandByContract, type ContractPlant } from '@/lib/contract-plants';
@@ -58,7 +57,23 @@ export default function MonitoringPlantListPage() {
       header: '발전소명',
       width: '220px',
       // 이름은 괄호 없이 — 계약 유형은 옆 칸에(혼합 계약 한일튜브는 같은 이름 두 줄, 계약 유형으로 구분)
-      render: (row) => <PlantNameCell type={row.type} name={row.baseName} />,
+      // 발전원은 옆 칸으로 뺐다 — 칸 하나에 값 하나(2026-11-25 사용자)
+      // 아이콘은 맨 앞(이름 칸)에 — 기업 관리 표와 같은 꼴. 발전원 칸은 글자만(2026-11-25 사용자)
+      render: (row) => (
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.06]">
+            <SourceIcon type={row.type} size={20} />
+          </div>
+          <span className="truncate text-sm font-medium text-white">{row.baseName}</span>
+        </div>
+      ),
+    },
+    {
+      // 발전원 — 위 필터와 같은 이름. 글자만(태양광 / ORC / 연료전지). 색은 앞 칸 아이콘에만 — 글자까지 칠하면 같은 색이 두 번 나온다(2026-11-25 사용자)
+      key: 'type',
+      header: '발전원',
+      width: '130px',
+      render: (row) => <span className="text-sm text-slate-300">{sourceOf(row.type).label}</span>,
     },
     {
       // 계약 유형 — 행 하나가 계약 하나. 혼합 계약 발전소는 자가소비·PPA 행이 따로 있다
@@ -154,6 +169,7 @@ export default function MonitoringPlantListPage() {
           data={filtered}
           rowKey={(row) => row.key}
           onRowClick={(row) => router.push(contractHref(`/monitoring/plant/${row.plantId}`, row.contractKind))}
+          rowLink
           emptyMessage={query ? '검색 결과가 없습니다' : '등록된 발전소가 없습니다'}
         />
       </SectionCard>

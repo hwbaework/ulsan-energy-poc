@@ -81,7 +81,7 @@ const KIND_TONE: Record<PlantContractKind, { title: string; btn: string; btnOn: 
   },
 };
 
-/** 기존 기업 선택 — 고르면 기업명·기업 주소가 채워진다 (회원가입과 같은 말) */
+/** 기업 선택 — 고르면 기업 주소가 채워진다 */
 const COMPANY_OPTIONS = CONSUMERS.map((c) => ({ value: String(c.id), label: c.name, ...c }));
 
 type Form = {
@@ -99,7 +99,7 @@ type Form = {
 /**
  * 거래 신청 — 의향만 넣는다(2026-10-12). 계약 조건(기간 · 단가)은 미팅 뒤 관리자가 거래 이력에서 넣고, 승인 → 전자서명 → 체결.
  * 계약 유형을 먼저 고르고 기업 · 희망 설치 용량 · 미팅 희망일 · 담당자(로그인 계정에서 자동) 를 넣는다.
- * 기존 기업은 골라서 채우고, 전화로 들어온 신규 기업은 관리자가 직접 입력(기업명·기업 주소 — 회원가입과 같은 말).
+ * 관리자는 가입한 기업 가운데서 골라 대신 신청한다 — 가입하지 않은 기업은 먼저 기업 관리 · 회원 관리에서 등록(신규 기업 직접 입력은 2026-11-24 뺌).
  */
 export function TradeRequestsScreen() {
   const role = useTradingRole();
@@ -107,7 +107,7 @@ export function TradeRequestsScreen() {
   const contractsAll = useTradingPocStore((s) => s.contracts);
   const addToast = useToastStore((s) => s.add);
 
-  // 관리자만 기업을 고르거나 입력한다. 그 외(계약한 기업이 직접 신청)는 로그인(가입) 값 고정
+  // 관리자만 기업을 고른다. 그 외(계약한 기업이 직접 신청)는 로그인(가입) 값 고정
   const own = role.isAdmin
     ? undefined
     : {
@@ -144,7 +144,8 @@ export function TradeRequestsScreen() {
   };
   const pickConsumer = (v: string) => {
     const c = COMPANY_OPTIONS.find((x) => x.value === v);
-    set(c ? { consumerPick: v, consumerName: c.name, address: c.address } : { consumerPick: '' });
+    // 고르지 않은 상태로 돌아가면 기업명 · 기업 주소도 비운다(직접 입력 칸이 없다)
+    set(c ? { consumerPick: v, consumerName: c.name, address: c.address } : { consumerPick: '', consumerName: '', address: '' });
   };
   const cap = Number(f.capacity) || 0;
   // 입력했는데 범위를 벗어난 칸 — 칸 아래 안내. 빈 칸은 신청 버튼만 막는다
@@ -171,7 +172,7 @@ export function TradeRequestsScreen() {
   const handleSubmit = () => {
     if (!kind || !valid) return;
     const consumerName = f.consumerName.trim();
-    const consumerId = CONSUMERS.find((c) => c.name === consumerName)?.id ?? 0; // 0 = 미등록(신규) 기업
+    const consumerId = CONSUMERS.find((c) => c.name === consumerName)?.id ?? 0; // 관리자는 가입한 기업만 고르므로 항상 찾는다
     const r = submit({
       kind,
       applicant: role.isAdmin ? 'spc' : 'generator',
@@ -265,15 +266,17 @@ export function TradeRequestsScreen() {
           <>
             <Section title="기업">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {/* 관리자는 가입한 기업 가운데서 고른다 — 신규 기업 등록(기업명 · 기업 주소 직접 입력)은 뺐다.
+                    기업도 계정도 생기지 않아 조건 동의 · 기업 전자서명을 할 사람이 없었다(2026-11-24 사용자).
+                    가입하지 않은 기업은 관리 › 기업 관리 · 회원 관리에서 먼저 등록한다 */}
                 {role.isAdmin ? (
                   <Select
-                    label="기존 기업 선택"
-                    options={[
-                      { value: '', label: '신규 기업 등록' },
-                      ...COMPANY_OPTIONS.map((c) => ({ value: c.value, label: c.label })),
-                    ]}
+                    label="기업"
+                    placeholder="선택"
+                    options={COMPANY_OPTIONS.map((c) => ({ value: c.value, label: c.label }))}
                     value={f.consumerPick}
                     onChange={(e) => pickConsumer(e.target.value)}
+                    required
                   />
                 ) : (
                   <ReadOnly label="기업명" value={f.consumerName} />
@@ -282,22 +285,10 @@ export function TradeRequestsScreen() {
                   label="운영 중 계약"
                   value={running.length ? running.map((c) => `${kindLabel(c.kind)} ${fmtKw(c.capacityKw)}`).join(' · ') : '-'}
                 />
-                {/* 기존 기업을 고르면(또는 관리자가 아니면) 기업명·기업 주소 고정 — 관리자가 신규 기업 등록일 때만 입력 */}
-                {!role.isAdmin ? (
-                  <div className="md:col-span-2">
-                    <ReadOnly label="기업 주소" value={f.address} />
-                  </div>
-                ) : picked ? (
-                  <>
-                    <ReadOnly label="기업명" value={f.consumerName} />
-                    <ReadOnly label="기업 주소" value={f.address} />
-                  </>
-                ) : (
-                  <>
-                    <Input label="기업명" value={f.consumerName} maxLength={LIMIT.company[1]} error={err.company} onChange={(e) => set({ consumerName: e.target.value })} required />
-                    <Input label="기업 주소" value={f.address} maxLength={LIMIT.address[1]} error={err.address} onChange={(e) => set({ address: e.target.value })} required />
-                  </>
-                )}
+                {/* 기업 주소는 가입한 값 고정 — 관리자는 기업을 고르면 채워진다 */}
+                <div className="md:col-span-2">
+                  <ReadOnly label="기업 주소" value={f.address || '-'} />
+                </div>
               </div>
             </Section>
 

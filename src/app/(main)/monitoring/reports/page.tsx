@@ -6,7 +6,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, ChevronRight } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { DataTable, type Column } from '@/components/features/DataList';
 import { SectionCard } from '@/components/features';
@@ -74,7 +74,6 @@ export default function ReportsEntryPage() {
     { key: 'capacity', header: '설비 용량', width: '130px', render: (r) => <span className="text-sm text-slate-300 tabular-nums whitespace-nowrap">{r.capacity.toLocaleString()} kW</span> },
     { key: 'last' as keyof Row, header: '최근 보고서', width: '140px', render: (r) => <span className="text-sm text-slate-300 whitespace-nowrap">{hasReport(r.plant) ? LAST_REPORT : ''}</span> },
     { key: 'anomalies', header: '금월 이상', width: '120px', render: (r) => (hasReport(r.plant) ? <span className={`text-sm tabular-nums whitespace-nowrap ${r.anomalies > 0 ? 'text-red-400 font-semibold' : 'text-slate-300'}`}>{r.anomalies} 건</span> : null) },
-    { key: 'go' as keyof Row, header: '', width: '48px', render: () => <ChevronRight size={16} className="text-slate-500" /> },
   ];
 
   // 로딩 중이거나 바로 넘어갈 때는 목록을 그리지 않는다 — 전기사용자가 보고서 앞에서 한 번 보던 화면
@@ -94,7 +93,7 @@ export default function ReportsEntryPage() {
           </div>
         }
       >
-        <DataTable columns={columns} data={rows} rowKey={(r) => r.key} onRowClick={(r) => router.push(contractHref(`/monitoring/reports/${r.plant.plantId}`, r.plant.contractKind))} emptyMessage="검색 결과가 없습니다" />
+        <DataTable columns={columns} data={rows} rowKey={(r) => r.key} rowLink onRowClick={(r) => router.push(contractHref(`/monitoring/reports/${r.plant.plantId}`, r.plant.contractKind))} emptyMessage="검색 결과가 없습니다" />
       </SectionCard>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, type ReactNode } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonTable } from '@/components/ui/Skeleton';
@@ -41,6 +41,11 @@ interface DataTableProps<T> {
   defaultSort?: SortState;
   /** 행마다 덧붙일 클래스 — 고른 행 강조 등 */
   rowClassName?: (row: T) => string;
+  /**
+   * 줄을 누르면 다른 화면으로 가는 표 — 맨 끝 좁은 칸에 > 를 그린다(2026-11-25 사용자: 갈 수 있는 줄은 끝에 >, 못 가는 줄은 없음).
+   * 같은 화면에서 줄을 고르기만 하는 표 · 팝업을 여는 표에는 쓰지 않는다. 일부 줄만 가면 함수로 그 줄만 true.
+   */
+  rowLink?: boolean | ((row: T) => boolean);
 }
 
 export function DataTable<T>({
@@ -53,6 +58,7 @@ export function DataTable<T>({
   className,
   defaultSort,
   rowClassName,
+  rowLink,
 }: DataTableProps<T>) {
   const [sort, setSort] = useState<SortState | null>(defaultSort ?? null);
 
@@ -83,7 +89,7 @@ export function DataTable<T>({
   }, [data, sort, columns]);
 
   if (loading) {
-    return <SkeletonTable rows={5} columns={columns.length} className={className} />;
+    return <SkeletonTable rows={5} columns={columns.length + (rowLink ? 1 : 0)} className={className} />;
   }
 
   if (data.length === 0) {
@@ -101,6 +107,7 @@ export function DataTable<T>({
             {columns.map((col) => (
               <col key={col.key} style={col.width ? { width: col.width } : undefined} />
             ))}
+            {rowLink && <col style={{ width: '44px' }} />}
           </colgroup>
         )}
         <thead>
@@ -136,6 +143,7 @@ export function DataTable<T>({
                 </span>
               </th>
             ))}
+            {rowLink && <th scope="col" className="px-2 py-3" aria-label="이동" />}
           </tr>
         </thead>
         <tbody>
@@ -162,6 +170,11 @@ export function DataTable<T>({
                   {col.render(row, rowIndex)}
                 </td>
               ))}
+              {rowLink && (
+                <td className="px-2 py-3 text-right">
+                  {(typeof rowLink === 'function' ? rowLink(row) : rowLink) && <ChevronRight size={16} className="inline-block text-slate-300" aria-hidden />}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
