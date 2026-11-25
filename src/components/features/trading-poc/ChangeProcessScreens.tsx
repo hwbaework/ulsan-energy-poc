@@ -240,13 +240,22 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
           </div>
         </div>
 
-        {/* 합의서 — 전자서명 단계부터 맨 위. 내용은 아래 요청 칸에 있어 요약을 다시 두지 않는다. 둘 다 서명하면 승인 · 서명본이 문서 관리에 */}
+        {/* 합의서 — 전자서명 단계부터 맨 위. 합의서 본문을 먼저 보여 주고 그 아래에서 서명한다 — 무엇에 서명하는지 양쪽이 같은 문서를 보고(거래의 계약서 서명과 같게, 2026-11-25 사용자).
+            둘 다 서명하면 승인 · 서명본이 문서 관리에 */}
         {showSign && (
           <SectionCard
-            title={`${ch.type === 'TERMINATE' ? '계약 해지' : '계약 변경'} 합의서`}
-            actions={canReject && signing ? rejectButton : undefined}
+            title={`${ch.type === 'TERMINATE' ? '계약 해지' : '계약 변경'} 합의서${signedDoc ? ' (서명본)' : ''}`}
+            actions={
+              <>
+                <Button size="sm" variant="secondary" onClick={() => printSheet(sheet.current, agreementDoc.fileName.replace(/\.pdf$/, ''))}>
+                  <Download size={14} className="mr-1.5" /> 다운로드
+                </Button>
+                {canReject && signing && rejectButton}
+              </>
+            }
           >
             <div className="space-y-4">
+              <DocumentSheet doc={agreementDoc} contract={c} change={ch} sheetRef={sheet} />
               <div className="grid gap-4 md:grid-cols-2">
                 <SignBox
                   title={`관리자 · ${CO.SPC.name}`}
@@ -296,20 +305,6 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
               <Info label="사유" value={ch.reason} className="md:col-span-3" />
               {ch.status === 'REJECTED' && <Info label="반려 사유" value={ch.decisionNote} className="md:col-span-3" />}
             </div>
-          </SectionCard>
-        )}
-
-        {/* 합의서 문서 — 계약서처럼. 전자서명 단계부터 초안, 양측 서명 뒤 서명본(문서 관리에도 남는다) */}
-        {showSign && (
-          <SectionCard
-            title={signedDoc ? '합의서 (서명본)' : '합의서 (초안)'}
-            actions={
-              <Button size="sm" variant="secondary" onClick={() => printSheet(sheet.current, agreementDoc.fileName.replace(/\.pdf$/, ''))}>
-                <Download size={14} className="mr-1.5" /> 다운로드
-              </Button>
-            }
-          >
-            <DocumentSheet doc={agreementDoc} contract={c} change={ch} sheetRef={sheet} />
           </SectionCard>
         )}
 

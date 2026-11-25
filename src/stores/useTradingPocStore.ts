@@ -2356,8 +2356,7 @@ export const useTradingPocStore = create<TradingPocState>()(
           after: input.after,
           effectiveDate: input.effectiveDate,
           status: 'REQUESTED',
-          // 해지는 조건이 없어 신청하면 바로 전자서명 — 양쪽 서명이 곧 동의
-          ...(input.type === 'TERMINATE' ? { stage: 'SIGN' as const } : {}),
+          // 해지도 신청 단계부터 — 받는 쪽이 해지 동의 / 반려를 한 뒤 전자서명(신청하자마자 서명으로 넘어가던 것을 고침, 2026-11-25 사용자)
           ...(asked ? { termsBefore: nowTerms, terms: asked, stage: 'AGREE' as const, proposedBy: input.requestedBy } : {}),
           events: [ev(nowIso(), input.requestedBy, '신청 접수', note ?? undefined)],
           messages: [],

@@ -145,9 +145,13 @@ export function ChangeRequestModal({ open, onClose, contracts, contractId, type,
         {!counterMode && (
         <div className="grid grid-cols-3 gap-4">
           <div className="col-span-2">
+          {/* 기업 — 계약번호 없이 이름만, 한 기업에 계약이 둘이면 {기업}(자가소비) · {기업}(PPA)(문서 관리 · 내 계약과 같은 선택지, 2026-11-25 사용자) */}
           <Select
-            label="계약"
-            options={contracts.map((x) => ({ value: String(x.id), label: `${x.no} · ${x.consumerCompanyName} · ${kindLabel(x.kind)}` }))}
+            label="기업"
+            options={contracts.map((x) => ({
+              value: String(x.id),
+              label: contracts.some((y) => y.consumerCompanyId === x.consumerCompanyId && y.kind !== x.kind) ? `${x.consumerCompanyName}(${kindLabel(x.kind)})` : x.consumerCompanyName,
+            }))}
             value={cid}
             onChange={(e) => {
               setCid(e.target.value);
