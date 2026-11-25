@@ -61,10 +61,10 @@ export function MyContractsScreen() {
         }
       />
 
-      {/* 고른 계약 하나 — 계약 용량 · 계약 기간 · 시작일 */}
+      {/* 고른 계약 하나 — 설치 용량 · 계약 기간 · 시작일(거래 신청 내용과 같은 이름 "설치 용량") */}
       {one && (
         <StatsGrid columns={3}>
-          <StatCard label="계약 용량" value={fmtKw(one.capacityKw)} />
+          <StatCard label="설치 용량" value={fmtKw(one.capacityKw)} />
           <StatCard label="계약 기간" value={`${one.termYears}년`} />
           <StatCard label="시작일" value={one.startDate} />
         </StatsGrid>
