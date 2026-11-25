@@ -21,7 +21,7 @@ export const CONSULTING_DOCS: ConsultingDoc[] = [
   {
     id: 1,
     companyId: 4,
-    companyName: '한일튜브(주)',
+    companyName: '한일튜브', // 다른 화면의 기업명과 같은 글자(문서 제목은 보고서 표지 그대로)
     title: '(한일튜브) RE100 컨설팅 결과보고서 v2.0',
     category: '결과보고서',
     contractNo: '', // 보고서 안에 계약번호 없음

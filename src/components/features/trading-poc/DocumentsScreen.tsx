@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { Download, Search } from 'lucide-react';
+import { Download, Search, Upload } from 'lucide-react';
 import { SectionCard } from '@/components/features/SectionCard';
 import { DataTable, type Column, LIST_PREVIEW_GRID } from '@/components/features/DataList';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
+import { useToastStore } from '@/stores/useToastStore';
 import { LIMIT } from '@/lib/field-limits';
 import { fitPdf } from '@/lib/utils/fitPdf';
 import { billingStatusOf, invoiceKey, isInvoiceOut, issueDateOf, useTradingPocStore } from '@/stores/useTradingPocStore';
@@ -16,7 +18,7 @@ import { useTradingRole } from './useTradingRole';
 import { kindLabel } from './meta';
 import { PageHeader, cell, cellNum } from './Bits';
 import { DocumentSheet, periodOf } from './DocumentSheet';
-import { BillingPaper } from './BillingPaper';
+import { BillingPaper, UploadButton } from './BillingPaper';
 import { useLocationSearch } from '@/lib/use-location-search';
 
 /** 계약서 원문(양식) — 계약서는 이 PDF */
@@ -66,7 +68,7 @@ function FitWidth({ width = 900, children }: { width?: number; children: ReactNo
 
 /**
  * 문서 관리 — 전력거래에서 생긴 문서만 모아 본다(계약서 · 청구서 · 세금계산서 · 변경 합의서 · 해지 합의서).
- * 여기서 등록하지 않는다 — 각자 전자서명 · 청구서 발행 · 세금계산서 원본 업로드에서 들어온다.
+ * 문서는 전자서명 · 청구서 발행 · 세금계산서 업로드에서 자동으로 들어오고, 관리자는 여기서 PDF 를 직접 업로드할 수도 있다(2026-11-25 사용자).
  * 틀은 보고서 화면과 같다(2026-11-25 사용자) — 조건 줄(카테고리 · 오른쪽 끝 기업) → 문서 목록(검색) + 오른쪽 미리보기. 줄을 누르면 미리보기가 그 문서로 바뀐다.
  * 폴더 트리 · 보기 화면으로 넘어가기는 없앴다(보기 화면은 알림 등 다른 곳의 링크가 써서 남아 있다). 계약서는 여러 쪽이라 받아서 본다.
  * ?company=기업 번호 로 그 기업을 고른 채 열 수 있다.
@@ -75,11 +77,18 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
   const router = useRouter();
   const role = useTradingRole();
   const invoices = useTradingPocStore((s) => s.invoices);
+  const addDocument = useTradingPocStore((s) => s.addDocument);
+  const addToast = useToastStore((s) => s.add);
+  // 업로드 팝업(관리자) — 카테고리 · 기업(계약) · PDF 파일
+  const [upOpen, setUpOpen] = useState(false);
+  const [upCat, setUpCat] = useState<'' | Category>('');
+  const [upContract, setUpContract] = useState('');
+  const [upFile, setUpFile] = useState<File | null>(null);
   const base = docsBase(role.isAdmin);
 
   const [category, setCategory] = useState<'all' | Category>('all');
   // 기업 — '전체' 없이 항상 하나(처음엔 첫 기업). 여러 기업을 섞으면 줄마다 기업 칸이 필요해진다(2026-11-25 사용자)
-  const [companyPick, setCompany] = useState<string>(''); // 기업 번호
+  const [companyPick, setCompany] = useState<string>(''); // '기업 번호:계약 유형'(주소로 들어오면 기업 번호만)
   const [query, setQuery] = useState('');
   const [selId, setSelId] = useState<number | null>(null);
   useEffect(() => {
@@ -93,7 +102,7 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
       role.documents.filter(isShown).flatMap((d) => {
         if (d.category === 'TAX' && !d.original) return [];
         // 청구서는 발행된 것만 문서 — 발행 전은 관리자에게도 문서가 아니다(청구서 화면의 발행할 청구서에서 작성, 2026-11-20 사용자)
-        if (d.category === 'INVOICE' && d.contractId) {
+        if (d.category === 'INVOICE' && d.contractId && !d.uploadedBy) {
           const p = periodOf(d) ?? '';
           const rec = invoices[invoiceKey(d.contractId, p)];
           // 청구일이 되어 나간 것만(발행을 눌렀어도 청구일 전이면 아직 문서 아님)
@@ -113,17 +122,29 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
       }),
     [role.documents, role.contracts, role.isAdmin, invoices],
   );
+  // 기업 선택지 — 계약 하나가 선택지 하나. 자가소비와 PPA 계약이 모두 있는 기업은 {기업}(자가소비) · {기업}(PPA)로 따로
+  // (대시보드 · 보고서의 기업 셀렉트와 같은 꼴, 2026-11-25 사용자). id 는 '기업 번호:계약 유형'
+  // 문서가 하나도 없는 기업도 고를 수 있어야 한다 — 선택지는 문서가 아니라 계약(지금 유효한 계약 + 문서가 남아 있는 옛 계약)에서 만든다(2026-11-25 사용자)
   const companies = useMemo(() => {
-    const m = new Map<number, string>();
-    for (const d of docs) m.set(d.companyId, d.company);
+    const items = [
+      ...role.contracts.filter((c) => c.status === 'ACTIVE').map((c) => ({ companyId: c.consumerCompanyId, company: c.consumerCompanyName, kind: c.kind })),
+      ...docs.flatMap((d) => (d.contract ? [{ companyId: d.companyId, company: d.company, kind: d.contract.kind }] : [])),
+    ];
+    const kindsOf = new Map<number, Set<string>>();
+    for (const x of items) kindsOf.set(x.companyId, (kindsOf.get(x.companyId) ?? new Set()).add(x.kind));
+    const m = new Map<string, string>();
+    for (const x of items) {
+      const many = (kindsOf.get(x.companyId)?.size ?? 0) > 1;
+      m.set(`${x.companyId}:${x.kind}`, many ? `${x.company}(${kindLabel(x.kind)})` : x.company);
+    }
     return [...m.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-  }, [docs]);
-
-  const company = companies.some((c) => String(c.id) === companyPick) ? companyPick : String(companies[0]?.id ?? '');
+  }, [docs, role.contracts]);
+  // 고른 값이 '기업 번호'만이면(?company= 로 들어온 경우) 그 기업의 첫 계약
+  const company = (companies.find((c) => c.id === companyPick) ?? companies.find((c) => c.id.startsWith(`${companyPick}:`)) ?? companies[0])?.id ?? '';
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return docs
-      .filter((d) => (category === 'all' || d.category === category) && (!company || d.companyId === Number(company)))
+      .filter((d) => (category === 'all' || d.category === category) && (!company || `${d.companyId}:${d.contract?.kind}` === company))
       .filter(
         (d) => !q || [d.name, d.company, CATEGORY_META[d.category].label].some((v) => v.toLowerCase().includes(q)),
       )
@@ -131,7 +152,7 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
   }, [docs, category, company, query]);
   // 처음부터 맨 위 문서가 열려 있고, 다른 줄을 누르면 오른쪽이 그 문서로 바뀐다(보고서 화면과 같다)
   const sel = visible.find((d) => d.id === selId) ?? visible[0] ?? null;
-  const companyName = companies.find((c) => String(c.id) === company)?.name ?? '';
+  const companyName = companies.find((c) => c.id === company)?.name ?? '';
 
   const view = (d: TradeDocument, pdf = false) => router.push(`${base}/view?id=${d.id}${pdf ? '&pdf=1' : ''}`);
   const columns: Column<Row>[] = [
@@ -146,7 +167,7 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
       ),
     },
     // 계약 유형 — 파일 이름 아래 둘째 줄이 아니라 칸 하나(칸 하나에 값 하나, 2026-11-19 사용자)
-    { key: 'kind', header: '계약 유형', width: '100px', render: (d) => cell(d.contract ? kindLabel(d.contract.kind) : '') },
+    // 계약 유형 칸은 없다 — 기업 셀렉트가 계약 하나를 고르므로 줄마다 같은 값(제목 · 셀렉트에 보인다)
     { key: 'cat', header: '카테고리', width: '100px', render: (d) => cell(CATEGORY_META[d.category].label) },
     // 기업 칸은 없다 — 항상 기업 하나만 보므로 전부 같은 값(어느 기업인지는 제목 · 오른쪽 셀렉트)
     {
@@ -161,9 +182,56 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
     // PDF 칸은 없다 — 받기는 오른쪽 미리보기 위 [PDF] 하나(명세서와 같다, 2026-11-25 사용자)
   ];
 
+  // 업로드 — 빠진 값은 버튼을 막지 않고 알림으로 알려 준다
+  // 기업 선택지 — 지금 유효한 계약만. 이름만 쓰고, 한 기업에 계약이 둘이면 그때만 (자가소비) · (PPA)로 나눈다. 계약번호는 쓰지 않는다(2026-11-25 사용자)
+  const liveContracts = role.contracts.filter((c) => c.status === 'ACTIVE');
+  const contractChoices = liveContracts
+    .filter((c, i, a) => a.findIndex((x) => x.consumerCompanyId === c.consumerCompanyId && x.kind === c.kind) === i)
+    .map((c) => ({
+      value: String(c.id),
+      label: liveContracts.some((x) => x.consumerCompanyId === c.consumerCompanyId && x.kind !== c.kind) ? `${c.consumerCompanyName}(${kindLabel(c.kind)})` : c.consumerCompanyName,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'ko'));
+  const openUpload = () => {
+    const [cid, kind] = company.split(':');
+    setUpCat(category === 'all' ? '' : category);
+    setUpContract(String(liveContracts.find((c) => String(c.consumerCompanyId) === cid && c.kind === kind)?.id ?? ''));
+    setUpFile(null);
+    setUpOpen(true);
+  };
+  const submitUpload = () => {
+    const c = role.contracts.find((x) => String(x.id) === upContract);
+    const missing = [!upCat && '카테고리', !c && '기업', !upFile && '파일'].filter(Boolean) as string[];
+    if (missing.length || !c || !upFile || !upCat) return addToast('error', `${missing.join(', ')}을(를) 선택해 주세요`);
+    const f = upFile;
+    const r = new FileReader();
+    r.onload = () => {
+      const at = new Date().toLocaleString('sv-SE').slice(0, 16);
+      addDocument({
+        category: upCat,
+        title: f.name.replace(/\.pdf$/i, ''),
+        fileName: f.name,
+        contractId: c.id,
+        contractNo: c.no,
+        plantName: c.plantName,
+        partyCompanyIds: [c.generatorCompanyId, c.consumerCompanyId],
+        fileType: 'PDF',
+        sizeKb: Math.round(f.size / 1024),
+        uploadedBy: role.companyName,
+        original: { name: f.name, url: String(r.result), sizeKb: Math.round(f.size / 1024), by: role.companyName, at },
+      });
+      addToast('success', `${f.name}을(를) 업로드했습니다`);
+      setCompany(`${c.consumerCompanyId}:${c.kind}`);
+      setCategory('all');
+      setSelId(null);
+      setUpOpen(false);
+    };
+    r.readAsDataURL(f);
+  };
+
   // 받기 — 계약서 · 원본이 있는 문서는 그 파일, 그 밖은 보기 화면에서 PDF 저장(목록의 PDF 칸과 같은 동작)
   const downloadOf = (d: Row): { href: string; name: string } | null =>
-    isContractDoc(d) || d.original ? { href: d.original?.url ?? CONTRACT_PDF, name: d.original?.name ?? d.name } : null;
+    d.original ? { href: d.original.url, name: d.original.name } : isContractDoc(d) ? { href: CONTRACT_PDF, name: d.name } : null;
   const selDown = sel ? downloadOf(sel) : null;
   const selPeriod = sel && (sel.category === 'TAX' || sel.category === 'INVOICE') ? periodOf(sel) : undefined;
   const selChange = sel && (sel.category === 'CHANGE' || sel.category === 'TERMINATE') ? role.changes.find((ch) => sel.fileName.startsWith(ch.no)) : undefined;
@@ -183,12 +251,12 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
             onChange={(e) => setCategory(e.target.value as 'all' | Category)}
           />
         </div>
-        {role.isAdmin && companies.length > 1 && (
+        {(role.isAdmin ? companies.length > 0 : companies.length > 1) && (
           <div className="ml-auto flex items-center gap-3">
             <span className="text-sm text-slate-400">기업</span>
             <div className="w-52">
               <Select
-                options={companies.map((c) => ({ value: String(c.id), label: c.name }))}
+                options={companies.map((c) => ({ value: c.id, label: c.name }))}
                 value={company}
                 onChange={(e) => setCompany(e.target.value)}
               />
@@ -202,9 +270,17 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
         <SectionCard
           title={`문서 목록 (${visible.length})`}
           actions={
-            <div className="relative w-64">
-              <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
-              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="문서 검색" maxLength={LIMIT.companyName} className="pl-8" />
+            <div className="flex items-center gap-3">
+              <div className="relative w-64">
+                <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="문서 검색" maxLength={LIMIT.companyName} className="pl-8" />
+              </div>
+              {/* 업로드 — 관리자만. 검색 오른쪽(필터 → 검색 → 등록 순서) */}
+              {role.isAdmin && (
+                <Button variant="secondary" size="sm" onClick={openUpload}>
+                  <Upload size={14} className="mr-1" /> 업로드
+                </Button>
+              )}
             </div>
           }
           noPadding
@@ -241,7 +317,9 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
                 )}
               </div>
             </div>
-            {isContractDoc(sel) ? (
+            {sel.uploadedBy && sel.original ? (
+              <iframe title={sel.name} src={fitPdf(sel.original.url)} className="w-full bg-white" style={{ height: '72vh', minHeight: 560, border: 'none' }} />
+            ) : isContractDoc(sel) ? (
               <iframe title={sel.title} src={fitPdf(CONTRACT_PDF)} className="w-full bg-white" style={{ height: '72vh', minHeight: 560, border: 'none' }} />
             ) : sel.contract && selPeriod ? (
               <div className="p-3">
@@ -255,6 +333,50 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
           </div>
         )}
       </div>
+
+      {/* 문서 업로드(관리자) */}
+      <Modal
+        open={upOpen}
+        onClose={() => setUpOpen(false)}
+        title="문서 업로드"
+        size="md"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="cancel" onClick={() => setUpOpen(false)}>
+              취소
+            </Button>
+            <Button onClick={submitUpload}>업로드</Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <Select
+            label="카테고리"
+            required
+            options={[{ value: '', label: '선택' }, ...CATEGORIES.map((c) => ({ value: c, label: CATEGORY_META[c].label }))]}
+            value={upCat}
+            onChange={(e) => setUpCat(e.target.value as '' | Category)}
+          />
+          <Select label="기업" required options={[{ value: '', label: '선택' }, ...contractChoices]} value={upContract} onChange={(e) => setUpContract(e.target.value)} />
+          <div className="space-y-1.5">
+            <span className="block text-sm font-medium text-accent">
+              파일<span className="ml-0.5 text-semantic-red">*</span>
+            </span>
+            <div className="flex items-center gap-3">
+              <UploadButton
+                label="파일 선택"
+                onFile={(f) => {
+                  if (!f) return;
+                  if (f.type !== 'application/pdf') return addToast('error', 'PDF 파일만 업로드할 수 있습니다');
+                  if (f.size > 3 * 1024 * 1024) return addToast('error', '3MB 이하 파일만 업로드할 수 있습니다');
+                  setUpFile(f);
+                }}
+              />
+              <span className="min-w-0 truncate text-sm text-white">{upFile ? upFile.name : 'PDF, 3MB 이하'}</span>
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

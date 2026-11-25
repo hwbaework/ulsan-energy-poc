@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useId, type KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useId, type CSSProperties, type KeyboardEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 
 export interface SelectOption {
@@ -49,21 +50,46 @@ export function Select({
   const [focusedIdx, setFocusedIdx] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  // 펼친 목록은 body 에 따로 그린다 — 팝업 본문처럼 스크롤되는 칸 안에 있으면 목록이 그 안에 갇혀 잘리거나 칸이 스크롤된다(2026-11-25 사용자).
+  // 자리는 버튼 바로 아래(아래가 모자라면 위), 화면이 움직이면 다시 잰다
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<CSSProperties | null>(null);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const r = buttonRef.current?.getBoundingClientRect();
+      if (!r) return;
+      const need = 280; // 목록 최대 높이 + 여백
+      const up = r.bottom + need > window.innerHeight && r.top > need;
+      setPos(up ? { left: r.left, width: r.width, bottom: window.innerHeight - r.top + 6 } : { left: r.left, width: r.width, top: r.bottom + 6 });
+    };
+    place();
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [open]);
 
   const selectedOption = options.find((o) => o.value === selectedValue);
   const [q, setQ] = useState('');
   const word = q.trim();
   const shown = searchable && word ? options.filter((o) => o.label.includes(word)) : options;
   const searchRef = useRef<HTMLInputElement>(null);
+  const hasPos = !!pos;
   useEffect(() => {
     if (!open) setQ('');
     else if (searchable) searchRef.current?.focus();
-  }, [open, searchable]);
+    // 목록은 자리를 잰 뒤에 그려지므로(pos) 그때 검색 칸에 커서를 둔다
+  }, [open, searchable, hasPos]);
 
   useEffect(() => {
     if (!open) return;
     function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const t = e.target as Node;
+      if (containerRef.current && !containerRef.current.contains(t) && !dropRef.current?.contains(t)) {
         setOpen(false);
       }
     }
@@ -129,6 +155,7 @@ export function Select({
         <input type="hidden" name={name} value={selectedValue} />
         <button
           type="button"
+          ref={buttonRef}
           id={selectId}
           role="combobox"
           aria-expanded={open}
@@ -166,13 +193,15 @@ export function Select({
           </svg>
         </div>
 
-        {/* Dropdown */}
+        {/* Dropdown — body 에 그린다(팝업 위에도 보이게 z 는 팝업보다 높게) */}
+        {open &&
+          pos &&
+          typeof document !== 'undefined' &&
+          createPortal(
         <div
-          className={cn(
-            'absolute z-50 mt-1.5 w-full rounded-xl border border-white/[0.08] bg-[#0d1520] p-1 shadow-[0_16px_40px_-8px_rgba(0,0,0,0.6)] backdrop-blur-sm',
-            'origin-top transition-all duration-200',
-            open ? 'scale-100 opacity-100 translate-y-0' : 'pointer-events-none scale-95 opacity-0 -translate-y-1',
-          )}
+          ref={dropRef}
+          style={pos}
+          className="fixed z-[1100] rounded-xl border border-white/[0.08] bg-[#0d1520] p-1 shadow-[0_16px_40px_-8px_rgba(0,0,0,0.6)]"
         >
           {searchable && (
             <input
@@ -223,7 +252,9 @@ export function Select({
               ))
             )}
           </ul>
-        </div>
+        </div>,
+            document.body,
+          )}
       </div>
       {errorMessage && <p className="text-xs text-semantic-red">{errorMessage}</p>}
     </div>

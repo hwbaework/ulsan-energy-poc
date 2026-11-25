@@ -5,6 +5,7 @@ import { getPersona, usePersonaOverride } from '@/lib/persona';
 import { getPowerStationsByCompany } from '@/api/common/power-stations';
 import { powerStationKeys } from '@/api/queryKeys';
 import { CONSULTING_DOCS } from '@/lib/consulting-docs';
+import { useConsultingDocStore } from '@/stores/useConsultingDocStore';
 
 /**
  * 볼 수 있는 컨설팅 결과보고서 — 관리자는 전체, 그 밖에는 보고서 회사이거나
@@ -22,10 +23,13 @@ export function useConsultingDocs() {
     enabled: !isAdmin && companyId > 0,
     staleTime: 60_000,
   });
+  // 관리자가 업로드한 문서를 기본 문서 앞에
+  const added = useConsultingDocStore((s) => s.added);
   const docs = useMemo(() => {
-    if (isAdmin) return CONSULTING_DOCS;
+    const all = [...added, ...CONSULTING_DOCS];
+    if (isAdmin) return all;
     const myPlants = new Set((Array.isArray(stations) ? stations : []).map((s) => Number(s.externalPlantId)));
-    return CONSULTING_DOCS.filter((d) => d.companyId === companyId || d.plantIds.some((p) => myPlants.has(p)));
-  }, [isAdmin, companyId, stations]);
+    return all.filter((d) => d.companyId === companyId || d.plantIds.some((p) => myPlants.has(p)));
+  }, [isAdmin, companyId, stations, added]);
   return { docs, isAdmin, isLoading: !isAdmin && isLoading };
 }

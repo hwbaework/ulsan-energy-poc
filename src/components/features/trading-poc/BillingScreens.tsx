@@ -298,6 +298,12 @@ function BillingScreen({ kind }: { kind: Kind }) {
   const [month, setMonth] = useState('');
   const [q, setQ] = useState('');
   const [selId, setSelId] = useState<number | null>(null);
+  // 기업(관리자) — 조건 줄 오른쪽 끝. 이 화면은 누구 것을 아직 안 했는지 · 합계를 보는 업무 목록이라 '전체'를 둔다
+  // (보고서 · 문서 관리는 기업 하나만, 2026-11-25 사용자). 기업 칸은 전체일 때만
+  const [company, setCompany] = useState('all');
+  // 청구 줄에는 기업 번호가 없어 기업명으로 고른다(PPA 계약은 기업마다 하나)
+  const companies = useMemo(() => [...new Set(rows.map((s) => s.consumerCompanyName))].sort((a, b) => a.localeCompare(b, 'ko')), [rows]);
+  const companyName = company === 'all' ? '' : company;
   // 알림에서 들어오면(?contract=계약&period=달) 그 건을 고른다
   const search = useLocationSearch();
   useEffect(() => {
@@ -322,6 +328,7 @@ function BillingScreen({ kind }: { kind: Kind }) {
     (s) =>
       s.period.startsWith(year) &&
       (!month || s.period === month) &&
+      (!role.isAdmin || company === 'all' || s.consumerCompanyName === company) &&
       (!q.trim() || [s.consumerCompanyName, s.plantName].some((v) => v.includes(q.trim()))),
   );
   const sum = (xs: Bill[], f: (s: Bill) => number) => fmtKrw(xs.reduce((a, s) => a + f(s), 0));
@@ -380,11 +387,11 @@ function BillingScreen({ kind }: { kind: Kind }) {
       sortValue: (s) => s.period,
       render: (s) => cellStrong(s.period),
     },
-    ...(role.isAdmin
+    ...(role.isAdmin && company === 'all'
       ? [
           {
             key: 'consumer',
-            header: kind === 'TAX' ? '공급받는자' : '청구 대상',
+            header: '기업', // 표의 칸 이름은 '기업' 하나(공급받는자 · 청구 대상은 문서 안의 말, 2026-11-25 사용자)
             render: (s: Bill) => cell(s.consumerCompanyName, 'text-white'),
           },
         ]
@@ -434,11 +441,11 @@ function BillingScreen({ kind }: { kind: Kind }) {
       sortValue: (s) => s.period,
       render: (s) => cellStrong(s.period),
     },
-    ...(role.isAdmin
+    ...(role.isAdmin && company === 'all'
       ? [
           {
             key: 'consumer',
-            header: kind === 'TAX' ? '공급받는자' : '청구 대상',
+            header: '기업', // 표의 칸 이름은 '기업' 하나(공급받는자 · 청구 대상은 문서 안의 말, 2026-11-25 사용자)
             render: (s: Bill) => cell(s.consumerCompanyName, 'text-white'),
           },
         ]
@@ -464,7 +471,8 @@ function BillingScreen({ kind }: { kind: Kind }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={NAME[kind]} parent="수익·정산" />
+      {/* 기업을 고르면 제목 앞에 그 기업 이름. 경로 표시는 메뉴 이름 그대로 */}
+      <PageHeader title={companyName ? `${companyName} ${NAME[kind]}` : NAME[kind]} parent="수익·정산" crumb={NAME[kind]} />
 
       {/* 위 — 연도 · 월 */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl bg-[#0d1520] px-4 py-3 ring-1 ring-white/[0.06]">
@@ -498,6 +506,21 @@ function BillingScreen({ kind }: { kind: Kind }) {
             onChange={(e) => setMonth(e.target.value)}
           />
         </div>
+        {role.isAdmin && (
+          <div className="ml-auto flex items-center gap-3">
+            <span className="text-sm text-slate-400">기업</span>
+            <div className="w-52">
+              <Select
+                options={[{ value: 'all', label: '전체' }, ...companies.map((c) => ({ value: c, label: c }))]}
+                value={company}
+                onChange={(e) => {
+                  setCompany(e.target.value);
+                  setSelId(null);
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <StatsGrid columns={3}>
