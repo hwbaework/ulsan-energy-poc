@@ -88,7 +88,8 @@ export function ContractChangesScreen() {
     {
       key: 'type',
       header: '구분',
-      width: '100px',
+      // 바뀐 항목이 셋이면 '기간 · 단가 · O&M 변경'까지 길어진다 — 잘리지 않게 넓힌다(2026-11-25 사용자)
+      width: '200px',
       render: (c) => cell(changeLabel(c, contractOf(c.contractId)?.kind)),
     },
     {
