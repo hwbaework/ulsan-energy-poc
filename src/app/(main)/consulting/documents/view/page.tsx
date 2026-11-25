@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { useConsultingDocs } from '@/hooks/consulting/useConsultingDocs';
 import { fitPdf } from '@/lib/utils/fitPdf';
 
-/** 컨설팅 › 문서관리 › 결과보고서 보기 — ?id=문서번호. 실제 보고서 PDF 를 페이지 안에서 그대로 */
+/** 컨설팅 › 문서 관리 › 결과보고서 보기 — ?id=문서번호. 실제 보고서 PDF 를 페이지 안에서 그대로 */
 export default function ConsultingDocumentViewPage() {
   const { docs, isLoading } = useConsultingDocs();
   const [id, setId] = useState<number | null>(null);
@@ -21,7 +21,7 @@ export default function ConsultingDocumentViewPage() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '문서관리', path: '/consulting/documents' }, { label: doc?.title ?? '문서' }]} />
+      <Breadcrumb items={[{ label: 'RE100', path: '/re100' }, { label: '문서 관리', path: '/consulting/documents' }, { label: doc?.title ?? '문서' }]} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
           <BackButton href="/consulting/documents" label="문서 목록으로" />
@@ -29,7 +29,7 @@ export default function ConsultingDocumentViewPage() {
           <h1 className="text-2xl font-bold text-white">{doc?.title ?? '문서'}</h1>
           {doc && (
             <p className="mt-1.5 text-sm text-slate-400 tabular-nums">
-              {[doc.companyName, doc.plantName, doc.contractNo, `발행일 ${doc.issuedAt}`, `${doc.pages}쪽`].filter(Boolean).join(' · ')}
+              {[doc.companyName, doc.plantName, doc.contractNo, `등록일 ${doc.issuedAt}`, `${doc.pages}쪽`].filter(Boolean).join(' · ')}
             </p>
           )}
           </div>

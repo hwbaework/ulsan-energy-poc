@@ -8,6 +8,12 @@ import { SkeletonTable } from '@/components/ui/Skeleton';
  * 표 공통 모양 — DataTable 과 같은 값. 따로 그리는 표(입력 칸이 든 표 · 달마다 가로 표 등)도 이 값을 쓴다(2026-10-15 표 통일)
  *  <table className={TABLE}> <thead><tr className={TABLE_HEAD_ROW}><th className={TABLE_TH}> … <tbody><tr className={TABLE_ROW}><td className={TABLE_TD}>
  */
+/**
+ * 목록(왼쪽) + 미리보기(오른쪽) 화면의 칸 나눔 — 보고서 · 명세서 · 문서 관리 · 청구서가 모두 이 값 하나를 쓴다.
+ * 화면마다 미리보기 폭이 480 / 560 으로 달랐던 것을 넓은 쪽(560)으로 맞췄다(2026-11-25 사용자)
+ */
+export const LIST_PREVIEW_GRID = 'grid grid-cols-1 items-start gap-6 md:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] xl:grid-cols-[minmax(0,1fr)_560px]';
+
 export const TABLE = 'w-full text-sm';
 export const TABLE_HEAD_ROW = 'border-b border-accent/20 bg-surface-elevated';
 export const TABLE_TH = 'px-4 py-3 text-left font-medium text-accent whitespace-nowrap';

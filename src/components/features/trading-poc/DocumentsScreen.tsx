@@ -1,18 +1,22 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronRight, Download, Search, Star } from 'lucide-react';
+import { Download, Search } from 'lucide-react';
 import { SectionCard } from '@/components/features/SectionCard';
-import { DataTable, type Column } from '@/components/features/DataList';
+import { DataTable, type Column, LIST_PREVIEW_GRID } from '@/components/features/DataList';
 import { Input } from '@/components/ui/Input';
-import { cn } from '@/lib/utils';
+import { Select } from '@/components/ui/Select';
+import { Button } from '@/components/ui/Button';
+import { LIMIT } from '@/lib/field-limits';
+import { fitPdf } from '@/lib/utils/fitPdf';
 import { billingStatusOf, invoiceKey, isInvoiceOut, issueDateOf, useTradingPocStore } from '@/stores/useTradingPocStore';
 import type { Contract, DocCategory, TradeDocument } from '@/types/trading-poc';
 import { useTradingRole } from './useTradingRole';
 import { kindLabel } from './meta';
 import { PageHeader, cell, cellNum } from './Bits';
-import { periodOf } from './DocumentSheet';
+import { DocumentSheet, periodOf } from './DocumentSheet';
+import { BillingPaper } from './BillingPaper';
 import { useLocationSearch } from '@/lib/use-location-search';
 
 /** 계약서 원문(양식) — 계약서는 이 PDF */
@@ -33,15 +37,6 @@ const CATEGORY_META: Record<Category, { label: string }> = {
 const isShown = (d: TradeDocument): d is TradeDocument & { category: Category } =>
   (CATEGORIES as readonly string[]).includes(d.category);
 
-const FAV_KEY = 'trading-doc-favorites';
-function readFavs(): Set<number> {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(FAV_KEY) ?? '[]') as number[]);
-  } catch {
-    return new Set();
-  }
-}
-
 type Row = TradeDocument & {
   category: Category;
   company: string;
@@ -50,47 +45,31 @@ type Row = TradeDocument & {
   name: string;
 };
 
-function FolderRow({
-  label,
-  count,
-  active,
-  depth = 0,
-  expanded,
-  onClick,
-}: {
-  label: string;
-  count?: number;
-  active?: boolean;
-  depth?: number;
-  expanded?: boolean;
-  onClick: () => void;
-}) {
+/** 종이(A4, 900px 기준)를 칸 폭에 맞춰 줄여 그린다 — 옆 미리보기 칸이 좁아도 글자 배치가 깨지지 않게 */
+function FitWidth({ width = 900, children }: { width?: number; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => e && setZoom(Math.min(1, e.contentRect.width / width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [width]);
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
-        active ? 'bg-primary/[0.10] text-primary' : 'text-slate-300 hover:bg-white/[0.04] hover:text-white',
-      )}
-      style={{ paddingLeft: `${0.5 + depth * 0.9}rem` }}
-    >
-      <span className="flex h-4 w-4 shrink-0 items-center justify-center text-slate-500">
-        {expanded === undefined ? null : expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-      </span>
-      <span className="flex-1 truncate">{label}</span>
-      {count !== undefined && <span className="text-xs tabular-nums text-slate-300">{count}</span>}
-    </button>
+    <div ref={ref} className="w-full overflow-hidden">
+      <div style={{ width, zoom }}>{children}</div>
+    </div>
   );
 }
 
-const iconBtn = 'inline-flex rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-white';
 
 /**
  * 문서 관리 — 전력거래에서 생긴 문서만 모아 본다(계약서 · 청구서 · 세금계산서 · 변경 합의서 · 해지 합의서).
  * 여기서 등록하지 않는다 — 각자 전자서명 · 청구서 발행 · 세금계산서 원본 업로드에서 들어온다.
- * 왼쪽 폴더(전체 · 카테고리 · 기업별), 오른쪽 문서 표(다른 화면과 같은 표 · 검색). 줄을 누르면 보기, 오른쪽 끝 PDF.
- * ?company=기업 번호 로 기업 폴더를 열 수 있다.
+ * 틀은 보고서 화면과 같다(2026-11-25 사용자) — 조건 줄(카테고리 · 오른쪽 끝 기업) → 문서 목록(검색) + 오른쪽 미리보기. 줄을 누르면 미리보기가 그 문서로 바뀐다.
+ * 폴더 트리 · 보기 화면으로 넘어가기는 없앴다(보기 화면은 알림 등 다른 곳의 링크가 써서 남아 있다). 계약서는 여러 쪽이라 받아서 본다.
+ * ?company=기업 번호 로 그 기업을 고른 채 열 수 있다.
  */
 export function DocumentsScreen({ initialCompany }: { initialCompany?: number }) {
   const router = useRouter();
@@ -98,14 +77,14 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
   const invoices = useTradingPocStore((s) => s.invoices);
   const base = docsBase(role.isAdmin);
 
-  const [folder, setFolder] = useState<string>('all');
-  const [open, setOpen] = useState<Set<string>>(new Set(['cat', 'company']));
+  const [category, setCategory] = useState<'all' | Category>('all');
+  // 기업 — '전체' 없이 항상 하나(처음엔 첫 기업). 여러 기업을 섞으면 줄마다 기업 칸이 필요해진다(2026-11-25 사용자)
+  const [companyPick, setCompany] = useState<string>(''); // 기업 번호
   const [query, setQuery] = useState('');
-  const [favs, setFavs] = useState<Set<number>>(new Set());
+  const [selId, setSelId] = useState<number | null>(null);
   useEffect(() => {
-    setFavs(readFavs());
     const id = initialCompany ?? Number(new URLSearchParams(window.location.search).get('company'));
-    if (id) setFolder(`company:${id}`);
+    if (id) setCompany(String(id));
   }, [initialCompany]);
 
   const docs = useMemo<Row[]>(
@@ -140,65 +119,23 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
     return [...m.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
   }, [docs]);
 
+  const company = companies.some((c) => String(c.id) === companyPick) ? companyPick : String(companies[0]?.id ?? '');
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return docs
-      .filter(
-        (d) =>
-          folder === 'all' ||
-          (folder.startsWith('cat:') ? d.category === folder.slice(4) : d.companyId === Number(folder.slice(8))),
-      )
+      .filter((d) => (category === 'all' || d.category === category) && (!company || d.companyId === Number(company)))
       .filter(
         (d) => !q || [d.name, d.company, CATEGORY_META[d.category].label].some((v) => v.toLowerCase().includes(q)),
       )
       .sort((a, b) => b.issuedAt.localeCompare(a.issuedAt) || b.id - a.id);
-  }, [docs, folder, query]);
+  }, [docs, category, company, query]);
+  // 처음부터 맨 위 문서가 열려 있고, 다른 줄을 누르면 오른쪽이 그 문서로 바뀐다(보고서 화면과 같다)
+  const sel = visible.find((d) => d.id === selId) ?? visible[0] ?? null;
+  const companyName = companies.find((c) => String(c.id) === company)?.name ?? '';
 
-  const toggle = (k: string) =>
-    setOpen((s) => (s.has(k) ? new Set([...s].filter((x) => x !== k)) : new Set([...s, k])));
-  const toggleFav = (id: number) =>
-    setFavs((s) => {
-      const next = new Set(s);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      try {
-        localStorage.setItem(FAV_KEY, JSON.stringify([...next]));
-      } catch {
-        /* 저장 못 해도 화면은 그대로 */
-      }
-      return next;
-    });
   const view = (d: TradeDocument, pdf = false) => router.push(`${base}/view?id=${d.id}${pdf ? '&pdf=1' : ''}`);
-  const folderName =
-    folder === 'all'
-      ? '전체'
-      : folder.startsWith('cat:')
-        ? CATEGORY_META[folder.slice(4) as Category].label
-        : (companies.find((c) => c.id === Number(folder.slice(8)))?.name ?? '');
-
   const columns: Column<Row>[] = [
-    {
-      key: 'fav',
-      header: '',
-      width: '56px',
-      align: 'center',
-      render: (d) => {
-        const fav = favs.has(d.id);
-        return (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleFav(d.id);
-            }}
-            aria-label="즐겨찾기"
-            className={cn('inline-flex', fav ? 'text-amber-400' : 'text-slate-600 hover:text-amber-400')}
-          >
-            <Star size={14} className={fav ? 'fill-amber-400' : ''} />
-          </button>
-        );
-      },
-    },
+    // 즐겨찾기 별 칸은 뺐다(2026-11-25 사용자)
     {
       key: 'name',
       header: '파일',
@@ -211,7 +148,7 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
     // 계약 유형 — 파일 이름 아래 둘째 줄이 아니라 칸 하나(칸 하나에 값 하나, 2026-11-19 사용자)
     { key: 'kind', header: '계약 유형', width: '100px', render: (d) => cell(d.contract ? kindLabel(d.contract.kind) : '') },
     { key: 'cat', header: '카테고리', width: '100px', render: (d) => cell(CATEGORY_META[d.category].label) },
-    ...(role.isAdmin ? [{ key: 'company', header: '기업', width: '110px', render: (d: Row) => cell(d.company) }] : []),
+    // 기업 칸은 없다 — 항상 기업 하나만 보므로 전부 같은 값(어느 기업인지는 제목 · 오른쪽 셀렉트)
     {
       // 등록일 — 문서 관리에 들어온 날. 세금계산서는 홈택스 발행이라 '발행일'이 아니고 관리자가 업로드한 날(2026-11-19 사용자)
       key: 'issued',
@@ -221,109 +158,103 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
       sortValue: (d) => d.issuedAt,
       render: (d) => cellNum(d.issuedAt),
     },
-    {
-      key: 'pdf',
-      header: 'PDF',
-      width: '64px',
-      align: 'center',
-      render: (d) =>
-        isContractDoc(d) || d.original ? (
-          <a
-            href={d.original?.url ?? CONTRACT_PDF}
-            download={d.original?.name ?? d.name}
-            onClick={(e) => e.stopPropagation()}
-            aria-label="다운로드"
-            title="다운로드"
-            className={iconBtn}
-          >
-            <Download size={15} />
-          </a>
-        ) : (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              view(d, true);
-            }}
-            aria-label="다운로드"
-            title="다운로드"
-            className={iconBtn}
-          >
-            <Download size={15} />
-          </button>
-        ),
-    },
+    // PDF 칸은 없다 — 받기는 오른쪽 미리보기 위 [PDF] 하나(명세서와 같다, 2026-11-25 사용자)
   ];
+
+  // 받기 — 계약서 · 원본이 있는 문서는 그 파일, 그 밖은 보기 화면에서 PDF 저장(목록의 PDF 칸과 같은 동작)
+  const downloadOf = (d: Row): { href: string; name: string } | null =>
+    isContractDoc(d) || d.original ? { href: d.original?.url ?? CONTRACT_PDF, name: d.original?.name ?? d.name } : null;
+  const selDown = sel ? downloadOf(sel) : null;
+  const selPeriod = sel && (sel.category === 'TAX' || sel.category === 'INVOICE') ? periodOf(sel) : undefined;
+  const selChange = sel && (sel.category === 'CHANGE' || sel.category === 'TERMINATE') ? role.changes.find((ch) => sel.fileName.startsWith(ch.no)) : undefined;
 
   return (
     <div className="space-y-6">
-      <PageHeader title="문서 관리" />
+      {/* 제목 앞에 지금 보는 기업 이름(보고서 화면과 같은 꼴). 경로 표시는 메뉴 이름 그대로 */}
+      <PageHeader title={companyName ? `${companyName} 문서 관리` : '문서 관리'} crumb="문서 관리" />
 
-      <div className="grid items-start gap-6 xl:grid-cols-[220px_minmax(0,1fr)]">
-        {/* 폴더 */}
-        <div>
-          <SectionCard title="폴더">
-            <div className="space-y-1">
-              <FolderRow label="전체" count={docs.length} active={folder === 'all'} onClick={() => setFolder('all')} />
-              <FolderRow label="카테고리" expanded={open.has('cat')} onClick={() => toggle('cat')} />
-              {open.has('cat') &&
-                CATEGORIES.map((c) => (
-                  <FolderRow
-                    key={c}
-                    label={CATEGORY_META[c].label}
-                    count={docs.filter((d) => d.category === c).length}
-                    depth={1}
-                    active={folder === `cat:${c}`}
-                    onClick={() => setFolder(`cat:${c}`)}
-                  />
-                ))}
-              <FolderRow label="기업별" expanded={open.has('company')} onClick={() => toggle('company')} />
-              {open.has('company') &&
-                companies.map((c) => (
-                  <FolderRow
-                    key={c.id}
-                    label={c.name}
-                    count={docs.filter((d) => d.companyId === c.id).length}
-                    depth={1}
-                    active={folder === `company:${c.id}`}
-                    onClick={() => setFolder(`company:${c.id}`)}
-                  />
-                ))}
+      {/* 조건 줄 — 카테고리, 오른쪽 끝 기업(관리자) */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl bg-[#0d1520] px-5 py-3 ring-1 ring-white/[0.06]">
+        <span className="text-sm text-slate-400">카테고리</span>
+        <div className="w-40">
+          <Select
+            options={[{ value: 'all', label: '전체' }, ...CATEGORIES.map((c) => ({ value: c, label: CATEGORY_META[c].label }))]}
+            value={category}
+            onChange={(e) => setCategory(e.target.value as 'all' | Category)}
+          />
+        </div>
+        {role.isAdmin && companies.length > 1 && (
+          <div className="ml-auto flex items-center gap-3">
+            <span className="text-sm text-slate-400">기업</span>
+            <div className="w-52">
+              <Select
+                options={companies.map((c) => ({ value: String(c.id), label: c.name }))}
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+              />
             </div>
-          </SectionCard>
-        </div>
-
-        {/* 문서 */}
-        <div className="min-w-0">
-          <SectionCard
-            title={`${folderName} (${visible.length})`}
-            actions={
-              <div className="relative w-64">
-                <Search
-                  size={14}
-                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500"
-                />
-                <Input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="파일 · 카테고리 · 기업 검색"
-                  className="pl-8"
-                />
-              </div>
-            }
-            noPadding
-          >
-            <DataTable
-              columns={columns}
-              data={visible}
-              rowKey={(d) => d.id}
-              emptyMessage="문서 없음"
-              onRowClick={(d) => view(d)}
-            />
-          </SectionCard>
-        </div>
+          </div>
+        )}
       </div>
 
+      {/* 목록 왼쪽 · 미리보기 오른쪽 */}
+      <div className={LIST_PREVIEW_GRID}>
+        <SectionCard
+          title={`문서 목록 (${visible.length})`}
+          actions={
+            <div className="relative w-64">
+              <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="문서 검색" maxLength={LIMIT.companyName} className="pl-8" />
+            </div>
+          }
+          noPadding
+          className="min-w-0 !h-auto"
+        >
+          <DataTable
+            columns={columns}
+            data={visible}
+            rowKey={(d) => d.id}
+            emptyMessage="문서 없음"
+            onRowClick={(d) => setSelId(d.id)}
+            rowClassName={(d) => (d.id === sel?.id ? '!bg-primary/10' : '')}
+          />
+        </SectionCard>
+
+        {sel && (
+          <div className="min-w-0 overflow-hidden rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] md:sticky md:top-4">
+            <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-3">
+              <div className="min-w-0">
+                <p className="text-xs text-slate-400">미리보기</p>
+                <p className="truncate text-sm font-semibold text-white">{sel.name}</p>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                {selDown ? (
+                  <a href={selDown.href} download={selDown.name}>
+                    <Button size="sm" variant="secondary">
+                      <Download size={14} className="mr-1" /> PDF
+                    </Button>
+                  </a>
+                ) : (
+                  <Button size="sm" variant="secondary" onClick={() => view(sel, true)}>
+                    <Download size={14} className="mr-1" /> PDF
+                  </Button>
+                )}
+              </div>
+            </div>
+            {isContractDoc(sel) ? (
+              <iframe title={sel.title} src={fitPdf(CONTRACT_PDF)} className="w-full bg-white" style={{ height: '72vh', minHeight: 560, border: 'none' }} />
+            ) : sel.contract && selPeriod ? (
+              <div className="p-3">
+                <BillingPaper kind={sel.category === 'TAX' ? 'TAX' : 'INVOICE'} contract={sel.contract} period={selPeriod} admin={role.isAdmin} />
+              </div>
+            ) : sel.contract ? (
+              <FitWidth>
+                <DocumentSheet doc={sel} contract={sel.contract} change={selChange} />
+              </FitWidth>
+            ) : null}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

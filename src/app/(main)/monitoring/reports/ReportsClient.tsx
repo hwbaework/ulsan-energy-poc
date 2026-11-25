@@ -6,11 +6,14 @@
  * - 종류 2가지: 발전 실적 · 이상감지. 매월 1건씩 자동 생성
  * - 외부 제출 양식은 없다(내부 보고·검증용)
  */
+import { LIST_PREVIEW_GRID } from '@/components/features/DataList';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useQueries } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Search } from 'lucide-react';
 import { Select } from '@/components/ui/Select';
+import { Input } from '@/components/ui/Input';
+import { LIMIT } from '@/lib/field-limits';
 import { Button } from '@/components/ui/Button';
 import { SectionCard } from '@/components/features';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
@@ -31,10 +34,6 @@ import type { PlantContractKind } from '@/types/monitoring';
 
 type ReportKind = 'generation' | 'anomaly';
 const KIND_LABEL: Record<ReportKind, string> = { generation: '발전 실적', anomaly: '이상감지' };
-const KIND_CLASS: Record<ReportKind, string> = {
-  generation: 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/20',
-  anomaly: 'bg-red-500/10 text-red-400 ring-red-500/20',
-};
 
 interface ReportDoc {
   id: string;
@@ -115,21 +114,31 @@ const KIND_OPTIONS = [
 
 export default function ReportsClient() {
   const router = useRouter();
-  // 발전소 목록 화면은 없다 — 보고서 메뉴를 누르면 바로 이 화면(전체)이고, 기업은 오른쪽 셀렉트로 바꾼다(2026-11-25 사용자)
-  const scope = useParams<{ plantId?: string }>().plantId ?? 'all'; // 'all'(주소에 발전소가 없을 때) 또는 발전소 ID
-  const contract = useSearchParams().get('contract') as PlantContractKind | null; // 계약 하나만 볼 때
+  // 발전소 목록 화면도 '전체'도 없다 — 보고서 메뉴를 누르면 첫 기업이 골라진 채로 열리고, 기업은 오른쪽 셀렉트로 바꾼다.
+  // 여러 기업을 한 목록에 섞으면 줄마다 기업 칸이 필요해져서, 관리자 대시보드처럼 항상 기업 하나를 본다(2026-11-25 사용자)
+  const routeScope = useParams<{ plantId?: string }>().plantId; // 주소의 발전소 ID(없으면 첫 기업)
+  const routeContract = useSearchParams().get('contract') as PlantContractKind | null;
   const [year, setYear] = useState(THIS_YEAR);
   const [monthFilter, setMonthFilter] = useState('all');
   const [kindFilter, setKindFilter] = useState('all');
+  // 문서 검색 — 보고서 목록 카드 제목 줄 오른쪽(온실가스 보고서와 같은 자리, 2026-11-25 사용자)
+  const [query, setQuery] = useState('');
 
   /* 범위: 발전소 하나 */
   const { data: allPlants } = useMonitoringPlants();
   const myPlantMatcher = useMyPlantMatcher();
   const myPlants = useMemo(() => filterPlantsByOwnership(allPlants ?? [], myPlantMatcher), [allPlants, myPlantMatcher]);
-  // 계약 하나 = 항목 하나 — 이름은 "한일튜브(onsite)", 값은 계약 용량 몫(share)
+  // 기업 셀렉트 — 계약 하나가 선택지 하나, 보고서가 있는 태양광만(연료전지 · ORC 는 보고서 항목이 아직 없다)
+  const companyChoices = useMemo(() => expandByContract(myPlants.filter((p) => p.type === 'SOLAR')), [myPlants]);
+  // 지금 보는 계약 — 주소에 있으면 그것, 없으면 첫 기업. 계약이 둘인 발전소인데 주소에 계약이 없으면 그 발전소의 첫 계약
+  const current =
+    companyChoices.find((c) => String(c.plantId) === routeScope && (!routeContract || c.contractKind === routeContract)) ??
+    (routeScope ? undefined : companyChoices[0]);
+  const scope = current ? String(current.plantId) : (routeScope ?? '');
+  const contract = current ? (current.contractKind ?? null) : routeContract;
+  // 계약 하나 = 항목 하나 — 이름은 "한일튜브(PPA)", 값은 계약 용량 몫(share)
   const plants = useMemo(() => {
-    // 전체는 보고서가 있는 태양광만(연료전지 · ORC 는 보고서 항목이 아직 없다)
-    const items = expandByContract(scope === 'all' ? myPlants.filter((p) => p.type === 'SOLAR') : myPlants.filter((p) => String(p.plantId) === scope));
+    const items = expandByContract(myPlants.filter((p) => String(p.plantId) === scope));
     const picked = items.filter((c) => c.contractKind === contract);
     return picked.length > 0 ? picked : items;
   }, [myPlants, scope, contract]);
@@ -139,20 +148,22 @@ export default function ReportsClient() {
   const docs = useMemo(
     () =>
       hasReport
-        ? docsOfYear(year).filter((d) => (kindFilter === 'all' || d.kind === kindFilter) && (d.kind === 'anomaly' || monthFilter === 'all' || d.month.endsWith(`-${monthFilter}`)))
+        ? docsOfYear(year).filter(
+            (d) =>
+              (kindFilter === 'all' || d.kind === kindFilter) &&
+              (d.kind === 'anomaly' || monthFilter === 'all' || d.month.endsWith(`-${monthFilter}`)) &&
+              (!query.trim() || d.title.toLowerCase().includes(query.trim().toLowerCase())),
+          )
         : [],
-    [hasReport, year, monthFilter, kindFilter],
+    [hasReport, year, monthFilter, kindFilter, query],
   );
-  // 기업 셀렉트 — 보고서가 있는 계약(태양광)만
-  const companyChoices = useMemo(() => expandByContract(myPlants.filter((p) => p.type === 'SOLAR')), [myPlants]);
-  const companyValue = scope === 'all' ? 'all' : (companyChoices.find((c) => String(c.plantId) === scope && (!contract || c.contractKind === contract))?.key ?? 'all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // 처음부터 맨 위 문서가 열려 있고, 다른 행을 누르면 오른쪽이 그 문서로 바뀐다
   const selected = docs.find((d) => d.id === selectedId) ?? docs[0] ?? null;
-  const scopeName = scope === 'all' ? '전체 발전소' : (plants[0]?.displayName ?? '');
-  const titleSuffix = scope === 'all' ? '' : ` · ${scopeName}`;
+  const scopeName = plants[0]?.displayName ?? '';
+  const titleSuffix = scopeName ? ` · ${scopeName}` : '';
   const capacityTotal = plants.reduce((s, p) => s + p.capacity, 0);
-  const scopeLabel = scope === 'all' ? `발전소 ${plants.length}개` : scopeName;
+  const scopeLabel = scopeName;
 
   /* 선택 문서의 발전 이력 */
   const historyQueries = useQueries({
@@ -234,7 +245,7 @@ export default function ReportsClient() {
     if (!selected) return null;
     const cap = capacityTotal >= 1000 ? `${(capacityTotal / 1000).toFixed(2)} MW` : `${capacityTotal.toLocaleString()} kW`;
     // 계약 유형 — 발전소 하나(계약 하나)를 볼 때만. 자가소비 / onsite 에 따라 보고서 성격이 다르다
-    const kind = scope !== 'all' ? plants[0]?.contractKind : undefined;
+    const kind = plants[0]?.contractKind;
     const meta: [string, string][] = [
       ['기간', selected.period],
       ['대상', `${scopeLabel} · 설비 ${cap}`],
@@ -333,7 +344,8 @@ export default function ReportsClient() {
   return (
     <div className="space-y-6">
       <Breadcrumb items={[{ label: '통합관제', path: '/dashboard' }, { label: '보고서' }]} />
-      <h1 className="text-2xl font-bold text-white">보고서</h1>
+      {/* 제목 앞에 지금 보는 기업 이름 — 캡처 한 장만 봐도 어느 기업인지 알게(대시보드 카드 제목과 같은 꼴, 2026-11-25 사용자) */}
+      <h1 className="text-2xl font-bold text-white">{scopeName ? `${scopeName} 보고서` : '보고서'}</h1>
 
       {/* 연도 · 월 · 종류 */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl bg-[#0d1520] ring-1 ring-white/[0.06] px-5 py-3">
@@ -364,11 +376,11 @@ export default function ReportsClient() {
             <span className="text-sm text-slate-400">기업</span>
             <div className="w-52">
               <Select
-                options={[{ value: 'all', label: '전체' }, ...companyChoices.map((c) => ({ value: c.key, label: c.displayName }))]}
-                value={companyValue}
+                options={companyChoices.map((c) => ({ value: c.key, label: c.displayName }))}
+                value={current?.key ?? ''}
                 onChange={(e) => {
                   const c = companyChoices.find((x) => x.key === e.target.value);
-                  router.push(c ? contractHref(`/monitoring/reports/${c.plantId}`, c.contractKind) : '/monitoring/reports');
+                  if (c) router.push(contractHref(`/monitoring/reports/${c.plantId}`, c.contractKind));
                 }}
               />
             </div>
@@ -377,9 +389,19 @@ export default function ReportsClient() {
       </div>
 
       {/* 목록 왼쪽 · 미리보기 문서 오른쪽 — 창이 좁아도(768px~) 옆에 붙는다 */}
-      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] xl:grid-cols-[minmax(0,1fr)_480px] gap-6 items-start">
+      <div className={LIST_PREVIEW_GRID}>
         {/* 문서 목록 */}
-        <SectionCard title="보고서 목록" noPadding className="min-w-0 !h-auto">
+        <SectionCard
+          title={`보고서 목록 (${docs.length})`}
+          actions={
+            <div className="relative w-64">
+              <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="문서 검색" maxLength={LIMIT.companyName} className="pl-8" />
+            </div>
+          }
+          noPadding
+          className="min-w-0 !h-auto"
+        >
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="border-b border-white/[0.06]">
@@ -387,7 +409,6 @@ export default function ReportsClient() {
                   <th className={th}>문서</th>
                   <th className={th}>종류</th>
                   <th className={th}>생성일</th>
-                  <th className={th}>PDF</th>
                 </tr>
               </thead>
               <tbody>
@@ -397,21 +418,17 @@ export default function ReportsClient() {
                     onClick={() => setSelectedId(d.id)}
                     className={cn('cursor-pointer border-b border-white/5 transition-colors', selected?.id === d.id ? 'bg-primary/10' : 'hover:bg-white/[0.03]')}
                   >
-                    <td className={cn(td, 'font-medium text-white whitespace-nowrap')}>{d.title}{titleSuffix}</td>
-                    <td className={td}>
-                      <span className={cn('inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium ring-1 whitespace-nowrap', KIND_CLASS[d.kind])}>{KIND_LABEL[d.kind]}</span>
-                    </td>
+                    {/* 문서 이름에 기업 이름을 붙이지 않는다 — 이 화면 제목이 이미 '{기업} 보고서'라 줄마다 되풀이된다(2026-11-25 사용자). PDF 문서 제목에는 그대로 들어간다 */}
+                    <td className={cn(td, 'font-medium text-white whitespace-nowrap')}>{d.title}</td>
+                    {/* 종류는 글자만 — 색 박스는 상태 표시처럼 읽힌다(2026-11-25 사용자). 다른 표의 계약 유형 칸과 같은 글자색 */}
+                    <td className={cn(td, 'text-slate-300 whitespace-nowrap')}>{KIND_LABEL[d.kind]}</td>
                     <td className={cn(td, 'text-slate-400 tabular-nums whitespace-nowrap')}>{d.createdAt}</td>
-                    <td className={cn(td, 'whitespace-nowrap')}>
-                      <button type="button" onClick={(e) => { e.stopPropagation(); onPdf(d); }} className="rounded-md p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-white" title="PDF">
-                        <FileText size={15} />
-                      </button>
-                    </td>
+                    {/* PDF 칸은 없다 — 받기는 오른쪽 미리보기 위 [PDF] 하나(명세서와 같다, 2026-11-25 사용자) */}
                   </tr>
                 ))}
                 {docs.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-4 py-10 text-center text-sm text-slate-500">{hasReport ? '보고서가 없습니다' : '보고서 항목이 아직 정해지지 않았습니다'}</td>
+                    <td colSpan={3} className="px-4 py-10 text-center text-sm text-slate-500">{hasReport ? '보고서가 없습니다' : '보고서 항목이 아직 정해지지 않았습니다'}</td>
                   </tr>
                 )}
               </tbody>
@@ -425,7 +442,7 @@ export default function ReportsClient() {
             <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-3">
               <div className="min-w-0">
                 <p className="text-xs text-slate-400">미리보기</p>
-                <p className="truncate text-sm font-semibold text-white">{selected.title}{titleSuffix}</p>
+                <p className="truncate text-sm font-semibold text-white">{selected.title}</p>
               </div>
               <div className="flex shrink-0 gap-2">
                 <Button size="sm" variant="secondary" onClick={() => onPdf(selected)}>

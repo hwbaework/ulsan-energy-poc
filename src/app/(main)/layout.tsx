@@ -101,7 +101,7 @@ const RE100_CONSULTING_CHILDREN: GnbChild[] = [
   { to: '/consulting', icon: Zap, label: '컨설팅 홈', section: '컨설팅', end: true }, // 2.2.1
   { to: '/consulting/status', icon: ClipboardList, label: '내 컨설팅', section: '컨설팅' }, // 2.2.2
   { to: '/consulting/diagnosis', icon: ClipboardCheck, label: '무료진단', section: '컨설팅', end: true }, // 2.2.3
-  { to: '/consulting/documents', icon: FileText, label: '문서관리', section: '컨설팅' }, // 2.2.4 (내 계약 문서 보관함)
+  { to: '/consulting/documents', icon: FileText, label: '문서 관리', section: '컨설팅' }, // 2.2.4 (내 계약 문서 보관함)
 ];
 // 2.2.5 RE100 교육 — 관리자: 교육 자료(수집·작성, 문항은 자료 안에서) · 참여 현황(누가 하고 있는지 · 몇 건 끝냈는지)
 //                    발전사업자·전기사용자: 한 메뉴 — 자료 열람 · 쪽지시험

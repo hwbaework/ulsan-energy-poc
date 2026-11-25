@@ -6,7 +6,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, FileText, Search } from 'lucide-react';
 import { SectionCard } from '@/components/features/SectionCard';
-import { DataTable, type Column } from '@/components/features/DataList';
+import { DataTable, type Column, LIST_PREVIEW_GRID } from '@/components/features/DataList';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -135,7 +135,7 @@ export function GhgStatementScreen() {
       </div>
 
       {/* 목록 왼쪽 · 문서 오른쪽 — 줄을 누르면 오른쪽 명세서가 그 달 · 계약으로 */}
-      <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] xl:grid-cols-[minmax(0,1fr)_560px]">
+      <div className={LIST_PREVIEW_GRID}>
         <SectionCard
           title="명세서"
           actions={

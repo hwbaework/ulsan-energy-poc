@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Download, ExternalLink, Pencil, Plus, RotateCcw, Trash2, Upload } from 'lucide-react';
 import { SectionCard } from '@/components/features/SectionCard';
-import { DataTable, type Column } from '@/components/features/DataList';
+import { DataTable, type Column, LIST_PREVIEW_GRID } from '@/components/features/DataList';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -779,7 +779,7 @@ function FormBoard({
       : []),
   ];
   return (
-    <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] xl:grid-cols-[minmax(0,1fr)_560px]">
+    <div className={LIST_PREVIEW_GRID}>
       <SectionCard
         title={title}
         actions={

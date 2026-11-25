@@ -17,11 +17,12 @@ import {
 } from './meta';
 
 /** 제목만 — 부제 없음 (통합관제와 같은 규칙). 브레드크럼은 RE100 › (상위 ›) 화면 */
-export function PageHeader({ title, parent, actions }: { title: string; parent?: string; actions?: ReactNode }) {
+/** crumb — 경로 표시에 쓸 이름(제목에 기업 이름이 붙는 화면은 메뉴 이름만) */
+export function PageHeader({ title, parent, actions, crumb }: { title: string; parent?: string; actions?: ReactNode; crumb?: string }) {
   return (
     <div className="space-y-6">
       <Breadcrumb
-        items={[{ label: 'RE100', path: '/re100' }, ...(parent ? [{ label: parent }] : []), { label: title }]}
+        items={[{ label: 'RE100', path: '/re100' }, ...(parent ? [{ label: parent }] : []), { label: crumb ?? title }]}
       />
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-white">{title}</h1>

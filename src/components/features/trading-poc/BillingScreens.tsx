@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { StatCard, StatsGrid } from '@/components/features/StatCard';
 import { SectionCard } from '@/components/features/SectionCard';
-import { DataTable, type Column } from '@/components/features/DataList';
+import { DataTable, type Column, LIST_PREVIEW_GRID } from '@/components/features/DataList';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { BackButton } from '@/components/layout/PageTitle';
 import { Input } from '@/components/ui/Input';
@@ -510,7 +510,7 @@ function BillingScreen({ kind }: { kind: Kind }) {
       <div
         className={
           role.isAdmin
-            ? 'grid grid-cols-1 items-start gap-6 md:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] xl:grid-cols-[minmax(0,1fr)_560px]'
+            ? LIST_PREVIEW_GRID
             : undefined
         }
       >
