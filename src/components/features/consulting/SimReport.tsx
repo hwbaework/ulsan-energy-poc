@@ -26,12 +26,10 @@ import {
   F1,
   F2,
   MNAME,
-  SENS_COLOR,
   TARIFF_YEAR_SEED,
   CAGR,
   bookCagr,
   cumSaveAt,
-  sensitivity,
   calc,
   escInput,
   monthlyFor,
@@ -239,8 +237,6 @@ export function SimReport({
   );
   // 한전요금 시나리오 — 동결 / 입력값 / 실적 CAGR
   const sc = useMemo(() => scenarios(input, cg.rate), [input, cg.rate]);
-  // 민감도 — 동결 · 입력값 ±1%p · 실적 CAGR
-  const sens = useMemo(() => sensitivity(input, cg.rate), [input, cg.rate]);
   const R = sc[scen]!.R;
   const self = R.mode === 'self';
   const written = (record?.at ?? new Date().toISOString()).slice(0, 10);
@@ -437,77 +433,51 @@ export function SimReport({
       {/* PPA 에만 있는 그래프 */}
       {!self && <UnitCard R={R} />}
 
+      {/* 민감도(선 5개 + 표)는 뺐다 — 위 한전요금 시나리오에서 하나를 고르니 여러 갈래를 또 보여 줄 필요가 없다(2026-11-25 사용자).
+          고른 시나리오 하나의 누적 그래프만: 자가소비 = 투자 회수 곡선(J-Curve, 소비자 부담에서 시작), PPA = 누적 절감(0에서 시작, 기업 투자가 없다) */}
+      {/* PPA 는 위에 '20년 누적 절감액' 그래프가 이미 있어 여기 따로 두지 않는다 — 투자 회수 곡선은 자가소비만 */}
+      {self && (() => {
+        const pts = self
+          ? [{ x: '0년(투자)', v: Math.round(-(R as SelfResult).consumer / 1e6) }, ...(R as SelfResult).years.map((y) => ({ x: `${y.y}년`, v: Math.round(y.cum / 1e6) }))]
+          : Array.from({ length: 20 }, (_, k) => ({ x: `${k + 1}년`, v: Math.round(cumSaveAt(R, k + 1) / 1e6) }));
+        const data = pts.map((d) => ({ ...d, pos: Math.max(d.v, 0), neg: Math.min(d.v, 0) }));
+        const name = self ? '누적 현금 (소비자 부담 차감)' : '누적 절감';
+        return (
+          <Card title={self ? '투자 회수 곡선 (J-Curve, 백만원)' : '누적 절감 (백만원)'}>
+            <div className="h-[260px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={data}>
+                  <CartesianGrid stroke={GRID} vertical={false} />
+                  <XAxis dataKey="x" tick={AXIS} axisLine={false} tickLine={false} />
+                  <YAxis tick={AXIS} axisLine={false} tickLine={false} tickFormatter={(v: number) => v.toLocaleString()} width={56} />
+                  <Tooltip {...TIP} formatter={(v, n) => (n === name ? [Number(v).toLocaleString(), name] : null)} />
+                  <Legend verticalAlign="top" wrapperStyle={{ fontSize: 10 }} />
+                  <ReferenceLine y={0} stroke="#94a3b8" />
+                  {/* 면 — 0 위 초록, 0 아래 빨강 */}
+                  <Area dataKey="pos" stroke="none" fill="#10b981" fillOpacity={0.08} legendType="none" tooltipType="none" {...NO_ANIM} />
+                  <Area dataKey="neg" stroke="none" fill="#ef4444" fillOpacity={0.08} legendType="none" tooltipType="none" {...NO_ANIM} />
+                  {/* 점 — 0 이상 초록, 0 미만 빨강 */}
+                  <Line
+                    dataKey="v"
+                    name={name}
+                    stroke="#2563eb"
+                    strokeWidth={2.5}
+                    dot={(props: { cx?: number; cy?: number; index?: number; payload?: { v: number } }) => (
+                      <circle key={props.index} cx={props.cx} cy={props.cy} r={3.5} fill={(props.payload?.v ?? 0) >= 0 ? '#10b981' : '#ef4444'} stroke="none" />
+                    )}
+                    {...NO_ANIM}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+        );
+      })()}
+
       {/* 20년 종합 요약 */}
       <Card title="20년 종합 요약 (Summary)">
         <div className={cn('grid grid-cols-2 gap-3', self ? 'md:grid-cols-4' : 'md:grid-cols-3')}>
           {self ? <SelfSummary R={R} /> : <PpaSummary R={R} />}
-        </div>
-      </Card>
-
-      {/* 민감도 — 위 그래프(누적), 아래 표(시나리오별 값 · 입력값 대비) */}
-      <Card title="민감도 분석 — 한전요금 상승률별 20년 누적 절감 (백만원)">
-        <div className="h-[260px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={Array.from({ length: 20 }, (_, k) => {
-                const o: Record<string, number | string> = { x: `${k + 1}년` };
-                sens.forEach((s, j) => {
-                  o[`s${j}`] = Math.round(cumSaveAt(s.R, k + 1) / 1e6);
-                });
-                return o;
-              })}
-            >
-              <CartesianGrid stroke={GRID} vertical={false} />
-              <XAxis dataKey="x" tick={AXIS} axisLine={false} tickLine={false} />
-              <YAxis
-                tick={AXIS}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v: number) => v.toLocaleString()}
-                width={56}
-              />
-              <Tooltip {...TIP} formatter={(v) => Number(v).toLocaleString()} />
-              <Legend verticalAlign="top" wrapperStyle={{ fontSize: 10 }} />
-              <ReferenceLine y={0} stroke="#cbd5e1" />
-              {sens.map((s, j) => (
-                <Line
-                  key={j}
-                  dataKey={`s${j}`}
-                  name={s.name}
-                  stroke={SENS_COLOR[j]}
-                  strokeWidth={s.input ? 3 : 1.8}
-                  strokeDasharray={s.input ? undefined : '5 4'}
-                  dot={false}
-                  {...NO_ANIM}
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="mt-3 overflow-hidden rounded-lg border border-slate-100">
-          {(() => {
-            const base = cumSaveAt(sens.find((x) => x.input)!.R, 20);
-            return (
-              <T
-                cur={sens.findIndex((x) => x.input)}
-                head={['시나리오', '상승률', '1차년 절감 (억원)', '10년 누적 (억원)', '20년 누적 (억원)', '입력값 대비']}
-                rows={sens.map((x) => {
-                  const v = cumSaveAt(x.R, 20);
-                  const d = v - base;
-                  return [
-                    x.name.replace(/ \(.*\)$/, ''),
-                    `${(x.e * 100).toFixed(x.e === cg.rate ? 2 : 1)}%/yr`,
-                    EOK(cumSaveAt(x.R, 1)),
-                    EOK(cumSaveAt(x.R, 10)),
-                    <b key="v" className="text-slate-900">
-                      {EOK(v)}
-                    </b>,
-                    x.input ? '기준' : `${d >= 0 ? '+' : '−'}${EOK(Math.abs(d))}억 (${d >= 0 ? '+' : '−'}${base ? Math.abs((d / base) * 100).toFixed(1) : '0'}%)`,
-                  ];
-                })}
-              />
-            );
-          })()}
         </div>
       </Card>
 

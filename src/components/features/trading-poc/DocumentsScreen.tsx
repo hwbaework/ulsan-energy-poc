@@ -78,12 +78,15 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
   const role = useTradingRole();
   const invoices = useTradingPocStore((s) => s.invoices);
   const addDocument = useTradingPocStore((s) => s.addDocument);
+  const attachOriginal = useTradingPocStore((s) => s.attachOriginal);
   const addToast = useToastStore((s) => s.add);
   // 업로드 팝업(관리자) — 카테고리 · 기업(계약) · PDF 파일
   const [upOpen, setUpOpen] = useState(false);
   const [upCat, setUpCat] = useState<'' | Category>('');
   const [upContract, setUpContract] = useState('');
   const [upFile, setUpFile] = useState<File | null>(null);
+  // 다시 업로드할 문서 — 있으면 팝업이 새 문서 대신 이 문서의 파일을 바꾼다
+  const [replaceId, setReplaceId] = useState<number | null>(null);
   const base = docsBase(role.isAdmin);
 
   const [category, setCategory] = useState<'all' | Category>('all');
@@ -153,7 +156,7 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
     // 계약 유형 — 파일 이름 아래 둘째 줄이 아니라 칸 하나(칸 하나에 값 하나, 2026-11-19 사용자)
     // 계약 유형 칸은 없다 — 기업 셀렉트가 계약 하나를 고르므로 줄마다 같은 값(제목 · 셀렉트에 보인다)
     { key: 'company', header: '기업', width: '110px', render: (d) => cell(d.company) },
-    { key: 'kind', header: '계약 유형', width: '90px', render: (d) => cell(d.contract ? kindLabel(d.contract.kind) : '') },
+    // 계약 유형 칸은 두지 않는다 — 파일 이름 · 카테고리로 충분하다(2026-11-25 사용자)
     { key: 'cat', header: '카테고리', width: '100px', render: (d) => cell(CATEGORY_META[d.category].label) },
     // 기업 칸은 없다 — 항상 기업 하나만 보므로 전부 같은 값(어느 기업인지는 제목 · 오른쪽 셀렉트)
     {
@@ -179,6 +182,7 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
     }))
     .sort((a, b) => a.label.localeCompare(b.label, 'ko'));
   const openUpload = () => {
+    setReplaceId(null);
     setUpCat(category === 'all' ? '' : category);
     setUpContract('');
     setUpFile(null);
@@ -192,6 +196,19 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
     const r = new FileReader();
     r.onload = () => {
       const at = new Date().toLocaleString('sv-SE').slice(0, 16);
+      // 다시 업로드 — 그 문서의 파일을 바꾼다(직접 올린 문서는 이름도 새 파일 이름으로)
+      if (replaceId != null) {
+        const original = { name: f.name, url: String(r.result), sizeKb: Math.round(f.size / 1024), by: role.companyName, at };
+        const target = docs.find((d) => d.id === replaceId);
+        if (target?.uploadedBy)
+          useTradingPocStore.setState((st) => ({
+            documents: st.documents.map((d) => (d.id === replaceId ? { ...d, fileName: f.name, title: f.name.replace(/\.pdf$/i, ''), sizeKb: original.sizeKb, original } : d)),
+          }));
+        else attachOriginal(replaceId, original);
+        addToast('success', `${f.name}을(를) 업로드했습니다`);
+        setUpOpen(false);
+        return;
+      }
       addDocument({
         category: upCat,
         title: f.name.replace(/\.pdf$/i, ''),
@@ -278,6 +295,23 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
                 <p className="truncate text-sm font-semibold text-white">{sel.name}</p>
               </div>
               <div className="flex shrink-0 gap-2">
+                {/* 다시 업로드 — 관리자, 모든 문서. PDF 왼쪽, 누르면 바로 파일 고르기 → 올린 파일로 바뀜(세금계산서 미리보기와 같은 자리, 2026-11-25 사용자).
+                    플랫폼이 만든 문서(계약서 · 청구서 · 합의서)도 올리면 그 뒤로는 올린 파일을 보여 주고 받는다 */}
+                {role.isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      setReplaceId(sel.id);
+                      setUpCat(sel.category);
+                      setUpContract(String(sel.contractId ?? ''));
+                      setUpFile(null);
+                      setUpOpen(true);
+                    }}
+                  >
+                    <Upload size={14} className="mr-1" /> 업로드
+                  </Button>
+                )}
                 {selDown ? (
                   <a href={selDown.href} download={selDown.name}>
                     <Button size="sm" variant="secondary">
@@ -291,7 +325,7 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
                 )}
               </div>
             </div>
-            {sel.uploadedBy && sel.original ? (
+            {sel.original && sel.category !== 'TAX' ? (
               <iframe title={sel.name} src={fitPdf(sel.original.url)} className="w-full bg-white" style={{ height: '72vh', minHeight: 560, border: 'none' }} />
             ) : isContractDoc(sel) ? (
               <iframe title={sel.title} src={fitPdf(CONTRACT_PDF)} className="w-full bg-white" style={{ height: '72vh', minHeight: 560, border: 'none' }} />
@@ -329,9 +363,10 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
             required
             options={[{ value: '', label: '선택' }, ...CATEGORIES.map((c) => ({ value: c, label: CATEGORY_META[c].label }))]}
             value={upCat}
+            disabled={replaceId != null}
             onChange={(e) => setUpCat(e.target.value as '' | Category)}
           />
-          <Select label="기업" required options={[{ value: '', label: '선택' }, ...contractChoices]} value={upContract} onChange={(e) => setUpContract(e.target.value)} />
+          <Select label="기업" required disabled={replaceId != null} options={[{ value: '', label: '선택' }, ...contractChoices, ...(replaceId != null && upContract && !contractChoices.some((x) => x.value === upContract) ? [{ value: upContract, label: role.contracts.find((x) => String(x.id) === upContract)?.consumerCompanyName ?? '' }] : [])]} value={upContract} onChange={(e) => setUpContract(e.target.value)} />
           <div className="space-y-1.5">
             <span className="block text-sm font-medium text-accent">
               파일<span className="ml-0.5 text-semantic-red">*</span>

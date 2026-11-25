@@ -10,6 +10,8 @@ import type { ConsultingDoc } from '@/lib/consulting-docs';
 interface State {
   added: ConsultingDoc[];
   add: (doc: Omit<ConsultingDoc, 'id'>) => void;
+  /** 다시 업로드 — 파일과 이름을 바꾼다(올린 문서만) */
+  replace: (id: number, pdf: string, title: string) => void;
 }
 
 export const useConsultingDocStore = create<State>()(
@@ -18,6 +20,7 @@ export const useConsultingDocStore = create<State>()(
       added: [],
       // 기본 문서 번호와 겹치지 않게 1000 번대부터
       add: (doc) => set((s) => ({ added: [{ ...doc, id: 1000 + s.added.length + 1 }, ...s.added] })),
+      replace: (id, pdf, title) => set((s) => ({ added: s.added.map((d) => (d.id === id ? { ...d, pdf, title, issuedAt: new Date().toLocaleString('sv-SE').slice(0, 10) } : d)) })),
     }),
     { name: 'ulsan-consulting-docs-v1', storage: createJSONStorage(() => ssrSafeStorage) },
   ),

@@ -33,6 +33,9 @@ export function ConsultingDocuments() {
   const [selId, setSelId] = useState<number | null>(null);
   // 업로드 팝업(관리자) — 기업 · PDF 파일. 문서 이름은 따로 쓰지 않고 파일 이름을 쓴다(전력거래 문서 관리와 같은 팝업, 2026-11-25 사용자)
   const addDoc = useConsultingDocStore((s) => s.add);
+  const replaceDoc = useConsultingDocStore((s) => s.replace);
+  // 관리자가 올린 문서만 다시 업로드할 수 있다(기본 결과보고서는 원본이라 바꾸지 않는다)
+  const addedIds = useConsultingDocStore((s) => s.added.map((d) => d.id));
   const addToast = useToastStore((s) => s.add);
   const [upOpen, setUpOpen] = useState(false);
   const [upCompany, setUpCompany] = useState('');
@@ -155,11 +158,30 @@ export function ConsultingDocuments() {
                 <p className="text-xs text-slate-400">미리보기</p>
                 <p className="truncate text-sm font-semibold text-white">{sel.title}</p>
               </div>
-              <a href={sel.pdf} download={`${sel.title}.pdf`} className="shrink-0">
-                <Button size="sm" variant="secondary">
-                  <Download size={14} className="mr-1" /> PDF
-                </Button>
-              </a>
+              <div className="flex shrink-0 items-center gap-2">
+                {/* 다시 업로드 — PDF 왼쪽, 누르면 바로 파일 고르기 → 바뀜(전력거래 문서 관리 · 세금계산서와 같은 자리) */}
+                {isAdmin && addedIds.includes(sel.id) && (
+                  <UploadButton
+                    label="업로드"
+                    onFile={(f) => {
+                      if (!f) return;
+                      if (f.type !== 'application/pdf') return addToast('error', 'PDF 파일만 업로드할 수 있습니다');
+                      if (f.size > 3 * 1024 * 1024) return addToast('error', '3MB 이하 파일만 업로드할 수 있습니다');
+                      const r = new FileReader();
+                      r.onload = () => {
+                        replaceDoc(sel.id, String(r.result), f.name.replace(/\.pdf$/i, ''));
+                        addToast('success', `${f.name}을(를) 업로드했습니다`);
+                      };
+                      r.readAsDataURL(f);
+                    }}
+                  />
+                )}
+                <a href={sel.pdf} download={`${sel.title}.pdf`}>
+                  <Button size="sm" variant="secondary">
+                    <Download size={14} className="mr-1" /> PDF
+                  </Button>
+                </a>
+              </div>
             </div>
             <iframe title={sel.title} src={fitPdf(sel.pdf)} className="w-full bg-white" style={{ height: '72vh', minHeight: 560, border: 'none' }} />
           </div>
