@@ -50,7 +50,7 @@ export function ContractOverviewScreen() {
     { key: 'start', header: '시작일', width: '120px', render: (c) => cellMuted(c.startDate) },
     {
       key: 'monthly',
-      header: '월 사용료',
+      header: '예상 월 사용료',
       width: '140px',
       sortable: true,
       sortValue: (c) => returnOf(c),
@@ -67,7 +67,7 @@ export function ContractOverviewScreen() {
       <StatsGrid columns={3}>
         <StatCard label="자가소비 용량" value={fmtKw(kw(self))} />
         <StatCard label="PPA 용량" value={fmtKw(kw(onsite))} />
-        <StatCard label="월 사용료 (PPA)" value={fmtKrw(monthly)} />
+        <StatCard label="예상 월 사용료 (PPA)" value={fmtKrw(monthly)} />
       </StatsGrid>
 
       <>
