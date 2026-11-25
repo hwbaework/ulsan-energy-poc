@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Download, Send } from 'lucide-react';
+import { ChevronDown, ChevronUp, Download, Send } from 'lucide-react';
 import { SectionCard } from '@/components/features/SectionCard';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { BackButton } from '@/components/layout/PageTitle';
@@ -155,6 +155,7 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
   const reject = useTradingPocStore((s) => s.rejectChange);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
+  const [docOpen, setDocOpen] = useState(false);
   // 합의서 문서 — 양측 서명 뒤는 문서 관리의 서명본, 그 전은 같은 양식의 초안
   const sheet = useRef<HTMLDivElement>(null);
   const signedDoc = useTradingPocStore((s) =>
@@ -255,7 +256,19 @@ function ChangeWorkspace({ ch, c, list }: { ch: ContractChange; c: Contract; lis
             }
           >
             <div className="space-y-4">
-              <DocumentSheet doc={agreementDoc} contract={c} change={ch} sheetRef={sheet} />
+              {/* 합의서 본문 — 처음에는 접어 두고 필요할 때 펼쳐 본다(2026-11-25 사용자). 접혀 있어도 다운로드는 된다(숨긴 채로 그려 둔다) */}
+              <button
+                type="button"
+                onClick={() => setDocOpen((o) => !o)}
+                aria-expanded={docOpen}
+                className="flex w-full items-center justify-between rounded-lg bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-white ring-1 ring-white/[0.08] hover:bg-white/[0.06]"
+              >
+                합의서 본문
+                {docOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+              <div className={docOpen ? '' : 'hidden'}>
+                <DocumentSheet doc={agreementDoc} contract={c} change={ch} sheetRef={sheet} />
+              </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <SignBox
                   title={`관리자 · ${CO.SPC.name}`}
