@@ -83,18 +83,9 @@ interface CompanyRow {
   bizCategory: string;
   phone: string;
   address: string;
-  type: string;
   status: 'ACTIVE' | 'PENDING' | 'SUSPENDED';
   memberCount: number;
   createdAt: string;
-}
-
-// 사업 유형 → 회원가입 3유형과 동일한 표기
-function companyType(businessTypes: string[] = []): string {
-  if (businessTypes.includes('발전사업자')) return '발전사업자';
-  if (businessTypes.includes('전기사용자')) return '전기사용자';
-  if (businessTypes.includes('SPC') || businessTypes.includes('운영사')) return '관리자';
-  return '-';
 }
 
 export default function CompaniesPage() {
@@ -162,7 +153,6 @@ export default function CompaniesPage() {
           bizCategory: c.bizCategory ?? '',
           phone: c.phone ?? '',
           address: c.address ?? '',
-          type: companyType(c.businessTypes),
           status: (c.status as CompanyRow['status']) ?? 'ACTIVE',
           memberCount: 0,
           createdAt: c.createdAt?.split('T')[0] ?? '',
@@ -198,12 +188,8 @@ export default function CompaniesPage() {
       width: '120px',
       render: (row) => <span className="text-sm text-slate-300">{row.representative}</span>,
     },
-    {
-      key: 'type',
-      header: '유형',
-      width: '120px',
-      render: (row) => <span className="text-sm text-slate-300">{row.type}</span>,
-    },
+    // 유형 칸 없음 — 기업 줄에는 나눌 유형이 없다. 계정 유형(관리자 · 기업 관리자 · 기업 회원)은 회원의 것.
+    // 업태 · 종목 · 주소는 표가 길어져 상세 팝업에만(2026-11-27 사용자)
     {
       key: 'phone',
       header: '기업 연락처',
@@ -517,6 +503,13 @@ export default function CompaniesPage() {
               <div>
                 <p className="mb-1 text-sm font-medium text-accent">등록일</p>
                 <p className="text-sm text-slate-300 tabular-nums">{detailRow.createdAt}</p>
+              </div>
+              {/* 기업 주소 — 길어서 표에는 두지 않고 상세에만, 한 줄 전폭(2026-11-27 사용자) */}
+              <div className="col-span-2">
+                <p className="mb-1 text-sm font-medium text-accent">
+                  기업 주소<span className="ml-0.5 text-semantic-red">*</span>
+                </p>
+                <p className="text-sm text-slate-300">{detailRow.address || '-'}</p>
               </div>
             </div>
 
