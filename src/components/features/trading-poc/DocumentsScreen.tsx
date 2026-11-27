@@ -325,7 +325,8 @@ export function DocumentsScreen({ initialCompany }: { initialCompany?: number })
                 )}
               </div>
             </div>
-            {sel.original && sel.category !== 'TAX' ? (
+            {/* 올린 파일이 있으면 어느 카테고리든 그 파일 — 직접 올린 세금계산서처럼 기간을 알 수 없는 문서가 아래 종이 양식으로 가면 깨졌다 */}
+            {sel.original ? (
               <iframe title={sel.name} src={fitPdf(sel.original.url)} className="w-full bg-white" style={{ height: '72vh', minHeight: 560, border: 'none' }} />
             ) : isContractDoc(sel) ? (
               <iframe title={sel.title} src={fitPdf(CONTRACT_PDF)} className="w-full bg-white" style={{ height: '72vh', minHeight: 560, border: 'none' }} />

@@ -25,11 +25,12 @@ export function useConsultingDocs() {
   });
   // 관리자가 업로드한 문서를 기본 문서 앞에
   const added = useConsultingDocStore((s) => s.added);
+  const replaced = useConsultingDocStore((s) => s.replaced);
   const docs = useMemo(() => {
-    const all = [...added, ...CONSULTING_DOCS];
+    const all = [...added, ...CONSULTING_DOCS.map((d) => (replaced?.[d.id] ? { ...d, ...replaced[d.id] } : d))];
     if (isAdmin) return all;
     const myPlants = new Set((Array.isArray(stations) ? stations : []).map((s) => Number(s.externalPlantId)));
     return all.filter((d) => d.companyId === companyId || d.plantIds.some((p) => myPlants.has(p)));
-  }, [isAdmin, companyId, stations, added]);
+  }, [isAdmin, companyId, stations, added, replaced]);
   return { docs, isAdmin, isLoading: !isAdmin && isLoading };
 }
